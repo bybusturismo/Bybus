@@ -4,6 +4,8 @@ import type { Db } from "../db/cliente.js";
 import { passageiros, passeios, pontosEmbarque, reservas, saidas } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
 import { camposDocumento } from "./passageiro.js";
+import { podeUnidade } from "../seguranca/escopo.js";
+import type { UsuarioSessao } from "../seguranca/sessao.js";
 
 export type Acao = "CRIAR" | "ATUALIZAR" | "CANCELAR" | "IGNORAR";
 
@@ -43,9 +45,10 @@ export async function importarReservas(
   db: Db,
   cofre: Cofre,
   itens: ReservaImportada[],
-  opcoes: { confirmar: boolean; passeioCodigo?: string; origem: string },
+  opcoes: { confirmar: boolean; passeioCodigo?: string; origem: string; usuario: UsuarioSessao },
 ): Promise<{ previa: ItemPrevia[]; resumo: Record<Acao, number> }> {
-  const todosPasseios = await db.select().from(passeios).where(eq(passeios.ativo, true));
+  // Só passeios das praças de quem está importando.
+  const todosPasseios = (await db.select().from(passeios).where(eq(passeios.ativo, true))).filter((p) => podeUnidade(opcoes.usuario, p.unidadeId));
   const previa: ItemPrevia[] = [];
 
   const executar = async (tx: Db) => {
@@ -71,6 +74,13 @@ export async function importarReservas(
       if (!item.pontoEmbarqueTexto) avisos.push("Sem ponto de embarque — contatar o cliente no dia anterior.");
 
       const [existente] = await tx.select().from(reservas).where(and(eq(reservas.canal, item.canal), eq(reservas.codigoExterno, item.codigoExterno)));
+      if (existente) {
+        const [s] = await tx.select({ passeioId: saidas.passeioId }).from(saidas).where(eq(saidas.id, existente.saidaId));
+        if (!todosPasseios.some((p) => p.id === s?.passeioId)) {
+          previa.push({ ...base, pontoEmbarque: null, acao: "IGNORAR", avisos: [...avisos, "Reserva já existe em outra praça."] });
+          continue;
+        }
+      }
 
       let acao: Acao;
       if (item.cancelada) acao = existente && existente.status !== "CANCELADA" ? "CANCELAR" : "IGNORAR";

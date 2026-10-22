@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { eq } from "drizzle-orm";
 import { criarDb, type Db } from "./cliente.js";
-import { usuarios } from "./schema.js";
+import { perfis, usuarios } from "./schema.js";
 import { semearReferencia } from "./referencia.js";
 import { gerarHashSenha, validarPoliticaSenha } from "../seguranca/senha.js";
 
@@ -11,7 +11,8 @@ export { semearReferencia };
 export async function criarAdministrador(db: Db, email: string, senha: string, nome = "Administrador") {
   const [existe] = await db.select({ id: usuarios.id }).from(usuarios).where(eq(usuarios.email, email.toLowerCase()));
   if (existe) return existe.id;
-  const [u] = await db.insert(usuarios).values({ nome, email: email.toLowerCase(), perfil: "ADMIN", senhaHash: await gerarHashSenha(senha), trocarSenha: true }).returning({ id: usuarios.id });
+  const [admin] = await db.select({ id: perfis.id }).from(perfis).where(eq(perfis.codigo, "ADMIN"));
+  const [u] = await db.insert(usuarios).values({ nome, email: email.toLowerCase(), perfilId: admin!.id, todasUnidades: true, senhaHash: await gerarHashSenha(senha), trocarSenha: true }).returning({ id: usuarios.id });
   return u!.id;
 }
 

@@ -10,6 +10,7 @@ import { rotasImportacao } from "./rotas/importacao.js";
 import { rotasManifesto } from "./rotas/manifesto.js";
 import { rotasOperacao } from "./rotas/operacao.js";
 import { rotasUsuarios } from "./rotas/usuarios.js";
+import { rotasPessoas } from "./rotas/pessoas.js";
 import { Cofre } from "./seguranca/cripto.js";
 import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
 
@@ -72,6 +73,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
 
   await rotasAuth(app, ctx);
   await rotasUsuarios(app, ctx);
+  await rotasPessoas(app, ctx);
   await rotasOperacao(app, ctx);
   await rotasManifesto(app, ctx);
   await rotasImportacao(app, ctx);

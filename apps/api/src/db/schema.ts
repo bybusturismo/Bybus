@@ -1,11 +1,16 @@
 import { sql } from "drizzle-orm";
-import { boolean, date, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { CANAIS, CATEGORIAS, STATUS_EMBARQUE, STATUS_RESERVA, TIPOS_DOCUMENTO } from "@bybus/core";
 
-export const PERFIS = ["ADMIN", "SUPERVISOR", "ATENDENTE", "GUIA", "MOTORISTA"] as const;
-export type Perfil = (typeof PERFIS)[number];
+/** Linhas de negócio da empresa (ADR 0005). */
+export const LINHAS_NEGOCIO = ["CITY_TOUR", "FRETAMENTO", "PUBLICIDADE", "RECREATIVO"] as const;
+export type LinhaNegocio = (typeof LINHAS_NEGOCIO)[number];
 
-export const perfilEnum = pgEnum("perfil", PERFIS);
+/** Papéis de uma pessoa no cadastro único (uma pessoa pode ter vários). */
+export const PAPEIS_PESSOA = ["GUIA", "MOTORISTA", "COLABORADOR", "PARCEIRO"] as const;
+export type PapelPessoa = (typeof PAPEIS_PESSOA)[number];
+
+export const linhaNegocioEnum = pgEnum("linha_negocio", LINHAS_NEGOCIO);
 export const canalEnum = pgEnum("canal", CANAIS);
 export const categoriaEnum = pgEnum("categoria", CATEGORIAS);
 export const tipoDocumentoEnum = pgEnum("tipo_documento", TIPOS_DOCUMENTO);
@@ -15,12 +20,37 @@ export const statusSaidaEnum = pgEnum("status_saida", ["PREVISTA", "CONFIRMADA",
 
 const agora = () => timestamp({ withTimezone: true }).notNull().defaultNow();
 
+/** Praças/unidades (Florianópolis, Balneário Camboriú, Blumenau… e futuras franquias). */
+export const unidades = pgTable("unidades", {
+  id: uuid().primaryKey().defaultRandom(),
+  codigo: text().notNull().unique(),
+  nome: text().notNull(),
+  cidade: text().notNull(),
+  uf: text().notNull(),
+  ativa: boolean().notNull().default(true),
+  criadoEm: agora(),
+});
+
+/** Perfis de acesso configuráveis pelo administrador. `codigo` é a chave usada na API. */
+export const perfis = pgTable("perfis", {
+  id: uuid().primaryKey().defaultRandom(),
+  codigo: text().notNull().unique(),
+  nome: text().notNull(),
+  descricao: text(),
+  permissoes: text().array().notNull().default(sql`'{}'::text[]`),
+  /** Perfis padrão do sistema (não podem ser excluídos; o ADMIN não pode ser alterado). */
+  sistema: boolean().notNull().default(false),
+  criadoEm: agora(),
+});
+
 export const usuarios = pgTable("usuarios", {
   id: uuid().primaryKey().defaultRandom(),
   nome: text().notNull(),
   email: text().notNull(),
   senhaHash: text().notNull(),
-  perfil: perfilEnum().notNull(),
+  perfilId: uuid().notNull().references(() => perfis.id),
+  /** Acesso a todas as unidades (diretoria/franqueadora). Senão, só às de usuarios_unidades. */
+  todasUnidades: boolean().notNull().default(false),
   ativo: boolean().notNull().default(true),
   trocarSenha: boolean().notNull().default(true),
   totpSegredoCifrado: text(),
@@ -33,6 +63,11 @@ export const usuarios = pgTable("usuarios", {
   bloqueadoAte: timestamp({ withTimezone: true }),
   criadoEm: agora(),
 }, (t) => [uniqueIndex("usuarios_email_uq").on(sql`lower(${t.email})`)]);
+
+export const usuariosUnidades = pgTable("usuarios_unidades", {
+  usuarioId: uuid().notNull().references(() => usuarios.id, { onDelete: "cascade" }),
+  unidadeId: uuid().notNull().references(() => unidades.id),
+}, (t) => [primaryKey({ columns: [t.usuarioId, t.unidadeId] })]);
 
 export const sessoes = pgTable("sessoes", {
   /** SHA-256 do token do cookie (o token em si nunca é guardado). */
@@ -63,6 +98,8 @@ export const passeios = pgTable("passeios", {
   codigo: text().notNull().unique(),
   nome: text().notNull(),
   cidade: text().notNull(),
+  unidadeId: uuid().notNull().references(() => unidades.id),
+  linha: linhaNegocioEnum().notNull().default("CITY_TOUR"),
   capacidadePadrao: integer().notNull(),
   minimoConfirmacao: integer().notNull(),
   minimoSupervisor: integer().notNull(),
@@ -82,6 +119,30 @@ export const pontosEmbarque = pgTable("pontos_embarque", {
   ativo: boolean().notNull().default(true),
 }, (t) => [uniqueIndex("pontos_passeio_ordem_uq").on(t.passeioId, t.ordem)]);
 
+/** Cadastro único de pessoas: guias, motoristas, colaboradores e parceiros (pessoa física). */
+export const pessoas = pgTable("pessoas", {
+  id: uuid().primaryKey().defaultRandom(),
+  nome: text().notNull(),
+  papeis: text().array().notNull().default(sql`'{}'::text[]`),
+  unidadeId: uuid().references(() => unidades.id),
+  telefone: text(),
+  email: text(),
+  documentoTipo: text(),
+  documentoCifrado: text(),
+  documentoFinal: text(),
+  cnhCategoria: text(),
+  cnhValidade: date({ mode: "string" }),
+  cadasturNumero: text(),
+  cadasturValidade: date({ mode: "string" }),
+  idiomas: text().array().notNull().default(sql`'{}'::text[]`),
+  /** Diária (guia) em centavos. */
+  diariaCentavos: integer(),
+  observacoes: text(),
+  usuarioId: uuid().references(() => usuarios.id).unique(),
+  ativo: boolean().notNull().default(true),
+  criadoEm: agora(),
+}, (t) => [index("pessoas_unidade_idx").on(t.unidadeId)]);
+
 export const saidas = pgTable("saidas", {
   id: uuid().primaryKey().defaultRandom(),
   passeioId: uuid().notNull().references(() => passeios.id),
@@ -91,6 +152,8 @@ export const saidas = pgTable("saidas", {
   veiculo: text(),
   guia: text(),
   motorista: text(),
+  guiaId: uuid().references(() => pessoas.id),
+  motoristaId: uuid().references(() => pessoas.id),
   observacoes: text(),
   criadoEm: agora(),
 }, (t) => [uniqueIndex("saidas_passeio_data_uq").on(t.passeioId, t.data)]);

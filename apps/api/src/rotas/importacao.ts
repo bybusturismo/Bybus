@@ -18,7 +18,7 @@ export async function rotasImportacao(app: FastifyInstance, { db, config, cofre 
     const lidos = corpo.emails.map((e) => lerEmailBokun(e.assunto, e.corpo));
     const validos = lidos.filter((r): r is NonNullable<typeof r> => r !== null);
     if (validos.length === 0) throw new ErroHttp(400, "NADA_RECONHECIDO", "Nenhum e-mail de reserva da Bókun foi reconhecido.");
-    const r = await importarReservas(db, cofre, validos, { confirmar: corpo.confirmar, origem: "BOKUN_EMAIL" });
+    const r = await importarReservas(db, cofre, validos, { confirmar: corpo.confirmar, origem: "BOKUN_EMAIL", usuario: req.usuario! });
     if (corpo.confirmar) await auditar(db, req, "IMPORTACAO_BOKUN", { tipo: "importacao" }, r.resumo);
     return { ...r, naoReconhecidos: lidos.length - validos.length };
   });
@@ -31,7 +31,7 @@ export async function rotasImportacao(app: FastifyInstance, { db, config, cofre 
     }).parse(req.body);
     const lido = lerCsvPaytour(corpo.conteudo);
     if (lido.reservas.length === 0) throw new ErroHttp(400, "CSV_INVALIDO", lido.erros.map((e) => `Linha ${e.linha}: ${e.mensagem}`).join(" ") || "Nenhuma reserva encontrada.");
-    const r = await importarReservas(db, cofre, lido.reservas, { confirmar: corpo.confirmar, passeioCodigo: corpo.passeioCodigo, origem: "PAYTOUR_CSV" });
+    const r = await importarReservas(db, cofre, lido.reservas, { confirmar: corpo.confirmar, passeioCodigo: corpo.passeioCodigo, origem: "PAYTOUR_CSV", usuario: req.usuario! });
     if (corpo.confirmar) await auditar(db, req, "IMPORTACAO_PAYTOUR", { tipo: "importacao" }, r.resumo);
     return { ...r, errosLeitura: lido.erros, colunasNaoEncontradas: lido.colunasNaoEncontradas };
   });

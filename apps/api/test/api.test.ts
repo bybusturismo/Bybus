@@ -327,3 +327,91 @@ describe("correções apontadas pelo front-end", () => {
     expect(r.json().passeio.codigo).toBe("TODA_ILHA");
   });
 });
+
+describe("Fase 1: praças, perfis configuráveis e pessoas", () => {
+  async function admin() { return logado("admin@bybus.test"); }
+
+  it("separa os dados por praça: supervisor de BC não vê saídas de Florianópolis", async () => {
+    const a = await admin();
+    const unidades = (await a.req("GET", "/api/unidades")).json();
+    const bc = unidades.find((u: { codigo: string }) => u.codigo === "BC");
+    const passeio = (await a.req("POST", "/api/passeios", { codigo: "OCEANIC_TESTE", nome: "Transporte Oceanic (teste)", cidade: "Balneário Camboriú", unidadeId: bc.id, linha: "FRETAMENTO", capacidadePadrao: 50 })).json();
+    expect(passeio.linha).toBe("FRETAMENTO");
+    const saidaBc = (await a.req("POST", "/api/saidas", { passeioId: passeio.id, data: "2026-12-01" })).json();
+
+    const supBc = await logado("supervisor.bc@bybus.test");
+    const lista = (await supBc.req("GET", "/api/saidas?de=2000-01-01&ate=2100-01-01")).json();
+    expect(lista.map((s: { id: string }) => s.id)).toEqual([saidaBc.id]);
+    const supFln = await logado("supervisor@bybus.test");
+    const [saidaFln] = (await supFln.req("GET", "/api/saidas?de=2000-01-01&ate=2100-01-01")).json();
+    expect((await supBc.req("GET", `/api/saidas/${saidaFln.id}/manifesto`)).statusCode).toBe(404);
+    expect((await supBc.req("PATCH", `/api/saidas/${saidaFln.id}`, { status: "CANCELADA" })).statusCode).toBe(404);
+    expect((await supFln.req("GET", `/api/saidas/${saidaBc.id}`)).statusCode).toBe(404);
+  });
+
+  it("admin cria perfil personalizado e ele vale na hora", async () => {
+    const a = await admin();
+    const perfil = (await a.req("POST", "/api/perfis", { codigo: "LIDER_TESTE", nome: "Líder (teste)", permissoes: ["manifesto:ver", "embarque:registrar"] })).json();
+    expect(perfil.codigo).toBe("LIDER_TESTE");
+    const unidades = (await a.req("GET", "/api/unidades")).json();
+    const fln = unidades.find((u: { codigo: string }) => u.codigo === "FLN");
+    const { senhaTemporaria } = (await a.req("POST", "/api/usuarios", { nome: "Líder Teste", email: "lider@bybus.test", perfil: "LIDER_TESTE", unidadeIds: [fln.id] })).json();
+    const l = new Cliente(app);
+    await l.login("lider@bybus.test", senhaTemporaria);
+    await l.req("POST", "/api/auth/senha", { senhaAtual: senhaTemporaria, novaSenha: "LiderTeste12345" });
+    const eu = (await l.req("GET", "/api/auth/eu")).json();
+    expect(eu.permissoes).toEqual(["manifesto:ver", "embarque:registrar"]);
+    expect(eu.unidades.map((u: { codigo: string }) => u.codigo)).toEqual(["FLN"]);
+    const [saida] = await primeiraSaida(l);
+    expect((await l.req("POST", `/api/saidas/${saida!.id}/reservas`, { canal: "BALCAO", contatoNome: "X Teste", passageiros: [{ nome: "X", categoria: "ADULTO" }] })).statusCode).toBe(403);
+
+    // Tirar a permissão encerra a sessão de quem usa o perfil.
+    await a.req("PATCH", `/api/perfis/${perfil.id}`, { permissoes: ["manifesto:ver"] });
+    expect((await l.req("GET", "/api/auth/eu")).statusCode).toBe(401);
+  });
+
+  it("perfil Administrador não pode ter permissões alteradas e permissão desconhecida é recusada", async () => {
+    const a = await admin();
+    const perfis = (await a.req("GET", "/api/perfis")).json();
+    const adm = perfis.find((p: { codigo: string }) => p.codigo === "ADMIN");
+    expect((await a.req("PATCH", `/api/perfis/${adm.id}`, { permissoes: [] })).statusCode).toBe(400);
+    expect((await a.req("POST", "/api/perfis", { codigo: "X1", nome: "X", permissoes: ["tudo:liberado"] })).statusCode).toBe(400);
+  });
+
+  it("cadastro de pessoas: atendente vê guias sem documento; equipe validada por praça", async () => {
+    const sup = await logado("supervisor@bybus.test");
+    const unidades = (await sup.req("GET", "/api/unidades")).json();
+    const fln = unidades[0];
+    const guia = (await sup.req("POST", "/api/pessoas", { nome: "Guia Cadastro Teste", papeis: ["GUIA"], unidadeId: fln.id, documentoTipo: "CPF", documento: "529.982.247-25", idiomas: ["Inglês"] })).json();
+    expect(guia.documento).toBe("•••4725");
+    expect(guia.documentoCifrado).toBeUndefined();
+
+    const at = await logado("atendente@bybus.test");
+    const guias = (await at.req("GET", "/api/pessoas?papel=GUIA")).json();
+    const g = guias.find((p: { id: string }) => p.id === guia.id);
+    expect(g).toBeTruthy();
+    expect(g.documento).toBeUndefined();
+    expect((await at.req("POST", "/api/pessoas", { nome: "Y", papeis: ["GUIA"], unidadeId: fln.id })).statusCode).toBe(403);
+
+    const [saida] = await primeiraSaida(sup);
+    const r = await sup.req("PATCH", `/api/saidas/${saida!.id}`, { guiaId: guia.id });
+    expect(r.statusCode).toBe(200);
+    expect(r.json().guia).toBe("Guia Cadastro Teste");
+
+    const a = await admin();
+    const motoristasBc = (await a.req("GET", "/api/pessoas?papel=MOTORISTA")).json().filter((p: { unidadeId: string }) => p.unidadeId !== fln.id);
+    expect((await sup.req("PATCH", `/api/saidas/${saida!.id}`, { motoristaId: motoristasBc[0].id })).statusCode).toBe(400);
+  });
+
+  it("ponto de embarque de outro passeio é recusado", async () => {
+    const a = await admin();
+    const passeios = (await a.req("GET", "/api/passeios")).json();
+    const oceanic = passeios.find((p: { codigo: string }) => p.codigo === "OCEANIC_TESTE");
+    const toda = passeios.find((p: { codigo: string }) => p.codigo === "TODA_ILHA");
+    const pontos = (await a.req("GET", `/api/passeios/${toda.id}/pontos`)).json();
+    const saidaOceanic = (await a.req("GET", `/api/saidas?de=2026-12-01&ate=2026-12-01&passeioId=${oceanic.id}`)).json()[0];
+    const r = await a.req("POST", `/api/saidas/${saidaOceanic.id}/reservas`, { canal: "BALCAO", contatoNome: "Z Teste", pontoEmbarqueId: pontos[0].id, passageiros: [{ nome: "Z", categoria: "ADULTO" }] });
+    expect(r.statusCode).toBe(400);
+    expect(r.json().codigo).toBe("PONTO_INVALIDO");
+  });
+});

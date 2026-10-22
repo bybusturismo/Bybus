@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Canal, Categoria } from "@bybus/core";
 import type { Db } from "./cliente.js";
-import { passageiros, pontosEmbarque, reservas, saidas, usuarios, type Perfil } from "./schema.js";
+import { passageiros, perfis, pessoas, pontosEmbarque, reservas, saidas, unidades, usuarios, usuariosUnidades } from "./schema.js";
 import { semearReferencia } from "./referencia.js";
 import { Cofre } from "../seguranca/cripto.js";
 import { gerarHashSenha } from "../seguranca/senha.js";
@@ -12,12 +12,25 @@ import { camposDocumento } from "../servicos/passageiro.js";
  * Nenhum nome, CPF ou telefone corresponde a pessoa real. Nunca rodar em produção.
  */
 export const SENHA_DEMO = "Bybus-teste-2026";
-export const USUARIOS_DEMO: Array<{ email: string; nome: string; perfil: Perfil }> = [
-  { email: "admin@bybus.test", nome: "Admin Demo", perfil: "ADMIN" },
-  { email: "supervisor@bybus.test", nome: "Supervisora Demo", perfil: "SUPERVISOR" },
-  { email: "atendente@bybus.test", nome: "Atendente Demo", perfil: "ATENDENTE" },
-  { email: "guia@bybus.test", nome: "Guia Demo", perfil: "GUIA" },
-  { email: "motorista@bybus.test", nome: "Motorista Demo", perfil: "MOTORISTA" },
+/** `unidade` null = todas as praças. */
+export const USUARIOS_DEMO: Array<{ email: string; nome: string; perfil: string; unidade: string | null }> = [
+  { email: "admin@bybus.test", nome: "Admin Demo", perfil: "ADMIN", unidade: null },
+  { email: "supervisor@bybus.test", nome: "Supervisora Demo", perfil: "SUPERVISOR", unidade: "FLN" },
+  { email: "atendente@bybus.test", nome: "Atendente Demo", perfil: "ATENDENTE", unidade: "FLN" },
+  { email: "guia@bybus.test", nome: "Guia Demo", perfil: "GUIA", unidade: "FLN" },
+  { email: "motorista@bybus.test", nome: "Motorista Demo", perfil: "MOTORISTA", unidade: "FLN" },
+  { email: "supervisor.bc@bybus.test", nome: "Supervisor BC Demo", perfil: "SUPERVISOR", unidade: "BC" },
+];
+
+/** Guias e motoristas fictícios. */
+const PESSOAS_DEMO: Array<{ nome: string; papeis: string[]; unidade: string; idiomas?: string[]; diariaCentavos?: number }> = [
+  { nome: "Guia Fictícia Ana", papeis: ["GUIA"], unidade: "FLN", idiomas: ["Português", "Espanhol", "Inglês"], diariaCentavos: 30000 },
+  { nome: "Guia Fictícia Bia", papeis: ["GUIA"], unidade: "FLN", idiomas: ["Português", "Espanhol"], diariaCentavos: 30000 },
+  { nome: "Guia Fictício Caio", papeis: ["GUIA"], unidade: "FLN", idiomas: ["Português", "Inglês"], diariaCentavos: 30000 },
+  { nome: "Motorista Fictício Davi", papeis: ["MOTORISTA"], unidade: "FLN" },
+  { nome: "Motorista Fictício Edu", papeis: ["MOTORISTA"], unidade: "BC" },
+  { nome: "Motorista Fictício Fred", papeis: ["MOTORISTA"], unidade: "BC" },
+  { nome: "Motorista Fictício Gil", papeis: ["MOTORISTA"], unidade: "BC" },
 ];
 
 const NOMES = ["Ana", "Bruno", "Carla", "Diego", "Elisa", "Fábio", "Gabriela", "Heitor", "Isis", "João", "Karen", "Lucas", "Marina", "Nicolas", "Olívia", "Paulo", "Renata", "Samuel", "Tânia", "Vitor"];
@@ -47,9 +60,21 @@ export async function semearFicticios(db: Db, chave: string) {
   }
   const passeio = await semearReferencia(db);
   const hash = await gerarHashSenha(SENHA_DEMO);
+  const listaPerfis = await db.select().from(perfis);
+  const listaUnidades = await db.select().from(unidades);
+  const unidadeId = (codigo: string) => listaUnidades.find((x) => x.codigo === codigo)!.id;
   for (const u of USUARIOS_DEMO) {
     const [existe] = await db.select({ id: usuarios.id }).from(usuarios).where(eq(usuarios.email, u.email));
-    if (!existe) await db.insert(usuarios).values({ ...u, senhaHash: hash, trocarSenha: false });
+    if (existe) continue;
+    const [novo] = await db.insert(usuarios).values({
+      nome: u.nome, email: u.email, perfilId: listaPerfis.find((p) => p.codigo === u.perfil)!.id,
+      todasUnidades: u.unidade === null, senhaHash: hash, trocarSenha: false,
+    }).returning({ id: usuarios.id });
+    if (u.unidade) await db.insert(usuariosUnidades).values({ usuarioId: novo!.id, unidadeId: unidadeId(u.unidade) });
+  }
+  const jaTemPessoas = (await db.select({ id: pessoas.id }).from(pessoas).limit(1)).length > 0;
+  if (!jaTemPessoas) {
+    await db.insert(pessoas).values(PESSOAS_DEMO.map((p) => ({ nome: p.nome, papeis: p.papeis, unidadeId: unidadeId(p.unidade), idiomas: p.idiomas ?? [], diariaCentavos: p.diariaCentavos ?? null })));
   }
 
   const pontos = await db.select().from(pontosEmbarque).where(eq(pontosEmbarque.passeioId, passeio.id));

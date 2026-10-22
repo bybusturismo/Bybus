@@ -4,10 +4,9 @@ import { authenticator } from "otplib";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
-import { sessoes, usuarios } from "../db/schema.js";
+import { perfis, sessoes, unidades, usuarios } from "../db/schema.js";
 import { conferirSenha, gerarHashSenha, obterHashFalso, validarPoliticaSenha } from "../seguranca/senha.js";
 import { criarSessao, ErroHttp, nomeCookie, pendencia } from "../seguranca/sessao.js";
-import { MATRIZ } from "../seguranca/permissoes.js";
 import { sha256 } from "../seguranca/cripto.js";
 
 authenticator.options = { window: 1 };
@@ -84,7 +83,8 @@ export async function rotasAuth(app: FastifyInstance, { db, config, cofre }: Con
     }).where(eq(usuarios.id, u.id));
     await criarSessao(db, config, req, reply, u.id);
     await auditar(db, req, "LOGIN", { tipo: "usuario", id: u.id }, undefined, u.id);
-    return { usuario: { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil } };
+    const [perfil] = await db.select({ codigo: perfis.codigo }).from(perfis).where(eq(perfis.id, u.perfilId));
+    return { usuario: { id: u.id, nome: u.nome, email: u.email, perfil: perfil?.codigo } };
   });
 
   app.post("/api/auth/logout", async (req, reply) => {
@@ -100,9 +100,11 @@ export async function rotasAuth(app: FastifyInstance, { db, config, cofre }: Con
     const u = req.usuario;
     if (!u) throw new ErroHttp(401, "NAO_AUTENTICADO", "Faça login para continuar.");
     return {
-      usuario: { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, totpAtivo: u.totpAtivo },
+      usuario: { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, perfilNome: u.perfilNome, totpAtivo: u.totpAtivo, todasUnidades: u.todasUnidades },
       pendencia: pendencia(u, config),
-      permissoes: MATRIZ[u.perfil],
+      permissoes: u.permissoes,
+      unidades: (await db.select({ id: unidades.id, codigo: unidades.codigo, nome: unidades.nome }).from(unidades).where(eq(unidades.ativa, true)).orderBy(unidades.nome))
+        .filter((x) => u.todasUnidades || u.unidadeIds.includes(x.id)),
     };
   });
 

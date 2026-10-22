@@ -1,6 +1,6 @@
 # ADR 0005 — Unidades (praças/franquias), linhas de negócio e acessos configuráveis
 
-- **Status:** proposto (22/10/2026).
+- **Status:** aceito (22/10/2026) — implementado no back-end (Fase 1).
 
 ## Decisão
 1. **Organização → Unidade (praça).** Toda informação operacional e financeira pertence a uma **unidade** (Florianópolis, Balneário Camboriú; no futuro, franqueados). A franqueadora vê o consolidado; cada franqueado vê só a sua unidade. Implementado como coluna `unidade_id` + filtro obrigatório no back-end (não bancos separados), com possibilidade de isolamento maior se a franquia exigir.

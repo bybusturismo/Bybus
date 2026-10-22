@@ -29,6 +29,13 @@
       "when": 1792660182520,
       "tag": "0003_ordem_passageiros",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792661531646,
+      "tag": "0004_fundacao",
+      "breakpoints": true
     }
   ]
 }
