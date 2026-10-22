@@ -4,7 +4,7 @@ Sistema gerencial da **By Bus Turismo** (Florianópolis e Balneário Camboriú/S
 
 ## Leia primeiro
 - `docs/conhecimento/` — base de conhecimento da empresa (fonte de verdade sobre o negócio):
-  `empresa.md`, `frota.md`, `produtos-e-site.md`, `canais-e-integracoes.md`, `juridico-regulatorio.md`, `financeiro.md`, `google-drive.md`, `perguntas-abertas.md`.
+  `empresa.md`, `marca.md`, `frota.md`, `produtos-e-site.md`, `canais-e-integracoes.md`, `juridico-regulatorio.md`, `financeiro.md`, `google-drive.md`, `perguntas-abertas.md`.
 - `docs/produto/visao-e-modulos.md` — módulos, fases, perfis e ambientes.
 - `docs/PROMPT_INICIAL.md` — prompt padrão para iniciar sessões de trabalho.
 - `docs/time/README.md` — time de agentes especialistas (`.claude/agents/`).

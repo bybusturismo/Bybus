@@ -16,7 +16,7 @@ export default defineConfig({
     proxy: { "/api": { target: API, changeOrigin: false } },
   },
   build: process.env.VITE_DEMO === "1"
-    ? { sourcemap: false, target: "es2022", outDir: "dist-demo", modulePreload: false, rollupOptions: { output: { inlineDynamicImports: true } } }
+    ? { sourcemap: false, target: "es2022", outDir: "dist-demo", modulePreload: false, assetsInlineLimit: 100_000, rollupOptions: { output: { inlineDynamicImports: true } } }
     : { sourcemap: true, target: "es2022" },
   test: {
     environment: "jsdom",

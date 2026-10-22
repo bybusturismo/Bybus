@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import type { Permissao } from "../api/tipos";
 import { useSessao } from "../sessao/Sessao";
+import logoHorizontal from "../marca/bybus-horizontal.png";
 import { Icone, type NomeIcone } from "./Icone";
 import { Modal } from "./Modal";
 import { BotaoTema } from "./Tema";
@@ -76,10 +77,8 @@ export function Layout() {
       </a>
       <header className="topo nao-imprimir">
         <div className="topo__marca">
-          <span className="topo__logo" aria-hidden="true">
-            <Icone nome="onibus" tamanho={22} />
-          </span>
-          <span className="topo__nome">Bybus Gestão</span>
+          <img className="topo__logo-img" src={logoHorizontal} alt="By Bus Turismo" width={67} height={38} />
+          <span className="topo__nome">Gestão</span>
         </div>
         {unidades.length > 1 && (
           <div className="topo__praca">

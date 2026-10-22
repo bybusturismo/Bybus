@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, mensagemDeErro } from "../api/cliente";
 import { Aviso, Carregando } from "../componentes/Estados";
-import { Icone } from "../componentes/Icone";
+import logoVertical from "../marca/bybus-vertical.png";
 
 /** Política de senha (espelha o servidor): mínimo 10 caracteres, com letras e números. */
 export function problemaSenha(senha: string): string | null {
@@ -171,10 +171,8 @@ export function TelaPendencia({ tipo, aoConcluir, aoSair }: { tipo: "TROCAR_SENH
   return (
     <div className="tela-acesso">
       <main className="cartao-acesso cartao-acesso--largo" id="conteudo">
-        <div className="cartao-acesso__marca">
-          <span className="topo__logo" aria-hidden="true">
-            <Icone nome="onibus" tamanho={28} />
-          </span>
+        <div className="cartao-acesso__marca cartao-acesso__marca--centro">
+          <img className="cartao-acesso__logo" src={logoVertical} alt="By Bus Turismo" width={82} height={120} />
           <h1>{tipo === "TROCAR_SENHA" ? "Troque sua senha" : "Configure a verificação em duas etapas"}</h1>
         </div>
         {tipo === "TROCAR_SENHA" ? (

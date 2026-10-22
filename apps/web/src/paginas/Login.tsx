@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { ErroApi, requisitar } from "../api/cliente";
 import { Aviso } from "../componentes/Estados";
-import { Icone } from "../componentes/Icone";
+import logoVertical from "../marca/bybus-vertical.png";
 
 interface Props {
   aviso?: string;
@@ -70,10 +70,8 @@ export function Login({ aviso, aoEntrar }: Props) {
   return (
     <div className="tela-acesso">
       <main className="cartao-acesso" id="conteudo">
-        <div className="cartao-acesso__marca">
-          <span className="topo__logo" aria-hidden="true">
-            <Icone nome="onibus" tamanho={28} />
-          </span>
+        <div className="cartao-acesso__marca cartao-acesso__marca--centro">
+          <img className="cartao-acesso__logo" src={logoVertical} alt="By Bus Turismo" width={82} height={120} />
           <h1>Bybus Gestão</h1>
         </div>
         <p className="cartao-acesso__subtitulo">{pedirCodigo ? "Verificação em duas etapas" : "Entre com seu e-mail e senha"}</p>

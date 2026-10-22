@@ -21,7 +21,9 @@ body {
 h1,
 h2,
 h3 {
+  font-family: var(--fonte-titulo);
   line-height: 1.25;
+  text-wrap: balance;
   margin: 0 0 var(--esp-2);
 }
 h1 {

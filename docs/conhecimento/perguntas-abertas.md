@@ -42,3 +42,5 @@ Atualize este arquivo à medida que forem respondidas (resposta + data).
 26. Podem gerar uma **chave de API na Bókun** e liberar `api.bokun.io` na rede do ambiente? (Viator automático.)
 27. Exportar um **relatório CSV de reservas da Paytour** (de qualquer dia) para eu ajustar o importador ao formato real — pode ser com dados anonimizados.
 28. A Civitatis ainda é lançada manualmente com documento 3333?
+29. **Fontes da marca:** comprar licença web da Sugo Pro Classic e da Helvetica Neue LT Pro (ou seguir com os substitutos do sistema)? Os arquivos no Drive da Sugo são TRIAL.
+30. A Zaveo pode enviar o logo em **SVG** (vetor) para o sistema e o app?
