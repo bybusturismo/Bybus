@@ -18,6 +18,9 @@
 | 11 | **Painéis (BI)** — ocupação por saída, receita por assento, mix de canais, custo/km, disponibilidade da frota, margem por linha | Nenhum indicador hoje | Fase 2–3 |
 | 12 | **Conformidade** — Cadastur, licenças SIE/ANTT/municipais, selos, seguros, tacógrafo, laudos do trenzinho | Sem controle centralizado | MVP (dentro de Frota) |
 
+## Atualização 22/10/2026 (rodada 2)
+Novos/ampliados: **Clientes & Origem** (cadastro com país/estado/cidade), **Afiliados & Comissões** (QR Code), **Guias** (banco + rodízio), **Escala de motoristas** (fretamento Oceanic), **dois tipos de operação** (City Tour × Fretamento). Detalhes em `requisitos-rodada-2.md`.
+
 ## Perfis de acesso iniciais
 Diretoria · Administrador do sistema · Supervisor de operação · Atendente/vendedor (quiosque) · Comercial · Financeiro · Motorista supervisor/manutenção · Motorista · Guia · Parceiro/afiliado (portal restrito, fase futura) · Contador (somente leitura/exportação).
 
