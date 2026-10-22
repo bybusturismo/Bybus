@@ -33,4 +33,3 @@ Atualize este arquivo à medida que forem respondidas (resposta + data).
 
 ## Ambiente técnico
 20. Liberar o domínio `bybusturismo.com.br` (e `loja.bybusturismo.com.br`, `paytour.com.br`) no acesso de rede do ambiente de nuvem, para a varredura completa do site.
-21. Dar permissão de escrita do app Claude no repositório GitHub `bybusturismo/Bybus`.
