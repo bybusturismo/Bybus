@@ -33,3 +33,12 @@ Atualize este arquivo à medida que forem respondidas (resposta + data).
 
 ## Ambiente técnico
 20. Liberar o domínio `bybusturismo.com.br` (e `loja.bybusturismo.com.br`, `paytour.com.br`) no acesso de rede do ambiente de nuvem, para a varredura completa do site.
+
+## Lista de passageiros (22/10/2026)
+22. A lista com CPF é exigida por qual norma/órgão? O jurídico não achou exigência municipal — vale confirmar com o advogado (e o risco do Decreto 5.651/2008 sobre "cobrança individualizada").
+23. Idades: até quantos anos é **colo**, **infantil**, e a partir de quantos é **sênior**?
+24. Cortesia conta para o mínimo de 12?
+25. Onde chegam as reservas da **Decolar** (qual e-mail/painel)?
+26. Podem gerar uma **chave de API na Bókun** e liberar `api.bokun.io` na rede do ambiente? (Viator automático.)
+27. Exportar um **relatório CSV de reservas da Paytour** (de qualquer dia) para eu ajustar o importador ao formato real — pode ser com dados anonimizados.
+28. A Civitatis ainda é lançada manualmente com documento 3333?

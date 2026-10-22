@@ -40,3 +40,11 @@
 5. CDC (arrependimento) e política de cancelamento.
 6. LGPD (planilhas de contatos espalhadas).
 7. Cadastur ativo.
+
+## Lista de passageiros do City Tour (parecer preliminar 22/10/2026)
+- **Não foi encontrada norma municipal** de Florianópolis exigindo lista de passageiros com CPF para city tour dentro do município (LC 34/1999, LC 421/2012, Decreto 5.651/2008, LC 726/2022) — **a confirmar com advogado/SMMU**. A SIE (IN SIE 2/2025) exige lista antes de cada viagem **intermunicipal**; a ANTT, nas interestaduais.
+- Mesmo sem obrigação municipal, a lista é recomendada (prova para seguro APP/RC, fiscalização, controle de embarque).
+- ⚠️ **Risco a validar com prioridade:** o Decreto 5.651/2008 parece vedar "cobrança individualizada de passagem" e troca de passageiros no trajeto no transporte turístico municipal — verificar o enquadramento do city tour vendido por ingresso individual (selo SIVETUR — Lei 10.194/2017, Decreto 26.787/2024).
+- Estrangeiros: aceitar passaporte/DNI Mercosul/RNM (tipo + número + país). Não inventar CPF.
+- Menores: no mesmo município não se exige autorização judicial; vincular ao responsável na reserva; política para menor desacompanhado a definir.
+- LGPD: lista impressa com documento mascarado e sem telefone; papel recolhido e fragmentado no fim do dia; não enviar por WhatsApp/Gmail pessoal; retenção escalonada (a confirmar).
