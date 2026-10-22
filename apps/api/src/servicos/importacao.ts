@@ -77,7 +77,7 @@ export async function importarReservas(
       if (existente) {
         const [s] = await tx.select({ passeioId: saidas.passeioId }).from(saidas).where(eq(saidas.id, existente.saidaId));
         if (!todosPasseios.some((p) => p.id === s?.passeioId)) {
-          previa.push({ ...base, pontoEmbarque: null, acao: "IGNORAR", avisos: [...avisos, "Reserva já existe em outra praça."] });
+          previa.push({ ...base, pontoEmbarque: null, acao: "IGNORAR", avisos: [...avisos, "Reserva não pode ser importada por este usuário."] });
           continue;
         }
       }

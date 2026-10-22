@@ -29,6 +29,7 @@ export const PERMISSOES_SENSIVEIS: readonly Permissao[] = [
   "unidades:gerenciar",
   "manifesto:documentos",
   "pessoas:gerenciar",
+  "auditoria:ver",
 ];
 
 export function ehPermissao(valor: string): valor is Permissao {

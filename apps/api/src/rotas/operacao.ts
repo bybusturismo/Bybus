@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
 import { LINHAS_NEGOCIO, passageiros, passeios, pessoas, pontosEmbarque, reservas, saidas, unidades } from "../db/schema.js";
-import { filtroUnidade, garantirPassageiro, garantirPasseio, garantirPonto, garantirReserva, garantirSaida } from "../seguranca/escopo.js";
+import { filtroUnidade, garantirPassageiro, garantirPasseio, garantirPonto, garantirReserva, garantirSaida, garantirUnidadeAtiva } from "../seguranca/escopo.js";
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { camposDocumento, documentoMascarado } from "../servicos/passageiro.js";
@@ -74,6 +74,7 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
   app.post("/api/passeios", { preHandler: exigir(config, "produtos:gerenciar") }, async (req) => {
     const corpo = esquemaPasseio.parse(req.body);
     if (!req.usuario!.todasUnidades && !req.usuario!.unidadeIds.includes(corpo.unidadeId)) throw new ErroHttp(403, "SEM_PERMISSAO", "Você só pode cadastrar passeios das suas praças.");
+    await garantirUnidadeAtiva(db, corpo.unidadeId);
     try {
       const [p] = await db.insert(passeios).values({ ...corpo, codigo: corpo.codigo.toUpperCase() }).returning();
       await auditar(db, req, "PASSEIO_CRIADO", { tipo: "passeio", id: p!.id }, { codigo: p!.codigo, linha: p!.linha });
@@ -152,7 +153,7 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
 
   app.post("/api/saidas", { preHandler: exigir(config, "saidas:gerenciar") }, async (req) => {
     const corpo = z.object({ passeioId: uuid, data: dataIso, capacidade: z.number().int().min(1).max(200).optional(), veiculo: z.string().max(40).nullish() }).parse(req.body);
-    await garantirPasseio(db, req.usuario!, corpo.passeioId);
+    await garantirUnidadeAtiva(db, await garantirPasseio(db, req.usuario!, corpo.passeioId));
     const [passeio] = await db.select().from(passeios).where(eq(passeios.id, corpo.passeioId));
     if (!passeio) throw new ErroHttp(404, "NAO_ENCONTRADO", "Passeio não encontrado.");
     try {
@@ -170,20 +171,22 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     const corpo = z.object({
       status: z.enum(["PREVISTA", "CONFIRMADA", "CANCELADA", "REALIZADA"]).optional(),
       capacidade: z.number().int().min(1).max(200).optional(),
-      veiculo: z.string().max(40).nullish(), guia: z.string().max(120).nullish(), motorista: z.string().max(120).nullish(),
+      veiculo: z.string().max(40).nullish(),
+      // Guia e motorista vêm do cadastro de pessoas (o nome em texto é preenchido pelo sistema).
       guiaId: uuid.nullish(), motoristaId: uuid.nullish(),
       observacoes: z.string().max(2000).nullish(),
     }).parse(req.body);
     const unidadeId = await garantirSaida(db, req.usuario!, id);
     // Guia/motorista do cadastro: valida e mantém o nome em texto (compatibilidade com telas atuais).
-    if (corpo.guiaId !== undefined) corpo.guia = (await validarPessoa(corpo.guiaId, "GUIA", unidadeId))?.nome ?? null;
-    if (corpo.motoristaId !== undefined) corpo.motorista = (await validarPessoa(corpo.motoristaId, "MOTORISTA", unidadeId))?.nome ?? null;
+    const extras: { guia?: string | null; motorista?: string | null } = {};
+    if (corpo.guiaId !== undefined) extras.guia = (await validarPessoa(corpo.guiaId, "GUIA", unidadeId))?.nome ?? null;
+    if (corpo.motoristaId !== undefined) extras.motorista = (await validarPessoa(corpo.motoristaId, "MOTORISTA", unidadeId))?.nome ?? null;
     if (corpo.status !== undefined && !pode(req.usuario!, "saidas:decidir")) {
       throw new ErroHttp(403, "SEM_PERMISSAO", "Mudar o status da saída é decisão do supervisor.");
     }
-    const [s] = await db.update(saidas).set(corpo).where(eq(saidas.id, id)).returning();
+    const [s] = await db.update(saidas).set({ ...corpo, ...extras }).where(eq(saidas.id, id)).returning();
     if (!s) throw new ErroHttp(404, "NAO_ENCONTRADO", "Saída não encontrada.");
-    await auditar(db, req, "SAIDA_ALTERADA", { tipo: "saida", id }, corpo);
+    await auditar(db, req, "SAIDA_ALTERADA", { tipo: "saida", id }, { campos: Object.keys(corpo), status: corpo.status });
     return s;
   });
 
@@ -255,6 +258,15 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       if (destino !== origem) throw new ErroHttp(400, "PRACA_DIFERENTE", "Não é possível mover a reserva para outra praça.");
     }
     await validarPontoDaSaida(corpo.saidaId ?? saidaAtual, corpo.pontoEmbarqueId);
+    const mudouSaida = !!corpo.saidaId && corpo.saidaId !== saidaAtual;
+    if (mudouSaida) {
+      // Pontos antigos podem ser de outro roteiro: mantém só se forem do passeio da nova saída.
+      if (corpo.pontoEmbarqueId === undefined) corpo.pontoEmbarqueId = null;
+      const novos = await db.select({ id: pontosEmbarque.id }).from(pontosEmbarque).innerJoin(saidas, eq(saidas.passeioId, pontosEmbarque.passeioId)).where(eq(saidas.id, corpo.saidaId!));
+      const validos = novos.map((x) => x.id);
+      const pax = await db.select({ id: passageiros.id, ponto: passageiros.pontoEmbarqueId }).from(passageiros).where(eq(passageiros.reservaId, id));
+      for (const p of pax) if (p.ponto && !validos.includes(p.ponto)) await db.update(passageiros).set({ pontoEmbarqueId: null }).where(eq(passageiros.id, p.id));
+    }
     const { contatoEmail, ...resto } = corpo;
     // Só altera o e-mail quando o campo vier na requisição ("" ou null limpam).
     const [r] = await db.update(reservas).set({ ...resto, ...(contatoEmail !== undefined ? { contatoEmail: contatoEmail || null } : {}), atualizadoEm: new Date() }).where(eq(reservas.id, id)).returning();

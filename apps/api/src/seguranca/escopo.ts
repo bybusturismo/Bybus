@@ -1,6 +1,6 @@
 import { eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { Db } from "../db/cliente.js";
-import { passageiros, passeios, pontosEmbarque, reservas, saidas } from "../db/schema.js";
+import { passageiros, passeios, pontosEmbarque, reservas, saidas, unidades } from "../db/schema.js";
 import { ErroHttp, type UsuarioSessao } from "./sessao.js";
 
 /**
@@ -54,4 +54,10 @@ export async function garantirPonto(db: Db, u: UsuarioSessao, pontoId: string) {
   const [p] = await db.select({ passeioId: pontosEmbarque.passeioId }).from(pontosEmbarque).where(eq(pontosEmbarque.id, pontoId));
   if (!p) throw naoEncontrado("Ponto");
   await garantirPasseio(db, u, p.passeioId).catch(() => { throw naoEncontrado("Ponto"); });
+}
+
+/** Praça desativada não recebe novos cadastros (dados antigos continuam consultáveis). */
+export async function garantirUnidadeAtiva(db: Db, unidadeId: string) {
+  const [x] = await db.select({ ativa: unidades.ativa }).from(unidades).where(eq(unidades.id, unidadeId));
+  if (!x?.ativa) throw new ErroHttp(400, "PRACA_INATIVA", "Esta praça está desativada.");
 }

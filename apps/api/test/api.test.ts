@@ -415,3 +415,61 @@ describe("Fase 1: praças, perfis configuráveis e pessoas", () => {
     expect(r.json().codigo).toBe("PONTO_INVALIDO");
   });
 });
+
+describe("anti-escalonamento (revisão de segurança da Fase 1)", () => {
+  // Gerente de BC com "usuarios:gerenciar" mas sem todas as praças.
+  async function gerenteBc() {
+    const a = await logado("admin@bybus.test");
+    const unidades = (await a.req("GET", "/api/unidades")).json();
+    const bc = unidades.find((u: { codigo: string }) => u.codigo === "BC");
+    const fln = unidades.find((u: { codigo: string }) => u.codigo === "FLN");
+    await a.req("POST", "/api/perfis", { codigo: "GERENTE_TESTE", nome: "Gerente (teste)", permissoes: ["usuarios:gerenciar", "manifesto:ver", "embarque:registrar"] });
+    const { senhaTemporaria, usuario } = (await a.req("POST", "/api/usuarios", { nome: "Gerente BC", email: "gerente.bc@bybus.test", perfil: "GERENTE_TESTE", unidadeIds: [bc.id] })).json();
+    const g = new Cliente(app);
+    await g.login("gerente.bc@bybus.test", senhaTemporaria);
+    await g.req("POST", "/api/auth/senha", { senhaAtual: senhaTemporaria, novaSenha: "GerenteBc123456" });
+    const usuarios = (await a.req("GET", "/api/usuarios")).json();
+    const adminId = usuarios.find((u: { email: string }) => u.email === "admin@bybus.test").id;
+    return { g, a, bc, fln, meuId: usuario.id, adminId };
+  }
+
+  it("não consegue se promover nem criar administrador", async () => {
+    const { g, meuId, fln } = await gerenteBc();
+    expect((await g.req("PATCH", `/api/usuarios/${meuId}`, { todasUnidades: true })).statusCode).toBe(400);
+    expect((await g.req("PATCH", `/api/usuarios/${meuId}`, { perfil: "ADMIN" })).statusCode).toBe(400);
+    expect((await g.req("POST", "/api/usuarios", { nome: "Xx Teste", email: "x1@bybus.test", perfil: "ADMIN", todasUnidades: true })).statusCode).toBe(403);
+    expect((await g.req("POST", "/api/usuarios", { nome: "Xx Teste", email: "x2@bybus.test", perfil: "SUPERVISOR" })).statusCode).toBe(403);
+    expect((await g.req("POST", "/api/usuarios", { nome: "Xx Teste", email: "x3@bybus.test", perfil: "GUIA", unidadeIds: [fln.id] })).statusCode).toBe(403);
+  });
+
+  it("não alcança o administrador nem usuários de outra praça", async () => {
+    const { g, adminId } = await gerenteBc().catch(async () => {
+      // perfil/usuário já criados no teste anterior
+      const g = new Cliente(app); await g.login("gerente.bc@bybus.test", "GerenteBc123456");
+      const a = await logado("admin@bybus.test");
+      const adminId = (await a.req("GET", "/api/usuarios")).json().find((u: { email: string }) => u.email === "admin@bybus.test").id;
+      return { g, adminId };
+    });
+    const r = await g.req("PATCH", `/api/usuarios/${adminId}`, { redefinirSenha: true, redefinirMfa: true });
+    expect(r.statusCode).toBe(404);
+    expect(r.body).not.toContain("senhaTemporaria\":\"");
+    const lista = (await g.req("GET", "/api/usuarios")).json().map((u: { email: string }) => u.email);
+    expect(lista).not.toContain("admin@bybus.test");
+    expect(lista).not.toContain("supervisor@bybus.test");
+  });
+
+  it("não cria perfil com permissões que não tem nem edita perfis do sistema", async () => {
+    const g = new Cliente(app);
+    await g.login("gerente.bc@bybus.test", "GerenteBc123456");
+    expect((await g.req("POST", "/api/perfis", { codigo: "SUPER_X", nome: "Super X", permissoes: ["manifesto:documentos"] })).statusCode).toBe(403);
+    const a = await logado("admin@bybus.test");
+    const sup = (await a.req("GET", "/api/perfis")).json().find((p: { codigo: string }) => p.codigo === "SUPERVISOR");
+    expect((await g.req("PATCH", `/api/perfis/${sup.id}`, { permissoes: ["manifesto:ver"] })).statusCode).toBe(403);
+  });
+
+  it("não deixa a empresa sem administrador ativo", async () => {
+    const a = await logado("admin@bybus.test");
+    const eu = (await a.req("GET", "/api/auth/eu")).json();
+    expect((await a.req("PATCH", `/api/usuarios/${eu.usuario.id}`, { ativo: false })).statusCode).toBe(400);
+  });
+});

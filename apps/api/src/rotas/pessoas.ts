@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
 import { PAPEIS_PESSOA, pessoas } from "../db/schema.js";
-import { filtroUnidade, podeUnidade } from "../seguranca/escopo.js";
+import { filtroUnidade, garantirUnidadeAtiva, podeUnidade } from "../seguranca/escopo.js";
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { camposDocumento, documentoMascarado } from "../servicos/passageiro.js";
@@ -56,14 +56,15 @@ export async function rotasPessoas(app: FastifyInstance, { db, config, cofre }: 
     const escopo = filtroUnidade(u, pessoas.unidadeId as never);
     if (escopo) filtros.push(sql`(${pessoas.unidadeId} IS NULL OR ${escopo})`);
     const lista = await db.select().from(pessoas).where(and(...filtros)).orderBy(asc(pessoas.nome));
-    const completo = pode(u, "pessoas:gerenciar");
-    return lista.map((p) => publico(p, completo));
+    // Completo só para quem pode editar aquela pessoa (praça dele; sem praça = só quem acessa todas).
+    const gerencia = pode(u, "pessoas:gerenciar");
+    return lista.map((p) => publico(p, gerencia && (p.unidadeId ? podeUnidade(u, p.unidadeId) : u.todasUnidades)));
   });
 
   app.get("/api/pessoas/:id", gerenciar, async (req) => {
     const { id } = z.object({ id: uuid }).parse(req.params);
     const [p] = await db.select().from(pessoas).where(eq(pessoas.id, id));
-    if (!p || (p.unidadeId && !podeUnidade(req.usuario!, p.unidadeId))) throw new ErroHttp(404, "NAO_ENCONTRADO", "Pessoa não encontrada.");
+    if (!p || (p.unidadeId ? !podeUnidade(req.usuario!, p.unidadeId) : !req.usuario!.todasUnidades)) throw new ErroHttp(404, "NAO_ENCONTRADO", "Pessoa não encontrada.");
     return publico(p, true);
   });
 
@@ -72,6 +73,7 @@ export async function rotasPessoas(app: FastifyInstance, { db, config, cofre }: 
     if (corpo.unidadeId ? !podeUnidade(req.usuario!, corpo.unidadeId) : !req.usuario!.todasUnidades) {
       throw new ErroHttp(403, "SEM_PERMISSAO", "Você só pode cadastrar pessoas das suas praças.");
     }
+    if (corpo.unidadeId) await garantirUnidadeAtiva(db, corpo.unidadeId);
     const { documento, documentoTipo, email, ...resto } = corpo;
     const [p] = await db.insert(pessoas).values({
       ...resto, email: email || null, papeis: [...new Set(corpo.papeis)], ...camposDocumentoPessoa(documentoTipo, documento),
