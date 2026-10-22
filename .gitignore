@@ -1,0 +1,19 @@
+# Segredos e ambiente
+.env
+.env.*
+!.env.example
+# Dependências e builds
+node_modules/
+dist/
+build/
+.next/
+coverage/
+# Dados reais / exportações (LGPD) — nunca versionar
+dados-reais/
+exports/
+*.xlsx
+*.csv
+# SO / editores
+.DS_Store
+.vscode/
+.idea/
