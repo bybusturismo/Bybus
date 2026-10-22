@@ -7,6 +7,7 @@ import type { Config } from "./config.js";
 import { criarDb, type Db } from "./db/cliente.js";
 import { rotasAuth } from "./rotas/auth.js";
 import { rotasImportacao } from "./rotas/importacao.js";
+import { rotasIntegracoes } from "./rotas/integracoes.js";
 import { rotasManifesto } from "./rotas/manifesto.js";
 import { rotasOperacao } from "./rotas/operacao.js";
 import { rotasUsuarios } from "./rotas/usuarios.js";
@@ -77,6 +78,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasOperacao(app, ctx);
   await rotasManifesto(app, ctx);
   await rotasImportacao(app, ctx);
+  await rotasIntegracoes(app, ctx);
 
   return { app, fechar: async () => { await app.close(); await pool.end(); } };
 }

@@ -7,3 +7,4 @@ export * from "./importadores/comum.js";
 export * from "./importadores/csv.js";
 export * from "./importadores/bokun-email.js";
 export * from "./importadores/paytour-csv.js";
+export * from "./importadores/anonimizar.js";

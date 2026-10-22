@@ -44,3 +44,6 @@ Atualize este arquivo à medida que forem respondidas (resposta + data).
 28. A Civitatis ainda é lançada manualmente com documento 3333?
 29. **Fontes da marca:** comprar licença web da Sugo Pro Classic e da Helvetica Neue LT Pro (ou seguir com os substitutos do sistema)? Os arquivos no Drive da Sugo são TRIAL.
 30. A Zaveo pode enviar o logo em **SVG** (vetor) para o sistema e o app?
+31. **Decolar:** encaminhar 1 e-mail de confirmação da Decolar (de contatofbyb@) para admbybus@ para eu criar o leitor.
+32. **Paytour:** exportar o relatório de reservas/passageiros (CSV ou Excel) de alguns dias e colocar no Drive para testar a importação (será anonimizada).
+33. **Hospedagem:** o robô do Gmail precisa do sistema publicado em https — autorizar a comparação/contratação de provedor.

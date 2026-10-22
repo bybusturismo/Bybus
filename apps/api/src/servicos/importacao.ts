@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { ReservaImportada } from "@bybus/core";
+import { anonimizarReserva, type ReservaImportada } from "@bybus/core";
 import type { Db } from "../db/cliente.js";
 import { passageiros, passeios, pontosEmbarque, reservas, saidas } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
@@ -44,9 +44,11 @@ export function casarPonto<T extends { id: string; nome: string }>(texto: string
 export async function importarReservas(
   db: Db,
   cofre: Cofre,
-  itens: ReservaImportada[],
-  opcoes: { confirmar: boolean; passeioCodigo?: string; origem: string; usuario: UsuarioSessao },
+  itensRecebidos: ReservaImportada[],
+  opcoes: { confirmar: boolean; passeioCodigo?: string; origem: string; usuario: UsuarioSessao; anonimizar: boolean },
 ): Promise<{ previa: ItemPrevia[]; resumo: Record<Acao, number> }> {
+  // Fora da produção (LGPD): dados pessoais viram fictícios antes de qualquer gravação ou prévia.
+  const itens = opcoes.anonimizar ? itensRecebidos.map(anonimizarReserva) : itensRecebidos;
   // Só passeios das praças de quem está importando.
   const todosPasseios = (await db.select().from(passeios).where(eq(passeios.ativo, true))).filter((p) => podeUnidade(opcoes.usuario, p.unidadeId));
   const previa: ItemPrevia[] = [];

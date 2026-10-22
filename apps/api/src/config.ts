@@ -17,6 +17,11 @@ const esquema = z.object({
   PROXIES_CONFIAVEIS: z.coerce.number().int().min(0).max(5).default(0),
   /** Tentativas de login/troca de senha por minuto por IP. */
   LIMITE_LOGIN_POR_MINUTO: z.coerce.number().default(10),
+  /**
+   * Segredo do robô do Gmail (Apps Script) que envia os e-mails de reserva para /api/integracoes/emails.
+   * Sem ele, a entrada automática fica desligada. Gere com: openssl rand -base64 36
+   */
+  INTEGRACAO_EMAIL_TOKEN: z.string().min(32, "INTEGRACAO_EMAIL_TOKEN deve ter pelo menos 32 caracteres").optional(),
   /** MFA obrigatório para ADMIN e SUPERVISOR. */
   EXIGIR_MFA_ADMIN: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
 });

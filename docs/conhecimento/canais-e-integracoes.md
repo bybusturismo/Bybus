@@ -39,3 +39,8 @@ Site/loja própria · **Paytour** (a "Peitur") · **Decolar** · **Tripadvisor**
 
 ## Referências de mercado
 Bókun (grupo Tripadvisor, US$ 49/mês + 1–1,5%), Rezdy, Checkfront, FareHarbor. Funções que o sistema deve cobrir ou integrar: inventário por saída com anti-overbooking entre canais, tarifas por categoria, voucher QR + check-in offline, manifesto por saída/veículo, comissões, cancelamento/reembolso, Pix/cartão, relatórios de ocupação e receita por canal, avaliações.
+
+## Entrada de reservas por e-mail (22/10/2026)
+- **Bókun → admbybus@gmail.com:** "New booking"/"Cancelled booking" com código VIA-…, produto, data/hora, quantidade e categoria (ex.: "1 Senior"), nome, telefone e e-mail mascarado do Tripadvisor. **Não traz ponto de embarque.**
+- **Decolar → contatofbyb@gmail.com:** formato ainda não visto (a confirmar).
+- Automação: robô do Gmail (Apps Script) → `/api/integracoes/emails` — ver `integracoes/gmail/README.md` e ADR 0006.

@@ -252,9 +252,11 @@ describe("importação", () => {
     expect(m.alertas.map((a: { codigo: string }) => a.codigo)).toContain("POSSIVEL_DUPLICATA");
     const villa = m.blocos.find((b: { ponto: { nome: string } | null }) => b.ponto?.nome === "Villa Romana Shopping");
     const nomes = villa.linhas.map((l: { passageiro: { nome: string } }) => l.passageiro.nome);
-    const i = nomes.indexOf("Família Csv Teste");
-    expect(i).toBeGreaterThanOrEqual(0);
-    expect(nomes[i + 1]).toBe("Filho Csv Teste"); // família junta, na ordem cadastrada
+    // Fora da produção os nomes são anonimizados (LGPD); a família continua junta no mesmo ponto.
+    const importados = nomes.filter((n: string) => n.endsWith("(fictício)"));
+    expect(importados).toHaveLength(2);
+    expect(nomes.indexOf(importados[1])).toBe(nomes.indexOf(importados[0]) + 1);
+    expect(JSON.stringify(m)).not.toMatch(/Csv Teste|529\.?982/);
   });
 });
 
@@ -493,5 +495,59 @@ describe("ajustes pedidos pelo front (Fase 1)", () => {
     expect((await a.req("GET", "/api/auth/eu")).json().administrador).toBe(true);
     const perfis = (await a.req("GET", "/api/perfis")).json();
     expect(perfis.find((x: { codigo: string }) => x.codigo === "ADMIN").permissoes).toContain("produtos:gerenciar");
+  });
+});
+
+describe("entrada automática de e-mails de reserva (robô do Gmail)", () => {
+  const TOKEN = "token-de-teste-com-mais-de-32-caracteres-ok";
+  // E-mail no formato real da Bókun, com dados FICTÍCIOS.
+  const corpoBokun = `| Booking ref. | VIA-555000999 |
+| Product booking ref. | BYB-T555000999 |
+| Product | 165696P2 - Floripa City Tour by Bus - Whole Island |
+| Sold by | Viator.com |
+| Customer | Ficticio, Cliente |
+| Customer phone | +1 555-000-0002 |
+| Date | Sun 25.Oct '26 @ 08:00 |
+| PAX | 2 Adult |`;
+  const enviar = (a: FastifyInstance, token: string | null, mensagens: unknown[]) =>
+    a.inject({ method: "POST", url: "/api/integracoes/emails", payload: { mensagens } as never, headers: { "x-bybus": "1", ...(token ? { authorization: `Bearer ${token}` } : {}) } });
+
+  it("fica desligada sem token configurado e recusa token errado", async () => {
+    expect((await enviar(app, TOKEN, [{ id: "m1", remetente: "no-reply@bokun.io", assunto: "New booking", corpo: corpoBokun }])).statusCode).toBe(404);
+    const comToken = await subirApp({ INTEGRACAO_EMAIL_TOKEN: TOKEN });
+    try {
+      expect((await enviar(comToken.app, null, [{ id: "m1", remetente: "x", corpo: "y" }])).statusCode).toBe(401);
+      expect((await enviar(comToken.app, TOKEN + "x", [{ id: "m1", remetente: "x", corpo: "y" }])).statusCode).toBe(401);
+    } finally {
+      await comToken.fechar();
+    }
+  });
+
+  it("importa Bókun/Viator anonimizado, não duplica e separa Decolar (sem leitor ainda)", async () => {
+    const comToken = await subirApp({ INTEGRACAO_EMAIL_TOKEN: TOKEN });
+    try {
+      const msgs = [
+        { id: "m1", remetente: "Bókun <no-reply@bokun.io>", assunto: "New booking: Sun 25.Oct '26 @ 08:00", corpo: corpoBokun },
+        { id: "m2", remetente: "reservas@decolar.com", assunto: "Confirmação de reserva", corpo: "texto" },
+        { id: "m3", remetente: "promo@loja.com", assunto: "Oferta", corpo: "texto" },
+      ];
+      const r = await enviar(comToken.app, TOKEN, msgs);
+      expect(r.statusCode).toBe(200);
+      expect(r.json().resumo).toMatchObject({ mensagens: 3, CRIAR: 1, semLeitor: 1, naoReconhecidas: 1 });
+      expect(r.json().mensagens.map((m: { resultado: string }) => m.resultado)).toEqual(["IMPORTADO", "SEM_LEITOR", "NAO_RECONHECIDO"]);
+      expect(JSON.stringify(r.json())).not.toContain("Ficticio, Cliente");
+      // Reenviar o mesmo e-mail não cria outra reserva.
+      expect((await enviar(comToken.app, TOKEN, msgs.slice(0, 1))).json().resumo).toMatchObject({ ATUALIZAR: 1 });
+
+      const c = await logado("admin@bybus.test");
+      const s25 = (await primeiraSaida(c)).find((s) => s.data === "2026-10-25")!;
+      const m = (await c.req("GET", `/api/saidas/${s25.id}/manifesto`)).json().manifesto;
+      const texto = JSON.stringify(m);
+      expect(texto).not.toContain("Ficticio, Cliente");
+      expect(texto).toContain("(fictício)");
+      expect(m.alertas.map((a: { codigo: string }) => a.codigo)).toContain("SEM_PONTO_EMBARQUE");
+    } finally {
+      await comToken.fechar();
+    }
   });
 });
