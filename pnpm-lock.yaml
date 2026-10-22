@@ -62,6 +62,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@bybus/core':
+        specifier: workspace:^
+        version: link:../../packages/core
       qrcode:
         specifier: 1.5.4
         version: 1.5.4

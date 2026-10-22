@@ -15,7 +15,9 @@ export default defineConfig({
     port: 4173,
     proxy: { "/api": { target: API, changeOrigin: false } },
   },
-  build: { sourcemap: true, target: "es2022" },
+  build: process.env.VITE_DEMO === "1"
+    ? { sourcemap: false, target: "es2022", outDir: "dist-demo", modulePreload: false, rollupOptions: { output: { inlineDynamicImports: true } } }
+    : { sourcemap: true, target: "es2022" },
   test: {
     environment: "jsdom",
     globals: true,

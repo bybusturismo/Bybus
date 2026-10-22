@@ -1,0 +1,10 @@
+.demo-aviso {
+  background: var(--cor-destaque);
+  color: var(--cor-sobre-destaque);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  padding-block: 8px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.demo-aviso code { font-weight: 600; background: transparent; color: inherit; }

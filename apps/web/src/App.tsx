@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
+
+// Na demonstração publicada não há endereços próprios: a navegação fica em memória.
+const Roteador = import.meta.env.VITE_DEMO === "1" ? MemoryRouter : BrowserRouter;
 import type { Permissao } from "./api/tipos";
 import { ErroCarga, Carregando, SemAcesso } from "./componentes/Estados";
 import { Layout } from "./componentes/Layout";
@@ -105,12 +108,12 @@ export function Rotas() {
 
 export function App() {
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <Roteador future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ProvedorSessao>
         <ProvedorNotificacoes>
           <Rotas />
         </ProvedorNotificacoes>
       </ProvedorSessao>
-    </BrowserRouter>
+    </Roteador>
   );
 }
