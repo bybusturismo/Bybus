@@ -297,3 +297,33 @@ describe("endurecimento (revisão de segurança)", () => {
     expect(Date.now() - inicio).toBeLessThan(2000);
   });
 });
+
+describe("correções apontadas pelo front-end", () => {
+  it("editar reserva sem mandar e-mail não apaga o e-mail", async () => {
+    const c = await logado("atendente@bybus.test");
+    const [saida] = await primeiraSaida(c);
+    const r = (await c.req("POST", `/api/saidas/${saida!.id}/reservas`, {
+      canal: "BALCAO", contatoNome: "Titular Email Teste", contatoEmail: "titular@exemplo.invalid",
+      passageiros: [{ nome: "Titular Email Teste", categoria: "ADULTO" }],
+    })).json();
+    const editada = (await c.req("PATCH", `/api/reservas/${r.id}`, { observacoes: "só obs" })).json();
+    expect(editada.contatoEmail).toBe("titular@exemplo.invalid");
+  });
+
+  it("trocar tipo de documento sem número é recusado", async () => {
+    const c = await logado("atendente@bybus.test");
+    const [saida] = await primeiraSaida(c);
+    const m = (await c.req("GET", `/api/saidas/${saida!.id}/manifesto`)).json().manifesto;
+    const pid = m.blocos[0].linhas[0].passageiro.id;
+    const r = await c.req("PATCH", `/api/passageiros/${pid}`, { documentoTipo: "RG" });
+    expect(r.statusCode).toBe(400);
+  });
+
+  it("GET /api/saidas/:id devolve a saída sem gravar auditoria de manifesto", async () => {
+    const c = await logado("atendente@bybus.test");
+    const [saida] = await primeiraSaida(c);
+    const r = await c.req("GET", `/api/saidas/${saida!.id}`);
+    expect(r.statusCode).toBe(200);
+    expect(r.json().passeio.codigo).toBe("TODA_ILHA");
+  });
+});

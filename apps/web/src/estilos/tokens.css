@@ -1,0 +1,132 @@
+/*
+ * Tokens de design do Bybus Gestão (identidade PROVISÓRIA — marca real a confirmar).
+ * Primária azul-petróleo #0b4f6c, destaque amarelo-ônibus #f5b700.
+ * Contrastes conferidos para WCAG 2.1 AA (texto normal >= 4,5:1).
+ */
+:root {
+  color-scheme: light;
+
+  /* Marca */
+  --cor-primaria: #0b4f6c;          /* 8,9:1 sobre branco */
+  --cor-primaria-forte: #083b51;
+  --cor-primaria-suave: #e3eff4;
+  --cor-sobre-primaria: #ffffff;
+  --cor-destaque: #f5b700;          /* sempre com texto escuro (10,7:1) */
+  --cor-sobre-destaque: #1b1b1b;
+
+  /* Superfícies e texto */
+  --cor-fundo: #f4f6f7;
+  --cor-superficie: #ffffff;
+  --cor-superficie-2: #eef1f3;
+  --cor-borda: #cdd5da;
+  --cor-borda-forte: #8a979f;
+  --cor-texto: #1b2429;             /* 15:1 */
+  --cor-texto-fraco: #4f5d65;       /* 6,6:1 */
+
+  /* Estados */
+  --cor-sucesso: #17663a;
+  --cor-sucesso-fundo: #e2f3e8;
+  --cor-atencao: #7a4b00;
+  --cor-atencao-fundo: #fff3cd;
+  --cor-atencao-borda: #f5b700;
+  --cor-perigo: #b3261e;
+  --cor-perigo-fundo: #fbe5e3;
+  --cor-sobre-sucesso: #ffffff;
+  --cor-sobre-perigo: #ffffff;
+  --cor-info: #0b4f6c;
+  --cor-info-fundo: #e3eff4;
+  --cor-foco: #f5b700;
+  --cor-foco-interno: #0b4f6c;
+
+  /* Tipografia */
+  --fonte: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --texto-xs: 0.75rem;
+  --texto-sm: 0.875rem;
+  --texto-md: 1rem;
+  --texto-lg: 1.125rem;
+  --texto-xl: 1.375rem;
+  --texto-2xl: 1.75rem;
+  --peso-normal: 400;
+  --peso-medio: 600;
+  --peso-forte: 700;
+  --altura-linha: 1.5;
+
+  /* Espaçamento (escala de 4px) */
+  --esp-1: 0.25rem;
+  --esp-2: 0.5rem;
+  --esp-3: 0.75rem;
+  --esp-4: 1rem;
+  --esp-5: 1.5rem;
+  --esp-6: 2rem;
+  --esp-7: 3rem;
+
+  /* Forma */
+  --raio-sm: 4px;
+  --raio: 8px;
+  --raio-lg: 12px;
+  --sombra: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 8px rgb(0 0 0 / 0.06);
+  --sombra-forte: 0 8px 32px rgb(0 0 0 / 0.25);
+
+  /* Layout */
+  --largura-menu: 232px;
+  --altura-topo: 56px;
+  --altura-menu-inferior: 64px;
+  --alvo-toque: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --cor-primaria: #6cc3e6;
+    --cor-primaria-forte: #9ad6ee;
+    --cor-primaria-suave: #15323f;
+    --cor-sobre-primaria: #06212d;
+    --cor-fundo: #0f1518;
+    --cor-superficie: #172024;
+    --cor-superficie-2: #1f2a2f;
+    --cor-borda: #33434b;
+    --cor-borda-forte: #61737c;
+    --cor-texto: #e7eef1;
+    --cor-texto-fraco: #a9b8bf;
+    --cor-sucesso: #6fd49a;
+    --cor-sucesso-fundo: #12301f;
+    --cor-atencao: #ffd36b;
+    --cor-atencao-fundo: #3a2c06;
+    --cor-perigo: #ff8a80;
+    --cor-perigo-fundo: #3b1512;
+    --cor-sobre-sucesso: #06210f;
+    --cor-sobre-perigo: #2a0503;
+    --cor-info: #6cc3e6;
+    --cor-info-fundo: #15323f;
+    --cor-foco-interno: #6cc3e6;
+    --sombra: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --cor-primaria: #6cc3e6;
+  --cor-primaria-forte: #9ad6ee;
+  --cor-primaria-suave: #15323f;
+  --cor-sobre-primaria: #06212d;
+  --cor-fundo: #0f1518;
+  --cor-superficie: #172024;
+  --cor-superficie-2: #1f2a2f;
+  --cor-borda: #33434b;
+  --cor-borda-forte: #61737c;
+  --cor-texto: #e7eef1;
+  --cor-texto-fraco: #a9b8bf;
+  --cor-sucesso: #6fd49a;
+  --cor-sucesso-fundo: #12301f;
+  --cor-atencao: #ffd36b;
+  --cor-atencao-fundo: #3a2c06;
+  --cor-perigo: #ff8a80;
+  --cor-perigo-fundo: #3b1512;
+  --cor-sobre-sucesso: #06210f;
+  --cor-sobre-perigo: #2a0503;
+  --cor-info: #6cc3e6;
+  --cor-info-fundo: #15323f;
+  --cor-foco-interno: #6cc3e6;
+  --sombra: 0 1px 2px rgb(0 0 0 / 0.4);
+}

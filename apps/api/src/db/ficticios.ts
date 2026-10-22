@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Canal, Categoria } from "@bybus/core";
 import type { Db } from "./cliente.js";
 import { passageiros, pontosEmbarque, reservas, saidas, usuarios, type Perfil } from "./schema.js";
-import { semearReferencia } from "./semear.js";
+import { semearReferencia } from "./referencia.js";
 import { Cofre } from "../seguranca/cripto.js";
 import { gerarHashSenha } from "../seguranca/senha.js";
 import { camposDocumento } from "../servicos/passageiro.js";

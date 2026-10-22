@@ -1,0 +1,168 @@
+/* Impressão da lista de passageiros em A4: sem menus nem botões, tabelas legíveis, campos de assinatura. */
+@page {
+  size: A4 portrait;
+  margin: 12mm 10mm 14mm;
+}
+
+@media print {
+  :root,
+  :root[data-theme="dark"] {
+    color-scheme: light;
+    --cor-texto: #000;
+    --cor-texto-fraco: #333;
+    --cor-superficie: #fff;
+    --cor-superficie-2: #f0f0f0;
+    --cor-fundo: #fff;
+    --cor-borda: #999;
+    --cor-primaria: #000;
+    --cor-primaria-suave: #ececec;
+  }
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 10pt;
+  }
+  .nao-imprimir,
+  .topo,
+  .menu,
+  .abas,
+  .migalhas,
+  .barra-ferramentas,
+  .notificacoes,
+  .pular-conteudo,
+  .painel-alertas,
+  .opcao-documentos,
+  .resumo,
+  .aviso,
+  dialog {
+    display: none !important;
+  }
+  .so-impressao {
+    display: block !important;
+  }
+  th.so-impressao,
+  td.so-impressao {
+    display: table-cell !important;
+  }
+  .oculto-na-tela {
+    display: revert !important;
+  }
+  tr.oculto-na-tela {
+    display: table-row !important;
+  }
+  .app {
+    display: block;
+    padding: 0;
+  }
+  .conteudo {
+    padding: 0;
+  }
+  .cabecalho-impressao {
+    border-bottom: 2px solid #000;
+    padding-bottom: 4mm;
+    margin-bottom: 4mm;
+  }
+  .cabecalho-impressao h1 {
+    font-size: 14pt;
+    margin: 1mm 0;
+  }
+  .cabecalho-impressao p {
+    margin: 0.5mm 0;
+  }
+  .cabecalho-impressao__linha {
+    display: flex !important;
+    justify-content: space-between;
+    font-size: 9pt;
+  }
+  .bloco {
+    margin-bottom: 4mm;
+    break-inside: auto;
+  }
+  .bloco__cabecalho {
+    background: #ececec !important;
+    border-left: 4px solid #000 !important;
+    break-after: avoid;
+    padding: 1.5mm 2mm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .bloco--a-definir .bloco__cabecalho {
+    border: 2px dashed #000 !important;
+  }
+  .bloco--a-definir .bloco__titulo {
+    color: #000;
+  }
+  .bloco__titulo {
+    font-size: 11pt;
+  }
+  .tabela-rolagem {
+    overflow: visible;
+    border: 0;
+  }
+  .tabela {
+    font-size: 9pt;
+  }
+  .tabela th,
+  .tabela td {
+    padding: 1mm 1.5mm;
+    border: 1px solid #999;
+  }
+  .tabela thead {
+    display: table-header-group;
+  }
+  .tabela thead th {
+    position: static;
+    background: #f0f0f0 !important;
+  }
+  .tabela tr {
+    break-inside: avoid;
+  }
+  .tabela--manifesto tr td {
+    background: #fff !important;
+  }
+  .etiqueta {
+    border: 0;
+    background: none !important;
+    color: #000 !important;
+    padding: 0;
+    font-weight: 400;
+  }
+  .col-check {
+    width: 8mm;
+    text-align: center;
+  }
+  .caixa-check {
+    display: inline-block;
+    width: 4mm;
+    height: 4mm;
+    border: 1px solid #000;
+  }
+  .rodape-impressao {
+    margin-top: 8mm;
+    break-inside: avoid;
+  }
+  .rodape-impressao__campo {
+    display: flex !important;
+    align-items: flex-end;
+    gap: 3mm;
+    margin-bottom: 8mm;
+    font-weight: 700;
+  }
+  .linha-preencher {
+    display: inline-block;
+    flex: 1;
+    border-bottom: 1px solid #000;
+    height: 6mm;
+  }
+  .linha-preencher--curta {
+    flex: 0 0 30mm;
+  }
+  .rodape-impressao__nota {
+    font-size: 8pt;
+    color: #333;
+  }
+  a {
+    color: #000;
+    text-decoration: none;
+  }
+}

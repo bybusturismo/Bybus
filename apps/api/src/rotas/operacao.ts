@@ -68,6 +68,17 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       .orderBy(asc(saidas.data));
   });
 
+  app.get("/api/saidas/:id", ver, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const [s] = await db
+      .select({ saida: saidas, passeio: passeios })
+      .from(saidas)
+      .innerJoin(passeios, eq(passeios.id, saidas.passeioId))
+      .where(eq(saidas.id, id));
+    if (!s) throw new ErroHttp(404, "NAO_ENCONTRADO", "Saída não encontrada.");
+    return s;
+  });
+
   app.post("/api/saidas", { preHandler: exigir(config, "saidas:gerenciar") }, async (req) => {
     const corpo = z.object({ passeioId: uuid, data: dataIso, capacidade: z.number().int().min(1).max(200).optional(), veiculo: z.string().max(40).nullish() }).parse(req.body);
     const [passeio] = await db.select().from(passeios).where(eq(passeios.id, corpo.passeioId));
@@ -158,7 +169,9 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       status: z.enum(["CONFIRMADA", "CANCELADA"]).optional(),
       saidaId: uuid.optional(),
     }).parse(req.body);
-    const [r] = await db.update(reservas).set({ ...corpo, contatoEmail: corpo.contatoEmail || null, atualizadoEm: new Date() }).where(eq(reservas.id, id)).returning();
+    const { contatoEmail, ...resto } = corpo;
+    // Só altera o e-mail quando o campo vier na requisição ("" ou null limpam).
+    const [r] = await db.update(reservas).set({ ...resto, ...(contatoEmail !== undefined ? { contatoEmail: contatoEmail || null } : {}), atualizadoEm: new Date() }).where(eq(reservas.id, id)).returning();
     if (!r) throw new ErroHttp(404, "NAO_ENCONTRADO", "Reserva não encontrada.");
     await auditar(db, req, corpo.status === "CANCELADA" ? "RESERVA_CANCELADA" : "RESERVA_ALTERADA", { tipo: "reserva", id }, { campos: Object.keys(corpo), status: corpo.status }); // sem dados pessoais na auditoria
     return r;
@@ -183,7 +196,10 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     if (p.categoria) mudancas.categoria = p.categoria;
     if (p.documentoPais !== undefined) mudancas.documentoPais = p.documentoPais ?? null;
     if (p.pontoEmbarqueId !== undefined) mudancas.pontoEmbarqueId = p.pontoEmbarqueId ?? null;
-    if (p.documento !== undefined || p.documentoTipo !== undefined) Object.assign(mudancas, camposDocumento(cofre, p.documentoTipo, p.documento));
+    if (p.documentoTipo !== undefined && p.documento === undefined) {
+      throw new ErroHttp(400, "DOCUMENTO_INCOMPLETO", "Ao mudar o tipo de documento, informe também o número (ou null para remover).");
+    }
+    if (p.documento !== undefined) Object.assign(mudancas, camposDocumento(cofre, p.documentoTipo, p.documento));
     const [atualizado] = await db.update(passageiros).set(mudancas).where(eq(passageiros.id, id)).returning({ id: passageiros.id });
     if (!atualizado) throw new ErroHttp(404, "NAO_ENCONTRADO", "Passageiro não encontrado.");
     await auditar(db, req, "PASSAGEIRO_ALTERADO", { tipo: "passageiro", id }, { campos: Object.keys(mudancas).filter((k) => !k.startsWith("documento")) .concat(p.documento !== undefined ? ["documento"] : []) });
