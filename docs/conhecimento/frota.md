@@ -26,6 +26,11 @@ Operação Oceanic usa 2–3 ônibus em BC (um guardado no Aquário, outro no Av
 - **Cartilha do Motorista**: checklist diário — base do checklist pré-viagem do app.
 - **Não existe plano preventivo por km/tempo.**
 
+## Nova busca (22/10/2026)
+- Planilha "Abastecimentos" tem abas exatamente para: QJQ2A16 (Amarelo), JJF5I86 (Verde DF), IPG8G91 (Verde BNU), LLE5A67 (Vermelho), IVP2J64 (Bus Tour), **QJU7192 (Van)** — 6 veículos com abastecimento registrado.
+- **Trenzinho:** nenhuma ocorrência no Drive nem no Gmail (busca por "trenzinho", "trem turístico"). Dados precisam vir do dono.
+- Van QJU7192: modelo/ano/lugares não encontrados em nenhum documento.
+
 ## Divergências a resolver com o dono
 - Drive mostra 5 ônibus + van; trenzinho sem nenhum documento.
 - Alocação por base (3 BC / 1 Floripa) × documentos (QJQ2A16 Floripa; IVP2J64, JJF5I86, IPG8G91, LLE5A67 ligados a BC/Blumenau).
