@@ -5,7 +5,6 @@ import { Aviso, Carregando, ErroCarga } from "../componentes/Estados";
 import { useNotificar } from "../componentes/Notificacoes";
 import { useSessao } from "../sessao/Sessao";
 import { formatarDataHora } from "../util/formato";
-import { ROTULO_PERFIL } from "../util/rotulos";
 import { useCarregar } from "../util/useCarregar";
 import { ConfigurarMfa, FormTrocarSenha } from "./Pendencias";
 
@@ -72,7 +71,7 @@ export function Conta() {
         <div>
           <h1>Minha conta</h1>
           <p className="pagina__descricao">
-            {usuario.nome} · {usuario.email} · {ROTULO_PERFIL[usuario.perfil]}
+            {usuario.nome} · {usuario.email} · {usuario.perfilNome ?? usuario.perfil}
           </p>
         </div>
       </div>

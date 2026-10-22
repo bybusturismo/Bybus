@@ -473,3 +473,25 @@ describe("anti-escalonamento (revisão de segurança da Fase 1)", () => {
     expect((await a.req("PATCH", `/api/usuarios/${eu.usuario.id}`, { ativo: false })).statusCode).toBe(400);
   });
 });
+
+describe("ajustes pedidos pelo front (Fase 1)", () => {
+  it("filtro de pessoas por praça inclui quem atende todas as praças", async () => {
+    const a = await logado("admin@bybus.test");
+    const fln = (await a.req("GET", "/api/unidades")).json().find((u: { codigo: string }) => u.codigo === "FLN");
+    const todas = (await a.req("POST", "/api/pessoas", { nome: "Guia Todas Praças", papeis: ["GUIA"], unidadeId: null })).json();
+    const lista = (await a.req("GET", `/api/pessoas?papel=GUIA&unidadeId=${fln.id}`)).json();
+    expect(lista.some((p: { id: string }) => p.id === todas.id)).toBe(true);
+  });
+
+  it("gestor de produtos lista passeios inativos; /eu informa administrador", async () => {
+    const a = await logado("admin@bybus.test");
+    const [p] = (await a.req("GET", "/api/passeios")).json();
+    await a.req("PATCH", `/api/passeios/${p.id}`, { ativo: false });
+    expect((await a.req("GET", "/api/passeios")).json().some((x: { id: string }) => x.id === p.id)).toBe(false);
+    expect((await a.req("GET", "/api/passeios?incluirInativos=true")).json().some((x: { id: string }) => x.id === p.id)).toBe(true);
+    await a.req("PATCH", `/api/passeios/${p.id}`, { ativo: true });
+    expect((await a.req("GET", "/api/auth/eu")).json().administrador).toBe(true);
+    const perfis = (await a.req("GET", "/api/perfis")).json();
+    expect(perfis.find((x: { codigo: string }) => x.codigo === "ADMIN").permissoes).toContain("produtos:gerenciar");
+  });
+});

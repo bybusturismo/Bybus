@@ -38,6 +38,16 @@
   --cor-foco: #f5b700;
   --cor-foco-interno: #0b4f6c;
 
+  /* Linhas de negócio (etiquetas; texto >= 7:1 sobre o fundo) */
+  --cor-linha-city-tour: #0b4f6c;
+  --cor-linha-city-tour-fundo: #e3eff4;
+  --cor-linha-fretamento: #5b2a86;
+  --cor-linha-fretamento-fundo: #f1e8f8;
+  --cor-linha-publicidade: #8a3b00;
+  --cor-linha-publicidade-fundo: #fdebdc;
+  --cor-linha-recreativo: #17663a;
+  --cor-linha-recreativo-fundo: #e2f3e8;
+
   /* Tipografia */
   --fonte: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --fonte-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -101,6 +111,14 @@
     --cor-info-fundo: #15323f;
     --cor-foco-interno: #6cc3e6;
     --sombra: 0 1px 2px rgb(0 0 0 / 0.4);
+    --cor-linha-city-tour: #6cc3e6;
+    --cor-linha-city-tour-fundo: #15323f;
+    --cor-linha-fretamento: #d6b8f2;
+    --cor-linha-fretamento-fundo: #2d1f3c;
+    --cor-linha-publicidade: #ffb98a;
+    --cor-linha-publicidade-fundo: #3a2414;
+    --cor-linha-recreativo: #6fd49a;
+    --cor-linha-recreativo-fundo: #12301f;
   }
 }
 
@@ -129,4 +147,12 @@
   --cor-info-fundo: #15323f;
   --cor-foco-interno: #6cc3e6;
   --sombra: 0 1px 2px rgb(0 0 0 / 0.4);
+  --cor-linha-city-tour: #6cc3e6;
+  --cor-linha-city-tour-fundo: #15323f;
+  --cor-linha-fretamento: #d6b8f2;
+  --cor-linha-fretamento-fundo: #2d1f3c;
+  --cor-linha-publicidade: #ffb98a;
+  --cor-linha-publicidade-fundo: #3a2414;
+  --cor-linha-recreativo: #6fd49a;
+  --cor-linha-recreativo-fundo: #12301f;
 }

@@ -18,6 +18,10 @@ import { Reservas } from "./paginas/saida/Reservas";
 import { SaidaLayout } from "./paginas/saida/SaidaLayout";
 import { Saidas } from "./paginas/Saidas";
 import { Usuarios } from "./paginas/Usuarios";
+import { Equipe } from "./paginas/Equipe";
+import { Passeios } from "./paginas/Passeios";
+import { Perfis } from "./paginas/Perfis";
+import { Pracas } from "./paginas/Pracas";
 import { ProvedorSessao, useSessao } from "./sessao/Sessao";
 
 /** Esconde a tela de quem não tem a permissão (o servidor também recusa). */
@@ -73,6 +77,38 @@ export function Rotas() {
           element={
             <Exige permissao="importacoes:executar">
               <Importar />
+            </Exige>
+          }
+        />
+        <Route
+          path="equipe"
+          element={
+            <Exige permissao="pessoas:ver">
+              <Equipe />
+            </Exige>
+          }
+        />
+        <Route
+          path="passeios"
+          element={
+            <Exige permissao="produtos:gerenciar">
+              <Passeios />
+            </Exige>
+          }
+        />
+        <Route
+          path="pracas"
+          element={
+            <Exige permissao="unidades:gerenciar">
+              <Pracas />
+            </Exige>
+          }
+        />
+        <Route
+          path="perfis"
+          element={
+            <Exige permissao="usuarios:gerenciar">
+              <Perfis />
             </Exige>
           }
         />

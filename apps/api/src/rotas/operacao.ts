@@ -53,11 +53,18 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
   const editar = { preHandler: exigir(config, "reservas:editar") };
 
   // ---------- Passeios e pontos ----------
-  app.get("/api/passeios", ver, async (req) =>
-    db.select({ ...passeiosColunas, unidade: unidades.nome, unidadeCodigo: unidades.codigo })
+  app.get("/api/passeios", { preHandler: exigir(config) }, async (req) => {
+    const u = req.usuario!;
+    const gerencia = pode(u, "produtos:gerenciar");
+    if (!gerencia && !pode(u, "manifesto:ver")) throw new ErroHttp(403, "SEM_PERMISSAO", "Seu perfil não tem acesso a esta função.");
+    const { incluirInativos } = z.object({ incluirInativos: z.enum(["true", "false"]).optional() }).parse(req.query);
+    // Inativos só para quem gerencia produtos (para poder reativá-los).
+    const ativos = incluirInativos === "true" && gerencia ? undefined : eq(passeios.ativo, true);
+    return db.select({ ...passeiosColunas, unidade: unidades.nome, unidadeCodigo: unidades.codigo })
       .from(passeios).innerJoin(unidades, eq(unidades.id, passeios.unidadeId))
-      .where(and(eq(passeios.ativo, true), filtroUnidade(req.usuario!)))
-      .orderBy(passeios.nome));
+      .where(and(ativos, filtroUnidade(u)))
+      .orderBy(passeios.nome);
+  });
 
   const esquemaPasseio = z.object({
     codigo: z.string().trim().min(2).max(40).regex(/^[A-Za-z0-9_]+$/),

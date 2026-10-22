@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
-import type { Alerta, BlocoManifesto, Saida, StatusSaida } from "../../api/tipos";
+import type { Alerta, BlocoManifesto, Pessoa, Saida, StatusSaida } from "../../api/tipos";
 import { Aviso, Vazio } from "../../componentes/Estados";
 import { Icone } from "../../componentes/Icone";
 import { Confirmar, Modal } from "../../componentes/Modal";
@@ -135,26 +135,67 @@ export function BlocoPassageiros({ bloco, filtro }: { bloco: BlocoManifesto; fil
   );
 }
 
-function EditarEquipe({ saida, aberto, aoFechar, aoSalvar }: { saida: Saida; aberto: boolean; aoFechar: () => void; aoSalvar: () => Promise<void> }) {
+const TEXTO_ANTIGO = "__texto__";
+
+/** Opções de guia/motorista: pessoas da praça do passeio (ou sem praça), mais o valor atual se não estiver na lista. */
+function opcoesEquipe(pessoas: Pessoa[], atualId: string | null | undefined, atualNome: string | null) {
+  const opcoes = pessoas.map((p) => ({ valor: p.id, rotulo: p.idiomas.length ? `${p.nome} (${p.idiomas.join(", ")})` : p.nome }));
+  if (atualId && !pessoas.some((p) => p.id === atualId)) opcoes.unshift({ valor: atualId, rotulo: `${atualNome ?? "Pessoa atual"} (inativa ou de outra praça)` });
+  if (!atualId && atualNome) opcoes.unshift({ valor: TEXTO_ANTIGO, rotulo: `${atualNome} (digitado antes do cadastro de equipe)` });
+  return opcoes;
+}
+
+export function EditarEquipe({
+  saida,
+  unidadeId,
+  aberto,
+  aoFechar,
+  aoSalvar,
+}: {
+  saida: Saida;
+  unidadeId: string | undefined;
+  aberto: boolean;
+  aoFechar: () => void;
+  aoSalvar: (mudouCapacidade: boolean) => Promise<void>;
+}) {
+  const { pode } = useSessao();
+  const podeEscalar = pode("pessoas:ver");
+  const guiaInicial = saida.guiaId ?? (saida.guia ? TEXTO_ANTIGO : "");
+  const motoristaInicial = saida.motoristaId ?? (saida.motorista ? TEXTO_ANTIGO : "");
   const [veiculo, setVeiculo] = useState(saida.veiculo ?? "");
-  const [guia, setGuia] = useState(saida.guia ?? "");
-  const [motorista, setMotorista] = useState(saida.motorista ?? "");
+  const [guia, setGuia] = useState(guiaInicial);
+  const [motorista, setMotorista] = useState(motoristaInicial);
   const [capacidade, setCapacidade] = useState(String(saida.capacidade));
   const [observacoes, setObservacoes] = useState(saida.observacoes ?? "");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [equipe, setEquipe] = useState<{ guias: Pessoa[]; motoristas: Pessoa[] } | null>(null);
+  const [erroEquipe, setErroEquipe] = useState<string | null>(null);
   const notificar = useNotificar();
 
   useEffect(() => {
-    if (aberto) {
-      setVeiculo(saida.veiculo ?? "");
-      setGuia(saida.guia ?? "");
-      setMotorista(saida.motorista ?? "");
-      setCapacidade(String(saida.capacidade));
-      setObservacoes(saida.observacoes ?? "");
-      setErro(null);
-    }
-  }, [aberto, saida]);
+    if (!aberto) return;
+    setVeiculo(saida.veiculo ?? "");
+    setGuia(guiaInicial);
+    setMotorista(motoristaInicial);
+    setCapacidade(String(saida.capacidade));
+    setObservacoes(saida.observacoes ?? "");
+    setErro(null);
+    if (!podeEscalar) return;
+    const c = new AbortController();
+    // Sem filtro de praça na consulta: quem atende "todas as praças" (unidadeId nulo) também pode ser escalado.
+    const daPraca = (l: Pessoa[]) => l.filter((p) => !p.unidadeId || !unidadeId || p.unidadeId === unidadeId);
+    Promise.all([api.get<Pessoa[]>("/api/pessoas?papel=GUIA", c.signal), api.get<Pessoa[]>("/api/pessoas?papel=MOTORISTA", c.signal)])
+      .then(([g, m]) => {
+        setEquipe({ guias: daPraca(g), motoristas: daPraca(m) });
+        setErroEquipe(null);
+      })
+      .catch((e) => {
+        if ((e as Error).name !== "AbortError") setErroEquipe(mensagemDeErro(e));
+      });
+    return () => c.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberto, saida, podeEscalar, unidadeId]);
 
   async function salvar(e: FormEvent) {
     e.preventDefault();
@@ -162,16 +203,14 @@ function EditarEquipe({ saida, aberto, aoFechar, aoSalvar }: { saida: Saida; abe
     if (!Number.isInteger(cap) || cap < 1 || cap > 200) return setErro("Capacidade deve ser um número entre 1 e 200.");
     setSalvando(true);
     setErro(null);
+    const corpo: Record<string, unknown> = { veiculo: veiculo.trim() || null, capacidade: cap, observacoes: observacoes.trim() || null };
+    // Só envia guia/motorista se mudou (o nome em texto é preenchido pela API a partir do cadastro).
+    if (podeEscalar && guia !== guiaInicial) corpo.guiaId = guia || null;
+    if (podeEscalar && motorista !== motoristaInicial) corpo.motoristaId = motorista || null;
     try {
-      await api.patch(`/api/saidas/${saida.id}`, {
-        veiculo: veiculo.trim() || null,
-        guia: guia.trim() || null,
-        motorista: motorista.trim() || null,
-        capacidade: cap,
-        observacoes: observacoes.trim() || null,
-      });
+      await api.patch(`/api/saidas/${saida.id}`, corpo);
       notificar("Dados da saída salvos.");
-      await aoSalvar();
+      await aoSalvar(cap !== saida.capacidade);
       aoFechar();
     } catch (e) {
       setErro(mensagemDeErro(e));
@@ -180,10 +219,12 @@ function EditarEquipe({ saida, aberto, aoFechar, aoSalvar }: { saida: Saida; abe
     }
   }
 
+  const carregandoEquipe = podeEscalar && !equipe && !erroEquipe;
   return (
     <Modal aberto={aberto} titulo="Veículo e equipe" aoFechar={aoFechar}>
       <form onSubmit={salvar} noValidate>
         {erro && <Aviso tipo="erro">{erro}</Aviso>}
+        {erroEquipe && <Aviso tipo="erro">Não foi possível carregar guias e motoristas: {erroEquipe}</Aviso>}
         <div className="grade-campos">
           <div className="campo">
             <label htmlFor="eq-veiculo">Veículo (placa)</label>
@@ -193,14 +234,40 @@ function EditarEquipe({ saida, aberto, aoFechar, aoSalvar }: { saida: Saida; abe
             <label htmlFor="eq-capacidade">Capacidade (assentos)</label>
             <input id="eq-capacidade" type="number" min={1} max={200} value={capacidade} onChange={(e) => setCapacidade(e.target.value)} />
           </div>
-          <div className="campo">
-            <label htmlFor="eq-guia">Guia</label>
-            <input id="eq-guia" maxLength={120} value={guia} onChange={(e) => setGuia(e.target.value)} />
-          </div>
-          <div className="campo">
-            <label htmlFor="eq-motorista">Motorista</label>
-            <input id="eq-motorista" maxLength={120} value={motorista} onChange={(e) => setMotorista(e.target.value)} />
-          </div>
+          {podeEscalar ? (
+            <>
+              <div className="campo">
+                <label htmlFor="eq-guia">Guia</label>
+                <select id="eq-guia" value={guia} onChange={(e) => setGuia(e.target.value)} disabled={carregandoEquipe} aria-describedby="eq-ajuda">
+                  <option value="">A definir</option>
+                  {opcoesEquipe(equipe?.guias ?? [], saida.guiaId, saida.guia).map((o) => (
+                    <option key={o.valor} value={o.valor}>
+                      {o.rotulo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="campo">
+                <label htmlFor="eq-motorista">Motorista</label>
+                <select id="eq-motorista" value={motorista} onChange={(e) => setMotorista(e.target.value)} disabled={carregandoEquipe} aria-describedby="eq-ajuda">
+                  <option value="">A definir</option>
+                  {opcoesEquipe(equipe?.motoristas ?? [], saida.motoristaId, saida.motorista).map((o) => (
+                    <option key={o.valor} value={o.valor}>
+                      {o.rotulo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p id="eq-ajuda" className="campo__ajuda campo--largo">
+                {carregandoEquipe ? "Carregando guias e motoristas…" : "Lista do cadastro “Equipe”: pessoas ativas desta praça ou que atendem todas as praças."}
+              </p>
+            </>
+          ) : (
+            <p className="campo__ajuda campo--largo">
+              Guia: <strong>{saida.guia || "a definir"}</strong> · Motorista: <strong>{saida.motorista || "a definir"}</strong>. Seu perfil não consulta a equipe; peça ao supervisor
+              para escalar.
+            </p>
+          )}
         </div>
         <div className="campo">
           <label htmlFor="eq-obs">Observações da saída</label>
@@ -226,7 +293,7 @@ const TEXTO_STATUS: Record<Exclude<StatusSaida, "PREVISTA">, { titulo: string; b
 };
 
 export function ListaPassageiros() {
-  const { id, dados, carga, documentosCompletos, setDocumentosCompletos } = useSaida();
+  const { id, dados, carga, documentosCompletos, setDocumentosCompletos, atualizarCabecalho } = useSaida();
   const { pode } = useSessao();
   const notificar = useNotificar();
   const { saida, passeio, manifesto } = dados;
@@ -273,7 +340,7 @@ export function ListaPassageiros() {
       await api.patch(`/api/saidas/${saida.id}`, { status: mudarStatus });
       notificar(`Saída ${mudarStatus === "CONFIRMADA" ? "confirmada" : mudarStatus === "CANCELADA" ? "cancelada" : "marcada como realizada"}.`);
       setMudarStatus(null);
-      await carga.recarregar();
+      await atualizarCabecalho();
     } catch (e) {
       setErroStatus(mensagemDeErro(e));
     } finally {
@@ -433,7 +500,13 @@ export function ListaPassageiros() {
         </p>
       </footer>
 
-      <EditarEquipe saida={saida} aberto={editando} aoFechar={() => setEditando(false)} aoSalvar={carga.recarregar} />
+      <EditarEquipe
+        saida={saida}
+        unidadeId={passeio.unidadeId}
+        aberto={editando}
+        aoFechar={() => setEditando(false)}
+        aoSalvar={(mudouCapacidade) => (mudouCapacidade ? carga.recarregar() : atualizarCabecalho())}
+      />
       {mudarStatus && (
         <Confirmar
           aberto

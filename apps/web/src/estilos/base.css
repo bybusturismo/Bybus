@@ -223,9 +223,11 @@ textarea {
   color: var(--cor-texto);
   background: var(--cor-superficie);
 }
-.campo--linha input,
+/* Mesma especificidade da regra geral de input (que usa :not) + a classe, para valer de fato. */
+.campo--linha input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 .campo--linha select {
   width: auto;
+  max-width: 100%;
 }
 input:disabled,
 select:disabled {
@@ -380,6 +382,27 @@ input[type="checkbox"] {
   color: var(--cor-info);
   background: var(--cor-info-fundo);
 }
+.etiqueta--atencao {
+  color: var(--cor-atencao);
+  background: var(--cor-atencao-fundo);
+  border-color: var(--cor-atencao-borda);
+}
+.etiqueta--linha-city_tour {
+  color: var(--cor-linha-city-tour);
+  background: var(--cor-linha-city-tour-fundo);
+}
+.etiqueta--linha-fretamento {
+  color: var(--cor-linha-fretamento);
+  background: var(--cor-linha-fretamento-fundo);
+}
+.etiqueta--linha-publicidade {
+  color: var(--cor-linha-publicidade);
+  background: var(--cor-linha-publicidade-fundo);
+}
+.etiqueta--linha-recreativo {
+  color: var(--cor-linha-recreativo);
+  background: var(--cor-linha-recreativo-fundo);
+}
 .etiqueta--status-realizada,
 .etiqueta--embarque-pendente,
 .etiqueta--acao-ignorar {
@@ -420,6 +443,7 @@ input[type="checkbox"] {
 .tabela .col-num {
   text-align: right;
   width: 3.5em;
+  white-space: nowrap;
 }
 .tabela--compacta th,
 .tabela--compacta td {
@@ -515,4 +539,63 @@ input[type="checkbox"] {
 
 .icone {
   flex-shrink: 0;
+}
+
+/* ---------- Grupos de opções (checkbox/rádio) ---------- */
+fieldset.grupo-opcoes,
+fieldset.grupo-campos {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: var(--esp-2) var(--esp-4) var(--esp-3);
+  margin: 0 0 var(--esp-4);
+  min-width: 0;
+}
+fieldset.grupo-opcoes legend,
+fieldset.grupo-campos legend {
+  font-weight: var(--peso-medio);
+  font-size: var(--texto-sm);
+  padding: 0 var(--esp-1);
+}
+fieldset.grupo-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--esp-5);
+}
+input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--cor-primaria);
+}
+.lista-opcoes,
+.lista-permissoes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+.lista-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--esp-5);
+  padding-left: var(--esp-5);
+}
+.lista-permissoes .caixa {
+  align-items: flex-start;
+  padding: var(--esp-1) 0;
+}
+.lista-permissoes .caixa input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.lista-permissoes__codigo {
+  display: block;
+  font-family: var(--fonte-mono);
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-fraco);
+}
+.caixa:has(input:disabled) {
+  cursor: not-allowed;
+}
+.grade-campos > .campo__ajuda {
+  margin-bottom: var(--esp-4);
 }

@@ -26,3 +26,25 @@ describe("formatação pt-BR", () => {
     expect(formatarMoeda(123456)).toBe("R$ 1.234,56");
   });
 });
+
+describe("moeda digitada e validade de documentos", () => {
+  it("converte reais digitados em centavos", async () => {
+    const { centavosDeTexto, textoDeCentavos } = await import("./formato");
+    expect(centavosDeTexto("300")).toBe(30000);
+    expect(centavosDeTexto("300,5")).toBe(30050);
+    expect(centavosDeTexto("R$ 1.234,56")).toBe(123456);
+    expect(centavosDeTexto("")).toBeNull();
+    expect(centavosDeTexto("12,345")).toBeNaN();
+    expect(centavosDeTexto("abc")).toBeNaN();
+    expect(textoDeCentavos(123456)).toBe("1.234,56");
+  });
+
+  it("classifica validade: vencido, vencendo em 30 dias, ok", async () => {
+    const { situacaoValidade } = await import("./formato");
+    expect(situacaoValidade("2026-10-21", "2026-10-22")).toBe("vencido");
+    expect(situacaoValidade("2026-10-22", "2026-10-22")).toBe("vencendo");
+    expect(situacaoValidade("2026-11-21", "2026-10-22")).toBe("vencendo");
+    expect(situacaoValidade("2026-11-22", "2026-10-22")).toBe("ok");
+    expect(situacaoValidade(null, "2026-10-22")).toBeNull();
+  });
+});

@@ -1,11 +1,12 @@
 import { createContext, useContext, useState } from "react";
 import { Link, NavLink, Outlet, useParams } from "react-router-dom";
 import { api, qs } from "../../api/cliente";
-import type { RespostaManifesto } from "../../api/tipos";
+import type { RespostaManifesto, RespostaSaida } from "../../api/tipos";
 import { Carregando, ErroCarga } from "../../componentes/Estados";
-import { useSessao } from "../../sessao/Sessao";
+import { nomePraca, useSessao } from "../../sessao/Sessao";
 import { formatarDataExtenso } from "../../util/formato";
 import { ROTULO_STATUS_SAIDA } from "../../util/rotulos";
+import { EtiquetaLinha } from "../../componentes/Etiquetas";
 import { useCarregar, type Carregamento } from "../../util/useCarregar";
 
 interface ValorSaida {
@@ -14,6 +15,8 @@ interface ValorSaida {
   dados: RespostaManifesto;
   documentosCompletos: boolean;
   setDocumentosCompletos: (v: boolean) => void;
+  /** Recarrega só o cabeçalho (saída + passeio) via GET /api/saidas/:id — não recarrega nem audita a lista. */
+  atualizarCabecalho: () => Promise<void>;
 }
 
 const Contexto = createContext<ValorSaida | null>(null);
@@ -30,7 +33,7 @@ export function useSaida(): ValorSaida {
  */
 export function SaidaLayout() {
   const { id = "" } = useParams();
-  const { pode } = useSessao();
+  const { pode, unidades } = useSessao();
   const [documentosCompletos, setDocs] = useState(false);
   const completos = documentosCompletos && pode("manifesto:documentos");
   const carga = useCarregar(
@@ -44,8 +47,12 @@ export function SaidaLayout() {
   }
 
   const { saida, passeio } = carga.dados;
+  async function atualizarCabecalho() {
+    const r = await api.get<RespostaSaida>(`/api/saidas/${encodeURIComponent(id)}`);
+    carga.definir((d) => (d ? { ...d, saida: r.saida, passeio: { ...d.passeio, ...r.passeio } } : d));
+  }
   return (
-    <Contexto.Provider value={{ id, carga, dados: carga.dados, documentosCompletos: completos, setDocumentosCompletos: setDocs }}>
+    <Contexto.Provider value={{ id, carga, dados: carga.dados, documentosCompletos: completos, setDocumentosCompletos: setDocs, atualizarCabecalho }}>
       <div className="pagina pagina--saida">
         <nav className="migalhas nao-imprimir" aria-label="Você está em">
           <Link to="/saidas">Saídas</Link> <span aria-hidden="true">›</span> <span aria-current="page">{formatarDataExtenso(saida.data)}</span>
@@ -56,7 +63,10 @@ export function SaidaLayout() {
               {formatarDataExtenso(saida.data)}{" "}
               <span className={`etiqueta etiqueta--status-${saida.status.toLowerCase()}`}>{ROTULO_STATUS_SAIDA[saida.status]}</span>
             </h1>
-            <p className="pagina__descricao">{passeio.nome}</p>
+            <p className="pagina__descricao">
+              {passeio.nome}
+              {unidades.length > 1 && passeio.unidadeId && <> · {nomePraca(unidades, passeio.unidadeId)}</>} <EtiquetaLinha linha={passeio.linha} />
+            </p>
           </div>
         </div>
         <nav className="abas nao-imprimir" aria-label="Seções da saída">

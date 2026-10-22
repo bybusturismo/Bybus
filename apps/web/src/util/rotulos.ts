@@ -1,12 +1,33 @@
-import type { AcaoImportacao, Canal, Categoria, NivelAlerta, Perfil, StatusEmbarque, StatusReserva, StatusSaida, TipoDocumento } from "../api/tipos";
+import type { AcaoImportacao, Canal, Categoria, LinhaNegocio, NivelAlerta, PapelPessoa, Permissao, StatusEmbarque, StatusReserva, StatusSaida, TipoDocumento } from "../api/tipos";
 
-export const ROTULO_PERFIL: Record<Perfil, string> = {
-  ADMIN: "Administrador",
-  SUPERVISOR: "Supervisor(a)",
-  ATENDENTE: "Atendente",
+/** Linhas de negócio (ADR 0005). */
+export const ROTULO_LINHA: Record<LinhaNegocio, string> = {
+  CITY_TOUR: "City tour",
+  FRETAMENTO: "Fretamento",
+  PUBLICIDADE: "Publicidade",
+  RECREATIVO: "Recreativo",
+};
+
+export const ROTULO_PAPEL: Record<PapelPessoa, string> = {
   GUIA: "Guia",
   MOTORISTA: "Motorista",
+  COLABORADOR: "Colaborador(a)",
+  PARCEIRO: "Parceiro(a)",
 };
+
+/** Agrupamento das permissões por área (tela de perfis de acesso). Ordem = ordem de exibição. */
+export const AREAS_PERMISSAO: Array<{ area: string; prefixos: string[] }> = [
+  { area: "Administração", prefixos: ["usuarios", "unidades", "auditoria"] },
+  { area: "Equipe", prefixos: ["pessoas"] },
+  { area: "Produtos e pontos", prefixos: ["produtos", "pontos"] },
+  { area: "Saídas e reservas", prefixos: ["saidas", "reservas", "importacoes"] },
+  { area: "Lista de passageiros e embarque", prefixos: ["manifesto", "embarque"] },
+];
+
+export function areaDaPermissao(p: Permissao | string): string {
+  const prefixo = p.split(":")[0] ?? "";
+  return AREAS_PERMISSAO.find((a) => a.prefixos.includes(prefixo))?.area ?? "Outras";
+}
 
 export const ROTULO_CANAL: Record<Canal, string> = {
   PAYTOUR: "Paytour",
@@ -92,4 +113,13 @@ export const ROTULO_ACAO_AUDITORIA: Record<string, string> = {
   MANIFESTO_EXPORTADO: "Exportou lista (CSV)",
   IMPORTACAO_BOKUN: "Importou e-mails Bókun",
   IMPORTACAO_PAYTOUR: "Importou CSV Paytour",
+  PERFIL_CRIADO: "Criou perfil de acesso",
+  PERFIL_ALTERADO: "Alterou perfil de acesso",
+  UNIDADE_CRIADA: "Criou praça",
+  UNIDADE_ALTERADA: "Alterou praça",
+  PASSEIO_CRIADO: "Criou passeio",
+  PASSEIO_ALTERADO: "Alterou passeio",
+  PESSOA_CRIADA: "Cadastrou pessoa da equipe",
+  PESSOA_ALTERADA: "Alterou pessoa da equipe",
+  RESERVAS_VISUALIZADAS: "Viu reservas",
 };

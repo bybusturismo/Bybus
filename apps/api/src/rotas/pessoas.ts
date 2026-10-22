@@ -50,7 +50,8 @@ export async function rotasPessoas(app: FastifyInstance, { db, config, cofre }: 
     const u = req.usuario!;
     const filtros = [];
     if (q.papel) filtros.push(sql`${q.papel} = ANY(${pessoas.papeis})`);
-    if (q.unidadeId) filtros.push(eq(pessoas.unidadeId, q.unidadeId));
+    // Filtrar por praça inclui quem atende todas as praças (sem praça definida) — também pode ser escalado.
+    if (q.unidadeId) filtros.push(sql`(${pessoas.unidadeId} = ${q.unidadeId} OR ${pessoas.unidadeId} IS NULL)`);
     if (q.ativos !== "false") filtros.push(eq(pessoas.ativo, true));
     // Pessoa sem praça (atende várias) aparece para todos; com praça, só para quem tem acesso a ela.
     const escopo = filtroUnidade(u, pessoas.unidadeId as never);

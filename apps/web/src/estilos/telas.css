@@ -53,6 +53,22 @@
   background: var(--cor-destaque);
   color: var(--cor-sobre-destaque);
 }
+.topo__praca {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  margin-left: auto;
+  font-size: var(--texto-sm);
+}
+.topo__praca label {
+  font-weight: var(--peso-medio);
+}
+.topo__praca select {
+  width: auto;
+  max-width: 16rem;
+  min-height: 36px;
+  padding: var(--esp-1) var(--esp-2);
+}
 .topo__usuario {
   display: flex;
   align-items: center;
@@ -189,6 +205,27 @@
   }
   .topo__quem {
     display: none;
+  }
+  .topo__nome {
+    display: none;
+  }
+  .topo__praca label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .topo__praca select {
+    max-width: 11rem;
+  }
+  /* Muitos itens (administrador): o menu inferior rola na horizontal. */
+  .menu ul {
+    overflow-x: auto;
+  }
+  .menu li {
+    min-width: 72px;
   }
   .botao--topo span {
     display: none;
@@ -1058,4 +1095,22 @@
 }
 .atalhos dd {
   margin: 0;
+}
+
+.saida__passeio {
+  font-weight: var(--peso-medio);
+  margin-left: var(--esp-2);
+}
+.grupo-permissoes {
+  margin-top: var(--esp-2);
+}
+.celula-pilha span {
+  display: block;
+}
+.celula-pilha > span + span {
+  margin-top: var(--esp-1);
+}
+.celula-pilha .etiqueta {
+  display: inline-block;
+  margin-left: 0;
 }

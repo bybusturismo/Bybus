@@ -1,9 +1,10 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Cookie, type Page } from "@playwright/test";
 
 /**
  * Fluxos críticos contra a API local com DADOS FICTÍCIOS (usuários *@bybus.test).
  * Screenshots opcionais: defina BYBUS_SCREENSHOTS=/caminho/da/pasta.
- * Atenção: a API limita o login a 10 tentativas/minuto por IP; a suíte faz 10. Espere 1 minuto entre execuções.
+ * Atenção: a API limita o login a 10 tentativas/minuto por IP. Para caber no limite, a sessão de cada usuário
+ * fictício é reaproveitada entre os testes (cookies guardados em memória). Espere 1 minuto entre execuções.
  */
 const SENHA = "Bybus-teste-2026";
 const PASTA = process.env.BYBUS_SCREENSHOTS;
@@ -12,12 +13,22 @@ async function foto(page: Page, nome: string, opcoes: { fullPage?: boolean } = {
   if (PASTA) await page.screenshot({ path: `${PASTA}/${nome}.png`, fullPage: opcoes.fullPage ?? true });
 }
 
+const sessoes = new Map<string, Cookie[]>();
+
 async function entrar(page: Page, email: string) {
+  const salvos = sessoes.get(email);
+  if (salvos) {
+    await page.context().addCookies(salvos);
+    await page.goto("/");
+    if (await page.getByRole("button", { name: "Sair" }).isVisible({ timeout: 5000 }).catch(() => false)) return;
+    await page.context().clearCookies();
+  }
   await page.goto("/");
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha").fill(SENHA);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page.getByRole("button", { name: "Sair" })).toBeVisible();
+  sessoes.set(email, await page.context().cookies());
 }
 
 async function abrirPrimeiraSaida(page: Page) {
@@ -186,6 +197,7 @@ test("admin + primeiro acesso: usuário novo → senha temporária → troca obr
   await dialogo.getByLabel("Nome").fill("Pessoa E2E Ficticia");
   await dialogo.getByLabel("E-mail").fill(email);
   await dialogo.getByLabel("Perfil").selectOption("ATENDENTE");
+  await dialogo.getByRole("checkbox", { name: "Florianópolis (Floripa by Bus)" }).check();
   await dialogo.getByRole("button", { name: "Criar usuário" }).click();
   const temporaria = (await page.locator(".senha-temporaria code").textContent())!;
   expect(temporaria.length).toBeGreaterThan(10);
@@ -267,4 +279,115 @@ test("atendente: importar CSV da Paytour em ISO-8859-1", async ({ page }) => {
   await page.getByRole("button", { name: "Confirmar importação" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Importar agora" }).click();
   await expect(page.getByText("Importação concluída", { exact: true })).toBeVisible();
+});
+
+test("admin: seletor de praça filtra as saídas e fica lembrado; perfil personalizado com permissões e MFA", async ({ page }) => {
+  await entrar(page, "admin@bybus.test");
+  await page.getByRole("link", { name: "Saídas" }).click();
+  const seletor = page.getByLabel("Praça", { exact: true });
+  await expect(seletor).toBeVisible();
+
+  // Florianópolis: City Tour Toda Ilha com etiqueta da linha de negócio.
+  await seletor.selectOption({ label: "Florianópolis (Floripa by Bus)" });
+  await expect(page.getByText("Florianópolis (Floripa by Bus) ·")).toBeVisible();
+  await expect(page.locator(".saida .etiqueta--linha").first()).toHaveText("City tour");
+  await expect(page.getByText(/Pagantes \(mín\. 12\)/).first()).toBeVisible();
+  await foto(page, "14-saidas-praca-fln");
+
+  // Balneário Camboriú: nada do City Tour Toda Ilha aparece.
+  await seletor.selectOption({ label: "Balneário Camboriú (BC by Bus)" });
+  await expect(page.getByText("Balneário Camboriú (BC by Bus) ·")).toBeVisible();
+  await expect(page.locator(".saida__passeio", { hasText: "City Tour Toda Ilha" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByLabel("Praça", { exact: true })).toHaveValue(await page.getByLabel("Praça", { exact: true }).locator("option", { hasText: "Balneário Camboriú" }).getAttribute("value") as string);
+  await foto(page, "15-saidas-praca-bc");
+  await page.getByLabel("Praça", { exact: true }).selectOption({ label: "Todas as praças" });
+
+  // Perfil personalizado.
+  await page.getByRole("link", { name: "Perfis de acesso" }).click();
+  await expect(page.getByRole("row", { name: /Administrador/ })).toContainText("bloqueado");
+  await page.getByRole("button", { name: "Ver perfil Administrador" }).click();
+  await expect(page.getByRole("dialog").getByText("Somente leitura")).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Fechar", exact: true }).first().click();
+
+  const codigo = `E2E_${Date.now() % 1_000_000}`;
+  await page.getByRole("button", { name: "Novo perfil" }).click();
+  const d = page.getByRole("dialog", { name: "Novo perfil" });
+  await d.getByLabel("Código").fill(codigo);
+  await d.getByLabel("Nome do perfil").fill(`Escala E2E ${codigo}`);
+  await d.getByLabel("Descrição", { exact: true }).fill("Perfil fictício criado pelo teste ponta a ponta.");
+  await d.getByRole("checkbox", { name: /Consultar guias e motoristas/ }).check();
+  await d.getByRole("checkbox", { name: /Ver a lista de passageiros/ }).check();
+  await d.getByRole("checkbox", { name: /Cadastrar e editar guias, motoristas/ }).check();
+  await expect(d.getByText(/obrigado a ativar a verificação em duas etapas/)).toBeVisible();
+  await foto(page, "16-perfil-novo", { fullPage: false });
+  await d.getByRole("button", { name: "Criar perfil" }).click();
+  await expect(d).toBeHidden();
+  const linha = page.getByRole("row", { name: new RegExp(`Escala E2E ${codigo}`) });
+  await expect(linha).toContainText("3 de 15");
+  await expect(linha).toContainText("obrigatório");
+
+  // Edição avisa que muda as sessões de quem usa o perfil.
+  await linha.getByRole("button", { name: /Editar perfil/ }).click();
+  const e = page.getByRole("dialog");
+  await e.getByRole("checkbox", { name: /Cadastrar e editar guias, motoristas/ }).uncheck();
+  await expect(e.getByText(/encerra imediatamente as sessões/)).toBeVisible();
+  await e.getByRole("button", { name: "Salvar perfil" }).click();
+  await expect(linha).toContainText("2 de 15");
+  await expect(linha).toContainText("opcional");
+  await foto(page, "17-perfis");
+
+  // O perfil novo aparece para escolher no cadastro de usuário.
+  await page.getByRole("link", { name: "Usuários" }).click();
+  await page.getByRole("button", { name: "Novo usuário" }).click();
+  await expect(page.getByRole("dialog", { name: "Novo usuário" }).getByLabel("Perfil").locator("option", { hasText: `Escala E2E ${codigo}` })).toHaveCount(1);
+  await foto(page, "18-usuario-perfil-pracas", { fullPage: false });
+});
+
+test("supervisor: cadastrar guia na Equipe e escalá-lo numa saída", async ({ page }) => {
+  await entrar(page, "supervisor@bybus.test");
+  await page.getByRole("link", { name: "Equipe" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Equipe" })).toBeVisible();
+  const nome = `Guia E2E Ficticio ${Date.now() % 100000}`;
+  const validade = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+
+  await page.getByRole("button", { name: "Cadastrar pessoa" }).click();
+  const d = page.getByRole("dialog", { name: "Cadastrar pessoa" });
+  await d.getByLabel("Nome completo").fill(nome);
+  await d.getByRole("checkbox", { name: "Guia" }).check();
+  await d.getByLabel("Telefone").fill("+55 48 90000-0000");
+  await d.getByLabel("Número no Cadastur").fill("00.000000.00.0000-0");
+  await d.getByLabel("Validade do Cadastur").fill(validade);
+  await d.getByLabel("Idiomas").fill("Português, Inglês");
+  await d.getByLabel("Diária (R$)").fill("320,00");
+  await foto(page, "19-cadastrar-guia", { fullPage: false });
+  await d.getByRole("button", { name: "Cadastrar" }).click();
+  await expect(d).toBeHidden();
+  const linha = page.getByRole("row", { name: new RegExp(nome) });
+  await expect(linha).toContainText("R$ 320,00");
+  await expect(linha.locator(".etiqueta--atencao")).toContainText("Cadastur vence em");
+  await foto(page, "20-equipe");
+
+  // Escala na primeira saída (lista de guias vem do cadastro).
+  await abrirPrimeiraSaida(page);
+  await page.getByRole("button", { name: "Veículo e equipe" }).click();
+  const eq = page.getByRole("dialog", { name: "Veículo e equipe" });
+  const guia = eq.getByLabel("Guia");
+  await expect(guia).toBeEnabled();
+  await guia.selectOption({ label: `${nome} (Português, Inglês)` });
+  await foto(page, "21-escalar-guia", { fullPage: false });
+  await eq.getByRole("button", { name: "Salvar" }).click();
+  await expect(eq).toBeHidden();
+  await expect(page.getByRole("region", { name: "Resumo da saída" })).toContainText(nome);
+
+  // Limpeza: guia volta a "a definir" e o guia de teste é desativado.
+  await page.getByRole("button", { name: "Veículo e equipe" }).click();
+  await eq.getByLabel("Guia").selectOption("");
+  await eq.getByRole("button", { name: "Salvar" }).click();
+  await expect(eq).toBeHidden();
+  await page.getByRole("link", { name: "Equipe" }).click();
+  await page.getByRole("button", { name: `Editar ${nome}` }).click();
+  await page.getByRole("dialog").getByLabel(/Ativo/).uncheck();
+  await page.getByRole("dialog").getByRole("button", { name: "Salvar alterações" }).click();
+  await expect(page.getByRole("row", { name: new RegExp(nome) })).toHaveCount(0);
 });

@@ -3,12 +3,17 @@
  * Mantidos aqui para o front não depender do build do pacote core.
  */
 
-export const PERFIS = ["ADMIN", "SUPERVISOR", "ATENDENTE", "GUIA", "MOTORISTA"] as const;
-export type Perfil = (typeof PERFIS)[number];
+/** Código do perfil de acesso (ADMIN ou perfil criado pelo administrador). Perfis são configuráveis (ADR 0005). */
+export type Perfil = string;
 
+/** Espelha CATALOGO_PERMISSOES da API (apps/api/src/seguranca/permissoes.ts). */
 export const PERMISSOES = [
   "usuarios:gerenciar",
+  "unidades:gerenciar",
   "auditoria:ver",
+  "pessoas:gerenciar",
+  "pessoas:ver",
+  "produtos:gerenciar",
   "pontos:gerenciar",
   "saidas:gerenciar",
   "saidas:decidir",
@@ -36,18 +41,41 @@ export const STATUS_SAIDA = ["PREVISTA", "CONFIRMADA", "CANCELADA", "REALIZADA"]
 export type StatusSaida = (typeof STATUS_SAIDA)[number];
 export type Pendencia = "TROCAR_SENHA" | "CONFIGURAR_MFA" | null;
 
+export const LINHAS_NEGOCIO = ["CITY_TOUR", "FRETAMENTO", "PUBLICIDADE", "RECREATIVO"] as const;
+export type LinhaNegocio = (typeof LINHAS_NEGOCIO)[number];
+
+export const PAPEIS_PESSOA = ["GUIA", "MOTORISTA", "COLABORADOR", "PARCEIRO"] as const;
+export type PapelPessoa = (typeof PAPEIS_PESSOA)[number];
+
 export interface Usuario {
   id: string;
   nome: string;
   email: string;
   perfil: Perfil;
+  perfilNome?: string;
+  todasUnidades?: boolean;
   totpAtivo?: boolean;
 }
 
+/** Praça/unidade resumida (como vem em /api/auth/eu). */
+export interface UnidadeResumo {
+  id: string;
+  codigo: string;
+  nome: string;
+}
+
+export interface Unidade extends UnidadeResumo {
+  cidade: string;
+  uf: string;
+  ativa: boolean;
+  criadoEm?: string;
+}
+
 export interface RespostaEu {
-  usuario: Usuario & { totpAtivo: boolean };
+  usuario: Usuario & { totpAtivo: boolean; perfilNome: string; todasUnidades: boolean };
   pendencia: Pendencia;
   permissoes: Permissao[];
+  unidades: UnidadeResumo[];
 }
 
 export interface Passeio {
@@ -55,10 +83,54 @@ export interface Passeio {
   codigo: string;
   nome: string;
   cidade: string;
+  unidadeId: string;
+  linha: LinhaNegocio;
   capacidadePadrao: number;
   minimoConfirmacao: number;
   minimoSupervisor: number;
   ativo: boolean;
+  /** Só em GET /api/passeios. */
+  unidade?: string;
+  unidadeCodigo?: string;
+}
+
+export interface PermissaoCatalogo {
+  codigo: Permissao;
+  descricao: string;
+  exigeMfa: boolean;
+}
+
+export interface PerfilAcesso {
+  id: string;
+  codigo: Perfil;
+  nome: string;
+  descricao: string | null;
+  permissoes: Permissao[];
+  sistema: boolean;
+  criadoEm: string;
+}
+
+/** Pessoa do cadastro único. Com só "pessoas:ver" a API manda o resumo (sem contato/documentos). */
+export interface Pessoa {
+  id: string;
+  nome: string;
+  papeis: PapelPessoa[];
+  unidadeId: string | null;
+  idiomas: string[];
+  ativo: boolean;
+  telefone?: string | null;
+  email?: string | null;
+  documentoTipo?: TipoDocumento | null;
+  documento?: string | null; // mascarado
+  documentoFinal?: string | null;
+  cnhCategoria?: string | null;
+  cnhValidade?: string | null;
+  cadasturNumero?: string | null;
+  cadasturValidade?: string | null;
+  diariaCentavos?: number | null;
+  observacoes?: string | null;
+  usuarioId?: string | null;
+  criadoEm?: string;
 }
 
 export interface PontoEmbarque {
@@ -80,8 +152,12 @@ export interface SaidaResumo {
   veiculo: string | null;
   guia: string | null;
   motorista: string | null;
+  guiaId: string | null;
+  motoristaId: string | null;
   passeio: string;
   passeioId: string;
+  linha: LinhaNegocio;
+  unidadeId: string;
   reservas: number;
   passageiros: number;
   assentos: number;
@@ -97,8 +173,16 @@ export interface Saida {
   veiculo: string | null;
   guia: string | null;
   motorista: string | null;
+  guiaId?: string | null;
+  motoristaId?: string | null;
   observacoes: string | null;
   criadoEm: string;
+}
+
+/** GET /api/saidas/:id — cabeçalho da saída sem carregar (nem auditar) a lista de passageiros. */
+export interface RespostaSaida {
+  saida: Saida;
+  passeio: Passeio;
 }
 
 export interface PassageiroManifesto {
@@ -219,6 +303,9 @@ export interface UsuarioAdmin {
   nome: string;
   email: string;
   perfil: Perfil;
+  perfilNome: string;
+  todasUnidades: boolean;
+  unidadeIds: string[];
   ativo: boolean;
   totpAtivo: boolean;
   trocarSenha: boolean;

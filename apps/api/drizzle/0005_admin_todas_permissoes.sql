@@ -1,0 +1,2 @@
+-- O perfil ADMIN guarda o catálogo completo (a sessão já concedia tudo; isto alinha o que a tela mostra).
+UPDATE "perfis" SET "permissoes" = ARRAY['usuarios:gerenciar','unidades:gerenciar','auditoria:ver','pessoas:gerenciar','pessoas:ver','produtos:gerenciar','pontos:gerenciar','saidas:gerenciar','saidas:decidir','reservas:editar','importacoes:executar','manifesto:ver','manifesto:documentos','manifesto:contatos','embarque:registrar'] WHERE "codigo" = 'ADMIN';

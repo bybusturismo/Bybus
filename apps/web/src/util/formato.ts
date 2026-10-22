@@ -72,3 +72,32 @@ export function formatarNumero(n: number): string {
 export function plural(n: number, singular: string, pluralForma = `${singular}s`): string {
   return `${formatarNumero(n)} ${n === 1 ? singular : pluralForma}`;
 }
+
+/**
+ * Texto digitado em reais → centavos (inteiro). Aceita "300", "300,5", "1.234,56", "R$ 1.234,56".
+ * Retorna null se vazio e NaN se inválido.
+ */
+export function centavosDeTexto(texto: string): number | null {
+  const t = texto.replace(/R\$/i, "").replace(/\s/g, "");
+  if (!t) return null;
+  if (!/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+(,\d{1,2})?$/.test(t)) return Number.NaN;
+  const [inteiro, decimal = ""] = t.replace(/\./g, "").split(",");
+  return Number(inteiro) * 100 + Number(decimal.padEnd(2, "0"));
+}
+
+/** Centavos → texto editável "1.234,56" (sem "R$"). */
+export function textoDeCentavos(centavos: number | null | undefined): string {
+  if (centavos === null || centavos === undefined) return "";
+  return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(centavos / 100);
+}
+
+export type SituacaoValidade = "vencido" | "vencendo" | "ok";
+
+/** Documento com validade (CNH, Cadastur): vencido, vencendo em até `dias` dias, ou ok. */
+export function situacaoValidade(validade: string | null | undefined, hoje: string, dias = 30): SituacaoValidade | null {
+  if (!validade) return null;
+  const d = diferencaDias(hoje, validade.slice(0, 10));
+  if (d < 0) return "vencido";
+  if (d <= dias) return "vencendo";
+  return "ok";
+}

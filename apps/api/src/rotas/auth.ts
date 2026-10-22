@@ -103,6 +103,8 @@ export async function rotasAuth(app: FastifyInstance, { db, config, cofre }: Con
       usuario: { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, perfilNome: u.perfilNome, totpAtivo: u.totpAtivo, todasUnidades: u.todasUnidades },
       pendencia: pendencia(u, config),
       permissoes: u.permissoes,
+      /** Administrador concede qualquer perfil/praça; os demais só o que já têm (regra anti-escalonamento). */
+      administrador: u.perfil === "ADMIN",
       unidades: (await db.select({ id: unidades.id, codigo: unidades.codigo, nome: unidades.nome }).from(unidades).where(eq(unidades.ativa, true)).orderBy(unidades.nome))
         .filter((x) => u.todasUnidades || u.unidadeIds.includes(x.id)),
     };
