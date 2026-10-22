@@ -1,0 +1,17 @@
+{
+  "name": "bybus-gestao",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sistema gerencial da By Bus Turismo",
+  "engines": { "node": ">=22" },
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "dev:api": "pnpm --filter @bybus/api dev",
+    "dev:web": "pnpm --filter @bybus/web dev",
+    "db:migrate": "pnpm --filter @bybus/api db:migrate",
+    "db:seed": "pnpm --filter @bybus/api db:seed"
+  }
+}

@@ -17,3 +17,5 @@ exports/
 .DS_Store
 .vscode/
 .idea/
+*.tsbuildinfo
+.pgdata/
