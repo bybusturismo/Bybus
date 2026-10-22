@@ -21,4 +21,4 @@ Sistema gerencial da **By Bus Turismo** (Florianópolis e Balneário Camboriú/S
 
 ## Estado atual (22/10/2026)
 - Fase de descoberta concluída (Drive, buscas públicas, regulação). Site oficial ainda não lido integralmente (rede bloqueada).
-- Stack ainda **não decidida** — aguardando respostas em `docs/conhecimento/perguntas-abertas.md` (principalmente: Paytour integrar × substituir, hospedagem/orçamento).
+- Decisões: integrar Paytour (ADR 0001); primeira entrega no ambiente de testes = **Acesso + Frota**. Orçamento de hospedagem sem preferência — comparar provedores antes de contratar. Stack ainda a definir (próximo ADR).

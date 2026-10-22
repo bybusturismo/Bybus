@@ -3,9 +3,9 @@
 Atualize este arquivo à medida que forem respondidas (resposta + data).
 
 ## Decisões estratégicas (bloqueiam a arquitetura)
-1. **Paytour: integrar ou substituir?** Recomendação inicial: manter a Paytour vendendo e integrar via API (exige plano Premium, a confirmar), substituindo só depois, se fizer sentido. Pedir à Paytour documentação da API, sandbox e webhooks.
-2. **Hospedagem e orçamento mensal** para infraestrutura (servidor, banco, backups, lojas de apps: Apple US$ 99/ano, Google US$ 25 único).
-3. **Escopo do MVP:** concorda com Acesso + Cadastros + Frota/Manutenção + Catálogo/Saídas + Reservas como primeira entrega?
+1. ✅ **RESPONDIDA 22/10/2026: integrar agora** (ver ADR 0001). ~~**Paytour: integrar ou substituir?** Recomendação inicial: manter a Paytour vendendo e integrar via API (exige plano Premium, a confirmar), substituindo só depois, se fizer sentido. Pedir à Paytour documentação da API, sandbox e webhooks.~~
+2. ⏳ **Sem preferência informada (22/10/2026)** — o arquiteto prepara comparação de provedores com custos antes de contratar. **Hospedagem e orçamento mensal** para infraestrutura (servidor, banco, backups, lojas de apps: Apple US$ 99/ano, Google US$ 25 único).
+3. ✅ **RESPONDIDA 22/10/2026: primeira entrega = Acesso + Frota.** ~~**Escopo do MVP:** concorda com Acesso + Cadastros + Frota/Manutenção + Catálogo/Saídas + Reservas como primeira entrega?~~
 4. **Quem usa primeiro** e quantos usuários por perfil.
 
 ## Frota
