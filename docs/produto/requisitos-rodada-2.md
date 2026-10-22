@@ -38,3 +38,15 @@
 - Embarque ganha o status **ATRASADO** (além de PENDENTE, EMBARCOU, NO_SHOW).
 - Saída ganha **tipo de operação** (CITY_TOUR × FRETAMENTO), **guia** e **motorista** passam a ser pessoas cadastradas (hoje são texto).
 - Passageiro ganha **cliente** vinculado com **país/estado/cidade**.
+
+## 7. "Onde está meu ônibus" + avisos no WhatsApp (estilo Uber)
+- O passageiro acompanha **onde está o ônibus** e recebe avisos automáticos **no WhatsApp** (ninguém vai baixar app):
+  - "Prepare-se: seu ônibus chega em **10 minutos**" → "**5 minutos**" → "Seu ônibus **está no ponto de embarque** selecionado. **Não há tolerância para atrasos.**"
+- Cada aviso vai para o telefone do titular da reserva, conforme o **ponto de embarque escolhido**.
+- Proposta técnica (em pesquisa pelo agente `integracoes`):
+  - **Posição do ônibus:** API do rastreador já instalado; alternativa/complemento: **GPS do celular da guia** no modo embarque.
+  - **Previsão de chegada (ETA):** roteiro é fixo (13 pontos) → distância/tempo até o próximo ponto + histórico de tempos.
+  - **Envio:** WhatsApp Business Platform (API oficial — exige modelos de mensagem aprovados pela Meta e custo por mensagem) ou integração com o **BotConversa** que a empresa já usa.
+  - **Link de acompanhamento:** página web sem login, com token por reserva, mostrando o ônibus no mapa e o horário previsto; expira no fim do passeio.
+  - **Registro:** cada aviso enviado fica gravado (prova de que o cliente foi avisado — útil em reclamações de no-show).
+- LGPD/WhatsApp: aviso operacional da compra é permitido (execução de contrato), mas é preciso informar na compra que o cliente receberá avisos no WhatsApp; nada de marketing sem consentimento.
