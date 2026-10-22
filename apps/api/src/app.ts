@@ -11,7 +11,7 @@ import { rotasManifesto } from "./rotas/manifesto.js";
 import { rotasOperacao } from "./rotas/operacao.js";
 import { rotasUsuarios } from "./rotas/usuarios.js";
 import { Cofre } from "./seguranca/cripto.js";
-import { carregarUsuario, COOKIE_SESSAO, ErroHttp } from "./seguranca/sessao.js";
+import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
 
 export interface Contexto {
   db: Db;
@@ -29,11 +29,15 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
       // Nunca registrar senha, código MFA, cookies ou documentos nos logs.
       redact: ["req.headers.cookie", "req.headers.authorization", "body.senha", "body.novaSenha", "body.senhaAtual", "body.codigo"],
     },
-    trustProxy: config.AMBIENTE === "producao",
+    // Só confia em X-Forwarded-For quando há proxy conhecido à frente (evita IP falsificado no rate limit e na auditoria).
+    trustProxy: config.PROXIES_CONFIAVEIS > 0 ? config.PROXIES_CONFIAVEIS : false,
     bodyLimit: 1024 * 1024,
   });
 
-  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(helmet, {
+    // API só devolve JSON/CSV: nada deve ser executado nem embutido.
+    contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
+  });
   await app.register(cookie);
   await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
 
@@ -45,7 +49,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   });
 
   app.addHook("preHandler", async (req) => {
-    req.usuario = (await carregarUsuario(db, req.cookies[COOKIE_SESSAO])) ?? undefined;
+    req.usuario = (await carregarUsuario(db, config, req.cookies[nomeCookie(config)])) ?? undefined;
   });
 
   app.addHook("onSend", async (_req, reply) => {
@@ -57,12 +61,14 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
     if (erro instanceof ZodError) {
       return reply.status(400).send({ codigo: "DADOS_INVALIDOS", mensagem: "Dados inválidos.", detalhes: erro.issues.map((i) => ({ campo: i.path.join("."), mensagem: i.message })) });
     }
-    if ((erro as { statusCode?: number }).statusCode === 429) return reply.status(429).send({ codigo: "MUITAS_REQUISICOES", mensagem: "Muitas tentativas. Aguarde um pouco." });
+    const status = (erro as { statusCode?: number }).statusCode;
+    if (status === 429) return reply.status(429).send({ codigo: "MUITAS_REQUISICOES", mensagem: "Muitas tentativas. Aguarde um pouco." });
+    if (status && status >= 400 && status < 500) return reply.status(status).send({ codigo: "REQUISICAO_INVALIDA", mensagem: status === 413 ? "Arquivo ou conteúdo grande demais." : "Requisição inválida." });
     req.log.error(erro);
     return reply.status(500).send({ codigo: "ERRO_INTERNO", mensagem: "Erro interno. Tente novamente." });
   });
 
-  app.get("/api/saude", async () => ({ ok: true, ambiente: config.AMBIENTE }));
+  app.get("/api/saude", async () => ({ ok: true }));
 
   await rotasAuth(app, ctx);
   await rotasUsuarios(app, ctx);

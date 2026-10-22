@@ -40,6 +40,11 @@ function hojeMais(dias: number): string {
 
 export async function semearFicticios(db: Db, chave: string) {
   const cofre = new Cofre(chave);
+  // Proteção extra: se já houver usuário real (fora de @bybus.test), este banco não é de testes.
+  const reais = await db.select({ email: usuarios.email }).from(usuarios);
+  if (reais.some((u) => !u.email.endsWith("@bybus.test"))) {
+    throw new Error("Banco contém usuários reais — dados fictícios não serão criados.");
+  }
   const passeio = await semearReferencia(db);
   const hash = await gerarHashSenha(SENHA_DEMO);
   for (const u of USUARIOS_DEMO) {

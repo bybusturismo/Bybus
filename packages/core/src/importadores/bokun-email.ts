@@ -9,8 +9,12 @@ const MESES: Record<string, string> = {
 function tabela(corpo: string): Map<string, string> {
   const campos = new Map<string, string>();
   for (const linha of corpo.split(/\r?\n/)) {
-    const m = /^\s*\|\s*([^|]+?)\s*\|\s*(.*?)\s*\|\s*$/.exec(linha);
-    if (m) campos.set(m[1]!.toLowerCase(), m[2]!.replace(/\[\]\([^)]*\)/g, "").trim());
+    // Sem regex de backtracking (evita ReDoS com linhas maliciosas).
+    const t = linha.trim();
+    if (t.length < 3 || t.length > 2000 || !t.startsWith("|") || !t.endsWith("|")) continue;
+    const [chave, ...resto] = t.slice(1, -1).split("|");
+    if (!chave || resto.length === 0) continue;
+    campos.set(chave.trim().toLowerCase(), resto.join("|").trim().replace(/\[\]\([^)\s]*\)/g, "").trim());
   }
   return campos;
 }
@@ -25,15 +29,19 @@ export function lerDataBokun(texto: string): { data: string; horario: string | n
 }
 
 /** "2 Adult, 1 Child" → [ADULTO, ADULTO, INFANTIL] */
+/** Limite de passageiros por reserva importada (protege contra arquivos/e-mails malformados). */
+export const MAX_PASSAGEIROS_POR_RESERVA = 80;
+
 export function lerPax(texto: string): { categorias: Categoria[]; desconhecidos: string[] } {
   const categorias: Categoria[] = [];
   const desconhecidos: string[] = [];
-  for (const parte of texto.split(/[,;]/)) {
-    const m = /(\d+)\s*x?\s*(.+)/i.exec(parte.trim());
+  for (const parte of texto.slice(0, 500).split(/[,;]/)) {
+    const m = /^(\d{1,6})\s*x?\s*(\S.{0,60})$/i.exec(parte.trim());
     if (!m) continue;
     const cat = categoriaPorRotulo(m[2]!);
     if (!cat) desconhecidos.push(m[2]!.trim());
-    for (let i = 0; i < Number(m[1]); i++) categorias.push(cat ?? "ADULTO");
+    const qtd = Math.min(Number(m[1]), MAX_PASSAGEIROS_POR_RESERVA - categorias.length);
+    for (let i = 0; i < qtd; i++) categorias.push(cat ?? "ADULTO");
   }
   return { categorias, desconhecidos };
 }

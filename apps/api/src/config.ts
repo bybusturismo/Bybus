@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 const esquema = z.object({
-  AMBIENTE: z.enum(["desenvolvimento", "testes", "producao"]).default("desenvolvimento"),
+  /** Obrigatório (sem padrão) para que produção nunca rode por engano com configurações de desenvolvimento. */
+  AMBIENTE: z.enum(["desenvolvimento", "testes", "producao"]),
   PORTA: z.coerce.number().default(3333),
   HOST: z.string().default("127.0.0.1"),
   DATABASE_URL: z.string().url(),
@@ -10,16 +11,25 @@ const esquema = z.object({
   /** Origem do front-end (CORS/cookies). */
   ORIGEM_WEB: z.string().default("http://localhost:5173"),
   SESSAO_HORAS: z.coerce.number().default(12),
+  /** Sessão expira após este tempo sem uso. */
+  SESSAO_INATIVIDADE_MINUTOS: z.coerce.number().default(120),
+  /** Quantidade de proxies reversos confiáveis à frente da API (0 = nenhum; não confiar em X-Forwarded-For). */
+  PROXIES_CONFIAVEIS: z.coerce.number().int().min(0).max(5).default(0),
   /** Tentativas de login/troca de senha por minuto por IP. */
   LIMITE_LOGIN_POR_MINUTO: z.coerce.number().default(10),
   /** MFA obrigatório para ADMIN e SUPERVISOR. */
   EXIGIR_MFA_ADMIN: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
 });
 
+const esquemaValidado = esquema.refine((c) => c.AMBIENTE !== "producao" || c.EXIGIR_MFA_ADMIN, {
+  message: "Em produção, EXIGIR_MFA_ADMIN não pode ser false.",
+  path: ["EXIGIR_MFA_ADMIN"],
+});
+
 export type Config = z.infer<typeof esquema>;
 
 export function lerConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const r = esquema.safeParse(env);
+  const r = esquemaValidado.safeParse(env);
   if (!r.success) {
     throw new Error("Configuração inválida:\n" + r.error.issues.map((i) => `- ${i.path.join(".")}: ${i.message}`).join("\n"));
   }

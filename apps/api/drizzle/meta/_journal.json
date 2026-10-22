@@ -8,6 +8,27 @@
       "when": 1792659380600,
       "tag": "0000_inicial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792660091288,
+      "tag": "0001_seguranca",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792660092161,
+      "tag": "0002_auditoria_imutavel",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792660182520,
+      "tag": "0003_ordem_passageiros",
+      "breakpoints": true
     }
   ]
 }

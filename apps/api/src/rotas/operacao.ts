@@ -90,8 +90,8 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       veiculo: z.string().max(40).nullish(), guia: z.string().max(120).nullish(), motorista: z.string().max(120).nullish(),
       observacoes: z.string().max(2000).nullish(),
     }).parse(req.body);
-    if ((corpo.status === "CANCELADA" || corpo.status === "CONFIRMADA") && !pode(req.usuario!.perfil, "saidas:decidir")) {
-      throw new ErroHttp(403, "SEM_PERMISSAO", "Confirmar ou cancelar a saída é decisão do supervisor.");
+    if (corpo.status !== undefined && !pode(req.usuario!.perfil, "saidas:decidir")) {
+      throw new ErroHttp(403, "SEM_PERMISSAO", "Mudar o status da saída é decisão do supervisor.");
     }
     const [s] = await db.update(saidas).set(corpo).where(eq(saidas.id, id)).returning();
     if (!s) throw new ErroHttp(404, "NAO_ENCONTRADO", "Saída não encontrada.");
@@ -103,8 +103,9 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
   app.get("/api/saidas/:id/reservas", ver, async (req) => {
     const { id } = z.object({ id: uuid }).parse(req.params);
     const verContatos = pode(req.usuario!.perfil, "manifesto:contatos");
+    await auditar(db, req, "RESERVAS_VISUALIZADAS", { tipo: "saida", id });
     const lista = await db.select().from(reservas).where(eq(reservas.saidaId, id)).orderBy(asc(reservas.contatoNome));
-    const pax = lista.length ? await db.select().from(passageiros).where(inArray(passageiros.reservaId, lista.map((r) => r.id))).orderBy(asc(passageiros.criadoEm), asc(passageiros.id)) : [];
+    const pax = lista.length ? await db.select().from(passageiros).where(inArray(passageiros.reservaId, lista.map((r) => r.id))).orderBy(asc(passageiros.seq)) : [];
     return lista.map((r) => ({
       ...r,
       contatoTelefone: verContatos ? r.contatoTelefone : null,
@@ -159,7 +160,7 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     }).parse(req.body);
     const [r] = await db.update(reservas).set({ ...corpo, contatoEmail: corpo.contatoEmail || null, atualizadoEm: new Date() }).where(eq(reservas.id, id)).returning();
     if (!r) throw new ErroHttp(404, "NAO_ENCONTRADO", "Reserva não encontrada.");
-    await auditar(db, req, corpo.status === "CANCELADA" ? "RESERVA_CANCELADA" : "RESERVA_ALTERADA", { tipo: "reserva", id }, { ...corpo, contatoTelefone: undefined, contatoEmail: undefined });
+    await auditar(db, req, corpo.status === "CANCELADA" ? "RESERVA_CANCELADA" : "RESERVA_ALTERADA", { tipo: "reserva", id }, { campos: Object.keys(corpo), status: corpo.status }); // sem dados pessoais na auditoria
     return r;
   });
 

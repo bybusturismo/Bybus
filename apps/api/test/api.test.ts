@@ -41,8 +41,10 @@ describe("autenticação", () => {
     const { senhaTemporaria } = (await admin.req("POST", "/api/usuarios", { nome: "Usuário Bloqueio", email: "bloqueio@bybus.test", perfil: "GUIA" })).json();
     const c = new Cliente(app);
     for (let i = 0; i < 5; i++) await c.login("bloqueio@bybus.test", "errada-123456");
+    // Bloqueada: mesmo com a senha certa, a resposta é a genérica (não revela o bloqueio a terceiros).
     const r = await c.login("bloqueio@bybus.test", senhaTemporaria);
-    expect(r.statusCode).toBe(423);
+    expect(r.statusCode).toBe(401);
+    expect(r.json().codigo).toBe("CREDENCIAIS_INVALIDAS");
   });
 
   it("exige o cabeçalho anti-CSRF em requisições que alteram dados", async () => {
@@ -86,7 +88,10 @@ describe("MFA obrigatório para administrativos", () => {
       const semCodigo = await novo.login("sup-mfa@bybus.test", "SupervisorMfa123");
       expect(semCodigo.statusCode).toBe(401);
       expect(semCodigo.json().codigo).toBe("MFA_NECESSARIO");
-      expect((await novo.login("sup-mfa@bybus.test", "SupervisorMfa123", authenticator.generate(segredo))).statusCode).toBe(200);
+      // O código usado na ativação não pode ser reutilizado no login (proteção contra replay).
+      const reuso = await novo.login("sup-mfa@bybus.test", "SupervisorMfa123", authenticator.generate(segredo));
+      expect(reuso.statusCode).toBe(401);
+      expect(reuso.json().codigo).toBe("MFA_INVALIDO");
     } finally {
       await fecharMfa();
     }
@@ -187,6 +192,7 @@ describe("reservas e embarque", () => {
     const at = await logado("atendente@bybus.test");
     const [saida] = await primeiraSaida(at);
     expect((await at.req("PATCH", `/api/saidas/${saida!.id}`, { status: "CONFIRMADA" })).statusCode).toBe(403);
+    expect((await at.req("PATCH", `/api/saidas/${saida!.id}`, { status: "PREVISTA" })).statusCode).toBe(403);
     const sup = await logado("supervisor@bybus.test");
     expect((await sup.req("PATCH", `/api/saidas/${saida!.id}`, { status: "CONFIRMADA" })).statusCode).toBe(200);
   });
@@ -249,5 +255,45 @@ describe("importação", () => {
     const i = nomes.indexOf("Família Csv Teste");
     expect(i).toBeGreaterThanOrEqual(0);
     expect(nomes[i + 1]).toBe("Filho Csv Teste"); // família junta, na ordem cadastrada
+  });
+});
+
+describe("endurecimento (revisão de segurança)", () => {
+  it("auditoria não pode ser alterada nem apagada", async () => {
+    const pg = await import("pg");
+    const c = new pg.default.Client({ connectionString: (await import("./ajuda.js")).DATABASE_URL });
+    await c.connect();
+    try {
+      await expect(c.query("UPDATE auditoria SET acao = 'X'")).rejects.toThrow(/imutável/);
+      await expect(c.query("DELETE FROM auditoria")).rejects.toThrow(/imutável/);
+    } finally {
+      await c.end();
+    }
+  });
+
+  it("produção recusa MFA desligado e exige AMBIENTE", async () => {
+    const { lerConfig } = await import("../src/config.js");
+    const base = { DATABASE_URL: "postgres://x@y/z", CHAVE_CRIPTOGRAFIA: Buffer.alloc(32).toString("base64") };
+    expect(() => lerConfig({ ...base, AMBIENTE: "producao", EXIGIR_MFA_ADMIN: "false" })).toThrow(/EXIGIR_MFA_ADMIN/);
+    expect(() => lerConfig(base)).toThrow(/AMBIENTE/);
+  });
+
+  it("lista e encerra sessões do próprio usuário", async () => {
+    const a = await logado("guia@bybus.test");
+    const b = await logado("guia@bybus.test");
+    const lista = (await a.req("GET", "/api/auth/sessoes")).json();
+    const outra = lista.find((s: { atual: boolean }) => !s.atual);
+    expect(outra).toBeTruthy();
+    expect((await a.req("DELETE", `/api/auth/sessoes/${outra.id}`)).statusCode).toBe(200);
+    const r = await b.req("GET", "/api/auth/eu");
+    expect([200, 401]).toContain(r.statusCode);
+  });
+
+  it("e-mail da Bókun malicioso não derruba a API", async () => {
+    const c = await logado("atendente@bybus.test");
+    const inicio = Date.now();
+    const r = await c.req("POST", "/api/importacoes/bokun-email", { emails: [{ assunto: "x", corpo: "|a|" + " ".repeat(90_000) + "x" }] });
+    expect(r.statusCode).toBe(400);
+    expect(Date.now() - inicio).toBeLessThan(2000);
   });
 });

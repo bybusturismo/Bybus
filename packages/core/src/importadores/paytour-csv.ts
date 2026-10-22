@@ -2,6 +2,7 @@ import { canalPorDocumentoFicticio, somenteDigitos, cpfValido } from "../documen
 import { extrairReferenciasOta } from "../dedupe.js";
 import type { Canal, TipoDocumento } from "../tipos.js";
 import { categoriaPorRotulo, type ReservaImportada } from "./comum.js";
+import { MAX_PASSAGEIROS_POR_RESERVA } from "./bokun-email.js";
 import { lerCsv } from "./csv.js";
 
 /**
@@ -142,7 +143,9 @@ export function lerCsvPaytour(texto: string, mapeamento: MapeamentoPaytour = MAP
     const categoriaTxt = val(linha, "categoria");
     const categoria = categoriaTxt ? categoriaPorRotulo(categoriaTxt.split(/[\s-]/)[0] ?? categoriaTxt) ?? categoriaPorRotulo(categoriaTxt) : "ADULTO";
     if (categoriaTxt && !categoria) reserva.avisos.push(`Linha ${n}: categoria "${categoriaTxt}" desconhecida, tratada como adulto.`);
-    const qtd = Math.max(1, Number.parseInt(val(linha, "quantidade") || "1", 10) || 1);
+    const pedida = Math.max(1, Number.parseInt(val(linha, "quantidade") || "1", 10) || 1);
+    const qtd = Math.min(pedida, MAX_PASSAGEIROS_POR_RESERVA - reserva.passageiros.length);
+    if (qtd < pedida) reserva.avisos.push(`Linha ${n}: quantidade ${pedida} acima do limite de ${MAX_PASSAGEIROS_POR_RESERVA} por reserva — conferir.`);
     for (let q = 0; q < qtd; q++) {
       reserva.passageiros.push({
         nome: q === 0 ? val(linha, "nome") : "",

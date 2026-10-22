@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { PONTOS_TODA_ILHA } from "@bybus/core";
 import { criarDb, type Db } from "./cliente.js";
 import { passeios, pontosEmbarque, usuarios } from "./schema.js";
-import { gerarHashSenha } from "../seguranca/senha.js";
+import { gerarHashSenha, validarPoliticaSenha } from "../seguranca/senha.js";
 
 /** Dados de referência (passeio e pontos oficiais) — seguros para qualquer ambiente. */
 export async function semearReferencia(db: Db) {
@@ -42,10 +42,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const email = process.env.ADMIN_EMAIL;
   const senha = process.env.ADMIN_SENHA_INICIAL;
   if (email && senha) {
+    const erro = validarPoliticaSenha(senha);
+    if (erro) throw new Error(`ADMIN_SENHA_INICIAL fraca: ${erro}`);
     await criarAdministrador(db, email, senha);
     console.log(`Administrador ${email} pronto (troca de senha obrigatória no primeiro acesso).`);
   }
-  if (process.env.AMBIENTE !== "producao" && process.env.SEMEAR_FICTICIOS === "true") {
+  // Lista positiva: dados fictícios (com senha pública) NUNCA em produção ou ambiente não declarado.
+  if (process.env.SEMEAR_FICTICIOS === "true") {
+    if (!["desenvolvimento", "testes"].includes(process.env.AMBIENTE ?? "")) throw new Error("SEMEAR_FICTICIOS só é permitido com AMBIENTE=desenvolvimento ou testes.");
     const { semearFicticios } = await import("./ficticios.js");
     await semearFicticios(db, process.env.CHAVE_CRIPTOGRAFIA!);
     console.log("Dados fictícios criados.");

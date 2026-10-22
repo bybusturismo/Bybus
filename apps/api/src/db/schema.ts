@@ -25,6 +25,10 @@ export const usuarios = pgTable("usuarios", {
   trocarSenha: boolean().notNull().default(true),
   totpSegredoCifrado: text(),
   totpAtivo: boolean().notNull().default(false),
+  /** Último passo de tempo TOTP aceito (impede reutilizar o mesmo código). */
+  totpUltimoPasso: integer(),
+  /** Quantos bloqueios seguidos (bloqueio progressivo). */
+  bloqueios: integer().notNull().default(0),
   tentativasFalhas: integer().notNull().default(0),
   bloqueadoAte: timestamp({ withTimezone: true }),
   criadoEm: agora(),
@@ -44,7 +48,8 @@ export const sessoes = pgTable("sessoes", {
 
 export const auditoria = pgTable("auditoria", {
   id: uuid().primaryKey().defaultRandom(),
-  usuarioId: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  // Sem ON DELETE: a auditoria é imutável (usuários são desativados, nunca apagados).
+  usuarioId: uuid().references(() => usuarios.id),
   acao: text().notNull(),
   entidade: text(),
   entidadeId: text(),
@@ -114,6 +119,8 @@ export const reservas = pgTable("reservas", {
 
 export const passageiros = pgTable("passageiros", {
   id: uuid().primaryKey().defaultRandom(),
+  /** Ordem de cadastro (estável) — mantém a sequência dos passageiros dentro da reserva. */
+  seq: integer().generatedAlwaysAsIdentity(),
   reservaId: uuid().notNull().references(() => reservas.id, { onDelete: "cascade" }),
   nome: text().notNull().default(""),
   categoria: categoriaEnum().notNull(),

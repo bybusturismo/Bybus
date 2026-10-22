@@ -22,7 +22,7 @@ export async function carregarManifesto(db: Db, cofre: Cofre, saidaId: string, o
   const pontos = await db.select().from(pontosEmbarque).where(eq(pontosEmbarque.passeioId, linha.passeio.id)).orderBy(asc(pontosEmbarque.ordem));
   const listaReservas = await db.select().from(reservas).where(eq(reservas.saidaId, saidaId));
   const listaPassageiros = listaReservas.length
-    ? await db.select().from(passageiros).where(inArray(passageiros.reservaId, listaReservas.map((r) => r.id))).orderBy(asc(passageiros.criadoEm), asc(passageiros.id))
+    ? await db.select().from(passageiros).where(inArray(passageiros.reservaId, listaReservas.map((r) => r.id))).orderBy(asc(passageiros.seq))
     : [];
 
   const reservasManifesto: ReservaManifesto[] = listaReservas.map((r) => ({
@@ -90,7 +90,7 @@ export function manifestoCsv(m: Manifesto): string {
     const s = v == null ? "" : String(v);
     // Evita injeção de fórmula ao abrir no Excel.
     const seguro = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
-    return /[;"\n]/.test(seguro) ? `"${seguro.replace(/"/g, '""')}"` : seguro;
+    return /[;"\r\n]/.test(seguro) ? `"${seguro.replace(/"/g, '""')}"` : seguro;
   };
   const linhas = [["Nº", "Horário", "Ponto de embarque", "Passageiro", "Categoria", "Tipo doc.", "Documento", "Titular", "Canal", "Código", "Embarque"]];
   for (const b of m.blocos) {

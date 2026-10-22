@@ -6,7 +6,10 @@ import { sessoes, usuarios, type Perfil } from "../db/schema.js";
 import { gerarToken, sha256 } from "./cripto.js";
 import { pode, PERFIS_COM_MFA_OBRIGATORIO, type Permissao } from "./permissoes.js";
 
-export const COOKIE_SESSAO = "bybus_sessao";
+/** Fora do desenvolvimento local o cookie é Secure e usa o prefixo __Host- (preso ao domínio, sem subdomínios). */
+export function nomeCookie(config: Config): string {
+  return config.AMBIENTE === "desenvolvimento" ? "bybus_sessao" : "__Host-bybus_sessao";
+}
 
 export interface UsuarioSessao {
   id: string;
@@ -34,16 +37,16 @@ export async function criarSessao(db: Db, config: Config, req: FastifyRequest, r
     ip: req.ip,
     userAgent: req.headers["user-agent"]?.slice(0, 300) ?? null,
   });
-  reply.setCookie(COOKIE_SESSAO, token, {
+  reply.setCookie(nomeCookie(config), token, {
     httpOnly: true,
-    secure: config.AMBIENTE === "producao",
+    secure: config.AMBIENTE !== "desenvolvimento",
     sameSite: "strict",
     path: "/",
     expires: expiraEm,
   });
 }
 
-export async function carregarUsuario(db: Db, token: string | undefined): Promise<UsuarioSessao | null> {
+export async function carregarUsuario(db: Db, config: Config, token: string | undefined): Promise<UsuarioSessao | null> {
   if (!token) return null;
   const id = sha256(token);
   const [linha] = await db
@@ -53,6 +56,11 @@ export async function carregarUsuario(db: Db, token: string | undefined): Promis
     .where(and(eq(sessoes.id, id), eq(sessoes.revogada, false), gt(sessoes.expiraEm, new Date()), eq(usuarios.ativo, true)))
     .limit(1);
   if (!linha) return null;
+  // Expiração por inatividade.
+  if (Date.now() - linha.sessao.ultimoUso.getTime() > config.SESSAO_INATIVIDADE_MINUTOS * 60_000) {
+    await db.update(sessoes).set({ revogada: true }).where(eq(sessoes.id, id));
+    return null;
+  }
   await db.update(sessoes).set({ ultimoUso: new Date() }).where(eq(sessoes.id, id));
   const u = linha.usuario;
   return { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, trocarSenha: u.trocarSenha, totpAtivo: u.totpAtivo, sessaoId: id };

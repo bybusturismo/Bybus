@@ -81,3 +81,18 @@ describe("Paytour (CSV)", () => {
     expect(lerCsvPaytour("Foo;Bar\n1;2").erros[0]!.mensagem).toMatch(/obrigatória/);
   });
 });
+
+describe("robustez (revisão de segurança)", () => {
+  it("linha maliciosa não trava o leitor (sem ReDoS)", () => {
+    const inicio = Date.now();
+    lerEmailBokun("x", "|a|" + " ".repeat(50_000) + "x\n".repeat(10));
+    expect(Date.now() - inicio).toBeLessThan(500);
+  });
+  it("limita a quantidade de passageiros", () => {
+    expect(lerPax("999999999 Adult").categorias.length).toBe(80);
+    const csv = "Código;Data;Nome;Quantidade\n1;24/10/2026;Teste;999999999";
+    const r = lerCsvPaytour(csv);
+    expect(r.reservas[0]!.passageiros.length).toBe(80);
+    expect(r.reservas[0]!.avisos.join(" ")).toMatch(/limite/);
+  });
+});
