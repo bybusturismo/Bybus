@@ -26,6 +26,13 @@ export function formatarDataCurta(iso: string): string {
   return new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", timeZone: "UTC" }).format(dataCivil(iso));
 }
 
+/** "2026-10-23" → { semana: "sex", dia: "23", mes: "out" } (bloco de calendário). */
+export function partesData(iso: string): { semana: string; dia: string; mes: string } {
+  const d = dataCivil(iso);
+  const f = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("pt-BR", { ...o, timeZone: "UTC" }).format(d).replace(".", "");
+  return { semana: f({ weekday: "short" }), dia: f({ day: "numeric" }), mes: f({ month: "short" }) };
+}
+
 /** Instante ISO (UTC) → "23/10/2026 14:05" no horário de Brasília. */
 export function formatarDataHora(instante: string | Date | null | undefined): string {
   if (!instante) return "";

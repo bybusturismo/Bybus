@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { aplicarTema } from "./componentes/Tema";
+import "./estilos/fontes.css";
 import "./estilos/tokens.css";
 import "./estilos/base.css";
 import "./estilos/telas.css";

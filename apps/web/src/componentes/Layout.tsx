@@ -13,18 +13,23 @@ export interface ItemMenu {
   icone: NomeIcone;
   permissao?: Permissao;
   atalho: string;
+  /** Cor da marca do ícone no menu (só visual). */
+  tinta: Tinta;
+  grupo: "Operação" | "Administração" | "Pessoal";
 }
 
+export type Tinta = "azul" | "rosa" | "violeta" | "verde" | "laranja" | "ambar";
+
 export const ITENS_MENU: ItemMenu[] = [
-  { para: "/saidas", rotulo: "Saídas", icone: "onibus", permissao: "manifesto:ver", atalho: "s" },
-  { para: "/importar", rotulo: "Importar", icone: "importar", permissao: "importacoes:executar", atalho: "i" },
-  { para: "/equipe", rotulo: "Equipe", icone: "cracha", permissao: "pessoas:ver", atalho: "e" },
-  { para: "/passeios", rotulo: "Passeios", icone: "bilhete", permissao: "produtos:gerenciar", atalho: "p" },
-  { para: "/pracas", rotulo: "Praças", icone: "pino", permissao: "unidades:gerenciar", atalho: "r" },
-  { para: "/usuarios", rotulo: "Usuários", icone: "usuarios", permissao: "usuarios:gerenciar", atalho: "u" },
-  { para: "/perfis", rotulo: "Perfis de acesso", icone: "escudo", permissao: "usuarios:gerenciar", atalho: "f" },
-  { para: "/auditoria", rotulo: "Auditoria", icone: "auditoria", permissao: "auditoria:ver", atalho: "a" },
-  { para: "/conta", rotulo: "Minha conta", icone: "conta", atalho: "c" },
+  { para: "/saidas", rotulo: "Saídas", icone: "onibus", permissao: "manifesto:ver", atalho: "s", tinta: "azul", grupo: "Operação" },
+  { para: "/importar", rotulo: "Importar", icone: "importar", permissao: "importacoes:executar", atalho: "i", tinta: "laranja", grupo: "Operação" },
+  { para: "/equipe", rotulo: "Equipe", icone: "cracha", permissao: "pessoas:ver", atalho: "e", tinta: "verde", grupo: "Operação" },
+  { para: "/passeios", rotulo: "Passeios", icone: "bilhete", permissao: "produtos:gerenciar", atalho: "p", tinta: "rosa", grupo: "Operação" },
+  { para: "/pracas", rotulo: "Praças", icone: "pino", permissao: "unidades:gerenciar", atalho: "r", tinta: "violeta", grupo: "Administração" },
+  { para: "/usuarios", rotulo: "Usuários", icone: "usuarios", permissao: "usuarios:gerenciar", atalho: "u", tinta: "ambar", grupo: "Administração" },
+  { para: "/perfis", rotulo: "Perfis de acesso", icone: "escudo", permissao: "usuarios:gerenciar", atalho: "f", tinta: "verde", grupo: "Administração" },
+  { para: "/auditoria", rotulo: "Auditoria", icone: "auditoria", permissao: "auditoria:ver", atalho: "a", tinta: "azul", grupo: "Administração" },
+  { para: "/conta", rotulo: "Minha conta", icone: "conta", atalho: "c", tinta: "rosa", grupo: "Pessoal" },
 ];
 
 /** Itens visíveis para o perfil (apenas conveniência: o servidor sempre confere a permissão). */
@@ -108,10 +113,17 @@ export function Layout() {
 
       <nav className="menu nao-imprimir" aria-label="Menu principal">
         <ul>
-          {itens.map((i) => (
-            <li key={i.para}>
-              <NavLink to={i.para} className={({ isActive }) => `menu__item${isActive ? " menu__item--ativo" : ""}`}>
-                <Icone nome={i.icone} />
+          {itens.map((i, n) => (
+            <li key={i.para} className={n > 0 && itens[n - 1]!.grupo !== i.grupo ? "menu__novo-grupo" : undefined}>
+              {(n === 0 || itens[n - 1]!.grupo !== i.grupo) && itens.length > 3 && (
+                <span className="menu__grupo" aria-hidden="true">
+                  {i.grupo}
+                </span>
+              )}
+              <NavLink to={i.para} className={({ isActive }) => `menu__item tinta--${i.tinta}${isActive ? " menu__item--ativo" : ""}`}>
+                <span className="menu__icone">
+                  <Icone nome={i.icone} />
+                </span>
                 <span>{i.rotulo}</span>
               </NavLink>
             </li>

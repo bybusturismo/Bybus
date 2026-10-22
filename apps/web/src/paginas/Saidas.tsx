@@ -6,9 +6,10 @@ import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { Icone } from "../componentes/Icone";
 import { useNotificar } from "../componentes/Notificacoes";
 import { nomePraca, useSessao } from "../sessao/Sessao";
-import { diferencaDias, formatarData, formatarDataExtenso, hojeIso, intervaloDias, somarDias } from "../util/formato";
+import { diferencaDias, formatarData, formatarDataExtenso, hojeIso, intervaloDias, partesData, plural, somarDias } from "../util/formato";
 import { ROTULO_STATUS_SAIDA } from "../util/rotulos";
 import { EtiquetaLinha } from "../componentes/Etiquetas";
+import { Indicador, Indicadores } from "../componentes/Indicador";
 import { useCarregar } from "../util/useCarregar";
 
 const DIAS = 14;
@@ -20,6 +21,32 @@ function lerPasseioSalvo(): string {
   } catch {
     return "";
   }
+}
+
+/** Bloco de calendário do dia (decorativo: a data por extenso vem no texto do cartão). */
+function BlocoDia({ data, hoje }: { data: string; hoje: string }) {
+  const p = partesData(data);
+  return (
+    <div className={`saida__dia${data === hoje ? " saida__dia--hoje" : ""}`} aria-hidden="true">
+      <span className="saida__semana">{p.semana}</span>
+      <span className="saida__num">{p.dia}</span>
+      <span className="saida__mes">{p.mes}</span>
+    </div>
+  );
+}
+
+/** Totais do período (saídas não canceladas). */
+export function resumirPeriodo(saidas: SaidaResumo[], minimoDe: (s: SaidaResumo) => number) {
+  const ativas = saidas.filter((s) => s.status !== "CANCELADA");
+  const capacidade = ativas.reduce((t, s) => t + s.capacidade, 0);
+  return {
+    saidas: ativas.length,
+    confirmadas: ativas.filter((s) => s.status === "CONFIRMADA").length,
+    passageiros: ativas.reduce((t, s) => t + s.passageiros, 0),
+    reservas: ativas.reduce((t, s) => t + s.reservas, 0),
+    ocupacao: capacidade ? Math.round((ativas.reduce((t, s) => t + s.assentos, 0) / capacidade) * 100) : 0,
+    abaixoMinimo: ativas.filter((s) => s.status !== "REALIZADA" && s.pagantes < minimoDe(s)).length,
+  };
 }
 
 export function rotuloRelativo(data: string, hoje: string): string | null {
@@ -132,19 +159,21 @@ export function Saidas() {
           </p>
         </div>
         <div className="barra-acoes">
-          <button type="button" className="botao botao--secundario" onClick={() => setParams({ de: somarDias(inicio, -DIAS) })}>
-            ← 14 dias anteriores
+          <button type="button" className="botao botao--secundario" onClick={() => setParams({ de: somarDias(inicio, -DIAS) })} aria-label="14 dias anteriores">
+            ← Anteriores
           </button>
           {inicio !== hoje && (
             <button type="button" className="botao botao--secundario" onClick={() => setParams({})}>
               Hoje
             </button>
           )}
-          <button type="button" className="botao botao--secundario" onClick={() => setParams({ de: somarDias(inicio, DIAS) })}>
-            Próximos 14 dias →
+          <button type="button" className="botao botao--secundario" onClick={() => setParams({ de: somarDias(inicio, DIAS) })} aria-label="Próximos 14 dias">
+            Próximos →
           </button>
         </div>
       </div>
+
+      {saidas.dados && saidas.dados.length > 0 && <ResumoPeriodo r={resumirPeriodo(saidas.dados, (s) => porId.get(s.passeioId)?.minimoConfirmacao ?? 12)} />}
 
       {(daPraca.length > 1 || (podeCriar && passeioCriar)) && (
         <div className="filtros">
@@ -210,20 +239,21 @@ export function Saidas() {
               if (doDia.length === 0) {
                 return [
                   <li key={data} className="saida saida--vazia">
+                    <BlocoDia data={data} hoje={hoje} />
                     <div className="saida__data">
                       {relativo && <span className="etiqueta etiqueta--neutra">{relativo}</span>}
                       <span>{formatarDataExtenso(data)}</span>
+                      <span className="saida__sem">· sem saída</span>
                     </div>
-                    <span className="saida__sem">Sem saída</span>
                     {podeCriar && passeioDoDia && (
                       <button
                         type="button"
-                        className="botao botao--secundario botao--pequeno"
+                        className="botao botao--fantasma botao--pequeno"
                         onClick={() => void criarSaida(passeioDoDia, data)}
                         disabled={criando !== null}
                         aria-label={`Criar saída de ${passeioDoDia.nome} em ${formatarData(data)}`}
                       >
-                        {criando === data ? "Criando…" : "Criar saída"}
+                        <Icone nome="mais" tamanho={16} /> {criando === data ? "Criando…" : "Criar saída"}
                       </button>
                     )}
                   </li>,
@@ -235,51 +265,68 @@ export function Saidas() {
                 const ocupacao = Math.min(100, Math.round((s.assentos / Math.max(1, s.capacidade)) * 100));
                 return (
                   <li key={s.id} className={`saida saida--${s.status.toLowerCase()}`}>
-                    <div className="saida__data">
-                      {relativo && <span className="etiqueta etiqueta--neutra">{relativo}</span>}
-                      <Link to={`/saidas/${s.id}`} className="saida__link">
-                        {formatarDataExtenso(data)}
-                      </Link>
-                      <span className={`etiqueta etiqueta--status-${s.status.toLowerCase()}`}>{ROTULO_STATUS_SAIDA[s.status]}</span>
+                    <BlocoDia data={data} hoje={hoje} />
+                    <div className="saida__principal">
+                      <div className="saida__etiquetas">
+                        {relativo && <span className="etiqueta etiqueta--hoje">{relativo}</span>}
+                        <span className={`etiqueta etiqueta--status-${s.status.toLowerCase()}`}>{ROTULO_STATUS_SAIDA[s.status]}</span>
+                        <EtiquetaLinha linha={s.linha} />
+                      </div>
                       <span className="saida__passeio">
                         {s.passeio}
                         {mostrarPraca && <span className="texto-fraco"> · {siglaPraca(s.unidadeId)}</span>}
                       </span>
-                      <EtiquetaLinha linha={s.linha} />
-                    </div>
-                    <dl className="saida__numeros">
-                      <div>
-                        <dt>Passageiros</dt>
-                        <dd>{s.passageiros}</dd>
-                      </div>
-                      <div>
-                        <dt>Reservas</dt>
-                        <dd>{s.reservas}</dd>
-                      </div>
-                      <div>
-                        <dt>Assentos</dt>
-                        <dd>
-                          {s.assentos}/{s.capacidade}
-                          <span className="barra-ocupacao" aria-hidden="true">
-                            <span style={{ width: `${ocupacao}%` }} />
+                      <Link to={`/saidas/${s.id}`} className="saida__link">
+                        {formatarDataExtenso(data)}
+                      </Link>
+                      <div className="saida__equipe">
+                        <span className={s.veiculo ? undefined : "texto-fraco"}>
+                          <Icone nome="onibus" tamanho={16} /> {s.veiculo ? `Veículo: ${s.veiculo}` : "Veículo a definir"}
+                        </span>
+                        <span className={s.guia ? undefined : "texto-fraco"}>
+                          <Icone nome="cracha" tamanho={16} /> {s.guia ? `Guia: ${s.guia}` : "Guia a definir"}
+                        </span>
+                        {s.motorista && (
+                          <span>
+                            <Icone nome="volante" tamanho={16} /> Motorista: {s.motorista}
                           </span>
-                        </dd>
+                        )}
                       </div>
-                      <div className={abaixoMinimo ? "saida__pagantes saida__pagantes--abaixo" : "saida__pagantes saida__pagantes--ok"}>
-                        <dt>Pagantes (mín. {minimo})</dt>
-                        <dd>
-                          {s.pagantes}
-                          <span className="saida__selo">{abaixoMinimo ? ` faltam ${minimo - s.pagantes}` : " mínimo atingido"}</span>
-                        </dd>
-                      </div>
-                    </dl>
-                    <div className="saida__equipe">
-                      {s.veiculo ? <span>Veículo: {s.veiculo}</span> : <span className="texto-fraco">Veículo a definir</span>}
-                      {s.guia ? <span>Guia: {s.guia}</span> : <span className="texto-fraco">Guia a definir</span>}
-                      {s.motorista && <span>Motorista: {s.motorista}</span>}
                     </div>
-                    <Link to={`/saidas/${s.id}`} className="botao botao--secundario botao--pequeno" aria-label={`Abrir lista de passageiros de ${formatarData(data)} — ${s.passeio}`}>
-                      Lista de passageiros
+                    <div className="saida__ocupacao">
+                      <div className="saida__ocupacao-topo">
+                        <span className="saida__rotulo">Ocupação</span>
+                        <span className="saida__percentual">{ocupacao}%</span>
+                      </div>
+                      <span className={`barra-ocupacao${ocupacao >= 90 ? " barra-ocupacao--cheia" : ""}`} aria-hidden="true">
+                        <span style={{ width: `${ocupacao}%` }} />
+                      </span>
+                      <dl className="saida__numeros">
+                        <div>
+                          <dt>Passageiros</dt>
+                          <dd>{s.passageiros}</dd>
+                        </div>
+                        <div>
+                          <dt>Reservas</dt>
+                          <dd>{s.reservas}</dd>
+                        </div>
+                        <div>
+                          <dt>Assentos</dt>
+                          <dd>
+                            {s.assentos}/{s.capacidade}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className={abaixoMinimo ? "saida__pagantes saida__pagantes--abaixo" : "saida__pagantes saida__pagantes--ok"}>
+                        <Icone nome={abaixoMinimo ? "alerta" : "check"} tamanho={16} />
+                        <span>
+                          <strong>{s.pagantes}</strong> {s.pagantes === 1 ? "pagante" : "pagantes"} (mín. {minimo})
+                          <span className="saida__selo">{abaixoMinimo ? ` · faltam ${minimo - s.pagantes}` : " · mínimo atingido"}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <Link to={`/saidas/${s.id}`} className="botao botao--secundario botao--pequeno saida__acao" aria-label={`Abrir lista de passageiros de ${formatarData(data)} — ${s.passeio}`}>
+                      Lista de passageiros →
                     </Link>
                   </li>
                 );
@@ -289,5 +336,20 @@ export function Saidas() {
         </>
       )}
     </div>
+  );
+}
+
+function ResumoPeriodo({ r }: { r: ReturnType<typeof resumirPeriodo> }) {
+  return (
+    <Indicadores rotulo="Resumo do período">
+      <Indicador tinta="azul" icone="calendario" rotulo="Saídas no período" valor={r.saidas} detalhe={plural(r.confirmadas, "confirmada")} />
+      <Indicador tinta="rosa" icone="pessoas" rotulo="Passageiros" valor={r.passageiros} detalhe={plural(r.reservas, "reserva")} />
+      <Indicador tinta="violeta" icone="grafico" rotulo="Ocupação média" valor={`${r.ocupacao}%`} detalhe="dos assentos" />
+      {r.abaixoMinimo > 0 ? (
+        <Indicador tinta="ambar" icone="alerta" rotulo="Abaixo do mínimo" valor={r.abaixoMinimo} detalhe={`${r.abaixoMinimo === 1 ? "saída precisa" : "saídas precisam"} de atenção`} />
+      ) : (
+        <Indicador tinta="verde" icone="check" rotulo="Mínimo de pagantes" valor="OK" detalhe="todas as saídas atingiram" />
+      )}
+    </Indicadores>
   );
 }

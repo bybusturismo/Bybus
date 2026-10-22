@@ -16,18 +16,23 @@ body {
   line-height: var(--altura-linha);
   color: var(--cor-texto);
   background: var(--cor-fundo);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
 }
 
 h1,
 h2,
 h3 {
   font-family: var(--fonte-titulo);
-  line-height: 1.25;
+  font-weight: var(--peso-medio);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
   text-wrap: balance;
   margin: 0 0 var(--esp-2);
 }
 h1 {
-  font-size: var(--texto-2xl);
+  font-size: var(--texto-3xl);
 }
 h2 {
   font-size: var(--texto-xl);
@@ -125,25 +130,32 @@ main:focus-visible {
   background: var(--cor-superficie);
   color: var(--cor-texto);
   white-space: nowrap;
+  transition: background-color var(--transicao), border-color var(--transicao), box-shadow var(--transicao), transform var(--transicao);
+}
+.botao:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .botao:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 .botao--primario {
   background: var(--cor-primaria);
   color: var(--cor-sobre-primaria);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 4px 12px color-mix(in srgb, var(--cor-primaria) 28%, transparent);
 }
 .botao--primario:hover:not(:disabled) {
   background: var(--cor-primaria-forte);
 }
 .botao--secundario {
-  border-color: var(--cor-borda-forte);
+  border-color: var(--cor-borda);
+  box-shadow: 0 1px 2px rgb(35 31 32 / 0.05);
   background: var(--cor-superficie);
   color: var(--cor-primaria);
 }
 .botao--secundario:hover:not(:disabled) {
   background: var(--cor-primaria-suave);
+  border-color: var(--cor-primaria);
 }
 .botao--fantasma {
   background: transparent;
@@ -187,6 +199,8 @@ main:focus-visible {
   border: 0;
   background: none;
   font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
   font-weight: inherit;
   color: inherit;
   cursor: pointer;
@@ -224,6 +238,12 @@ textarea {
   font: inherit;
   color: var(--cor-texto);
   background: var(--cor-superficie);
+  transition: border-color var(--transicao), box-shadow var(--transicao);
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--cor-primaria);
 }
 /* Mesma especificidade da regra geral de input (que usa :not) + a classe, para valer de fato. */
 .campo--linha input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
@@ -323,6 +343,7 @@ input[type="checkbox"] {
   background: var(--cor-info-fundo);
   padding: var(--esp-3) var(--esp-4);
   border-radius: var(--raio);
+  line-height: 1.45;
   margin-bottom: var(--esp-4);
 }
 .aviso ul {
@@ -349,12 +370,13 @@ input[type="checkbox"] {
 /* ---------- Etiquetas ---------- */
 .etiqueta {
   display: inline-block;
-  padding: 0 var(--esp-2);
+  padding: 1px 10px;
   border-radius: 999px;
   font-size: var(--texto-xs);
-  font-weight: var(--peso-forte);
+  font-weight: var(--peso-medio);
+  letter-spacing: 0.01em;
   line-height: 1.6;
-  border: 1px solid currentColor;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   margin-left: var(--esp-1);
   vertical-align: middle;
   white-space: nowrap;
@@ -416,8 +438,9 @@ input[type="checkbox"] {
 .tabela-rolagem {
   overflow-x: auto;
   border: 1px solid var(--cor-borda);
-  border-radius: var(--raio);
+  border-radius: var(--raio-lg);
   background: var(--cor-superficie);
+  box-shadow: var(--sombra);
 }
 .tabela {
   width: 100%;
@@ -426,17 +449,27 @@ input[type="checkbox"] {
 }
 .tabela th,
 .tabela td {
-  padding: var(--esp-2) var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
   text-align: left;
   border-bottom: 1px solid var(--cor-borda);
   vertical-align: top;
 }
 .tabela thead th {
   background: var(--cor-superficie-2);
-  font-weight: var(--peso-forte);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-medio);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cor-texto-fraco);
   white-space: nowrap;
   position: sticky;
   top: 0;
+}
+.tabela tbody tr {
+  transition: background-color var(--transicao);
+}
+.tabela tbody tr:last-child td {
+  border-bottom: 0;
 }
 .tabela tbody tr:hover {
   background: var(--cor-primaria-suave);
@@ -467,7 +500,7 @@ input[type="checkbox"] {
 /* ---------- Modal ---------- */
 .modal {
   border: 0;
-  border-radius: var(--raio-lg);
+  border-radius: var(--raio-xl);
   padding: 0;
   width: min(560px, calc(100vw - 2 * var(--esp-4)));
   max-height: calc(100vh - 2 * var(--esp-4));
@@ -479,7 +512,8 @@ input[type="checkbox"] {
   width: min(960px, calc(100vw - 2 * var(--esp-4)));
 }
 .modal::backdrop {
-  background: rgb(0 0 0 / 0.5);
+  background: rgb(35 31 32 / 0.55);
+  backdrop-filter: blur(3px);
 }
 .modal__cabecalho {
   display: flex;
@@ -528,7 +562,7 @@ input[type="checkbox"] {
 }
 .notificacao {
   padding: var(--esp-3) var(--esp-4);
-  border-radius: var(--raio);
+  border-radius: var(--raio-lg);
   box-shadow: var(--sombra-forte);
   background: var(--cor-texto);
   color: var(--cor-superficie);
@@ -547,7 +581,7 @@ input[type="checkbox"] {
 fieldset.grupo-opcoes,
 fieldset.grupo-campos {
   border: 1px solid var(--cor-borda);
-  border-radius: var(--raio);
+  border-radius: var(--raio-lg);
   padding: var(--esp-2) var(--esp-4) var(--esp-3);
   margin: 0 0 var(--esp-4);
   min-width: 0;
@@ -600,4 +634,12 @@ input[type="radio"] {
 }
 .grade-campos > .campo__ajuda {
   margin-bottom: var(--esp-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
 }

@@ -78,10 +78,24 @@
   --cor-linha-recreativo: #005a26;
   --cor-linha-recreativo-fundo: #e2f3e6;
 
+  /* Tintas da marca para ícones, indicadores e gráficos (traço >= 3:1 sobre o fundo da tinta) */
+  --tinta-azul: #0069ad;
+  --tinta-azul-fundo: #e3f1fa;
+  --tinta-rosa: #c8264a;
+  --tinta-rosa-fundo: #fbe7ec;
+  --tinta-violeta: #4a4395;
+  --tinta-violeta-fundo: #ecebf6;
+  --tinta-verde: #00813a;
+  --tinta-verde-fundo: #e2f3e6;
+  --tinta-laranja: #b85a0c;
+  --tinta-laranja-fundo: #fdeedd;
+  --tinta-ambar: #946000;
+  --tinta-ambar-fundo: #fff3d1;
+
   /* Tipografia: Helvetica Neue (texto) e Sugo Pro Classic (títulos) são as fontes da marca.
-     Só entram se instaladas/licenciadas para web; até lá valem os substitutos do sistema. */
-  --fonte: "Helvetica Neue LT Pro", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
-  --fonte-titulo: "Sugo Pro Classic", "Helvetica Neue LT Pro", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+     Só entram se licenciadas para web; até lá valem Inter e Fredoka (gratuitas, ver fontes.css). */
+  --fonte: "Helvetica Neue LT Pro", "Inter Variable", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  --fonte-titulo: "Sugo Pro Classic", "Fredoka Variable", "Helvetica Neue LT Pro", "Inter Variable", Arial, system-ui, sans-serif;
   --fonte-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --texto-xs: 0.75rem;
   --texto-sm: 0.875rem;
@@ -89,6 +103,7 @@
   --texto-lg: 1.125rem;
   --texto-xl: 1.375rem;
   --texto-2xl: 1.75rem;
+  --texto-3xl: 2.25rem;
   --peso-normal: 400;
   --peso-medio: 600;
   --peso-forte: 700;
@@ -104,14 +119,17 @@
   --esp-7: 3rem;
 
   /* Forma */
-  --raio-sm: 4px;
-  --raio: 8px;
-  --raio-lg: 12px;
-  --sombra: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 8px rgb(0 0 0 / 0.06);
-  --sombra-forte: 0 8px 32px rgb(0 0 0 / 0.25);
+  --raio-sm: 6px;
+  --raio: 10px;
+  --raio-lg: 16px;
+  --raio-xl: 22px;
+  --sombra: 0 1px 2px rgb(35 31 32 / 0.05), 0 4px 14px rgb(35 31 32 / 0.06);
+  --sombra-hover: 0 2px 4px rgb(35 31 32 / 0.06), 0 12px 28px rgb(35 31 32 / 0.12);
+  --sombra-forte: 0 12px 40px rgb(35 31 32 / 0.28);
+  --transicao: 160ms ease;
 
   /* Layout */
-  --largura-menu: 232px;
+  --largura-menu: 248px;
   --altura-topo: 56px;
   --altura-menu-inferior: 64px;
   --alvo-toque: 44px;
@@ -143,7 +161,20 @@
     --cor-info: #5cb4ec;
     --cor-info-fundo: #11314a;
     --cor-foco-interno: #f3f1f0;
-    --sombra: 0 1px 2px rgb(0 0 0 / 0.4);
+    --sombra: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 14px rgb(0 0 0 / 0.3);
+    --tinta-azul: #5cb4ec;
+    --tinta-azul-fundo: #11314a;
+    --tinta-rosa: #f7a3b5;
+    --tinta-rosa-fundo: #3d1621;
+    --tinta-violeta: #c4bff0;
+    --tinta-violeta-fundo: #2a2650;
+    --tinta-verde: #9fd96f;
+    --tinta-verde-fundo: #1c3311;
+    --tinta-laranja: #ffb279;
+    --tinta-laranja-fundo: #3a2414;
+    --tinta-ambar: #ffd36b;
+    --tinta-ambar-fundo: #3a2c06;
+    --sombra-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 12px 28px rgb(0 0 0 / 0.45);
     --cor-linha-city-tour: #8ccbf3;
     --cor-linha-city-tour-fundo: #11314a;
     --cor-linha-fretamento: #c4bff0;
@@ -180,7 +211,20 @@
   --cor-info: #5cb4ec;
   --cor-info-fundo: #11314a;
   --cor-foco-interno: #f3f1f0;
-  --sombra: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sombra: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 14px rgb(0 0 0 / 0.3);
+  --tinta-azul: #5cb4ec;
+  --tinta-azul-fundo: #11314a;
+  --tinta-rosa: #f7a3b5;
+  --tinta-rosa-fundo: #3d1621;
+  --tinta-violeta: #c4bff0;
+  --tinta-violeta-fundo: #2a2650;
+  --tinta-verde: #9fd96f;
+  --tinta-verde-fundo: #1c3311;
+  --tinta-laranja: #ffb279;
+  --tinta-laranja-fundo: #3a2414;
+  --tinta-ambar: #ffd36b;
+  --tinta-ambar-fundo: #3a2c06;
+  --sombra-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 12px 28px rgb(0 0 0 / 0.45);
   --cor-linha-city-tour: #8ccbf3;
   --cor-linha-city-tour-fundo: #11314a;
   --cor-linha-fretamento: #c4bff0;
