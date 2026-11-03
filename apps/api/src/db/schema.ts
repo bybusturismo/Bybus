@@ -200,3 +200,14 @@ export const passageiros = pgTable("passageiros", {
   embarquePor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
   criadoEm: agora(),
 }, (t) => [index("passageiros_reserva_idx").on(t.reservaId)]);
+
+/** Estado de cada integração automática (ex.: até quando os pedidos da Paytour já foram lidos). */
+export const integracoesEstado = pgTable("integracoes_estado", {
+  chave: text().primaryKey(),
+  /** Marca d'água: última data/hora de atualização já processada, no fuso do canal. */
+  cursor: text(),
+  ultimaExecucaoEm: timestamp({ withTimezone: true }),
+  ultimoResultado: jsonb(),
+  ultimoErro: text(),
+  atualizadoEm: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});

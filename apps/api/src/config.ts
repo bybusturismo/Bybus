@@ -22,6 +22,14 @@ const esquema = z.object({
    * Sem ele, a entrada automática fica desligada. Gere com: openssl rand -base64 36
    */
   INTEGRACAO_EMAIL_TOKEN: z.string().min(32, "INTEGRACAO_EMAIL_TOKEN deve ter pelo menos 32 caracteres").optional(),
+  /** Credenciais do aplicativo criado na Paytour (Avançado → Aplicativos). Sem elas, a sincronização fica desligada. */
+  PAYTOUR_APP_KEY: z.string().min(8).optional(),
+  PAYTOUR_APP_SECRET: z.string().min(8).optional(),
+  PAYTOUR_URL: z.string().url().default("https://api.paytour.com.br/v2"),
+  /** Intervalo da busca automática de pedidos novos/alterados (0 = só manual). */
+  PAYTOUR_SINCRONIZAR_MINUTOS: z.coerce.number().int().min(0).max(1440).default(5),
+  /** Na primeira sincronização, quantos dias para trás buscar pedidos alterados. */
+  PAYTOUR_DIAS_INICIAIS: z.coerce.number().int().min(1).max(365).default(30),
   /** MFA obrigatório para ADMIN e SUPERVISOR. */
   EXIGIR_MFA_ADMIN: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
 });

@@ -45,3 +45,9 @@ Bókun (grupo Tripadvisor, US$ 49/mês + 1–1,5%), Rezdy, Checkfront, FareHarbo
 - **Bókun → admbybus@gmail.com:** "New booking"/"Cancelled booking" com código VIA-…, produto, data/hora, quantidade e categoria (ex.: "1 Senior"), nome, telefone e e-mail mascarado do Tripadvisor. **Não traz ponto de embarque.**
 - **Decolar → contatofbyb@gmail.com:** formato ainda não visto (a confirmar).
 - Automação: robô do Gmail (Apps Script) → `/api/integracoes/emails` — ver `integracoes/gmail/README.md` e ADR 0006.
+
+## Paytour API v2 (lida em 03/11/2026, via HTML salvo no Drive)
+- Base `https://api.paytour.com.br/v2`; login por credenciais de aplicativo (Basic app_key:app_secret → token Bearer; refresh_token válido 15 dias).
+- `GET /pedidos` paginado (máx. 100), filtros por criação e **atualização**; `includeItems=1` traz os itens com data/hora do passeio, faixa etária, quantidade, voucher, `utilizado` (check-in) e **formulário** (nome, documento etc.).
+- Existem endpoints de check-in de atividade, afiliados, reagendamento e **webhooks** (listar/registrar/apagar) — webhooks a ler.
+- Conector implementado: `integracoes/paytour/README.md`.

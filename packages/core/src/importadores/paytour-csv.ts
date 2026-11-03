@@ -61,7 +61,7 @@ export function lerDataBr(texto: string): string | null {
   return null;
 }
 
-function canalPorAfiliado(afiliado: string): Canal | null {
+export function canalPorAfiliado(afiliado: string): Canal | null {
   const a = afiliado.toLowerCase();
   if (a.includes("tripadvisor") || a.includes("viator")) return "VIATOR";
   if (a.includes("decolar")) return "DECOLAR";
@@ -69,7 +69,7 @@ function canalPorAfiliado(afiliado: string): Canal | null {
   return null;
 }
 
-function tipoDocumento(valor: string): TipoDocumento {
+export function tipoDocumentoPorValor(valor: string): TipoDocumento {
   const d = somenteDigitos(valor);
   if (d.length === 11 && cpfValido(d)) return "CPF";
   if (/^[A-Za-z]{1,2}\d{5,}$/.test(valor.replace(/\s/g, ""))) return "PASSAPORTE";
@@ -150,7 +150,7 @@ export function lerCsvPaytour(texto: string, mapeamento: MapeamentoPaytour = MAP
       reserva.passageiros.push({
         nome: q === 0 ? val(linha, "nome") : "",
         categoria: categoria ?? "ADULTO",
-        documentoTipo: documentoBruto && !ehFicticio && q === 0 ? tipoDocumento(documentoBruto) : null,
+        documentoTipo: documentoBruto && !ehFicticio && q === 0 ? tipoDocumentoPorValor(documentoBruto) : null,
         documento: documentoBruto && !ehFicticio && q === 0 ? documentoBruto : null,
       });
     }

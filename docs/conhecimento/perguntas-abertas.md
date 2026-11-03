@@ -47,3 +47,4 @@ Atualize este arquivo à medida que forem respondidas (resposta + data).
 31. **Decolar:** encaminhar 1 e-mail de confirmação da Decolar (de contatofbyb@) para admbybus@ para eu criar o leitor.
 32. **Paytour:** exportar o relatório de reservas/passageiros (CSV ou Excel) de alguns dias e colocar no Drive para testar a importação (será anonimizada).
 33. **Hospedagem:** o robô do Gmail precisa do sistema publicado em https — autorizar a comparação/contratação de provedor.
+34. **Paytour:** quais campos o formulário de passageiro da By Bus pede (nome, CPF, ponto de embarque?) — confirmar no primeiro teste com a chave nova.

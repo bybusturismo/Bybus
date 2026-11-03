@@ -8,6 +8,7 @@ import { criarDb, type Db } from "./db/cliente.js";
 import { rotasAuth } from "./rotas/auth.js";
 import { rotasImportacao } from "./rotas/importacao.js";
 import { rotasIntegracoes } from "./rotas/integracoes.js";
+import { agendarPaytour } from "./servicos/paytour.js";
 import { rotasManifesto } from "./rotas/manifesto.js";
 import { rotasOperacao } from "./rotas/operacao.js";
 import { rotasUsuarios } from "./rotas/usuarios.js";
@@ -80,5 +81,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasImportacao(app, ctx);
   await rotasIntegracoes(app, ctx);
 
-  return { app, fechar: async () => { await app.close(); await pool.end(); } };
+  const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
+
+  return { app, fechar: async () => { pararPaytour(); await app.close(); await pool.end(); } };
 }

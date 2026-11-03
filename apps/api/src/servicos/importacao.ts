@@ -7,6 +7,12 @@ import { camposDocumento } from "./passageiro.js";
 import { podeUnidade } from "../seguranca/escopo.js";
 import type { UsuarioSessao } from "../seguranca/sessao.js";
 
+/** "Usuário" das importações automáticas (robô do Gmail, Paytour): alcança todas as praças, sem sessão nem login. */
+export const USUARIO_INTEGRACAO: UsuarioSessao = {
+  id: "integracao", nome: "Integração automática", email: "", perfil: "INTEGRACAO", perfilNome: "Integração",
+  permissoes: ["importacoes:executar"], todasUnidades: true, unidadeIds: [], trocarSenha: false, totpAtivo: false, sessaoId: "",
+};
+
 export type Acao = "CRIAR" | "ATUALIZAR" | "CANCELAR" | "IGNORAR";
 
 export interface ItemPrevia {

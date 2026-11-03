@@ -551,3 +551,70 @@ describe("entrada automática de e-mails de reserva (robô do Gmail)", () => {
     }
   });
 });
+
+describe("sincronização com a API da Paytour (servidor simulado)", () => {
+  it("faz login com App Key/Secret, importa pedidos anonimizados, não duplica e cancela", async () => {
+    const http = await import("node:http");
+    let status = "aprovado";
+    const recebidos: string[] = [];
+    // Pedido no formato da documentação da API v2, com dados FICTÍCIOS.
+    const pedido = () => ({
+      id: "7001", status, cliente_nome: "Comprador Ficticio", cliente_email: "c@exemplo.com", cliente_celular: "(48) 90000-0001",
+      data_hora_atualizacao: "2026-10-20 10:00:00",
+      itens: [{
+        id: "1", produto_tipo: "passeio", quantidade: "2", nome_produto: "City Tour Floripa - Toda Ilha",
+        produto_disponibilidade_data: "2026-10-26", produto_disponibilidade_hora: "08:00", produto_faixa_etaria_nome: "Adulto",
+        formulario: [{ chave: "nome", valor: "Passageira Ficticia Paytour", tipo: "nome_completo" }, { chave: "embarque", label: "Ponto de embarque", valor: "Villa Romana Shopping" }],
+      }],
+    });
+    const servidor = http.createServer((req, res) => {
+      recebidos.push(`${req.method} ${req.url} ${req.headers.authorization ?? ""}`);
+      res.setHeader("content-type", "application/json");
+      if (req.url?.startsWith("/v2/lojas/login")) {
+        const ok = req.headers.authorization === `Basic ${Buffer.from("chave-app-teste:segredo-app-teste").toString("base64")}`;
+        res.statusCode = ok ? 200 : 401;
+        return res.end(JSON.stringify(ok ? { access_token: "tok-1", expires_in: Math.floor(Date.now() / 1000) + 3600, token_type: "bearer" } : { message: "Unauthorized.", code: 1 }));
+      }
+      if (req.url?.startsWith("/v2/pedidos") && req.headers.authorization === "Bearer tok-1") {
+        res.statusCode = 201; // a documentação mostra 201 na listagem
+        return res.end(JSON.stringify({ info: { total: 1, pagina: 1, total_paginas: 1, por_pagina: 100 }, itens: [pedido()] }));
+      }
+      res.statusCode = 401;
+      res.end("{}");
+    });
+    await new Promise<void>((ok) => servidor.listen(0, "127.0.0.1", ok));
+    const porta = (servidor.address() as { port: number }).port;
+    const comPaytour = await subirApp({ PAYTOUR_APP_KEY: "chave-app-teste", PAYTOUR_APP_SECRET: "segredo-app-teste", PAYTOUR_URL: `http://127.0.0.1:${porta}/v2`, PAYTOUR_SINCRONIZAR_MINUTOS: "0" });
+    try {
+      const c = new Cliente(comPaytour.app);
+      await c.login("admin@bybus.test");
+      expect((await c.req("GET", "/api/integracoes/paytour")).json()).toMatchObject({ configurada: true });
+
+      const r1 = await c.req("POST", "/api/integracoes/paytour/sincronizar", {});
+      expect(r1.statusCode).toBe(200);
+      expect(r1.json()).toMatchObject({ pedidos: 1, resumo: { CRIAR: 1 } });
+      expect(recebidos.some((l) => l.includes("updatedAtMin=") && l.includes("includeItems=1"))).toBe(true);
+      expect((await c.req("POST", "/api/integracoes/paytour/sincronizar", {})).json().resumo).toMatchObject({ ATUALIZAR: 1, CRIAR: 0 });
+
+      const s26 = (await primeiraSaida(c)).find((s) => s.data === "2026-10-26")!;
+      const m = (await c.req("GET", `/api/saidas/${s26.id}/manifesto`)).json().manifesto;
+      const villa = m.blocos.find((b: { ponto: { nome: string } | null }) => b.ponto?.nome === "Villa Romana Shopping");
+      expect(villa.linhas.length).toBeGreaterThanOrEqual(2);
+      expect(JSON.stringify(m)).not.toMatch(/Ficticia Paytour|Comprador Ficticio/);
+
+      status = "cancelado";
+      expect((await c.req("POST", "/api/integracoes/paytour/sincronizar", {})).json().resumo).toMatchObject({ CANCELAR: 1 });
+      const estado = (await c.req("GET", "/api/integracoes/paytour")).json();
+      expect(estado.ultimoErro).toBeNull();
+      expect(JSON.stringify(estado)).not.toContain("segredo-app-teste");
+    } finally {
+      await comPaytour.fechar();
+      servidor.close();
+    }
+  });
+
+  it("sem credenciais, avisa que não está configurada", async () => {
+    const c = await logado("admin@bybus.test");
+    expect((await c.req("POST", "/api/integracoes/paytour/sincronizar", {})).json().codigo).toBe("PAYTOUR_NAO_CONFIGURADA");
+  });
+});
