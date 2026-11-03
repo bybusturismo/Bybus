@@ -10,6 +10,7 @@ Site/loja própria · **Paytour** (a "Peitur") · **Decolar** · **Tripadvisor**
 - Integração **nativa com Civitatis** (reservas da Civitatis entram na Paytour).
 - Planos (podem estar desatualizados): Controle R$ 89/mês · Performance R$ 249/mês + taxa (inclui Civitatis) · **Premium R$ 379/mês — único com "acesso a API"**.
 - **API sem documentação pública.** Endpoints, autenticação e webhooks [NÃO CONFIRMADO]. → Pedir à Paytour documentação + sandbox.
+- **Confirmado (03/11/2026):** o painel da By Bus tem **Avançado → Aplicativos**, onde se criam aplicativos com **App Key + App Secret** (credenciais de API). Existe um aplicativo "traqueamento" (25/05/2026) usado por outra ferramenta — a confirmar qual. Endereço da API e endpoints continuam a confirmar (documentação pedida à Paytour). Credenciais só em variáveis de ambiente do servidor, nunca no repositório ou em chat.
 - Fontes: [recursos](https://www.paytour.com.br/recursos/), [planos](https://www.paytour.com.br/planos/), [Civitatis](https://www.paytour.com.br/funcionalidades/civitatis/), [PagBank](https://developer.pagbank.com.br/docs/paytour-processo-de-integracao).
 
 ## Viator / Tripadvisor
