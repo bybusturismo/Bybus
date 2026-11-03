@@ -82,3 +82,11 @@ Outros produtos sabidos por documentos internos: **Nascer do Sol** (2021) e **Br
 ### Descontos e cupons
 - Diferença dinheiro × cartão/PIX no quiosque; cupons e afiliados na Paytour; desconto para agências; cortesias controladas na Paytour.
 - **Não há política formal** de idades, meia, gratuidade e cancelamento consolidada em documento — definir com o dono e o jurídico.
+
+## Produtos ativos na Paytour (API, pedidos de out–nov/2026)
+- **CITY TOUR TODA ILHA (Saída do centro)** — o principal; horário único ("O dia todo"); faixas: Adulto, Criança, Sênior e PNE.
+- **City Tour Toda Ilha – HORÁRIO ESPECIAL ANO NOVO**.
+- **City Tour – Passeio Bruxólico** — noturno ("Noite", 18h; embarque 18h30 no ponto de táxi do Villa Romana Shopping); faixa "Preço único".
+- **OKTOBERTOUR** — saída de manhã (9h–12h) e à tarde (14h–17h).
+- Formulário de passageiro na Paytour: nome completo, documento (RG/CPF/Passaporte) e ponto de embarque (lista com horário + local, ex.: "8h - No ponto de táxi do Villa Romana Shopping…"). Embarques com transfer (Ingleses 6h40, Cachoeira 6h50, Canasvieiras 7h, Jurerê 7h10) "possuem custo adicional".
+- A confirmar: pontos de embarque e regras (mínimo, capacidade) do Bruxólico e do Oktobertour para cadastrá-los no sistema.

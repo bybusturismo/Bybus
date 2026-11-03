@@ -24,7 +24,7 @@ const pedido: PedidoPaytour = {
         { chave: "ponto_embarque", valor: "Hotel Majestic", label: "Ponto de embarque", tipo: "select" },
       ],
     },
-    { id: "527", produto_tipo: "passeio", quantidade: "2", nome_produto: "City Tour Toda Ilha", produto_disponibilidade_data: "2026-11-10", produto_faixa_etaria_nome: "Criança", formulario: [] },
+    { id: "527", produto_tipo: "passeio", quantidade: "2", produto_disponibilidade_hora_de: null, nome_produto: "City Tour Toda Ilha", produto_disponibilidade_data: "2026-11-10", produto_faixa_etaria_nome: "Criança", formulario: [] },
   ],
 };
 
@@ -64,4 +64,19 @@ describe("pedidoPaytourParaReservas", () => {
     expect(r!.avisos.join(" ")).toMatch(/aguardando/);
     expect(r!.canal).toBe("DECOLAR");
   });
+});
+
+it("usa o horário de início quando a Paytour informa (formato real: \"18:00:00\" e rótulo \"Noite\")", () => {
+  const [r] = pedidoPaytourParaReservas({ id: 5, status: "aprovado", itens: [{ id: 1, quantidade: "1", nome_produto: "City Tour - Passeio Bruxólico", produto_disponibilidade_data: "2026-11-20", produto_disponibilidade_hora: "Noite", produto_disponibilidade_hora_de: "18:00:00",
+    formulario: [{ chave: "ponto_de_embarque", label: "Ponto de embarque", tipo: "hospedagem", valor: "18h30 no ponto de táxi do Villa Romana Shopping." }, { chave: "documento_rg_cpf_passaporte", label: " Documento: RG/CPF/Passaporte", tipo: "text", valor: "1111" }] }] });
+  expect(r).toMatchObject({ horario: "18:00", pontoEmbarqueTexto: "18h30 no ponto de táxi do Villa Romana Shopping.", canal: "VIATOR" });
+});
+
+it("faixas reais da Paytour: \"Preço único\" e \"Sênior e PNE\"", () => {
+  const [r] = pedidoPaytourParaReservas({ id: 6, status: "aprovado", itens: [
+    { id: 1, quantidade: "1", nome_produto: "X", produto_disponibilidade_data: "2026-11-20", produto_faixa_etaria_nome: "Preço único" },
+    { id: 2, quantidade: "1", nome_produto: "X", produto_disponibilidade_data: "2026-11-20", produto_faixa_etaria_nome: "Sênior e PNE" },
+  ] });
+  expect(r!.passageiros.map((p) => p.categoria)).toEqual(["ADULTO", "SENIOR"]);
+  expect(r!.avisos).toEqual([]);
 });

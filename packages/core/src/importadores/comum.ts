@@ -35,7 +35,7 @@ export function categoriaPorRotulo(rotulo: string): Categoria | null {
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .trim();
-  if (/^(adult|adulto|adultos|adults)$/.test(r)) return "ADULTO";
+  if (/^(adult|adulto|adultos|adults|preco unico|unico|inteira|geral)$/.test(r)) return "ADULTO";
   if (/^(senior|seniors|idoso|idosos|melhor idade|terceira idade)$/.test(r)) return "SENIOR";
   if (/^(child|children|crianca|criancas|infantil|nino|ninos|youth|jovem)$/.test(r)) return "INFANTIL";
   if (/^(infant|infants|colo|bebe|bebes)$/.test(r)) return "COLO";

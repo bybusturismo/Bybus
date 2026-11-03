@@ -23,8 +23,13 @@ Crie um aplicativo novo na Paytour (Avançado → Aplicativos → Adicionar Apli
 
 Conferir e forçar: `GET /api/integracoes/paytour` (situação) e `POST /api/integracoes/paytour/sincronizar` (agora; `{"desde":"AAAA-MM-DD"}` relê a partir de uma data). Permissão: `importacoes:executar`.
 
+## Validado com dados reais (03/11/2026, prévia sem gravar)
+265 pedidos dos últimos 30 dias → 573 passageiros; status "aprovado"/"cancelado"; 1 item = 1 pessoa; formulário com `nome_completo`, `documento_rg_cpf_passaporte` e `ponto_de_embarque` (tipo "hospedagem"); horário em `produto_disponibilidade_hora_de`; todos os 12 pontos casaram com a tabela oficial; 33 espelhos de Viator reconhecidos. Bruxólico e Oktobertour ficam ignorados até serem cadastrados como passeios.
+
 ## A confirmar com dados reais
-- Nomes técnicos dos campos do formulário da By Bus (nome, CPF/documento, ponto de embarque).
-- Lista completa de status de pedido (a documentação só mostra "aprovado").
+- Outros status além de aprovado/cancelado (4 pedidos vieram com status diferente).
 - Fuso dos filtros `updatedAtMin/Max` (assumido: Brasília).
 - Webhooks (`/webhooks`, seção não lida — link do site bloqueado neste ambiente): avisos imediatos de venda/cancelamento; a Paytour espera HTTP 2xx e tenta de novo em 30 s, 5, 10 e 20 min.
+
+## Rodar de um ambiente com proxy (ex.: sessão na nuvem)
+O `fetch` do Node só usa o proxy com `NODE_USE_ENV_PROXY=1` (e `NODE_EXTRA_CA_CERTS` apontando para o certificado do proxy).

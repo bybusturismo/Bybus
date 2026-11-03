@@ -36,11 +36,16 @@ export function casarPonto<T extends { id: string; nome: string }>(texto: string
   const exato = pontos.find((p) => normalizar(p.nome) === alvo);
   if (exato) return exato;
   const ignorar = new Set(["hotel", "transfer", "e", "de", "da", "do", "fundos", "em", "frente", "ao", "praca", "praia"]);
-  const candidatos = pontos.filter((p) => {
+  // Posição da primeira palavra-chave de cada ponto citada no texto.
+  const posicoes = pontos.flatMap((p) => {
     const chaves = normalizar(p.nome).split(" ").filter((w) => w.length > 2 && !ignorar.has(w));
-    return chaves.length > 0 && chaves.some((w) => alvo.includes(w));
+    const achadas = chaves.map((w) => alvo.search(new RegExp(`\\b${w}\\b`))).filter((i) => i >= 0);
+    return achadas.length ? [{ p, pos: Math.min(...achadas) }] : [];
   });
-  return candidatos.length === 1 ? candidatos[0]! : null;
+  if (posicoes.length <= 1) return posicoes[0]?.p ?? null;
+  // Vários pontos citados (ex.: "hotel Ibis (Av. Rio Branco…, próximo ao hotel Lumar)"): vale o citado primeiro.
+  posicoes.sort((a, b) => a.pos - b.pos);
+  return posicoes[0]!.pos < posicoes[1]!.pos ? posicoes[0]!.p : null;
 }
 
 /**

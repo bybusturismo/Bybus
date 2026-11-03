@@ -32,7 +32,10 @@ export interface ItemPedidoPaytour {
   nome_produto?: string | null;
   nome_utilizador?: string | null;
   produto_disponibilidade_data?: string | null;
+  /** Rótulo do horário ("O dia todo", "Noite"…). */
   produto_disponibilidade_hora?: string | null;
+  /** Horário de início "HH:MM:SS" (vem nulo em passeios de horário único). */
+  produto_disponibilidade_hora_de?: string | null;
   data_utilizacao?: string | null;
   produto_faixa_etaria_nome?: string | null;
   voucher_code?: string | null;
@@ -121,7 +124,7 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
       const campos = camposFormulario(item.formulario);
       ponto ??= campo(campos, PADRAO_PONTO);
       const faixa = texto(item.produto_faixa_etaria_nome);
-      const categoria = faixa ? categoriaPorRotulo(faixa.split(/[\s-]/)[0] ?? faixa) ?? categoriaPorRotulo(faixa) : "ADULTO";
+      const categoria = faixa ? categoriaPorRotulo(faixa) ?? categoriaPorRotulo(faixa.split(/[\s-]/)[0] ?? faixa) : "ADULTO";
       if (faixa && !categoria) avisos.push(`Faixa etária "${faixa}" desconhecida, tratada como adulto.`);
       const documentoBruto = campo(campos, PADRAO_DOCUMENTO);
       origemOta ??= canalPorDocumentoFicticio(documentoBruto);
@@ -147,7 +150,7 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
       codigoExterno: chaves.length > 1 ? `PAYTOUR-${id}-${data}-${n + 1}` : `PAYTOUR-${id}`,
       referencias: [...new Set([...extrairReferenciasOta(obs), ...doGrupo.map((i) => texto(i.voucher_code)).filter((v): v is string => !!v)])],
       data,
-      horario: horarioInicial(texto(doGrupo[0]!.produto_disponibilidade_hora)),
+      horario: horarioInicial(texto(doGrupo[0]!.produto_disponibilidade_hora_de) ?? texto(doGrupo[0]!.produto_disponibilidade_hora)),
       produto,
       contatoNome: texto(pedido.cliente_nome) ?? "",
       contatoTelefone: telefone ? (ddi && !telefone.startsWith("+") && somenteDigitos(ddi) !== "55" ? `${ddi} ${telefone}` : telefone) : null,
