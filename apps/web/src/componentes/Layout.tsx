@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, matchPath, Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { Permissao } from "../api/tipos";
 import { useSessao } from "../sessao/Sessao";
 import logoHorizontal from "../marca/bybus-horizontal.png";
@@ -85,7 +85,7 @@ export function Layout() {
   const { usuario, pode, sair, unidades, praca, escolherPraca } = useSessao();
   const navegar = useNavigate();
   const local = useLocation();
-  const itens = itensPermitidos(pode);
+  const itens = useMemo(() => itensPermitidos(pode), [pode]);
   const [ajuda, setAjuda] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
   const [turistinha, setTuristinha] = useState(false);
@@ -133,7 +133,10 @@ export function Layout() {
   const areas = AREAS.map((a) => ({ area: a, itens: itens.filter((i) => i.area === a) })).filter((g) => g.itens.length > 0);
   const poucosItens = itens.length <= 4;
   // Item ativo = o de caminho mais específico que casa com a URL (ex.: /financeiro/extrato não acende "Resumo financeiro").
-  const ativo = itens.filter((i) => local.pathname === i.para || local.pathname.startsWith(`${i.para}/`)).sort((a, b) => b.para.length - a.para.length)[0]?.para;
+  const ativo = useMemo(
+    () => itens.filter((i) => matchPath({ path: i.para, end: false }, local.pathname)).sort((a, b) => b.para.length - a.para.length)[0]?.para,
+    [itens, local.pathname],
+  );
 
   return (
     <div className={`app${menuAberto ? " app--menu-aberto" : ""}${turistinha && pode("ia:usar") ? " app--turistinha" : ""}`}>
@@ -182,7 +185,8 @@ export function Layout() {
 
       <nav id="menu-principal" className="menu nao-imprimir" aria-label="Menu principal">
         {areas.map(({ area, itens: doGrupo }) => {
-          const aberta = poucosItens || !fechadas.includes(area);
+          // A área da tela atual fica sempre aberta, mesmo que o usuário a tenha recolhido.
+          const aberta = poucosItens || !fechadas.includes(area) || doGrupo.some((i) => i.para === ativo);
           const idLista = `menu-area-${area.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()}`;
           return (
             <section key={area} className="menu__area">

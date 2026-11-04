@@ -106,4 +106,11 @@ describe("Item ativo do menu", () => {
     expect(within(menu).getByRole("link", { name: /Extrato e conciliação/ })).toHaveAttribute("aria-current", "page");
     expect(within(menu).getByRole("link", { name: /Resumo financeiro/ })).not.toHaveAttribute("aria-current");
   });
+
+  it("subpágina sem item próprio acende o item pai, sem diferenciar maiúsculas", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("FROTA", ["frota:ver", "frota:checklist"]), rota: "/Frota/veiculos/" });
+    const menu = screen.getByRole("navigation", { name: "Menu principal" });
+    expect(within(menu).getByRole("link", { name: /Frota e manutenção/ })).toHaveAttribute("aria-current", "page");
+    expect(within(menu).getByRole("link", { name: /Checklist do veículo/ })).not.toHaveAttribute("aria-current");
+  });
 });
