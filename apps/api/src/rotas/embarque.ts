@@ -106,9 +106,15 @@ export async function rotasEmbarque(app: FastifyInstance, { db, config }: Contex
       .limit(500);
     const ids = linhas.map((l) => l.reserva.id);
     const pax = ids.length ? await db.select({ reservaId: passageiros.reservaId, categoria: passageiros.categoria }).from(passageiros).where(inArray(passageiros.reservaId, ids)) : [];
+    const porReserva = new Map<string, Record<string, number>>();
+    for (const x of pax) {
+      const c = porReserva.get(x.reservaId) ?? {};
+      c[x.categoria] = (c[x.categoria] ?? 0) + 1;
+      porReserva.set(x.reservaId, c);
+    }
     const verContatos = pode(req.usuario!, "manifesto:contatos");
     return linhas.map(({ reserva: r, saida: s, passeio: p, ponto, conferente }) => {
-      const meus = pax.filter((x) => x.reservaId === r.id);
+      const categorias = porReserva.get(r.id) ?? {};
       const alertas: string[] = [];
       if (!ponto) alertas.push(r.hospedagemInformada ? "Ponto a definir" : "Sem ponto de embarque");
       if (!r.contatoTelefone) alertas.push("Sem telefone");
@@ -117,7 +123,7 @@ export async function rotasEmbarque(app: FastifyInstance, { db, config }: Contex
       return {
         id: r.id, saidaId: s.id, data: s.data, passeio: p.nome, passeioId: p.id, canal: r.canalOrigem ?? r.canal, codigoExterno: r.codigoExterno,
         contatoNome: r.contatoNome, contatoTelefone: verContatos ? r.contatoTelefone : null,
-        passageiros: meus.length, categorias: meus.reduce<Record<string, number>>((m, x) => ({ ...m, [x.categoria]: (m[x.categoria] ?? 0) + 1 }), {}),
+        passageiros: Object.values(categorias).reduce((a, n) => a + n, 0), categorias,
         pagamento: r.pagamento, formaPagamento: r.formaPagamento, origemCliente: r.origemCliente,
         ponto, hospedagemInformada: r.hospedagemInformada, pediuTransfer: r.pediuTransfer, informadoPeloClienteEm: r.informadoPeloClienteEm,
         conferencia: r.conferencia, conferidaEm: r.conferidaEm, conferidaPor: conferente,
@@ -135,14 +141,10 @@ export async function rotasEmbarque(app: FastifyInstance, { db, config }: Contex
     const [r] = await db.select({ reserva: reservas, saida: saidas }).from(reservas).innerJoin(saidas, eq(saidas.id, reservas.saidaId)).where(eq(reservas.id, id));
     if (!r) throw new ErroHttp(404, "NAO_ENCONTRADO", "Reserva não encontrada.");
     const pontoId = corpo.pontoEmbarqueId !== undefined ? corpo.pontoEmbarqueId : r.reserva.pontoEmbarqueId;
-    if (pontoId) {
-      const [ok] = await db.select({ id: pontosEmbarque.id }).from(pontosEmbarque).where(and(eq(pontosEmbarque.id, pontoId), eq(pontosEmbarque.passeioId, r.saida.passeioId)));
-      if (!ok) throw new ErroHttp(400, "PONTO_INVALIDO", "Ponto de embarque não pertence a este passeio.");
-    } else {
-      throw new ErroHttp(400, "PONTO_OBRIGATORIO", "Defina o ponto de embarque antes de conferir.");
-    }
-    const [ponto] = await db.select({ ehTransfer: pontosEmbarque.ehTransfer }).from(pontosEmbarque).where(eq(pontosEmbarque.id, pontoId));
-    await db.update(reservas).set({ pontoEmbarqueId: pontoId, pediuTransfer: ponto?.ehTransfer ?? false, conferencia: "CONFERIDA", conferidaPor: req.usuario!.id, conferidaEm: new Date(), atualizadoEm: new Date() }).where(eq(reservas.id, id));
+    if (!pontoId) throw new ErroHttp(400, "PONTO_OBRIGATORIO", "Defina o ponto de embarque antes de conferir.");
+    const [ponto] = await db.select({ ehTransfer: pontosEmbarque.ehTransfer }).from(pontosEmbarque).where(and(eq(pontosEmbarque.id, pontoId), eq(pontosEmbarque.passeioId, r.saida.passeioId)));
+    if (!ponto) throw new ErroHttp(400, "PONTO_INVALIDO", "Ponto de embarque não pertence a este passeio.");
+    await db.update(reservas).set({ pontoEmbarqueId: pontoId, pediuTransfer: ponto.ehTransfer, conferencia: "CONFERIDA", conferidaPor: req.usuario!.id, conferidaEm: new Date(), atualizadoEm: new Date() }).where(eq(reservas.id, id));
     await auditar(db, req, "RESERVA_CONFERIDA", { tipo: "reserva", id }, { pontoAlterado: pontoId !== r.reserva.pontoEmbarqueId });
     return { ok: true };
   });

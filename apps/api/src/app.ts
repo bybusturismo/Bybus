@@ -26,6 +26,9 @@ export interface Contexto {
   cofre: Cofre;
 }
 
+/** Esconde tokens de links públicos na URL registrada no log. */
+export const mascararUrl = (url: string) => url.replace(/(\/embarque\/)[A-Za-z0-9_-]+/g, "$1***");
+
 export async function criarApp(config: Config): Promise<{ app: FastifyInstance; fechar: () => Promise<void> }> {
   const { db, pool } = criarDb(config.DATABASE_URL);
   const ctx: Contexto = { db, config, cofre: new Cofre(config.CHAVE_CRIPTOGRAFIA) };
@@ -35,6 +38,10 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
       level: "info",
       // Nunca registrar senha, código MFA, cookies ou documentos nos logs.
       redact: ["req.headers.cookie", "req.headers.authorization", "body.senha", "body.novaSenha", "body.senhaAtual", "body.codigo"],
+      // O token do link de embarque vale como senha: não pode ir para o log junto da URL.
+      serializers: {
+        req: (r: { method: string; url: string; ip?: string }) => ({ method: r.method, url: mascararUrl(r.url), ip: r.ip }),
+      },
     },
     // Só confia em X-Forwarded-For quando há proxy conhecido à frente (evita IP falsificado no rate limit e na auditoria).
     trustProxy: config.PROXIES_CONFIAVEIS > 0 ? config.PROXIES_CONFIAVEIS : false,
