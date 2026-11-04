@@ -378,7 +378,11 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
   /** Cria os pedidos das reservas já realizadas no período (um por reserva; repetir não duplica). Não envia nada. */
   app.post("/api/marketing/avaliacoes/pedidos/gerar", gerenciar, async (req) => {
     const u = req.usuario!;
-    const p = periodo.parse(req.body);
+    // Padrão próprio: últimos 7 dias até ontem (passeios já realizados). Corpo ausente é aceito.
+    const q = z.object({ de: dataIso.optional(), ate: dataIso.optional(), unidadeId: uuid.optional() }).parse(req.body ?? {});
+    const ate = q.ate ?? somarDias(hoje(), -1);
+    const p = { de: q.de ?? somarDias(ate, -6), ate, unidadeId: q.unidadeId };
+    if (p.de > p.ate) throw new ErroHttp(400, "PERIODO_INVALIDO", "A data inicial deve ser anterior à final.");
     if (p.unidadeId && !podeUnidade(u, p.unidadeId)) throw naoEncontrado("Praça");
     if ((Date.parse(p.ate) - Date.parse(p.de)) / 86400_000 > 31) throw new ErroHttp(400, "PERIODO_LONGO", "Gere os pedidos de no máximo 31 dias por vez.");
     const ateEfetivo = p.ate < hoje() ? p.ate : somarDias(hoje(), -1);
