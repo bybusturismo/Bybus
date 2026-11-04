@@ -23,3 +23,6 @@ exports/
 # Implantação: segredos e cópias do banco no servidor
 implantacao/.env
 implantacao/backups/
+
+# Cópias de trabalho dos agentes (git worktree)
+.claude/worktrees/
