@@ -55,3 +55,8 @@ Bókun (grupo Tripadvisor, US$ 49/mês + 1–1,5%), Rezdy, Checkfront, FareHarbo
 ## Vendas por canal na Paytour (120 dias até 03/11/2026, pedidos aprovados)
 - ~465 vendas diretas (site/quiosque, sem afiliado); **86 pelo afiliado "TripAdvisor interno"** (cópias manuais das reservas Viator/Bókun — **sem o código VIA-** na observação, então o sistema só detecta duplicidade por nome+data+categorias); 13 pelo afiliado "Turis Tráfego – Google Ads"; o restante por afiliados de hotéis/parceiros.
 - **Nenhuma venda da Decolar** no período (nem afiliado, nem documento 2222, nem e-mail no admbybus@). A confirmar se a Decolar ainda vende e por onde (desde jun/2026 a Decolar revende o catálogo da Civitatis).
+
+## Viator — acesso (04/11/2026)
+- A equipe acessa a Viator pelo **portal de fornecedor** (supplier.viator.com, conta "BY BUS TURIS…" nº 165696); **não tem login na Bókun**, embora os avisos de reserva cheguem da Bókun (bybusturismo1.bokun.io) no admbybus@ — a confirmar quem criou/administra essa conta Bókun (provavelmente criada pela própria Viator).
+- Decisão do dono: depois da integração, **parar as cópias manuais** na Paytour; antes disso, resolver o bloqueio de vagas na Paytour (proposta: o sistema registra o pedido-espelho automaticamente via API da Paytour).
+- Decolar continua vendendo; confirmações chegam em contatofbyb@gmail.com (exemplo a enviar).
