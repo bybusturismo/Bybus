@@ -1,8 +1,8 @@
 /** Leitor de CSV (RFC 4180) com detecção de separador ";" ou ",". */
-export function lerCsv(texto: string): string[][] {
+export function lerCsv(texto: string, separador?: string): string[][] {
   const conteudo = texto.replace(/^﻿/, "");
   const primeiraLinha = conteudo.split(/\r?\n/, 1)[0] ?? "";
-  const sep = (primeiraLinha.match(/;/g)?.length ?? 0) > (primeiraLinha.match(/,/g)?.length ?? 0) ? ";" : ",";
+  const sep = separador ?? ((primeiraLinha.match(/;/g)?.length ?? 0) > (primeiraLinha.match(/,/g)?.length ?? 0) ? ";" : ",");
   const linhas: string[][] = [];
   let campo = "";
   let linha: string[] = [];

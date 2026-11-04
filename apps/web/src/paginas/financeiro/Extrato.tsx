@@ -157,7 +157,7 @@ function FormLancar({ linha, categorias, aoConcluir, aoCancelar }: { linha: Linh
     if (!categoriaId) return setErro("Escolha a categoria.");
     setSalvando(true);
     try {
-      await api.post(`/api/financeiro/extrato/linhas/${linha.id}/lancar`, { categoriaId, descricao: descricao.trim() || null, unidadeId: unidadeId || null, linha: (linhaNeg || null) as LinhaNegocio | null, veiculo: veiculo.trim() || null });
+      await api.post(`/api/financeiro/extrato/linhas/${linha.id}/lancar`, { categoriaId, descricao: descricao.trim() || null, unidadeId: unidadeId || undefined, linha: (linhaNeg || null) as LinhaNegocio | null, veiculo: veiculo.trim() || null });
       await aoConcluir();
     } catch (x) {
       setErro(mensagemDeErro(x));

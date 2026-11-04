@@ -1,10 +1,14 @@
-import { PLANO_CATEGORIAS } from "@bybus/core";
+import { PLANO_CATEGORIAS, type TipoCategoria } from "@bybus/core";
 import { and, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "../db/cliente.js";
-import { finCategorias, finContas, finExtratoLinhas, finLancamentos, unidades } from "../db/schema.js";
+import { finCategorias, finContas, finExtratoLinhas, finLancamentos, finRegras, unidades } from "../db/schema.js";
 import { podeUnidade } from "../seguranca/escopo.js";
 import { ErroHttp, type UsuarioSessao } from "../seguranca/sessao.js";
+
+/** Lançamento conciliado = existe linha de extrato apontando para ele (uma só definição, usada em consultas e travas). */
+export const conciliadoSql = sql<boolean>`exists (select 1 from fin_extrato_linhas l where l.lancamento_id = ${finLancamentos.id})`;
+export const naoConciliadoSql = sql`not exists (select 1 from fin_extrato_linhas l where l.lancamento_id = ${finLancamentos.id})`;
 
 export type Conta = typeof finContas.$inferSelect;
 export type Lancamento = typeof finLancamentos.$inferSelect;
@@ -86,8 +90,10 @@ export async function validarCategoria(db: Db, categoriaId: string, tipo: "PAGAR
 
 /**
  * Saldo de cada conta = saldo inicial + movimento do extrato (todas as linhas, com sinal)
- * + lançamentos realizados na conta que NÃO estão ligados a uma linha de extrato (ex.: caixa do quiosque).
- * Se a conta tem data do saldo inicial, só entra o que for posterior a ela.
+ * + lançamentos realizados na conta que NÃO estão ligados a uma linha e NÃO caem no período de um extrato importado
+ * (ex.: caixa do quiosque, que não tem extrato). Assim, uma baixa manual e a linha do mesmo movimento não contam em dobro,
+ * nem antes de conciliar.
+ * "Saldo válido em" (saldoInicialEm) é o saldo no INÍCIO daquele dia: movimentos da própria data entram (>=).
  */
 export async function saldosDasContas(db: Db, contas: Conta[]): Promise<Map<string, number>> {
   const saldos = new Map<string, number>(contas.map((c) => [c.id, c.saldoInicialCentavos]));
@@ -95,7 +101,7 @@ export async function saldosDasContas(db: Db, contas: Conta[]): Promise<Map<stri
   const ids = contas.map((c) => c.id);
   const linhas = await db.select({ contaId: finExtratoLinhas.contaId, total: sql<number>`coalesce(sum(${finExtratoLinhas.valorCentavos}), 0)`.mapWith(Number) })
     .from(finExtratoLinhas).innerJoin(finContas, eq(finContas.id, finExtratoLinhas.contaId))
-    .where(and(inArray(finExtratoLinhas.contaId, ids), sql`(${finContas.saldoInicialEm} is null or ${finExtratoLinhas.data} > ${finContas.saldoInicialEm})`))
+    .where(and(inArray(finExtratoLinhas.contaId, ids), sql`(${finContas.saldoInicialEm} is null or ${finExtratoLinhas.data} >= ${finContas.saldoInicialEm})`))
     .groupBy(finExtratoLinhas.contaId);
   for (const l of linhas) saldos.set(l.contaId, (saldos.get(l.contaId) ?? 0) + l.total);
   const avulsos = await db.select({
@@ -104,11 +110,30 @@ export async function saldosDasContas(db: Db, contas: Conta[]): Promise<Map<stri
   }).from(finLancamentos).innerJoin(finContas, eq(finContas.id, finLancamentos.contaId))
     .where(and(
       inArray(finLancamentos.contaId, ids), eq(finLancamentos.situacao, "REALIZADO"), isNotNull(finLancamentos.valorPagoCentavos),
-      sql`not exists (select 1 from fin_extrato_linhas l where l.lancamento_id = ${finLancamentos.id})`,
-      sql`(${finContas.saldoInicialEm} is null or ${finLancamentos.pagoEm} > ${finContas.saldoInicialEm})`,
+      naoConciliadoSql,
+      sql`not exists (select 1 from fin_extratos e where e.conta_id = ${finLancamentos.contaId} and e.inicio <= ${finLancamentos.pagoEm} and e.fim >= ${finLancamentos.pagoEm})`,
+      sql`(${finContas.saldoInicialEm} is null or ${finLancamentos.pagoEm} >= ${finContas.saldoInicialEm})`,
     ))
     .groupBy(finLancamentos.contaId);
   for (const a of avulsos) if (a.contaId) saldos.set(a.contaId, (saldos.get(a.contaId) ?? 0) + a.total);
   return saldos;
 }
 
+export type EntradaRegra = { tipo?: TipoCategoria | null; categoriaId: string; unidadeId?: string | null };
+
+/** Valida uma regra (criação ou edição): categoria existente, tipo compatível com a categoria e praça no escopo. */
+export async function validarRegra(db: Db, u: UsuarioSessao, r: EntradaRegra) {
+  const [cat] = await db.select().from(finCategorias).where(eq(finCategorias.id, r.categoriaId));
+  if (!cat) throw new ErroHttp(400, "CATEGORIA_INVALIDA", "Categoria inexistente.");
+  if (r.tipo && r.tipo !== cat.tipo) throw new ErroHttp(400, "TIPO_INCOMPATIVEL", "O tipo da regra não combina com o tipo da categoria.");
+  if (r.unidadeId) await validarPracaDoRegistro(db, u, r.unidadeId);
+  else if (!u.todasUnidades) throw new ErroHttp(403, "SEM_PERMISSAO", "Regras para todas as praças só podem ser criadas por quem vê todas as praças.");
+  return cat;
+}
+
+/** Regra existente dentro do escopo do usuário (regra geral, sem praça, só para quem vê todas as praças). */
+export async function garantirRegra(db: Db, u: UsuarioSessao, id: string) {
+  const [r] = await db.select().from(finRegras).where(eq(finRegras.id, id));
+  if (!r || !(u.todasUnidades || (r.unidadeId && podeUnidade(u, r.unidadeId)))) throw naoEncontrado("Regra");
+  return r;
+}

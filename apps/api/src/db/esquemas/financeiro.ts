@@ -119,6 +119,8 @@ export const finExtratoLinhas = pgTable("fin_extrato_linhas", {
   status: text().notNull().default("PENDENTE"),
   lancamentoId: uuid().references(() => finLancamentos.id),
   parLinhaId: uuid(),
+  /** Verdadeiro quando foi esta conciliação que baixou o lançamento (só então desfazer reabre a baixa). */
+  baixaDaConciliacao: boolean().notNull().default(false),
   manual: boolean().notNull().default(false),
   observacao: text(),
   decididoPor: uuid().references(() => usuarios.id),

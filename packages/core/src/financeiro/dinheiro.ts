@@ -10,10 +10,20 @@ export function paraCentavos(texto: string | null | undefined): number | null {
   let s = String(texto).trim();
   if (!s) return null;
   let negativo = false;
-  if (/^\(.*\)$/.test(s)) { negativo = true; s = s.slice(1, -1); }
-  if (/(^|\s)-|-$/.test(s)) negativo = true;
-  if (/\d\s*(D|DB)$/i.test(s)) negativo = true;
-  s = s.replace(/R\$/gi, "").replace(/\s*(DB|CR|D|C)$/i, "").replace(/[\s+-]/g, "");
+  let sinais = 0;
+  if (/^\(.*\)$/.test(s)) { negativo = true; sinais++; s = s.slice(1, -1).trim(); }
+  // Sinal só no início (antes ou depois de "R$") ou no fim; "-" no meio (ex.: datas) invalida o valor.
+  const ini = /^([+-])?\s*(?:R\$)?\s*([+-])?\s*/i.exec(s)!;
+  for (const x of [ini[1], ini[2]]) if (x) { sinais++; if (x === "-") negativo = true; }
+  s = s.slice(ini[0].length);
+  const fim = /\s*([+-]|DB|CR|D|C)$/i.exec(s);
+  if (fim && /\d/.test(s.slice(0, fim.index))) {
+    sinais++;
+    const f = fim[1]!.toUpperCase();
+    if (f === "-" || f === "D" || f === "DB") negativo = true;
+    s = s.slice(0, fim.index);
+  }
+  if (sinais > 1) return null;
   if (!/^[\d.,]+$/.test(s) || !/\d/.test(s)) return null;
   const ultimoPonto = s.lastIndexOf(".");
   const ultimaVirgula = s.lastIndexOf(",");
@@ -59,6 +69,18 @@ export function parcelar(totalCentavos: number, n: number): number[] {
   const base = Math.floor(totalCentavos / n);
   const resto = totalCentavos - base * n;
   return Array.from({ length: n }, (_, i) => base + (i < resto ? 1 : 0));
+}
+
+/** Último dia de um mês "AAAA-MM" → "AAAA-MM-DD". */
+export function fimDoMes(mes: string): string {
+  const [a, m] = mes.split("-").map(Number) as [number, number];
+  return `${mes}-${String(new Date(Date.UTC(a, m, 0)).getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Dia `dia` do mês "AAAA-MM"; dias inexistentes (31 em fevereiro) usam o último dia do mês. */
+export function diaNoMes(mes: string, dia: number): string {
+  const fim = fimDoMes(mes);
+  return `${mes}-${String(Math.min(dia, Number(fim.slice(8)))).padStart(2, "0")}`;
 }
 
 export function ehDataIso(s: string): boolean {

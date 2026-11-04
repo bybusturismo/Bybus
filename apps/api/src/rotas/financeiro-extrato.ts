@@ -1,5 +1,5 @@
 import {
-  calcularBaixa, ehDataIso, lerCsvExtrato, lerOfx, prepararLinhas, somarDiasIso, sugerirCategoria, sugerirCorrespondencias,
+  calcularBaixa, centavosParaTexto, lerCsvExtrato, lerOfx, prepararLinhas, somarDiasIso, sugerirCategoria, sugerirCorrespondencias,
   CANAIS, FORMAS_PAGAMENTO, LINHAS_FINANCEIRO,
   type ExtratoLido, type LancamentoCandidato, type RegraCategoria,
 } from "@bybus/core";
@@ -11,10 +11,9 @@ import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
 import { finCategorias, finContas, finExtratoLinhas, finExtratos, finLancamentos, finRecusas, finRegras } from "../db/schema.js";
 import { ErroHttp } from "../seguranca/sessao.js";
+import { dataIso, uuid, veiculoOpcional } from "./financeiro-comum.js";
 import { estaConciliado, filtroPraca, garantirConta, garantirLancamento, garantirLinha, hojeSP, validarCategoria, validarPracaDoRegistro } from "../servicos/financeiro.js";
 
-const uuid = z.string().uuid();
-const dataIso = z.string().refine(ehDataIso, "Data no formato AAAA-MM-DD");
 const MAX_LINHAS = 20_000;
 
 interface Guardas {
@@ -125,8 +124,11 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
       const candidatos: LancamentoCandidato[] = candidatosDb.map((c) => ({ id: c.id, tipo: c.tipo as "PAGAR" | "RECEBER", valorCentavos: c.valorCentavos, vencimento: c.vencimento, descricao: c.descricao, contraparte: c.contraparte }));
       const recusas = await db.select().from(finRecusas).where(inArray(finRecusas.linhaId, pendentes.map((l) => l.id)));
       const regrasDb = await db.select().from(finRegras).where(eq(finRegras.ativa, true));
-      const regras: RegraCategoria[] = regrasDb.map((r) => ({ id: r.id, texto: r.texto, tipo: r.tipo as RegraCategoria["tipo"], categoriaId: r.categoriaId, prioridade: r.prioridade }));
-      const nomesCat = new Map((await db.select({ id: finCategorias.id, nome: finCategorias.nome }).from(finCategorias)).map((c) => [c.id, c.nome]));
+      const catsRows = await db.select({ id: finCategorias.id, nome: finCategorias.nome, tipo: finCategorias.tipo }).from(finCategorias);
+      const nomesCat = new Map(catsRows.map((c) => [c.id, c.nome]));
+      const tiposCat = new Map(catsRows.map((c) => [c.id, c.tipo]));
+      // Regra sem tipo vale pelo tipo da categoria: nunca sugere categoria de despesa para uma entrada.
+      const regras: RegraCategoria[] = regrasDb.map((r) => ({ id: r.id, texto: r.texto, tipo: (r.tipo ?? tiposCat.get(r.categoriaId) ?? null) as RegraCategoria["tipo"], categoriaId: r.categoriaId, prioridade: r.prioridade }));
       // Possíveis pares de transferência: linha pendente de outra conta visível, valor oposto, até 3 dias de diferença.
       const contasVisiveis = await db.select({ id: finContas.id, nome: finContas.nome }).from(finContas).where(filtroPraca(u, finContas.unidadeId));
       const idsContas = contasVisiveis.filter((c) => c.id !== conta.id).map((c) => c.id);
@@ -171,7 +173,7 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
       const diferenca = valorLinha - lanc.valorCentavos;
       if (diferenca !== 0) {
         const ok = diferenca > 0 ? corpo.diferenca === "JUROS" || corpo.diferenca === "MULTA" : corpo.diferenca === "DESCONTO";
-        if (!ok) throw new ErroHttp(400, "DIFERENCA_SEM_DESTINO", `O valor da linha difere do lançamento em ${(Math.abs(diferenca) / 100).toFixed(2).replace(".", ",")}. Informe se é ${diferenca > 0 ? "juros ou multa" : "desconto"} para conciliar.`);
+        if (!ok) throw new ErroHttp(400, "DIFERENCA_SEM_DESTINO", `O valor da linha difere do lançamento em ${centavosParaTexto(Math.abs(diferenca))}. Informe se é ${diferenca > 0 ? "juros ou multa" : "desconto"} para conciliar.`);
         if (corpo.diferenca === "JUROS") juros = diferenca; else if (corpo.diferenca === "MULTA") multa = diferenca; else desconto = -diferenca;
       }
       if (calcularBaixa({ valorCentavos: lanc.valorCentavos, jurosCentavos: juros, multaCentavos: multa, descontoCentavos: desconto }) !== valorLinha) throw new ErroHttp(400, "BAIXA_INVALIDA", "Valores não fecham com a linha do extrato.");
@@ -189,7 +191,7 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
           }).where(and(eq(finLancamentos.id, lanc.id), eq(finLancamentos.situacao, "ABERTO"))).returning({ id: finLancamentos.id });
           if (r.length === 0) throw new ErroHttp(409, "LANCAMENTO_MUDOU", "O lançamento foi alterado por outra pessoa. Atualize a tela.");
         }
-        const l = await tx.update(finExtratoLinhas).set({ status: "CONCILIADO", lancamentoId: lanc.id, decididoPor: u.id, decididoEm: new Date() })
+        const l = await tx.update(finExtratoLinhas).set({ status: "CONCILIADO", lancamentoId: lanc.id, baixaDaConciliacao: lanc.situacao === "ABERTO", decididoPor: u.id, decididoEm: new Date() })
           .where(and(eq(finExtratoLinhas.id, id), eq(finExtratoLinhas.status, "PENDENTE"))).returning({ id: finExtratoLinhas.id });
         if (l.length === 0) throw new ErroHttp(409, "LINHA_JA_DECIDIDA", "Esta linha já foi decidida por outra pessoa. Atualize a tela.");
       });
@@ -218,19 +220,19 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
     const { id } = idLinha.parse(req.params);
     const corpo = z.object({
       categoriaId: uuid, descricao: z.string().trim().max(200).nullish(), contraparte: z.string().trim().max(150).nullish(),
-      unidadeId: uuid.nullish(), linha: z.enum(LINHAS_FINANCEIRO).nullish(), veiculo: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{4,10}$/, "Placa inválida.").nullish(),
+      unidadeId: uuid.nullish(), linha: z.enum(LINHAS_FINANCEIRO).nullish(), veiculo: veiculoOpcional,
       canal: z.enum(CANAIS).nullish(), forma: z.enum(FORMAS_PAGAMENTO).nullish(), competencia: dataIso.nullish(),
     }).parse(req.body);
     const { linha, conta } = await garantirLinha(db, u, id);
     if (linha.status !== "PENDENTE") throw new ErroHttp(409, "LINHA_JA_DECIDIDA", "Esta linha já foi decidida.");
     const tipo = linha.valorCentavos < 0 ? "PAGAR" : "RECEBER";
     await validarCategoria(db, corpo.categoriaId, tipo);
-    const unidadeId = await validarPracaDoRegistro(db, u, corpo.unidadeId ?? conta.unidadeId);
+    const unidadeId = await validarPracaDoRegistro(db, u, corpo.unidadeId === undefined ? conta.unidadeId : corpo.unidadeId);
     const valor = Math.abs(linha.valorCentavos);
     const novoId = await db.transaction(async (tx) => {
       const [l] = await tx.insert(finLancamentos).values({
         tipo, descricao: (corpo.descricao || linha.descricao || "Lançamento do extrato").slice(0, 200), contraparte: corpo.contraparte ?? null, categoriaId: corpo.categoriaId,
-        contaId: conta.id, unidadeId, linha: corpo.linha ?? null, veiculo: corpo.veiculo ?? null, canal: corpo.canal ?? null,
+        contaId: conta.id, unidadeId, linha: corpo.linha ?? null, veiculo: corpo.veiculo || null, canal: corpo.canal ?? null,
         forma: corpo.forma ?? (conta.tipo === "CARTAO" ? "CARTAO" : null), valorCentavos: valor, competencia: corpo.competencia ?? linha.data, vencimento: linha.data,
         situacao: "REALIZADO", pagoEm: linha.data, valorPagoCentavos: valor, origem: "EXTRATO", criadoPor: u.id,
       }).returning({ id: finLancamentos.id });
@@ -264,10 +266,10 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
     await db.transaction(async (tx) => {
       if (linha.status === "CONCILIADO" && linha.lancamentoId) {
         const [lanc] = await tx.select().from(finLancamentos).where(eq(finLancamentos.id, linha.lancamentoId));
-        await tx.update(finExtratoLinhas).set({ status: "PENDENTE", lancamentoId: null, decididoPor: u.id, decididoEm: new Date() }).where(eq(finExtratoLinhas.id, id));
+        await tx.update(finExtratoLinhas).set({ status: "PENDENTE", lancamentoId: null, baixaDaConciliacao: false, decididoPor: u.id, decididoEm: new Date() }).where(eq(finExtratoLinhas.id, id));
         if (lanc?.origem === "EXTRATO") await tx.delete(finLancamentos).where(eq(finLancamentos.id, lanc.id));
-        else if (lanc && lanc.pagoEm === linha.data && lanc.valorPagoCentavos === Math.abs(linha.valorCentavos) && lanc.contaId === linha.contaId) {
-          // A baixa veio desta linha: o lançamento volta a ficar em aberto.
+        else if (lanc && linha.baixaDaConciliacao) {
+          // Só quando foi ESTA conciliação que baixou o lançamento ele volta a ficar em aberto; baixa manual anterior fica como está.
           await tx.update(finLancamentos).set({ situacao: "ABERTO", pagoEm: null, valorPagoCentavos: null, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0, atualizadoEm: new Date() }).where(eq(finLancamentos.id, lanc.id));
         }
       } else if (linha.status === "TRANSFERENCIA") {
