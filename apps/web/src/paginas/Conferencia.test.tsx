@@ -40,7 +40,7 @@ describe("Fechamento e mensagens", () => {
       "POST /api/saidas/s1/fechar": { versao: 1, texto: "*RELAÇÃO DE PASSAGEIROS*\n01. Fulano Fictício · A", resumo: {} },
     });
     renderizar(<Fechamento />, { sessao: sessaoFicticia("SUPERVISOR", ["saidas:decidir", "manifesto:ver"], { unidades: [FLN] }) });
-    expect(await screen.findByText("WhatsApp em modo simulado")).toBeInTheDocument();
+    expect(await screen.findByText(/modo simulado/)).toBeInTheDocument();
     const u = userEvent.setup();
     await u.click(screen.getByRole("button", { name: "Fechar lista agora" }));
     // Pede confirmação antes (fecha a lista e dispara as confirmações).

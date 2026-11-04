@@ -139,15 +139,11 @@ export function Fechamento() {
           <ul>
             <li><strong>Fechamento:</strong> {s.automatico ? `automático às ${s.horaFechamento} da véspera` : "manual (automático desligado)"}</li>
             <li><strong>Grupo do WhatsApp:</strong> {s.whatsapp.grupoConfigurado ? "a lista vai sozinha para o grupo" : "não configurado — use “Copiar texto”"}</li>
-            <li><strong>Confirmação para cada titular:</strong> enviada ao fechar{s.whatsapp.envioReal ? "" : " (simulada)"}</li>
+            <li><strong>Confirmação para cada titular:</strong> enviada ao fechar</li>
+            <li><strong>WhatsApp:</strong> {s.whatsapp.envioReal ? "envio real ligado" : <span className="texto-atencao">modo simulado — nada sai de verdade até contratar o provedor</span>}</li>
             <li><strong>Listas desta data:</strong> {s.saidas.filter((x) => x.listaFechadaEm).length} fechada(s) de {s.saidas.length}</li>
           </ul>
         </section>
-      )}
-      {s && !s.whatsapp.envioReal && (
-        <Aviso tipo="info" titulo="WhatsApp em modo simulado">
-          As mensagens são registradas mas não saem. Para enviar de verdade é preciso contratar e configurar o provedor (ver o plano da Fase 2).{s.whatsapp.grupoConfigurado ? "" : " O grupo da lista também não está configurado: use “Copiar texto” e cole no grupo."}
-        </Aviso>
       )}
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       {sit.carregando && !s ? <Carregando /> : sit.erro ? <ErroCarga mensagem={sit.erro} tentarDeNovo={sit.recarregar} /> : s?.saidas.length === 0 ? (
