@@ -128,7 +128,7 @@
   min-width: 0;
   font-size: var(--texto-sm);
 }
-.wa-voltar {
+.wa .wa-voltar {
   display: none;
 }
 .wa-voltar svg {
@@ -240,6 +240,10 @@
   padding: var(--esp-2) var(--esp-3);
   border-top: 1px solid var(--cor-borda);
 }
+/* Deixa livre o canto onde fica o botão flutuante do Turistinha. */
+.wa-resposta:not(.wa-resposta--so-leitura) {
+  padding-right: 12rem;
+}
 .wa-resposta textarea {
   flex: 1;
   resize: none;
@@ -272,10 +276,13 @@
   .wa-lista {
     border-right: 0;
   }
-  .wa-voltar {
+  .wa .wa-voltar {
     display: inline-flex;
   }
   .wa-balao {
     max-width: 90%;
+  }
+  .wa-resposta:not(.wa-resposta--so-leitura) {
+    padding-right: 5.5rem;
   }
 }
