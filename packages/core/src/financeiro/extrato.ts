@@ -42,6 +42,18 @@ function dataOfx(s: string): string | null {
   return ehDataIso(iso) ? iso : null;
 }
 
+/**
+ * TRNAMT do OFX: ponto decimal e sem separador de milhar ("-1234.56"). Alguns bancos brasileiros usam vírgula decimal.
+ * Qualquer outra forma (ex.: "-100.000") é recusada em vez de interpretada.
+ */
+export function valorOfx(texto: string): number | null {
+  const m = /^([+-])?(\d+)(?:[.,](\d{1,2}))?$/.exec(texto.trim());
+  if (!m) return null;
+  const v = Number(m[2]) * 100 + Number((m[3] ?? "").padEnd(2, "0") || "0");
+  if (!Number.isSafeInteger(v)) return null;
+  return m[1] === "-" ? -v : v;
+}
+
 /** Lê OFX 1.x (SGML) e 2.x (XML). O texto deve vir já decodificado (UTF-8 ou Windows-1252). */
 export function lerOfx(texto: string): ExtratoLido {
   if (!/<OFX>/i.test(texto)) throw new Error("Este arquivo não parece um extrato OFX. No internet banking, exporte o extrato no formato OFX.");
@@ -64,7 +76,7 @@ export function lerOfx(texto: string): ExtratoLido {
     n++;
     const b = m[1]!;
     const data = dataOfx(tag(b, "DTPOSTED"));
-    const valor = paraCentavos(tag(b, "TRNAMT"));
+    const valor = valorOfx(tag(b, "TRNAMT"));
     if (!data) { lido.ignoradas.push({ linha: n, motivo: "Data inválida." }); continue; }
     if (valor === null) { lido.ignoradas.push({ linha: n, motivo: "Valor inválido." }); continue; }
     if (valor === 0) { lido.ignoradas.push({ linha: n, motivo: "Valor zero." }); continue; }
@@ -87,7 +99,24 @@ export function dataFlexivel(s: string): string | null {
   return ehDataIso(iso) ? iso : null;
 }
 
-const col = (cab: string[], re: RegExp) => cab.findIndex((c) => re.test(normalizarTexto(c)));
+const col = (cab: string[], re: RegExp, excluir: number[] = []) => cab.findIndex((c, i) => !excluir.includes(i) && re.test(normalizarTexto(c)));
+
+const ehCabecalho = (l: string[]) => {
+  const c = l.map(normalizarTexto);
+  return c.length >= 2 && c.some((x) => /^(DATA|DATE)\b/.test(x)) && c.some((x) => /VALOR|AMOUNT|CREDITO|DEBITO/.test(x));
+};
+
+/** Separador da linha de cabeçalho (o título do banco nas primeiras linhas não decide nada). */
+function separadorDoCabecalho(texto: string): string | undefined {
+  for (const linha of texto.replace(/^\uFEFF/, "").split(/\r?\n/)) {
+    const n = normalizarTexto(linha);
+    if (!/(^|[^A-Z])(DATA|DATE)\b/.test(n) || !/VALOR|AMOUNT|CREDITO|DEBITO/.test(n)) continue;
+    const cont = (ch: string) => linha.split(ch).length - 1;
+    const melhor = [";", "\t", ","].map((ch) => [ch, cont(ch)] as const).sort((a, b) => b[1] - a[1])[0]!;
+    if (melhor[1] > 0) return melhor[0];
+  }
+  return undefined;
+}
 
 export interface OpcoesCsvExtrato {
   /** Fatura de cartão: na maioria dos CSVs compra é positiva; aqui o sinal é invertido (compra vira saída). */
@@ -99,15 +128,14 @@ export interface OpcoesCsvExtrato {
  * (ou crédito e débito separados). Separador ";" ou ",". Valor em formato brasileiro ou internacional.
  */
 export function lerCsvExtrato(texto: string, opcoes: OpcoesCsvExtrato = {}): ExtratoLido {
-  const linhas = lerCsv(texto);
-  const iCab = linhas.findIndex((l) => {
-    const c = l.map(normalizarTexto);
-    return c.some((x) => /^(DATA|DATE)\b/.test(x)) && c.some((x) => /VALOR|AMOUNT|CREDITO|DEBITO/.test(x));
-  });
+  const linhas = lerCsv(texto, separadorDoCabecalho(texto));
+  const iCab = linhas.findIndex(ehCabecalho);
   if (iCab < 0) throw new Error("Cabeçalho não reconhecido: o CSV precisa ter colunas de data, descrição e valor (ou crédito e débito).");
   const cab = linhas[iCab]!;
   const iData = col(cab, /^(DATA|DATE)\b/);
-  const iDesc = col(cab, /DESCRI|HISTORICO|MEMO|LANCAMENTO|ESTABELECIMENTO|NOME/);
+  // A coluna de descrição nunca é a de data ("Data Lançamento" é data); "Lançamento" sozinho só vale como último recurso.
+  const iDescPrincipal = col(cab, /DESCRI|HISTORICO|MEMO|ESTABELECIMENTO|NOME/, [iData]);
+  const iDesc = iDescPrincipal >= 0 ? iDescPrincipal : col(cab, /LANCAMENTO/, [iData]);
   const iValor = col(cab, /^(VALOR|AMOUNT)\b/);
   const iCred = col(cab, /CREDITO|ENTRADA/);
   const iDeb = col(cab, /DEBITO|SAIDA/);
@@ -121,7 +149,8 @@ export function lerCsvExtrato(texto: string, opcoes: OpcoesCsvExtrato = {}): Ext
     const data = dataFlexivel(l[iData] ?? "");
     if (!data) { lido.ignoradas.push({ linha: numero, motivo: "Data inválida." }); continue; }
     let valor: number | null = null;
-    if (iValor >= 0 && (l[iValor] ?? "").trim() !== "") valor = paraCentavos(l[iValor]);
+    let valorUnico = false;
+    if (iValor >= 0 && (l[iValor] ?? "").trim() !== "") { valor = paraCentavos(l[iValor]); valorUnico = true; }
     else {
       const c = iCred >= 0 && (l[iCred] ?? "").trim() ? paraCentavos(l[iCred]) : null;
       const d = iDeb >= 0 && (l[iDeb] ?? "").trim() ? paraCentavos(l[iDeb]) : null;
@@ -131,7 +160,8 @@ export function lerCsvExtrato(texto: string, opcoes: OpcoesCsvExtrato = {}): Ext
     }
     if (valor === null) { lido.ignoradas.push({ linha: numero, motivo: "Valor inválido." }); continue; }
     if (valor === 0) { lido.ignoradas.push({ linha: numero, motivo: "Valor zero." }); continue; }
-    if (opcoes.faturaCartao) valor = -valor;
+    // Só a coluna "Valor" única segue a convenção "compra positiva"; em Crédito/Débito o sinal já está certo.
+    if (opcoes.faturaCartao && valorUnico) valor = -valor;
     lido.linhas.push({ fitid: null, data, valorCentavos: valor, descricao: (l[iDesc] ?? "").trim().slice(0, 300), documento: iDoc >= 0 ? (l[iDoc] ?? "").trim() || null : null });
   }
   if (lido.linhas.length === 0) throw new Error(lido.ignoradas.length ? `Nenhuma linha válida (${lido.ignoradas[0]!.motivo} Linha ${lido.ignoradas[0]!.linha}).` : "O CSV não tem linhas de lançamento.");

@@ -249,7 +249,7 @@ describe("conciliação", () => {
 
   beforeAll(async () => {
     contaId = await conta(usuarioFln, { nome: "Corrente conciliação", tipo: "CORRENTE", unidadeId: fln });
-    await usuarioFln.req("POST", "/api/financeiro/regras", { texto: "POSTO ILHA", categoriaId: cat.DESP_COMBUSTIVEL });
+    await usuarioFln.req("POST", "/api/financeiro/regras", { texto: "POSTO ILHA", categoriaId: cat.DESP_COMBUSTIVEL, unidadeId: fln });
     await usuarioFln.req("POST", "/api/financeiro/extratos/importar", {
       contaId, formato: "OFX", confirmar: true,
       conteudo: ofx([
@@ -431,6 +431,96 @@ describe("resumo: a pagar/receber, vencidas, fluxo e DRE", () => {
 
   it("recusa mês inválido", async () => {
     expect((await admin.req("GET", "/api/financeiro/resumo?mes=2026-13")).statusCode).toBe(400);
+  });
+});
+
+describe("regressões da revisão", () => {
+  const saldoDe = async (c: Cliente, id: string) => (json(await c.req("GET", "/api/financeiro/contas")) as Array<{ id: string; saldoCentavos: number }>).find((x) => x.id === id)!.saldoCentavos;
+  const csv = (...linhas: string[]) => `Data;Descrição;Valor\n${linhas.join("\n")}\n`;
+  const importar = (c: Cliente, contaId: string, conteudo: string) => c.req("POST", "/api/financeiro/extratos/importar", { contaId, formato: "CSV", conteudo, confirmar: true });
+
+  it("desfazer só reabre a baixa quando foi a conciliação que baixou; baixa manual anterior fica", async () => {
+    const c = await conta(usuarioFln, { nome: "Corrente desfazer", tipo: "CORRENTE", unidadeId: fln });
+    const manual = json(await lancar(usuarioFln, { valorCentavos: 5000, vencimento: "2026-10-08", descricao: "Baixa manual antes" })).ids[0] as string;
+    expect((await usuarioFln.req("POST", `/api/financeiro/lancamentos/${manual}/baixa`, { pagoEm: "2026-10-08", contaId: c })).statusCode).toBe(200);
+    await importar(usuarioFln, c, csv("08/10/2026;Pagamento posto;-50,00"));
+    const linha = json(await usuarioFln.req("GET", `/api/financeiro/extrato/linhas?contaId=${c}`)).linhas[0];
+    expect((await usuarioFln.req("POST", `/api/financeiro/extrato/linhas/${linha.id}/conciliar`, { lancamentoId: manual })).statusCode).toBe(200);
+    expect((await usuarioFln.req("POST", `/api/financeiro/extrato/linhas/${linha.id}/desfazer`)).statusCode).toBe(200);
+    const depois = json(await usuarioFln.req("GET", "/api/financeiro/lancamentos?limite=500")).itens.find((x: { id: string }) => x.id === manual);
+    expect(depois).toMatchObject({ situacao: "REALIZADO", valorPagoCentavos: 5000, pagoEm: "2026-10-08", conciliado: false });
+  });
+
+  it("saldo: movimentos do dia do saldo inicial entram; baixa manual e linha do mesmo movimento não contam em dobro", async () => {
+    const a = await conta(usuarioFln, { nome: "Corrente saldo dia", tipo: "CORRENTE", unidadeId: fln, saldoInicialCentavos: 100000, saldoInicialEm: "2026-10-10" });
+    await importar(usuarioFln, a, csv("09/10/2026;Antes do saldo;-5,00", "10/10/2026;No dia do saldo;-10,00", "11/10/2026;Depois;-1,00"));
+    expect(await saldoDe(usuarioFln, a)).toBe(100000 - 1000 - 100);
+
+    const b = await conta(usuarioFln, { nome: "Corrente sem dobra", tipo: "CORRENTE", unidadeId: fln });
+    const l = json(await lancar(usuarioFln, { valorCentavos: 30000, vencimento: "2026-10-05" })).ids[0] as string;
+    await usuarioFln.req("POST", `/api/financeiro/lancamentos/${l}/baixa`, { pagoEm: "2026-10-05", contaId: b });
+    expect(await saldoDe(usuarioFln, b)).toBe(-30000); // sem extrato, a baixa manual vale
+    await importar(usuarioFln, b, csv("05/10/2026;Pagamento;-300,00", "20/10/2026;Outro;-1,00"));
+    expect(await saldoDe(usuarioFln, b)).toBe(-30000 - 100); // extrato cobre o dia 05: só a linha conta, antes e depois de conciliar
+    const linha = json(await usuarioFln.req("GET", `/api/financeiro/extrato/linhas?contaId=${b}&q=Pagamento`)).linhas[0];
+    await usuarioFln.req("POST", `/api/financeiro/extrato/linhas/${linha.id}/conciliar`, { lancamentoId: l });
+    expect(await saldoDe(usuarioFln, b)).toBe(-30000 - 100);
+  });
+
+  it("regras: PATCH valida categoria, tipo e praça como o POST; null explícito é respeitado", async () => {
+    const base = { texto: "REGRA REVISAO", categoriaId: cat.DESP_COMBUSTIVEL, unidadeId: fln };
+    expect((await usuarioFln.req("POST", "/api/financeiro/regras", { ...base, tipo: "RECEITA" })).json().codigo).toBe("TIPO_INCOMPATIVEL");
+    expect((await usuarioFln.req("POST", "/api/financeiro/regras", { ...base, categoriaId: "00000000-0000-4000-8000-000000000000" })).json().codigo).toBe("CATEGORIA_INVALIDA");
+    expect((await usuarioFln.req("POST", "/api/financeiro/regras", { ...base, unidadeId: bc })).statusCode).toBe(403);
+    expect((await usuarioFln.req("POST", "/api/financeiro/regras", { texto: "REGRA SEM PRACA", categoriaId: cat.DESP_COMBUSTIVEL })).statusCode).toBe(403);
+    const semTipo = json(await usuarioFln.req("POST", "/api/financeiro/regras", base));
+    expect(semTipo.tipo).toBe("DESPESA");
+    const nulo = json(await usuarioFln.req("POST", "/api/financeiro/regras", { ...base, texto: "REGRA TIPO NULO", tipo: null }));
+    expect(nulo.tipo).toBeNull();
+    // PATCH
+    expect((await usuarioFln.req("PATCH", `/api/financeiro/regras/${semTipo.id}`, { categoriaId: "00000000-0000-4000-8000-000000000000" })).statusCode).toBe(400);
+    expect((await usuarioFln.req("PATCH", `/api/financeiro/regras/${semTipo.id}`, { categoriaId: cat.REC_FRETAMENTO })).json().codigo).toBe("TIPO_INCOMPATIVEL");
+    expect((await usuarioFln.req("PATCH", `/api/financeiro/regras/${semTipo.id}`, { unidadeId: bc })).statusCode).toBe(403);
+    expect((await usuarioFln.req("PATCH", `/api/financeiro/regras/${semTipo.id}`, { prioridade: 5 })).json().prioridade).toBe(5);
+    // regra de outra praça e regra geral não são editáveis por quem só vê a própria praça
+    const deBc = json(await usuarioBc.req("POST", "/api/financeiro/regras", { texto: "REGRA DE BC", categoriaId: cat.DESP_COMBUSTIVEL, unidadeId: bc }));
+    const geral = json(await admin.req("POST", "/api/financeiro/regras", { texto: "REGRA GERAL", categoriaId: cat.DESP_COMBUSTIVEL }));
+    for (const id of [deBc.id, geral.id]) {
+      expect((await usuarioFln.req("PATCH", `/api/financeiro/regras/${id}`, { prioridade: 9 })).statusCode).toBe(404);
+      expect((await usuarioFln.req("DELETE", `/api/financeiro/regras/${id}`)).statusCode).toBe(404);
+    }
+    const visiveis = json(await usuarioFln.req("GET", "/api/financeiro/regras")) as Array<{ id: string }>;
+    expect(visiveis.some((r) => r.id === deBc.id)).toBe(false);
+    expect(visiveis.some((r) => r.id === geral.id)).toBe(true);
+  });
+
+  it("fluxo de caixa: compra no cartão não sai do caixa; o pagamento da fatura sai", async () => {
+    const corrente = await conta(usuarioFln, { nome: "Corrente fluxo", tipo: "CORRENTE", unidadeId: fln });
+    const cartao = await conta(usuarioFln, { nome: "Cartão fluxo", tipo: "CARTAO", unidadeId: fln, diaFechamento: 10, diaVencimento: 20 });
+    const semana = async () => json(await usuarioFln.req("GET", `/api/financeiro/resumo?mes=2026-11&unidadeId=${fln}&ref=2026-11-04`)).fluxo as Array<{ inicio: string; saidasPrevistasCentavos: number; saidasRealizadasCentavos: number }>;
+    const antes = await semana();
+    await lancar(usuarioFln, { valorCentavos: 77700, vencimento: "2026-11-10", competencia: "2026-11-10", contaId: cartao, descricao: "Compra no cartão" });
+    const comCartao = await semana();
+    expect(comCartao).toEqual(antes);
+    await lancar(usuarioFln, { valorCentavos: 77700, vencimento: "2026-11-10", competencia: "2026-11-10", contaId: corrente, descricao: "Compra à vista" });
+    const comCorrente = await semana();
+    expect(comCorrente.find((s) => s.inicio === "2026-11-09")!.saidasPrevistasCentavos).toBe(antes.find((s) => s.inicio === "2026-11-09")!.saidasPrevistasCentavos + 77700);
+    expect((await usuarioFln.req("POST", "/api/financeiro/transferencias", { contaOrigemId: corrente, contaDestinoId: cartao, valorCentavos: 5555, data: "2026-11-03" })).statusCode).toBe(200);
+    const comFatura = await semana();
+    expect(comFatura.find((s) => s.inicio === "2026-11-02")!.saidasRealizadasCentavos).toBe(antes.find((s) => s.inicio === "2026-11-02")!.saidasRealizadasCentavos + 5555);
+  });
+
+  it("lançar do extrato: praça omitida usa a da conta; null explícito vale 'empresa toda'; veículo vazio é aceito", async () => {
+    const c = await conta(admin, { nome: "Corrente praça lançar", tipo: "CORRENTE", unidadeId: fln });
+    await importar(admin, c, csv("12/10/2026;Compra A;-10,00", "12/10/2026;Compra B;-20,00"));
+    const linhas = json(await admin.req("GET", `/api/financeiro/extrato/linhas?contaId=${c}`)).linhas as Array<{ id: string; valorCentavos: number }>;
+    const a = linhas.find((l) => l.valorCentavos === -1000)!;
+    const b = linhas.find((l) => l.valorCentavos === -2000)!;
+    const ra = json(await admin.req("POST", `/api/financeiro/extrato/linhas/${a.id}/lancar`, { categoriaId: cat.DESP_OUTRAS, veiculo: "" }));
+    const rb = json(await admin.req("POST", `/api/financeiro/extrato/linhas/${b.id}/lancar`, { categoriaId: cat.DESP_OUTRAS, unidadeId: null }));
+    const todos = json(await admin.req("GET", "/api/financeiro/lancamentos?limite=500")).itens as Array<{ id: string; unidadeId: string | null; veiculo: string | null }>;
+    expect(todos.find((x) => x.id === ra.lancamentoId)).toMatchObject({ unidadeId: fln, veiculo: null });
+    expect(todos.find((x) => x.id === rb.lancamentoId)!.unidadeId).toBeNull();
   });
 });
 

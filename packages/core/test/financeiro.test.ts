@@ -237,3 +237,52 @@ describe("fatura do cartão", () => {
     expect(faturaDaData("2026-02-10", 31, 10)).toEqual({ referencia: "2026-02", fechamento: "2026-02-28", vencimento: "2026-03-10" });
   });
 });
+
+describe("regressões da revisão", () => {
+  it("sinal do valor só no início ou no fim; hífen no meio invalida", () => {
+    expect(paraCentavos("R$-10,00")).toBe(-1000);
+    expect(paraCentavos("-R$ 10,00")).toBe(-1000);
+    expect(paraCentavos("R$ -10,00")).toBe(-1000);
+    expect(paraCentavos("10,00-")).toBe(-1000);
+    expect(paraCentavos("+5")).toBe(500);
+    expect(paraCentavos("2026-10-03")).toBeNull();
+    expect(paraCentavos("1-0")).toBeNull();
+    expect(paraCentavos("--5")).toBeNull();
+    expect(paraCentavos("-10,00-")).toBeNull();
+  });
+
+  it("OFX: valor com ponto decimal; milhar com ponto é recusado, não multiplicado", () => {
+    const base = (v: string) => `<OFX><BANKTRANLIST><STMTTRN><DTPOSTED>20261003<TRNAMT>${v}<FITID>X1<MEMO>teste\n</STMTTRN></BANKTRANLIST></OFX>`;
+    expect(lerOfx(base("-1234.56")).linhas[0]!.valorCentavos).toBe(-123456);
+    expect(lerOfx(base("-1234,56")).linhas[0]!.valorCentavos).toBe(-123456);
+    const r = lerOfx(base("-100.000"));
+    expect(r.linhas).toHaveLength(0);
+    expect(r.ignoradas[0]!.motivo).toBe("Valor inválido.");
+  });
+
+  it("fatura de cartão: só inverte o sinal da coluna Valor única, não de Crédito/Débito", () => {
+    const r = lerCsvExtrato("Data;Descrição;Crédito;Débito\n10/10/2026;Estorno;20,00;\n11/10/2026;Posto;;150,00\n", { faturaCartao: true });
+    expect(r.linhas.map((l) => l.valorCentavos)).toEqual([2000, -15000]);
+  });
+
+  it("CSV: separador vem do cabeçalho e a descrição nunca é a coluna de data", () => {
+    const csv = "Extrato, conta corrente, banco x\nPeríodo: 01/10, a 31/10\nData Lançamento;Histórico;Valor\n03/10/2026;Pedágio;-12,50\n";
+    const r = lerCsvExtrato(csv);
+    expect(r.linhas).toEqual([{ fitid: null, data: "2026-10-03", valorCentavos: -1250, descricao: "Pedágio", documento: null }]);
+    const r2 = lerCsvExtrato("Data Lançamento;Lançamento;Valor\n03/10/2026;Posto Teste;-10,00\n");
+    expect(r2.linhas[0]!.descricao).toBe("Posto Teste");
+    expect(() => lerCsvExtrato("Data Lançamento;Valor\n03/10/2026;-10,00\n")).toThrow(/descrição/);
+  });
+
+  it("vencimento da fatura sempre depois do fechamento", () => {
+    const f = faturaDaData("2026-02-10", 28, 31);
+    expect(f.fechamento).toBe("2026-02-28");
+    expect(f.vencimento).toBe("2026-03-31");
+    for (const [fech, venc] of [[28, 31], [31, 31], [30, 31], [15, 15], [31, 28]] as const) {
+      for (const d of ["2026-01-05", "2026-02-10", "2026-02-27", "2026-04-30", "2028-02-29"]) {
+        const x = faturaDaData(d, fech, venc);
+        expect(x.vencimento > x.fechamento, `${d} ${fech}/${venc}`).toBe(true);
+      }
+    }
+  });
+});

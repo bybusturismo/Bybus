@@ -1,9 +1,10 @@
 import {
   CANAIS, FORMAS_PAGAMENTO, LINHAS_FINANCEIRO, TIPOS_CATEGORIA, TIPOS_CONTA_FINANCEIRA,
-  calcularBaixa, ehDataIso, faturaDaData, inicioDaSemana, montarDre, montarFluxoSemanal, parcelar, somarDiasIso, somarMeses,
+  calcularBaixa, faturaDaData, fimDoMes, inicioDaSemana, montarDre, montarFluxoSemanal, parcelar, somarDiasIso, somarMeses,
   type CategoriaInfo, type LancamentoRelatorio,
 } from "@bybus/core";
-import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -13,25 +14,13 @@ import { finCategorias, finContas, finExtratoLinhas, finLancamentos, finRegras }
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import {
-  estaConciliado, filtroPraca, filtroPracaEscolhida, garantirConta, garantirLancamento, garantirPlano, hojeSP, saldosDasContas,
+  conciliadoSql, estaConciliado, filtroPraca, garantirRegra, naoConciliadoSql, validarRegra, filtroPracaEscolhida, garantirConta, garantirLancamento, garantirPlano, hojeSP, saldosDasContas,
   validarCategoria, validarPracaDoRegistro,
 } from "../servicos/financeiro.js";
+import { centavos, dataIso, mesIso, naoNegativo, uuid, valorPositivo, veiculoOpcional } from "./financeiro-comum.js";
 import { rotasFinanceiroExtrato } from "./financeiro-extrato.js";
 
-const uuid = z.string().uuid();
-const dataIso = z.string().refine(ehDataIso, "Data no formato AAAA-MM-DD");
-const mesIso = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mês no formato AAAA-MM");
-const centavos = z.number().int().max(100_000_000_00);
-const valorPositivo = centavos.positive("Informe um valor maior que zero.");
-const naoNegativo = centavos.min(0);
-const placa = z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{4,10}$/, "Placa inválida.");
 
-const FIM_DO_MES = (mes: string) => {
-  const [a, m] = mes.split("-").map(Number) as [number, number];
-  return `${mes}-${String(new Date(Date.UTC(a, m, 0)).getUTCDate()).padStart(2, "0")}`;
-};
-
-const conciliadoSql = sql<boolean>`exists (select 1 from fin_extrato_linhas l where l.lancamento_id = ${finLancamentos.id})`;
 
 export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
   const { db, config } = ctx;
@@ -146,30 +135,39 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     ativa: z.boolean().default(true),
   });
 
-  app.get("/api/financeiro/regras", ver, async () => db.select().from(finRegras).orderBy(asc(finRegras.texto)));
+  app.get("/api/financeiro/regras", ver, async (req) => {
+    const u = req.usuario!;
+    const todas = await db.select().from(finRegras).orderBy(asc(finRegras.texto));
+    return u.todasUnidades ? todas : todas.filter((r) => !r.unidadeId || u.unidadeIds.includes(r.unidadeId));
+  });
 
   app.post("/api/financeiro/regras", gerenciar, async (req) => {
     const u = req.usuario!;
     const corpo = esquemaRegra.parse(req.body);
-    const [cat] = await db.select().from(finCategorias).where(eq(finCategorias.id, corpo.categoriaId));
-    if (!cat) throw new ErroHttp(400, "CATEGORIA_INVALIDA", "Categoria inexistente.");
-    const unidadeId = corpo.unidadeId ? await validarPracaDoRegistro(db, u, corpo.unidadeId) : null;
-    const [r] = await db.insert(finRegras).values({ ...corpo, unidadeId, tipo: corpo.tipo ?? cat.tipo }).returning();
+    const cat = await validarRegra(db, u, corpo);
+    const [r] = await db.insert(finRegras).values({ ...corpo, unidadeId: corpo.unidadeId ?? null, tipo: corpo.tipo === undefined ? cat.tipo : corpo.tipo }).returning();
     await auditar(db, req, "FIN_REGRA_CRIADA", { tipo: "fin_regra", id: r!.id }, { texto: r!.texto });
     return r;
   });
 
   app.patch("/api/financeiro/regras/:id", gerenciar, async (req) => {
+    const u = req.usuario!;
     const { id } = z.object({ id: uuid }).parse(req.params);
     const corpo = esquemaRegra.partial().parse(req.body);
+    const atual = await garantirRegra(db, u, id);
+    await validarRegra(db, u, {
+      categoriaId: corpo.categoriaId ?? atual.categoriaId,
+      tipo: corpo.tipo === undefined ? (atual.tipo as "RECEITA" | "DESPESA" | null) : corpo.tipo,
+      unidadeId: corpo.unidadeId === undefined ? atual.unidadeId : corpo.unidadeId,
+    });
     const [r] = await db.update(finRegras).set(corpo).where(eq(finRegras.id, id)).returning();
-    if (!r) throw new ErroHttp(404, "NAO_ENCONTRADO", "Regra não encontrada.");
     await auditar(db, req, "FIN_REGRA_ALTERADA", { tipo: "fin_regra", id }, { campos: Object.keys(corpo) });
     return r;
   });
 
   app.delete("/api/financeiro/regras/:id", gerenciar, async (req) => {
     const { id } = z.object({ id: uuid }).parse(req.params);
+    await garantirRegra(db, req.usuario!, id);
     const apagadas = await db.delete(finRegras).where(eq(finRegras.id, id)).returning({ id: finRegras.id });
     if (apagadas.length === 0) throw new ErroHttp(404, "NAO_ENCONTRADO", "Regra não encontrada.");
     await auditar(db, req, "FIN_REGRA_EXCLUIDA", { tipo: "fin_regra", id });
@@ -184,7 +182,7 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     contaId: uuid.nullish(),
     unidadeId: uuid.nullish(),
     linha: z.enum(LINHAS_FINANCEIRO).nullish(),
-    veiculo: placa.nullish().or(z.literal("")),
+    veiculo: veiculoOpcional,
     canal: z.enum(CANAIS).nullish(),
     forma: z.enum(FORMAS_PAGAMENTO).nullish(),
     observacao: z.string().trim().max(1000).nullish(),
@@ -217,6 +215,9 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
   async function lancamentoCompleto(id: string) {
     const [l] = await baseLista().where(eq(finLancamentos.id, id));
     return l!;
+  }
+  async function lancamentosCompletos(ids: string[]) {
+    return baseLista().where(inArray(finLancamentos.id, ids)).orderBy(asc(finLancamentos.vencimento), asc(finLancamentos.criadoEm), asc(finLancamentos.id));
   }
 
   app.get("/api/financeiro/lancamentos", ver, async (req) => {
@@ -282,7 +283,7 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       return (await tx.insert(finLancamentos).values(linhas).returning({ id: finLancamentos.id })).map((r) => r.id);
     });
     await auditar(db, req, "FIN_LANCAMENTO_CRIADO", { tipo: "fin_lancamento", id: ids[0] }, { tipo: corpo.tipo, valorCentavos: corpo.valorCentavos, quantidade: ids.length, repeticao: rep?.tipo ?? null });
-    return { ids, lancamentos: await Promise.all(ids.map((id) => lancamentoCompleto(id))) };
+    return { ids, lancamentos: await lancamentosCompletos(ids) };
   });
 
   const esquemaEdicao = z.object({
@@ -364,7 +365,7 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     const alvo: SQL = serie && atual.grupoId
       ? and(eq(finLancamentos.grupoId, atual.grupoId), eq(finLancamentos.situacao, "ABERTO"), gte(finLancamentos.vencimento, atual.vencimento))!
       : eq(finLancamentos.id, id);
-    const apagados = await db.delete(finLancamentos).where(and(alvo, sql`not exists (select 1 from fin_extrato_linhas l where l.lancamento_id = ${finLancamentos.id})`)).returning({ id: finLancamentos.id });
+    const apagados = await db.delete(finLancamentos).where(and(alvo, naoConciliadoSql)).returning({ id: finLancamentos.id });
     await auditar(db, req, "FIN_LANCAMENTO_EXCLUIDO", { tipo: "fin_lancamento", id }, { quantidade: apagados.length, serie: !!serie, valorCentavos: atual.valorCentavos });
     return { excluidos: apagados.length };
   });
@@ -376,7 +377,7 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     const hoje = q.ref ?? hojeSP();
     const mes = q.mes ?? hoje.slice(0, 7);
     const inicioMes = `${mes}-01`;
-    const fimMes = FIM_DO_MES(mes);
+    const fimMes = fimDoMes(mes);
     const escopo = filtroPracaEscolhida(u, finLancamentos.unidadeId, q.unidadeId);
     const colunasRel = {
       tipo: finLancamentos.tipo, situacao: finLancamentos.situacao, valorCentavos: finLancamentos.valorCentavos, valorPagoCentavos: finLancamentos.valorPagoCentavos,
@@ -409,11 +410,29 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     const semanasDepois = 8;
     const primeira = somarDiasIso(inicioDaSemana(hoje), -7 * semanasAntes);
     const ultima = somarDiasIso(inicioDaSemana(hoje), 7 * (semanasDepois + 1) - 1);
-    const paraFluxo = await db.select(colunasRel).from(finLancamentos).where(and(escopo, or(
+    // Compra no cartão não sai do caixa na compra: lançamentos de conta de cartão ficam fora do fluxo de caixa.
+    const paraFluxo = await db.select(colunasRel).from(finLancamentos).leftJoin(finContas, eq(finContas.id, finLancamentos.contaId)).where(and(escopo, or(isNull(finLancamentos.contaId), ne(finContas.tipo, "CARTAO")), or(
       and(eq(finLancamentos.situacao, "REALIZADO"), gte(finLancamentos.pagoEm, primeira), lte(finLancamentos.pagoEm, ultima)),
       and(eq(finLancamentos.situacao, "ABERTO"), lte(finLancamentos.vencimento, ultima)),
     )));
-    const fluxo = montarFluxoSemanal({ hoje, semanasAntes, semanasDepois, lancamentos: paraFluxo as LancamentoRelatorio[], saldoAtualCentavos: saldoCaixa });
+    // O pagamento da fatura (transferência de uma conta para o cartão) é o que sai do caixa, na data em que foi pago.
+    const parCartao = alias(finExtratoLinhas, "par_cartao");
+    const contaPar = alias(finContas, "conta_par");
+    const pagamentosFatura = await db.select({ data: finExtratoLinhas.data, valor: finExtratoLinhas.valorCentavos, unidadeId: finContas.unidadeId })
+      .from(finExtratoLinhas).innerJoin(finContas, eq(finContas.id, finExtratoLinhas.contaId))
+      .innerJoin(parCartao, eq(parCartao.id, finExtratoLinhas.parLinhaId)).innerJoin(contaPar, eq(contaPar.id, parCartao.contaId))
+      .where(and(
+        filtroPracaEscolhida(u, finContas.unidadeId, q.unidadeId), eq(finExtratoLinhas.status, "TRANSFERENCIA"), lt(finExtratoLinhas.valorCentavos, 0),
+        ne(finContas.tipo, "CARTAO"), eq(contaPar.tipo, "CARTAO"), gte(finExtratoLinhas.data, primeira), lte(finExtratoLinhas.data, ultima),
+      ));
+    const comoLancamentos: LancamentoRelatorio[] = [
+      ...(paraFluxo as LancamentoRelatorio[]),
+      ...pagamentosFatura.map((p) => ({
+        tipo: "PAGAR" as const, situacao: "REALIZADO" as const, valorCentavos: -p.valor, valorPagoCentavos: -p.valor, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0,
+        vencimento: p.data, pagoEm: p.data, categoriaId: "", unidadeId: p.unidadeId, linha: null,
+      })),
+    ];
+    const fluxo = montarFluxoSemanal({ hoje, semanasAntes, semanasDepois, lancamentos: comoLancamentos, saldoAtualCentavos: saldoCaixa });
 
     // DRE gerencial do mês (competência).
     await garantirPlano(db);
@@ -445,9 +464,12 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     const saldos = await saldosDasContas(db, cartoes);
     const hoje = hojeSP();
     const saida = [];
+    const todasLinhas = cartoes.length
+      ? await db.select({ contaId: finExtratoLinhas.contaId, data: finExtratoLinhas.data, valor: finExtratoLinhas.valorCentavos, status: finExtratoLinhas.status })
+        .from(finExtratoLinhas).where(and(inArray(finExtratoLinhas.contaId, cartoes.map((c) => c.id)), gte(finExtratoLinhas.data, somarMeses(hoje, -14)))).orderBy(desc(finExtratoLinhas.data))
+      : [];
     for (const c of cartoes) {
-      const linhas = await db.select({ data: finExtratoLinhas.data, valor: finExtratoLinhas.valorCentavos, status: finExtratoLinhas.status })
-        .from(finExtratoLinhas).where(and(eq(finExtratoLinhas.contaId, c.id), gte(finExtratoLinhas.data, somarMeses(hoje, -14)))).orderBy(desc(finExtratoLinhas.data));
+      const linhas = todasLinhas.filter((l) => l.contaId === c.id);
       const faturas = new Map<string, { referencia: string; fechamento: string; vencimento: string; totalCentavos: number; linhas: number; pendentes: number }>();
       if (c.diaFechamento && c.diaVencimento) {
         for (const l of linhas) {

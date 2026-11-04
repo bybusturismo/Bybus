@@ -1,4 +1,4 @@
-import { diferencaDias } from "./dinheiro.js";
+import { centavosParaTexto, diferencaDias } from "./dinheiro.js";
 import { normalizarTexto } from "./extrato.js";
 import type { TipoCategoria } from "./plano.js";
 
@@ -53,7 +53,7 @@ export function sugerirCorrespondencias(linha: LinhaParaConciliar, candidatos: L
       const rel = Math.abs(diferenca) / c.valorCentavos;
       if (rel > 0.1) continue;
       pontos += Math.round(35 - rel * 300); // 0% → 35; 10% → 5
-      motivos.push(`Valor aproximado (${diferenca > 0 ? "+" : "−"}${(Math.abs(diferenca) / 100).toFixed(2).replace(".", ",")})`);
+      motivos.push(`Valor aproximado (${diferenca > 0 ? "+" : "−"}${centavosParaTexto(Math.abs(diferenca))})`);
     }
     const dias = Math.abs(diferencaDias(linha.data, c.vencimento));
     const ptsData = dias === 0 ? 30 : dias <= 3 ? 22 : dias <= 7 ? 14 : dias <= 15 ? 6 : dias <= 30 ? 2 : 0;

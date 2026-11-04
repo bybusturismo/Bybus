@@ -3,7 +3,7 @@
 Referência de ideias: APP TOMA (contas a pagar/receber, conciliação, cartão e travas), adaptadas ao turismo e à nossa stack. Base do negócio: `docs/conhecimento/financeiro.md`.
 
 ## O que faz
-- **Contas financeiras:** corrente, aplicação, caixa (quiosque) e cartão de crédito (dia de fechamento e de vencimento, conta que paga a fatura). Só os últimos dígitos da conta/cartão são guardados. Saldo = saldo inicial + movimento do extrato + lançamentos baixados que não vieram de extrato (caixa); se há "saldo válido em", só entra o que for posterior.
+- **Contas financeiras:** corrente, aplicação, caixa (quiosque) e cartão de crédito (dia de fechamento e de vencimento, conta que paga a fatura). Só os últimos dígitos da conta/cartão são guardados. Saldo = saldo inicial + movimento do extrato (todas as linhas) + lançamentos baixados que não estão ligados a uma linha **e** não caem no período de um extrato importado da conta (caixa do quiosque, por exemplo); assim baixa manual e linha do mesmo movimento nunca contam em dobro. A data do saldo inicial vale no **início** do dia: movimentos daquela data em diante entram (>=).
 - **Categorias:** plano inicial de turismo criado automaticamente na primeira consulta (receitas: site/Paytour, quiosque, Viator, Decolar, Civitatis, fretamento, publicidade, recreativo, rendimentos, outras; despesas: combustível, manutenção, pedágio/estacionamento, diárias, salários, comissões de afiliados/OTAs, taxas de cartão/gateway, marketing, aluguel, seguros, impostos, outras). Cada categoria tem um grupo que forma as linhas da DRE. Categorias do plano só se desativam; novas podem ser criadas.
 - **Centro de custo:** praça (unidade) × linha de negócio (CITY_TOUR, FRETAMENTO, PUBLICIDADE, RECREATIVO) × veículo opcional (placa em texto).
 - **Contas a pagar e a receber** (uma tabela, `tipo`): competência, vencimento, valor em centavos, forma, conta, canal (receitas), parcelas (divisão sem perda de centavos: as primeiras parcelas recebem o resto), recorrência mensal, situação ABERTO ou REALIZADO, **baixa** com juros, multa e desconto (valor pago = valor + juros + multa − desconto), reabertura e exclusão de uma série em aberto.
@@ -12,6 +12,8 @@ Referência de ideias: APP TOMA (contas a pagar/receber, conciliação, cartão 
 - **Conciliação:** sugestões por valor exato/aproximado (até 10%), proximidade de data e nome; confirmar, recusar (a recusa nunca volta para aquela linha), lançar a partir da linha (cria o lançamento já baixado e conciliado), ignorar e desfazer. **Nada concilia sozinho.** Diferença de valor exige destino explícito (juros, multa ou desconto), nunca arredondada. Transferência entre contas: lançada à mão (duas pontas pareadas) ou pareando duas linhas importadas; não entra em receita/despesa.
 - **Travas:** lançamento conciliado não muda valor, datas nem conta e não é excluído nem reaberto; baixado não muda valor nem é excluído (reabra antes); linha já decidida não é decidida de novo (também sob concorrência); data de baixa/transferência não pode ser futura.
 - **Cartões:** faturas por ciclo (compras até o fechamento entram na fatura do mês), total, compras sem classificar e "Pagar fatura" (transferência da conta pagadora para o cartão).
+- **Fluxo de caixa e cartão:** lançamentos de contas de cartão não entram no fluxo (a compra não sai do caixa); sai do caixa o pagamento da fatura (transferência da conta para o cartão), na data em que foi pago.
+- **Regras:** criar/editar valida categoria, tipo (compatível com a categoria; regra sem tipo vale pelo tipo da categoria) e praça; regra geral (sem praça) só é criada/editada por quem vê todas as praças.
 - **Resumo:** a pagar/receber do mês (por vencimento), vencidas, saldo das contas, fluxo de caixa semanal (4 semanas atrás, 8 à frente; realizado pela data da baixa, previsto pelo vencimento, vencidas na semana atual, saldo projetado) e **DRE gerencial** por competência (por grupo/categoria, juros/multas/descontos à parte, resultado e margem em pontos-base inteiros) e por praça × linha.
 
 ## Permissões e escopo
@@ -29,7 +31,8 @@ Observação técnica: para gerar a migração, `drizzle-kit` não resolve impor
 ## Decisões
 - Plano de categorias semeado de forma preguiçosa e idempotente (`garantirPlano`), sem alterar o seed compartilhado.
 - Um lançamento concilia com **uma** linha (relação 1:1, índice único); conciliar várias linhas ao mesmo lançamento ou uma linha a várias contas (ex.: fatura de cartão paga como soma) fica para depois.
-- Desfazer conciliação: lançamento criado do extrato é removido; lançamento baixado pela conciliação volta a "em aberto"; baixa manual anterior é preservada.
+- Desfazer conciliação: lançamento criado do extrato é removido; só se a baixa foi feita pela própria conciliação (campo `baixa_da_conciliacao` na linha) o lançamento volta a "em aberto"; baixa manual anterior é preservada.
+- Vencimento da fatura é sempre posterior ao fechamento (se o dia cair igual ou antes, passa ao mês seguinte).
 
 ## Pendências e a confirmar
 - Fechamento de caixa diário do balcão (caixa/quiosque) e reservas de abastecimento/diária — próxima etapa.

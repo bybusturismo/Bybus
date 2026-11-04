@@ -71,7 +71,7 @@ function FormConta({ conta, contas, aoSalvar, aoCancelar }: { conta: ContaFin | 
         {tipo !== "CAIXA" && <div className="campo"><label htmlFor="ct-banco">Banco ou emissor</label><input id="ct-banco" value={banco} maxLength={60} onChange={(e) => setBanco(e.target.value)} /></div>}
         {tipo !== "CAIXA" && <div className="campo"><label htmlFor="ct-final">Final da conta ou cartão</label><input id="ct-final" value={finalConta} maxLength={8} onChange={(e) => setFinalConta(e.target.value)} placeholder="Só os últimos dígitos" /></div>}
         <div className="campo"><label htmlFor="ct-saldo">Saldo inicial (R$)</label><input id="ct-saldo" inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} /></div>
-        <div className="campo"><label htmlFor="ct-saldo-em">Saldo válido em</label><input id="ct-saldo-em" type="date" value={saldoEm} onChange={(e) => setSaldoEm(e.target.value)} /><span className="campo__ajuda">Só movimentos posteriores a esta data entram no saldo.</span></div>
+        <div className="campo"><label htmlFor="ct-saldo-em">Saldo inicial no início de</label><input id="ct-saldo-em" type="date" value={saldoEm} onChange={(e) => setSaldoEm(e.target.value)} /><span className="campo__ajuda">O saldo inicial vale no começo deste dia: movimentos desta data em diante entram no saldo.</span></div>
         {tipo === "CARTAO" && (
           <>
             <div className="campo"><label htmlFor="ct-fech">Dia do fechamento</label><input id="ct-fech" inputMode="numeric" value={fechamento} onChange={(e) => setFechamento(e.target.value)} /></div>
@@ -123,7 +123,7 @@ function FormCategoria({ aoSalvar, aoCancelar }: { aoSalvar: () => Promise<void>
 }
 
 export function ContasCategorias() {
-  const { unidades, pode } = useSessao();
+  const { unidades, pode, praca, usuario } = useSessao();
   const notificar = useNotificar();
   const podeEditar = pode("financeiro:gerenciar");
   const contas = useContas();
@@ -153,7 +153,7 @@ export function ContasCategorias() {
     if (textoRegra.trim().length < 3) return setErro("O texto da regra precisa de ao menos 3 letras.");
     if (!categoriaRegra) return setErro("Escolha a categoria da regra.");
     try {
-      await api.post("/api/financeiro/regras", { texto: textoRegra.trim(), categoriaId: categoriaRegra });
+      await api.post("/api/financeiro/regras", { texto: textoRegra.trim(), categoriaId: categoriaRegra, unidadeId: usuario?.todasUnidades ? undefined : (praca || unidades[0]?.id) });
       setTextoRegra("");
       notificar("Regra criada. Ela só sugere a categoria; você confirma ao lançar.");
       await regras.recarregar();
