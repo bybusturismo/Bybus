@@ -1,0 +1,70 @@
+# Produção num servidor único (VPS). Uso, a partir da raiz do repositório:
+#   cp implantacao/producao.env.exemplo implantacao/.env   (e preencha)
+#   docker compose -f implantacao/docker-compose.yml --env-file implantacao/.env up -d --build
+name: bybus
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bybus
+      POSTGRES_USER: bybus
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      TZ: UTC
+    volumes:
+      - banco:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bybus -d bybus"]
+      interval: 10s
+      retries: 10
+
+  api:
+    image: bybus-api
+    build: { context: .., dockerfile: implantacao/Dockerfile, target: api }
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    env_file: .env
+    environment:
+      AMBIENTE: ${AMBIENTE:-producao}
+      DATABASE_URL: postgres://bybus:${POSTGRES_PASSWORD}@db:5432/bybus
+      ORIGEM_WEB: https://${DOMINIO}
+      PROXIES_CONFIAVEIS: "1"
+
+  web:
+    image: bybus-web
+    build: { context: .., dockerfile: implantacao/Dockerfile, target: web }
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      DOMINIO: ${DOMINIO:?defina DOMINIO no .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_dados:/data
+      - caddy_config:/config
+
+  # Cópia diária do banco em implantacao/backups no servidor (guarda 14 dias).
+  # Copie também para fora do servidor (ver docs/implantacao.md).
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          pg_dump -h db -U bybus -d bybus -Fc -f /backups/bybus-$$(date -u +%Y%m%d-%H%M).dump && echo "backup ok"
+          find /backups -name 'bybus-*.dump' -mtime +14 -delete
+          sleep 86400
+        done
+
+volumes:
+  banco:
+  caddy_dados:
+  caddy_config:

@@ -94,3 +94,14 @@ it("pedido \"reprovado\" (pagamento recusado) não entra na lista", () => {
   const [r] = pedidoPaytourParaReservas({ id: 10, status: "reprovado", itens: [{ id: 1, nome_produto: "X", produto_disponibilidade_data: "2026-11-20" }] });
   expect(r!.cancelada).toBe(true);
 });
+
+it("canal pelos rastros do pedido: Civitatis (integração nativa), Tripadvisor e Decolar pelo e-mail", () => {
+  const item = { id: 1, nome_produto: "City Tour Toda Ilha", produto_disponibilidade_data: "2026-11-20" };
+  const [civ] = pedidoPaytourParaReservas({ id: 11, status: "aprovado", tipo_pagamento: "civitatis", metodo_pagamento: "integracao_parceiro", cliente_email: "reserva@civitatis.exemplo", itens: [item] });
+  expect(civ).toMatchObject({ canal: "CIVITATIS", avisos: [] });
+  const [ta] = pedidoPaytourParaReservas({ id: 12, status: "aprovado", cliente_email: "S-abc+123@expmessaging.tripadvisor.com", itens: [item] });
+  expect(ta!.canal).toBe("VIATOR");
+  expect(ta!.avisos.join()).toMatch(/espelho de VIATOR/);
+  const [dec] = pedidoPaytourParaReservas({ id: 13, status: "aprovado", cliente_email: "cliente@reservas.decolar.exemplo", itens: [item] });
+  expect(dec!.canal).toBe("DECOLAR");
+});

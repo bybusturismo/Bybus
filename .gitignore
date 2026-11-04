@@ -19,3 +19,7 @@ exports/
 .idea/
 *.tsbuildinfo
 .pgdata/
+
+# Implantação: segredos e cópias do banco no servidor
+implantacao/.env
+implantacao/backups/

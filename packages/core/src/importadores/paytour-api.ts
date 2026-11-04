@@ -19,6 +19,9 @@ export interface PedidoPaytour {
   cliente_telefone?: string | null;
   cliente_ddi?: string | null;
   afiliado_id?: string | number | null;
+  /** Ex.: "civitatis" nos pedidos que a Civitatis manda pela integração nativa (metodo_pagamento "integracao_parceiro"). */
+  tipo_pagamento?: string | null;
+  metodo_pagamento?: string | null;
   observacao?: string | null;
   data_hora_atualizacao?: string | null;
   itens?: ItemPedidoPaytour[] | null;
@@ -91,6 +94,22 @@ function pontoDoFormulario(campos: CampoFormulario[]): string | null {
   return null;
 }
 
+const temMarca = (v: unknown, marca: RegExp) => typeof v === "string" && marca.test(v.toLowerCase());
+function ehIntegracaoCivitatis(p: PedidoPaytour): boolean {
+  return temMarca(p.tipo_pagamento, /civitatis/) || (temMarca(p.metodo_pagamento, /integracao_parceiro/) && temMarca(p.cliente_email, /civitatis/));
+}
+
+/**
+ * Canal de origem pelos rastros no pedido: integração Civitatis (tipo de pagamento) ou e-mail de
+ * retransmissão do canal no cadastro do cliente (ex.: ...@expmessaging.tripadvisor.com, ...@decolar.com).
+ */
+function canalPorMarcas(p: PedidoPaytour): ReservaImportada["canal"] | null {
+  if (ehIntegracaoCivitatis(p) || temMarca(p.cliente_email, /civitatis/)) return "CIVITATIS";
+  if (temMarca(p.cliente_email, /tripadvisor|viator/)) return "VIATOR";
+  if (temMarca(p.cliente_email, /decolar|despegar/)) return "DECOLAR";
+  return null;
+}
+
 /** "08:00", "08:00 até 10:00", "8h" → "08:00" */
 function horarioInicial(t: string | null): string | null {
   const m = t ? /(\d{1,2})[:h](\d{2})?/.exec(t) : null;
@@ -132,7 +151,7 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
 
     const passageiros: ReservaImportada["passageiros"] = [];
     let ponto: string | null = null;
-    let origemOta = canalPorAfiliado(afiliado);
+    let origemOta = canalPorAfiliado(afiliado) ?? canalPorMarcas(pedido);
     for (const item of doGrupo) {
       const campos = camposFormulario(item.formulario);
       ponto ??= pontoDoFormulario(campos);
@@ -156,7 +175,8 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
     if (passageiros.length >= MAX_PASSAGEIROS_POR_RESERVA) avisos.push(`Mais de ${MAX_PASSAGEIROS_POR_RESERVA} pessoas no pedido — conferir.`);
     const cpfCliente = texto(pedido.cliente_cpf);
     origemOta ??= canalPorDocumentoFicticio(cpfCliente);
-    if (origemOta) avisos.push(`Reserva espelho de ${origemOta} lançada na Paytour.`);
+    // Civitatis entra pela integração nativa da Paytour (é a venda original, não uma cópia manual).
+    if (origemOta && !ehIntegracaoCivitatis(pedido)) avisos.push(`Reserva espelho de ${origemOta} lançada na Paytour.`);
 
     return [{
       canal: origemOta ?? "PAYTOUR",

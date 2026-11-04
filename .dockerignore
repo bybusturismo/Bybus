@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/dist-demo
+**/test-results
+**/coverage
+.git
+.env
+.env.*
+!.env.example
+implantacao/.env
+implantacao/backups
+docs
+integracoes
