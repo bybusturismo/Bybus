@@ -1,0 +1,106 @@
+/* Módulo de frota. Usa os tokens de estilos/tokens.css. */
+.frota-duas-colunas {
+  display: grid;
+  gap: var(--esp-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  margin-bottom: var(--esp-4);
+}
+.frota-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.frota-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--esp-2) 0;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.frota-lista li:last-child {
+  border-bottom: 0;
+}
+.frota-motivos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1);
+}
+.frota-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1);
+}
+.frota-numero {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Checklist do motorista: pensado para o celular (alvos de toque grandes). */
+.checklist-veiculos {
+  display: grid;
+  gap: var(--esp-2);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  margin-bottom: var(--esp-4);
+}
+.checklist-veiculo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  align-items: flex-start;
+  min-height: 72px;
+  padding: var(--esp-3) var(--esp-4);
+  border: 2px solid var(--cor-borda);
+  border-radius: var(--raio-md, 10px);
+  background: var(--cor-superficie);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.checklist-veiculo:hover,
+.checklist-veiculo[aria-pressed="true"] {
+  border-color: var(--cor-primaria);
+}
+.checklist-grupo {
+  margin: var(--esp-4) 0 var(--esp-2);
+  font-size: 1rem;
+}
+.checklist-item {
+  padding: var(--esp-3) 0;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.checklist-item__texto {
+  margin: 0 0 var(--esp-2);
+  font-weight: var(--peso-medio);
+}
+.checklist-item__escolhas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-2);
+}
+.checklist-escolha {
+  min-height: var(--alvo-toque);
+  border: 2px solid var(--cor-borda);
+  border-radius: var(--raio-md, 10px);
+  background: var(--cor-superficie);
+  color: inherit;
+  font: inherit;
+  font-weight: var(--peso-medio);
+  cursor: pointer;
+}
+.checklist-escolha[aria-pressed="true"].checklist-escolha--ok {
+  border-color: var(--cor-sucesso, #1a7f4b);
+  background: var(--cor-sucesso-fundo, #e3f4ea);
+}
+.checklist-escolha[aria-pressed="true"].checklist-escolha--problema {
+  border-color: var(--cor-perigo, #b3261e);
+  background: var(--cor-perigo-fundo, #fdeceb);
+}
+.checklist-rodape {
+  position: sticky;
+  bottom: 0;
+  padding: var(--esp-3) 0;
+  background: var(--cor-fundo);
+}

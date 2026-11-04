@@ -16,6 +16,12 @@ import { Escala } from "./paginas/Escala";
 import { Conferencia } from "./paginas/Conferencia";
 import { Fechamento } from "./paginas/Fechamento";
 import { EmbarquePublico } from "./paginas/EmbarquePublico";
+import { AbastecimentoPagina } from "./paginas/frota/Abastecimento";
+import { ChecklistPagina } from "./paginas/frota/Checklist";
+import { DocumentosPagina } from "./paginas/frota/Documentos";
+import { ManutencaoPagina } from "./paginas/frota/Manutencao";
+import { PainelFrotaPagina } from "./paginas/frota/Painel";
+import { VeiculosPagina } from "./paginas/frota/Veiculos";
 import { Login } from "./paginas/Login";
 import { TelaPendencia } from "./paginas/Pendencias";
 import { Embarque } from "./paginas/saida/Embarque";
@@ -36,9 +42,14 @@ function Exige({ permissao, children }: { permissao: Permissao; children: ReactN
   return pode(permissao) ? <>{children}</> : <SemAcesso />;
 }
 
+function ExigeUma({ permissoes, children }: { permissoes: Permissao[]; children: ReactNode }) {
+  const { pode } = useSessao();
+  return permissoes.some((p) => pode(p)) ? <>{children}</> : <SemAcesso />;
+}
+
 function Inicio() {
   const { pode } = useSessao();
-  return <Navigate to={pode("manifesto:ver") ? "/saidas" : "/conta"} replace />;
+  return <Navigate to={pode("manifesto:ver") ? "/saidas" : pode("frota:checklist") ? "/frota/checklist" : "/conta"} replace />;
 }
 
 export function Rotas() {
@@ -108,6 +119,54 @@ export function Rotas() {
             <Exige permissao="pessoas:ver">
               <Escala />
             </Exige>
+          }
+        />
+        <Route
+          path="frota"
+          element={
+            <Exige permissao="frota:ver">
+              <PainelFrotaPagina />
+            </Exige>
+          }
+        />
+        <Route
+          path="frota/veiculos"
+          element={
+            <Exige permissao="frota:ver">
+              <VeiculosPagina />
+            </Exige>
+          }
+        />
+        <Route
+          path="frota/documentos"
+          element={
+            <Exige permissao="frota:ver">
+              <DocumentosPagina />
+            </Exige>
+          }
+        />
+        <Route
+          path="frota/manutencao"
+          element={
+            <Exige permissao="frota:ver">
+              <ManutencaoPagina />
+            </Exige>
+          }
+        />
+        <Route
+          path="frota/abastecimento"
+          element={
+            <Exige permissao="frota:ver">
+              <AbastecimentoPagina />
+            </Exige>
+          }
+        />
+        <Route
+          path="frota/checklist"
+          element={
+            <ExigeUma permissoes={["frota:checklist", "frota:ver"]}>
+              <ChecklistPagina />
+            </ExigeUma>
           }
         />
         <Route

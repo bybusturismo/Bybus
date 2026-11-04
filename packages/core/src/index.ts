@@ -12,3 +12,4 @@ export * from "./importadores/paytour-api.js";
 export * from "./importadores/decolar-email.js";
 export * from "./sugestao-ponto.js";
 export * from "./mensagens.js";
+export * from "./frota/index.js";

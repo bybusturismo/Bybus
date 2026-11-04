@@ -55,12 +55,6 @@ export const MODULOS_PLANEJADOS: Record<string, ModuloPlanejado> = {
     objetivo: "Gastos e faturas dos cartões da empresa.",
     funcoes: ["Lançamentos por cartão e categoria", "Fechamento e vencimento da fatura", "Conferência com o extrato"],
   },
-  frota: {
-    titulo: "Frota e manutenção",
-    area: "Administrativo",
-    objetivo: "Ônibus, trenzinho e van: documentos, manutenção e quilometragem.",
-    funcoes: ["Documentos com alerta de vencimento", "Manutenção preventiva por km/tempo", "Abastecimento e custo por veículo", "Checklist do motorista"],
-  },
   avaliacoes: {
     titulo: "Avaliações",
     area: "Marketing",
