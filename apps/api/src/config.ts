@@ -35,6 +35,22 @@ const esquema = z.object({
    * permitido só em desenvolvimento, com autorização do dono registrada (ADR 0006, 04/11/2026).
    */
   DADOS_REAIS_AUTORIZADOS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /** WhatsApp: "simulado" (padrão, nada sai) ou "evolution" (Evolution API; ver servicos/whatsapp.ts). */
+  WHATSAPP_PROVEDOR: z.enum(["simulado", "evolution"]).default("simulado"),
+  EVOLUTION_URL: z.string().url().optional(),
+  EVOLUTION_API_KEY: z.string().min(8).optional(),
+  EVOLUTION_INSTANCIA: z.string().min(1).default("bybus"),
+  /** Fora da produção, só envia de verdade com "true" (proteção contra mandar mensagem a cliente real em teste). */
+  WHATSAPP_ENVIO_REAL: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /** Grupo do WhatsApp que recebe a lista fechada (JID "...@g.us"); vazio = só gera o texto para copiar. */
+  WHATSAPP_GRUPO_LISTA: z.string().regex(/^[\d-]+@g\.us$/, "WHATSAPP_GRUPO_LISTA deve ser o JID do grupo (…@g.us)").optional(),
+  /** Fechamento automático da lista na véspera (America/Sao_Paulo). */
+  FECHAMENTO_AUTOMATICO: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
+  FECHAMENTO_HORA: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default("21:00"),
+  /** Voucher pelo WhatsApp logo após a venda (desligado até o modelo de mensagem ser aprovado pelo dono). */
+  MENSAGEM_VOUCHER_AUTOMATICA: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /** Endereço público do sistema (para os links de embarque nas mensagens). */
+  URL_PUBLICA: z.string().url().optional(),
   /** MFA obrigatório para ADMIN e SUPERVISOR. */
   EXIGIR_MFA_ADMIN: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
 });

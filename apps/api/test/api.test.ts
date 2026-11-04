@@ -728,3 +728,55 @@ describe("link de embarque do passageiro e conferência", () => {
     expect((await anon.req("GET", "/api/publico/embarque/tokeninventadotokeninventado")).statusCode).toBe(404);
   });
 });
+
+describe("fechamento da lista e mensagens", () => {
+  it("fecha em ordem de embarque, gera confirmação simulada por titular e adendo sem duplicar", async () => {
+    const c = await logado("admin@bybus.test");
+    const toda = (await c.req("GET", "/api/passeios")).json().find((p: { codigo: string }) => p.codigo === "TODA_ILHA");
+    const saida = (await c.req("POST", "/api/saidas", { passeioId: toda.id, data: "2027-02-10" })).json();
+    const pontos = (await c.req("GET", `/api/passeios/${toda.id}/pontos`)).json();
+    const villa = pontos.find((p: { nome: string }) => p.nome === "Villa Romana Shopping");
+    const transfer = pontos.find((p: { nome: string }) => p.nome.startsWith("Transfer — Ingleses"));
+    const nova = (corpo: Record<string, unknown>) => c.req("POST", `/api/saidas/${saida.id}/reservas`, corpo);
+    expect((await nova({ canal: "PAYTOUR", contatoNome: "Titular Ficticio Um", contatoTelefone: "(48) 90000-0001", pontoEmbarqueId: villa.id, passageiros: [{ nome: "Passageira Ficticia Um", categoria: "ADULTO", documentoTipo: "CPF", documento: "529.982.247-25" }] })).statusCode).toBe(200);
+    expect((await nova({ canal: "PAYTOUR", contatoNome: "Titular Ficticio Dois", pontoEmbarqueId: transfer.id, passageiros: [{ nome: "Passageiro Ficticio Dois", categoria: "INFANTIL" }] })).statusCode).toBe(200);
+
+    const r1 = (await c.req("POST", `/api/saidas/${saida.id}/fechar`)).json();
+    expect(r1.versao).toBe(1);
+    expect(r1.texto.indexOf("Transfer — Ingleses")).toBeLessThan(r1.texto.indexOf("Villa Romana")); // ordem de embarque
+    expect(r1.texto).not.toMatch(/529|982|90000/); // sem documento nem telefone no grupo
+    const msgs = (await c.req("GET", `/api/mensagens?saidaId=${saida.id}`)).json();
+    expect(msgs.filter((m: { tipo: string }) => m.tipo === "CONFIRMACAO").map((m: { status: string }) => m.status).sort()).toEqual(["SEM_TELEFONE", "SIMULADA"]);
+
+    const r2 = (await c.req("POST", `/api/saidas/${saida.id}/fechar`)).json();
+    expect(r2.versao).toBe(2);
+    expect(r2.texto).toContain("ADENDO 1");
+    expect((await c.req("GET", `/api/mensagens?saidaId=${saida.id}`)).json().filter((m: { tipo: string }) => m.tipo === "CONFIRMACAO")).toHaveLength(2);
+    const situacao = (await c.req("GET", "/api/fechamento?data=2027-02-10")).json();
+    expect(situacao.whatsapp).toMatchObject({ provedor: "simulado", envioReal: false });
+    expect(situacao.saidas.find((s: { saidaId: string }) => s.saidaId === saida.id)).toMatchObject({ versao: 2, reservas: 2, naoConferidas: 2 });
+
+    // Lista fechada: o passageiro não muda mais o ponto pelo link.
+    const reserva = (await c.req("GET", `/api/saidas/${saida.id}/reservas`)).json()[0];
+    const token = (await c.req("POST", `/api/reservas/${reserva.id}/link-embarque`)).json().caminho.split("/").pop();
+    const anon = new Cliente(app);
+    expect((await anon.req("POST", `/api/publico/embarque/${token}`, { pontoId: villa.id })).statusCode).toBe(409);
+  });
+
+  it("envio pela Evolution só fora do modo simulado e nunca registra o texto no erro", async () => {
+    const { enviarWhatsapp, normalizarDestino } = await import("../src/servicos/whatsapp.js");
+    const { lerConfig } = await import("../src/config.js");
+    const base = { DATABASE_URL: "postgres://x@y/z", CHAVE_CRIPTOGRAFIA: Buffer.alloc(32).toString("base64") };
+    expect(normalizarDestino("(48) 99999-0000")).toBe("5548999990000");
+    expect(normalizarDestino("120363000000000000@g.us")).toBe("120363000000000000@g.us");
+    expect(normalizarDestino("123")).toBeNull();
+    const teste = lerConfig({ ...base, AMBIENTE: "testes", WHATSAPP_PROVEDOR: "evolution", EVOLUTION_URL: "http://evo.local", EVOLUTION_API_KEY: "chave-falsa-123" });
+    expect((await enviarWhatsapp(teste, "5548999990000", "oi")).status).toBe("SIMULADA"); // teste não envia sem WHATSAPP_ENVIO_REAL
+    const real = lerConfig({ ...base, AMBIENTE: "testes", WHATSAPP_PROVEDOR: "evolution", EVOLUTION_URL: "http://evo.local", EVOLUTION_API_KEY: "chave-falsa-123", WHATSAPP_ENVIO_REAL: "true" });
+    const chamadas: string[] = [];
+    const falso = (async (url: string, init: RequestInit) => { chamadas.push(`${url} ${init.headers && (init.headers as Record<string, string>).apikey}`); return new Response("{}", { status: 500 }); }) as unknown as typeof fetch;
+    const r = await enviarWhatsapp(real, "5548999990000", "texto secreto", falso);
+    expect(r).toEqual({ status: "FALHA", provedor: "evolution", erro: "HTTP 500" });
+    expect(chamadas[0]).toBe("http://evo.local/message/sendText/bybus chave-falsa-123");
+  });
+});
