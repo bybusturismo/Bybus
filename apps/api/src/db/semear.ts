@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { criarDb, type Db } from "./cliente.js";
 import { perfis, usuarios } from "./schema.js";
 import { semearReferencia } from "./referencia.js";
+import { semearBiblioteca } from "./biblioteca-seed.js";
 import { gerarHashSenha, validarPoliticaSenha } from "../seguranca/senha.js";
 
 export { semearReferencia };
@@ -21,6 +22,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!url) throw new Error("DATABASE_URL não definida");
   const { db, pool } = criarDb(url);
   await semearReferencia(db);
+  await semearBiblioteca(db);
   const email = process.env.ADMIN_EMAIL;
   const senha = process.env.ADMIN_SENHA_INICIAL;
   if (email && senha) {

@@ -11,3 +11,6 @@ export * from "./importadores/anonimizar.js";
 export * from "./importadores/paytour-api.js";
 export * from "./importadores/decolar-email.js";
 export * from "./sugestao-ponto.js";
+export * from "./marketing/marketing.js";
+export * from "./biblioteca/markdown.js";
+export * from "./biblioteca/arvore.js";

@@ -279,3 +279,5 @@ export const mensagens = pgTable("mensagens", {
   uniqueIndex("mensagens_reserva_tipo_uq").on(t.reservaId, t.tipo),
   index("mensagens_saida_idx").on(t.saidaId),
 ]);
+export * from "./esquemas/marketing.js";
+export * from "./esquemas/biblioteca.js";

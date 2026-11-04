@@ -19,6 +19,10 @@ export const CATALOGO_PERMISSOES = {
   "manifesto:documentos": "Ver documentos completos (CPF/passaporte)",
   "manifesto:contatos": "Ver telefones e e-mails dos clientes",
   "embarque:registrar": "Registrar embarque (embarcou, atrasado, não veio)",
+  "marketing:ver": "Ver os painéis de marketing (canais, origem dos clientes, campanhas, avaliações, afiliados)",
+  "marketing:gerenciar": "Gerenciar campanhas, calendário de conteúdo, avaliações e afiliados",
+  "biblioteca:ver": "Ler as páginas da Biblioteca (manuais e procedimentos)",
+  "biblioteca:editar": "Criar e editar páginas da Biblioteca, inclusive as restritas",
 } as const;
 
 export type Permissao = keyof typeof CATALOGO_PERMISSOES;
