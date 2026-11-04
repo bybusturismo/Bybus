@@ -19,6 +19,8 @@ export const CATALOGO_PERMISSOES = {
   "manifesto:documentos": "Ver documentos completos (CPF/passaporte)",
   "manifesto:contatos": "Ver telefones e e-mails dos clientes",
   "embarque:registrar": "Registrar embarque (embarcou, atrasado, não veio)",
+  "ia:usar": "Conversar com o assistente de IA (Turistinha)",
+  "ia:gestores": "Ver os gestores de IA, rodar a avaliação e aprovar ou descartar ações sugeridas",
 } as const;
 
 export type Permissao = keyof typeof CATALOGO_PERMISSOES;
@@ -31,6 +33,7 @@ export const PERMISSOES_SENSIVEIS: readonly Permissao[] = [
   "manifesto:documentos",
   "pessoas:gerenciar",
   "auditoria:ver",
+  "ia:gestores",
 ];
 
 export function ehPermissao(valor: string): valor is Permissao {

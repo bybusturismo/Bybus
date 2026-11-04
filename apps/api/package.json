@@ -14,6 +14,7 @@
     "db:seed": "tsx src/db/semear.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.137.0",
     "@bybus/core": "workspace:^",
     "@fastify/cookie": "11.0.1",
     "@fastify/helmet": "12.0.1",

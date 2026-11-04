@@ -35,6 +35,21 @@ const esquema = z.object({
    * permitido só em desenvolvimento, com autorização do dono registrada (ADR 0006, 04/11/2026).
    */
   DADOS_REAIS_AUTORIZADOS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /** Chave da API da Anthropic (IA). Sem ela a IA fica desligada e o resto do sistema funciona normalmente. Só em variável de ambiente/cofre. */
+  ANTHROPIC_API_KEY: z.string().optional().transform((v) => v?.trim() || undefined),
+  /** Modelo dos gestores (avaliação e debate) e do assistente. Padrão: o recomendado para o dia a dia. */
+  IA_MODELO: z.string().min(3).default("claude-opus-5-5"),
+  /** Modelo da síntese final. Padrão = IA_MODELO; opção mais forte e mais cara: claude-fable-5-1. */
+  IA_MODELO_SINTESE: z.string().optional().transform((v) => v?.trim() || undefined),
+  IA_ESFORCO: z.enum(["low", "medium", "high"]).default("medium"),
+  IA_ESFORCO_SINTESE: z.enum(["low", "medium", "high"]).default("high"),
+  IA_ESFORCO_ASSISTENTE: z.enum(["low", "medium", "high"]).default("low"),
+  /** Limite mensal de gasto com IA em US$ (0 = sem limite). Ao atingir, novas chamadas são recusadas. */
+  IA_LIMITE_MES_USD: z.coerce.number().min(0).default(60),
+  /** Avaliação diária automática dos gestores (só roda com ANTHROPIC_API_KEY). */
+  IA_AVALIACAO_DIARIA: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
+  /** Horário (America/Sao_Paulo) da avaliação diária. */
+  IA_AVALIACAO_HORARIO: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM").default("06:30"),
   /** MFA obrigatório para ADMIN e SUPERVISOR. */
   EXIGIR_MFA_ADMIN: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
 });
