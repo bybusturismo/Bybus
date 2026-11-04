@@ -4,6 +4,7 @@ import { api, mensagemDeErro, qs } from "../api/cliente";
 import type { Passeio, SaidaResumo, UnidadeResumo } from "../api/tipos";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { Icone } from "../componentes/Icone";
+import { Modal } from "../componentes/Modal";
 import { useNotificar } from "../componentes/Notificacoes";
 import { nomePraca, useSessao } from "../sessao/Sessao";
 import { diferencaDias, formatarData, formatarDataExtenso, hojeIso, intervaloDias, partesData, plural, somarDias } from "../util/formato";
@@ -109,6 +110,7 @@ export function Saidas() {
   const [erroCriar, setErroCriar] = useState<string | null>(null);
   const [dataNova, setDataNova] = useState("");
   const [passeioNovo, setPasseioNovo] = useState("");
+  const [novaAberta, setNovaAberta] = useState(false);
 
   const passeios = useCarregar((s) => api.get<Passeio[]>("/api/passeios", s), []);
   const daPraca = (passeios.dados ?? []).filter((p) => !praca || p.unidadeId === praca);
@@ -165,6 +167,11 @@ export function Saidas() {
           </p>
         </div>
         <div className="barra-acoes">
+          {podeCriar && passeioCriar && (
+            <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setNovaAberta(true)}>
+              <Icone nome="mais" tamanho={16} /> Nova saída
+            </button>
+          )}
           <div className="campo campo--linha periodo">
             <label htmlFor="periodo-de">De</label>
             <input id="periodo-de" type="date" value={inicio} onChange={(e) => e.target.value && irPara(e.target.value, e.target.value > fim ? somarDias(e.target.value, dias - 1) : fim)} />
@@ -187,7 +194,7 @@ export function Saidas() {
 
       {saidas.dados && saidas.dados.length > 0 && <ResumoPeriodo r={resumirPeriodo(saidas.dados, (s) => porId.get(s.passeioId)?.minimoConfirmacao ?? 12)} />}
 
-      {(daPraca.length > 1 || (podeCriar && passeioCriar)) && (
+      {daPraca.length > 1 && (
         <div className="filtros">
           {daPraca.length > 1 && (
             <div className="campo campo--linha">
@@ -198,34 +205,37 @@ export function Saidas() {
               </select>
             </div>
           )}
-          {podeCriar && passeioCriar && (
-            <form
-              className="campo campo--linha"
-              aria-label="Criar saída"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (dataNova) void criarSaida(passeioCriar, dataNova);
-              }}
-            >
-              {daPraca.length > 1 && (
-                <>
-                  <label htmlFor="nova-saida-passeio">Nova saída de</label>
-                  <select id="nova-saida-passeio" value={passeioCriar.id} onChange={(e) => setPasseioNovo(e.target.value)}>
-                    <OpcoesPasseio grupos={grupos} />
-                  </select>
-                </>
-              )}
-              <label htmlFor="nova-saida-data">{daPraca.length > 1 ? "em" : "Criar saída em"}</label>
-              <input id="nova-saida-data" type="date" min={hoje} value={dataNova} onChange={(e) => setDataNova(e.target.value)} />
-              <button type="submit" className="botao botao--primario" disabled={!dataNova || criando !== null}>
-                <Icone nome="mais" /> Criar saída
-              </button>
-            </form>
-          )}
         </div>
       )}
 
       {erroCriar && <Aviso tipo="erro">{erroCriar}</Aviso>}
+      {novaAberta && passeioCriar && (
+        <Modal aberto titulo="Nova saída" aoFechar={() => setNovaAberta(false)}>
+          <p className="texto-fraco">Só para casos fora das vendas (ex.: fretamento ou saída extra). Saídas com reserva são criadas sozinhas.</p>
+          <form
+            className="formulario"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (dataNova) void criarSaida(passeioCriar, dataNova).then(() => setNovaAberta(false));
+            }}
+          >
+            <div className="campo">
+              <label htmlFor="nova-saida-passeio">Passeio</label>
+              <select id="nova-saida-passeio" value={passeioCriar.id} onChange={(e) => setPasseioNovo(e.target.value)}>
+                <OpcoesPasseio grupos={grupos} />
+              </select>
+            </div>
+            <div className="campo">
+              <label htmlFor="nova-saida-data">Data</label>
+              <input id="nova-saida-data" type="date" min={hoje} value={dataNova} onChange={(e) => setDataNova(e.target.value)} required />
+            </div>
+            <div className="modal__acoes">
+              <button type="button" className="botao botao--secundario" onClick={() => setNovaAberta(false)}>Cancelar</button>
+              <button type="submit" className="botao botao--primario" disabled={!dataNova || criando !== null}>{criando ? "Criando…" : "Criar saída"}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
       {passeios.erro && <ErroCarga mensagem={passeios.erro} tentarDeNovo={passeios.recarregar} />}
       {passeios.dados && daPraca.length === 0 && (
         <Vazio titulo="Nenhum passeio cadastrado nesta praça.">
@@ -241,38 +251,15 @@ export function Saidas() {
         <>
           {saidas.dados?.length === 0 && (
             <Vazio titulo="Nenhuma saída cadastrada neste período.">
-              {podeCriar ? "Crie uma saída pelo botão do dia ou pelo campo “Criar saída em”." : "Quando o atendimento cadastrar saídas, elas aparecerão aqui."}
+              As saídas aparecem sozinhas quando entra uma reserva (Paytour, Viator, Decolar, Civitatis).{podeCriar ? " Para um caso fora disso, use “Nova saída”." : ""}
             </Vazio>
           )}
           <ul className="lista-saidas" aria-label="Saídas por dia" aria-busy={saidas.carregando}>
             {intervaloDias(inicio, dias).flatMap((data) => {
               const doDia = porData.get(data) ?? [];
               const relativo = rotuloRelativo(data, hoje);
-              // Período longo: dias sem saída não ocupam espaço.
-              if (doDia.length === 0 && dias > 31) return [];
-              if (doDia.length === 0) {
-                return [
-                  <li key={data} className="saida saida--vazia">
-                    <BlocoDia data={data} hoje={hoje} />
-                    <div className="saida__data">
-                      {relativo && <span className="etiqueta etiqueta--neutra">{relativo}</span>}
-                      <span>{formatarDataExtenso(data)}</span>
-                      <span className="saida__sem">· sem saída</span>
-                    </div>
-                    {podeCriar && passeioDoDia && (
-                      <button
-                        type="button"
-                        className="botao botao--fantasma botao--pequeno"
-                        onClick={() => void criarSaida(passeioDoDia, data)}
-                        disabled={criando !== null}
-                        aria-label={`Criar saída de ${passeioDoDia.nome} em ${formatarData(data)}`}
-                      >
-                        <Icone nome="mais" tamanho={16} /> {criando === data ? "Criando…" : "Criar saída"}
-                      </button>
-                    )}
-                  </li>,
-                ];
-              }
+              // Dias sem saída não aparecem (as saídas nascem das reservas; pedido do dono, 04/11).
+              if (doDia.length === 0) return [];
               return doDia.map((s) => {
                 const minimo = porId.get(s.passeioId)?.minimoConfirmacao ?? 12;
                 const abaixoMinimo = s.pagantes < minimo && s.status !== "CANCELADA";

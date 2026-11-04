@@ -41,9 +41,12 @@ describe("Saídas por praça", () => {
     const filtro = screen.getByLabelText("Passeio");
     expect(within(filtro).getAllByRole("option").map((o) => o.textContent)).toEqual(["Todos os passeios", "City Tour BC", "Fretamento Escolar"]);
     const u = userEvent.setup();
-    await u.selectOptions(screen.getByLabelText("Nova saída de"), "p-bc-fret");
-    await u.type(screen.getByLabelText("em"), somarDias(hoje, 3));
-    await u.click(screen.getByRole("button", { name: "Criar saída" }));
+    // Saída manual fica num botão discreto que abre a janela (as saídas normais nascem das reservas).
+    await u.click(screen.getByRole("button", { name: "Nova saída" }));
+    const janela = screen.getByRole("dialog");
+    await u.selectOptions(within(janela).getByLabelText("Passeio"), "p-bc-fret");
+    await u.type(within(janela).getByLabelText("Data"), somarDias(hoje, 3));
+    await u.click(within(janela).getByRole("button", { name: "Criar saída" }));
     expect(corpoEnviado(api, "POST", "/api/saidas")).toEqual({ passeioId: "p-bc-fret", data: somarDias(hoje, 3) });
   });
 
@@ -52,7 +55,8 @@ describe("Saídas por praça", () => {
     renderizar(<Saidas />, { sessao: sessaoFicticia("ADMIN", ["manifesto:ver", "saidas:gerenciar"], { unidades: [BC, FLN], praca: "", todasUnidades: true }) });
     expect(await screen.findByText(/^City Tour Toda Ilha/, { selector: ".saida__passeio" })).toBeInTheDocument();
     expect(screen.getByText("· FLN")).toBeInTheDocument();
-    const grupos = within(screen.getByLabelText("Nova saída de")).getAllByRole("group");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Nova saída" }));
+    const grupos = within(within(screen.getByRole("dialog")).getByLabelText("Passeio")).getAllByRole("group");
     expect(grupos.map((g) => g.getAttribute("label"))).toEqual(["Balneário Camboriú", "Florianópolis"]);
   });
 
