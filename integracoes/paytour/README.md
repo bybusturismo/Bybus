@@ -13,6 +13,9 @@ Documentação oficial: https://api-ha.paytour.com.br/apiv2doc · base da API: `
 4. Importação idempotente pelo código `PAYTOUR-<id do pedido>` (o mesmo do CSV); fora da produção, **anonimizada**.
 5. O passeio do sistema é escolhido pelo "padrão de produto" do passeio (ex.: `toda ilha|whole island|floripa city tour`). Produto que não casa entra como ignorado na prévia.
 
+## Intervalo
+`PAYTOUR_SINCRONIZAR_MINUTOS` aceita 1 minuto: cada rodada faz o login (guardado até vencer), 1–2 consultas de pedidos e, no máximo uma vez por hora, a lista de afiliados. Recomendado: **2 minutos** (a Paytour não publica limite de uso; a confirmar). Para aviso instantâneo, o caminho é o webhook da Paytour.
+
 ## Ligar
 No servidor (variáveis de ambiente — nunca no código, chat ou e-mail):
 ```

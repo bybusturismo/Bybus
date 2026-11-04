@@ -25,6 +25,9 @@ Pré-requisito: o sistema publicado em um endereço `https://` com a variável `
 
 Para desligar: **Acionadores** → excluir o acionador `enviarReservas`.
 
+## Intervalo: por que 5 minutos (e não 1)
+O Google limita o tempo total de execução de acionadores do Apps Script em contas Gmail gratuitas (cerca de **90 minutos por dia**; contas Google Workspace têm mais). Cada rodada leva alguns segundos: de 5 em 5 minutos são ~288 rodadas/dia (folga grande); de 1 em 1 minuto seriam ~1.440 rodadas, perto do limite — e, se estourar, o robô para até o dia seguinte. Para mudar, troque `everyMinutes(5)` por 1, 5, 10, 15 ou 30 em `instalar()` e rode `instalar` de novo.
+
 ## Segurança e LGPD
 - O token fica nas propriedades do script (não no código). Trocar o token no sistema invalida o robô até atualizar a propriedade.
 - O sistema só aceita a chamada com o token; responde apenas o resultado por mensagem (sem dados pessoais).

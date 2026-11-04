@@ -127,13 +127,20 @@ export async function sincronizarPaytour(
  * Nome de cada afiliado (id → "nome empresa"): o afiliado "TripAdvisor interno" marca as cópias da Viator
  * lançadas à mão na Paytour. Só o nome é usado (para reconhecer o canal); nada é gravado.
  */
+const cacheAfiliados = new WeakMap<ClientePaytour, { em: number; mapa: Record<string, string> }>();
+const VALIDADE_AFILIADOS_MS = 60 * 60_000;
+
 async function carregarAfiliados(cliente: ClientePaytour): Promise<Record<string, string>> {
+  // A lista muda pouco e tem centenas de afiliados: recarrega no máximo uma vez por hora.
+  const guardado = cacheAfiliados.get(cliente);
+  if (guardado && Date.now() - guardado.em < VALIDADE_AFILIADOS_MS) return guardado.mapa;
   const mapa: Record<string, string> = {};
   for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
     const r = await cliente.get<{ info?: { total_paginas?: number }; itens?: Array<{ id: string | number; nome?: string | null; empresa?: string | null }> }>("/afiliados", { page: pagina, perPage: 100 });
     for (const a of r.itens ?? []) mapa[String(a.id)] = `${a.nome ?? ""} ${a.empresa ?? ""}`.trim();
     if (!r.itens?.length || pagina >= (r.info?.total_paginas ?? 1)) break;
   }
+  cacheAfiliados.set(cliente, { em: Date.now(), mapa });
   return mapa;
 }
 
