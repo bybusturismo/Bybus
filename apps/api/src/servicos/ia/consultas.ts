@@ -119,7 +119,7 @@ const ocupacaoPorPasseio: FerramentaConsulta = {
       .innerJoin(reservas, eq(reservas.id, passageiros.reservaId))
       .innerJoin(saidas, eq(saidas.id, reservas.saidaId))
       .innerJoin(passeios, eq(passeios.id, saidas.passeioId))
-      .where(escopoSaidas(usuario, [between(saidas.data, q.de, q.ate)]))
+      .where(escopoSaidas(usuario, [between(saidas.data, q.de, q.ate), sql`${saidas.status} <> 'CANCELADA'`]))
       .groupBy(passeios.codigo, reservas.status);
     return {
       periodo: q,

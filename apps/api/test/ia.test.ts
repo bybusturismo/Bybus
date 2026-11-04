@@ -8,6 +8,8 @@ import { passageiros, reservas } from "../src/db/schema.js";
 import { definirClienteIA, type BlocoIA, type ClienteIA, type PedidoIA, type RespostaIA } from "../src/servicos/ia/cliente.js";
 import { rodarAvaliacaoDiaria } from "../src/servicos/ia/agendamento.js";
 import { montarRetratos } from "../src/servicos/ia/retratos.js";
+import { chamarEstruturado, TETO_MAX_TOKENS } from "../src/servicos/ia/avaliacao.js";
+import { FERRAMENTA_AVALIACAO, zAvaliacao } from "../src/servicos/ia/saidas.js";
 import { CHAVE, Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
 
 let app: FastifyInstance;
@@ -345,7 +347,97 @@ describe("retratos por área", () => {
       const r = await montarRetratos(db, dataSaoPaulo(new Date()));
       for (const g of GESTORES) expect(r[g.id]).toBeTruthy();
       expect(acharDadoPessoal(r)).toEqual([]);
-      expect(r.frotas).toHaveProperty("lacunasDeDados");
+      expect(r.frotas).toHaveProperty("veiculosPorSituacao");
+      expect(r.administrativo).toHaveProperty("contasAPagar");
+    } finally {
+      await p.end();
+    }
+  });
+});
+
+describe("regressões da revisão", () => {
+  it("ocupacao_por_passeio ignora saídas canceladas também nos passageiros (sem ocupação inflada)", async () => {
+    const { rows: saidasRows } = await pool.query(
+      `select s.id, s.data::text as data, s.capacidade, (select count(*) from passageiros pa join reservas r on r.id = pa.reserva_id where r.saida_id = s.id and r.status = 'CONFIRMADA')::int as pax
+       from saidas s order by pax desc`,
+    );
+    const maior = saidasRows[0]!;
+    const datas = saidasRows.map((r) => r.data as string).sort();
+    await pool.query("update saidas set status = 'CANCELADA' where id = $1", [maior.id]);
+    try {
+      let resultado = "";
+      let chamadas = 0;
+      definirClienteIA({
+        async enviar(p) {
+          if (++chamadas === 1) return { content: [toolUse("ocupacao_por_passeio", { de: datas[0], ate: datas.at(-1) })], stop_reason: "tool_use", modelo: p.modelo, usage: uso };
+          resultado = String((p.mensagens.at(-1)!.content as BlocoIA[])[0]!.content);
+          return { content: [{ type: "text", text: "ok" }], stop_reason: "end_turn", modelo: p.modelo, usage: uso };
+        },
+      });
+      const admin = await logado("admin@bybus.test");
+      expect((await admin.req("POST", "/api/ia/assistente", { mensagens: [{ papel: "usuario", texto: "Ocupação?" }] })).statusCode).toBe(200);
+      const outras = saidasRows.filter((r) => r.id !== maior.id);
+      const paxOutras = outras.reduce((s, r) => s + (r.pax as number), 0);
+      const capOutras = outras.reduce((s, r) => s + (r.capacidade as number), 0);
+      const linha = JSON.parse(resultado).passeios[0];
+      expect(linha.passageirosConfirmados).toBe(paxOutras);
+      expect(linha.capacidade).toBe(capOutras);
+      expect(linha.ocupacaoPct).toBeLessThanOrEqual(100);
+      expect(linha.ocupacaoPct).toBe(Math.round((paxOutras / capOutras) * 1000) / 10);
+    } finally {
+      await pool.query("update saidas set status = 'PREVISTA' where id = $1", [maior.id]);
+    }
+  });
+
+  it("retratos de frotas e administrativo usam os módulos reais (só agregados) e não trazem lacunas falsas", async () => {
+    const { rows: un } = await pool.query("select id from unidades limit 1");
+    const { rows: cat } = await pool.query("insert into fin_categorias (codigo, nome, tipo, grupo) values ('TESTE_IA', 'Categoria de teste', 'DESPESA', 'Teste') returning id");
+    const { rows: v } = await pool.query("insert into veiculos (unidade_id, placa, tipo, situacao) values ($1, 'ZZZ9Z99', 'ONIBUS', 'ATIVO') returning id", [un[0].id]);
+    await pool.query("insert into veiculos_documentos (veiculo_id, tipo, vencimento) values ($1, 'CRLV', current_date - 3)", [v[0].id]);
+    await pool.query("insert into fin_lancamentos (tipo, descricao, categoria_id, valor_centavos, competencia, vencimento) values ('PAGAR', 'Fornecedor Ficticio SA', $1, 12345, current_date, current_date - 2), ('RECEBER', 'Canal', $1, 500, current_date, current_date + 3)", [cat[0].id]);
+    const { db, pool: p } = criarDb(DATABASE_URL);
+    try {
+      const r = await montarRetratos(db, dataSaoPaulo(new Date()));
+      const frota = r.frotas as Record<string, any>;
+      const adm = r.administrativo as Record<string, any>;
+      expect(frota.lacunasDeDados).toBeUndefined();
+      expect(frota.registrosDosVeiculos.vencidos).toBe(1);
+      expect(frota.veiculosPorSituacao.ATIVO).toBeGreaterThanOrEqual(1);
+      expect(adm.contasAPagar.vencidas).toEqual({ quantidade: 1, somaCentavos: 12345 });
+      expect(adm.contasAReceber.aVencerEm7Dias).toEqual({ quantidade: 1, somaCentavos: 500 });
+      expect(JSON.stringify(r)).not.toContain("ZZZ9Z99");
+      expect(JSON.stringify(r)).not.toContain("Fornecedor Ficticio");
+      expect(acharDadoPessoal(r)).toEqual([]);
+    } finally {
+      await p.end();
+      await pool.query("delete from fin_lancamentos where descricao in ('Fornecedor Ficticio SA', 'Canal')");
+      await pool.query("delete from fin_categorias where codigo = 'TESTE_IA'");
+      await pool.query("delete from veiculos_documentos where veiculo_id = $1", [v[0].id]);
+      await pool.query("delete from veiculos where id = $1", [v[0].id]);
+    }
+  });
+
+  it("chamarEstruturado: após max_tokens aumenta o limite (x1,5) em vez de repetir igual, e para no teto", async () => {
+    const { db, pool: p } = criarDb(DATABASE_URL);
+    const config = lerConfig({ AMBIENTE: "testes", DATABASE_URL, CHAVE_CRIPTOGRAFIA: CHAVE, EXIGIR_MFA_ADMIN: "false" });
+    const valido = { achados: [], vulnerabilidades: [], oportunidades: [], acoes_sugeridas: [] };
+    const base = { db, config, modelo: "claude-opus-5-5", esforco: "low" as const, sistema: "s", ferramenta: FERRAMENTA_AVALIACAO, parser: zAvaliacao, usuario: "u", uso: { tipo: "AVALIACAO" as const } };
+    try {
+      const limites: number[] = [];
+      const cortaUmaVez: ClienteIA = {
+        async enviar(ped) {
+          limites.push(ped.maxTokens);
+          if (limites.length === 1) return { content: [{ type: "text", text: "..." }], stop_reason: "max_tokens", modelo: ped.modelo, usage: uso };
+          return { content: [toolUse("registrar_avaliacao", valido)], stop_reason: "tool_use", modelo: ped.modelo, usage: uso };
+        },
+      };
+      await chamarEstruturado({ ...base, cliente: cortaUmaVez, maxTokens: 8000 });
+      expect(limites).toEqual([8000, 12000]);
+
+      const noTeto: number[] = [];
+      const sempreCorta: ClienteIA = { async enviar(ped) { noTeto.push(ped.maxTokens); return { content: [], stop_reason: "max_tokens", modelo: ped.modelo, usage: uso }; } };
+      await expect(chamarEstruturado({ ...base, cliente: sempreCorta, maxTokens: TETO_MAX_TOKENS })).rejects.toThrow(/teto atingido/);
+      expect(noTeto).toEqual([TETO_MAX_TOKENS]);
     } finally {
       await p.end();
     }

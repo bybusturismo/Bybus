@@ -1,6 +1,7 @@
 import { gestorPorId, garantirAgregado, IDS_GESTORES, mesSaoPaulo, type IdGestor } from "@bybus/core";
 import { and, between, count, eq, gt, gte, inArray, sql } from "drizzle-orm";
 import type { Db } from "../../db/cliente.js";
+import { retratoFinanceiroExtra, retratoFrotaExtra } from "./extras.js";
 import { exigeMfa } from "../../seguranca/permissoes.js";
 import { auditoria, escalas, iaAvaliacoes, iaUso, integracoesEstado, mensagens, passageiros, passeios, perfis, pessoas, reservas, saidas, sessoes, unidades, usuarios } from "../../db/schema.js";
 
@@ -244,7 +245,6 @@ export function retratoFrotas(b: Base): Retrato {
   return {
     proximos14Dias: { saidas: prox14.length, semVeiculoInformado: semVeiculo, veiculosDistintos: new Set(prox14.map((s) => s.veiculo).filter(Boolean)).size, saidasPorVeiculo: usoPorVeiculo, mesmoVeiculoMaisDeUmaSaidaNoDia: conflitos.length, ocupacao: oc },
     ultimos30Dias: { veiculosDistintosUsados: usados30.size },
-    lacunasDeDados: ["Manutenção, abastecimento, documentos do veículo (CRLV, seguro) e quilometragem ainda não estão no sistema: sem esses dados não é possível avaliar risco mecânico ou custo por veículo."],
     alertas,
   };
 }
@@ -287,7 +287,7 @@ export function retratoAdministrativo(b: Base, equipe: DadosEquipe): Retrato {
   return {
     reservasProximos30Dias: { total, porPagamento: pagamento, cortesiaPct: pct(pagamento.CORTESIA ?? 0, total), aPagarNoEmbarqueProximos7Dias: aReceber7 },
     equipe: { guiasAtivos: guiasAtivos.length, guiasSemDiariaCadastrada: guiasAtivos.filter((g) => !g.diariaCentavos).length, diariaMediaGuiaCentavos: mediaDiaria, diasEscaladosComGuiaProximos30Dias: diasComGuia, custoEstimadoDiariasGuiaProximos30DiasCentavos: soma(equipe.escalasFuturas.filter((e) => e.guiaId).map(() => mediaDiaria)) },
-    lacunasDeDados: ["O sistema ainda não guarda valores das reservas, contas a pagar/receber, cartões nem fluxo de caixa: receita, margem e inadimplência não podem ser avaliadas por aqui."],
+    lacunasDeDados: ["Reservas ainda não guardam valor de venda: receita e margem por passeio não podem ser avaliadas."],
     alertas,
   };
 }
@@ -350,7 +350,7 @@ export function retratoJuridico(b: Base, d: DadosJuridico): Retrato {
     },
     consumidor: { reservasUltimos30Dias: tot, cancelamentosUltimos30Dias: canc, taxaCancelamentoPct: pct(canc, tot) },
     lgpd: { acessosADocumentosCompletosUltimos30Dias: d.acessosADocumentosCompletos30Dias, exportacoesDeListaUltimos30Dias: d.exportacoesDeManifesto30Dias, usuariosSensiveisSemMfa: d.usuariosSensiveisSemMfa },
-    lacunasDeDados: ["Contratos, apólices de seguro, licenças da frota e registro de consentimento de mensagens ainda não estão no sistema."],
+    lacunasDeDados: ["Contratos e registro de consentimento de mensagens ainda não estão no sistema."],
     alertas,
   };
 }
@@ -485,6 +485,10 @@ const EXTRAS: Partial<Record<IdGestor, Array<(db: Db, hoje: string) => Promise<R
 export function registrarRetratoExtra(id: IdGestor, fn: (db: Db, hoje: string) => Promise<Retrato>) {
   (EXTRAS[id] ??= []).push(fn);
 }
+
+// Módulos já existentes alimentam os retratos de frotas e administrativo (só agregados).
+registrarRetratoExtra("frotas", retratoFrotaExtra);
+registrarRetratoExtra("administrativo", retratoFinanceiroExtra);
 
 /** Retratos de todas as áreas para o dia `hoje` (AAAA-MM-DD, America/Sao_Paulo). Passa pela trava de LGPD. */
 export async function montarRetratos(db: Db, hoje: string, opcoes: { agora?: Date; limiteMesUsd?: number } = {}): Promise<Record<IdGestor, Retrato>> {

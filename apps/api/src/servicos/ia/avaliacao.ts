@@ -39,15 +39,29 @@ interface ChamadaEstruturada<T> {
  * Chama o modelo e exige a saída pela ferramenta de registro. Confere o limite mensal antes de cada chamada,
  * registra o uso e, se o modelo não chamar a ferramenta ou mandar algo inválido, tenta mais uma vez avisando o erro.
  */
+/** Teto de tokens de saída ao repetir uma chamada cortada por max_tokens. */
+export const TETO_MAX_TOKENS = 32_000;
+
 export async function chamarEstruturado<T>(p: ChamadaEstruturada<T>): Promise<{ resultado: T; custo: number }> {
   const mensagens: MensagemIA[] = [{ role: "user", content: p.usuario }];
   let custo = 0;
+  let maxTokens = p.maxTokens;
   let ultimoErro = "o modelo não chamou a ferramenta de registro";
   for (let tentativa = 0; tentativa < 2; tentativa++) {
     await garantirOrcamento(p.db, p.config);
-    const r = await p.cliente.enviar({ modelo: p.modelo, esforco: p.esforco, sistema: p.sistema, ferramentas: [p.ferramenta], mensagens, maxTokens: p.maxTokens });
+    const r = await p.cliente.enviar({ modelo: p.modelo, esforco: p.esforco, sistema: p.sistema, ferramentas: [p.ferramenta], mensagens, maxTokens });
     custo += await registrarUso(p.db, p.modelo, r, { ...p.uso, ferramentas: [p.ferramenta.name] });
-    if (r.stop_reason === "max_tokens") ultimoErro = "resposta cortada por limite de tamanho";
+    if (r.stop_reason === "max_tokens") {
+      // Repetir com o mesmo limite só gastaria de novo: aumenta (×1,5) até o teto; já no teto, desiste com o motivo.
+      if (maxTokens >= TETO_MAX_TOKENS) {
+        ultimoErro = `resposta cortada por limite de tamanho (${maxTokens} tokens, teto atingido)`;
+        break;
+      }
+      const novo = Math.min(Math.ceil(maxTokens * 1.5), TETO_MAX_TOKENS);
+      ultimoErro = `resposta cortada por limite de tamanho (${maxTokens} tokens); repetida com ${novo}`;
+      maxTokens = novo;
+      continue;
+    }
     const uso = r.content.find((b) => b.type === "tool_use" && b.name === p.ferramenta.name);
     if (uso) {
       const v = p.parser.safeParse(uso.input);
@@ -55,7 +69,7 @@ export async function chamarEstruturado<T>(p: ChamadaEstruturada<T>): Promise<{ 
       ultimoErro = v.error.issues.slice(0, 3).map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
       mensagens.push({ role: "assistant", content: r.content });
       mensagens.push({ role: "user", content: [{ type: "tool_result", tool_use_id: uso.id, is_error: true, content: `Entrada inválida (${ultimoErro}). Chame a ferramenta de novo, corrigindo.` } as BlocoIA] });
-    } else if (r.stop_reason !== "max_tokens") {
+    } else {
       mensagens.push({ role: "assistant", content: r.content });
       mensagens.push({ role: "user", content: `Registre o resultado chamando a ferramenta ${p.ferramenta.name}.` });
     }
