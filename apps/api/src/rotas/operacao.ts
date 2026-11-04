@@ -110,7 +110,9 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
 
   app.patch("/api/pontos/:id", { preHandler: exigir(config, "pontos:gerenciar") }, async (req) => {
     const { id } = z.object({ id: uuid }).parse(req.params);
-    const corpo = z.object({ nome: z.string().trim().min(2).max(150).optional(), endereco: z.string().max(300).nullish(), horario: horario.optional(), ativo: z.boolean().optional() }).parse(req.body);
+    const corpo = z.object({ nome: z.string().trim().min(2).max(150).optional(), endereco: z.string().max(300).nullish(), horario: horario.optional(), ativo: z.boolean().optional(),
+      latitude: z.number().min(-90, "Latitude entre -90 e 90.").max(90, "Latitude entre -90 e 90.").nullish(), longitude: z.number().min(-180, "Longitude entre -180 e 180.").max(180, "Longitude entre -180 e 180.").nullish() })
+      .refine((c) => (c.latitude == null) === (c.longitude == null), { message: "Informe latitude e longitude juntas (ou deixe as duas em branco).", path: ["latitude"] }).parse(req.body);
     await garantirPonto(db, req.usuario!, id);
     const [atual] = await db.select().from(pontosEmbarque).where(eq(pontosEmbarque.id, id));
     if (!atual) throw new ErroHttp(404, "NAO_ENCONTRADO", "Ponto não encontrado.");
@@ -119,7 +121,7 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     const erros = validarSequenciaTransfer(simulado);
     if (erros.length) throw new ErroHttp(400, "ORDEM_TRANSFER", erros.join(" "));
     const [p] = await db.update(pontosEmbarque).set(corpo).where(eq(pontosEmbarque.id, id)).returning();
-    await auditar(db, req, "PONTO_ALTERADO", { tipo: "ponto", id }, corpo);
+    await auditar(db, req, "PONTO_ALTERADO", { tipo: "ponto", id }, "latitude" in corpo || "longitude" in corpo ? { ...corpo, antes: { latitude: atual.latitude, longitude: atual.longitude } } : corpo);
     return p;
   });
 

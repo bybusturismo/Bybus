@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { CANAIS, CATEGORIAS, STATUS_EMBARQUE, STATUS_RESERVA, TIPOS_DOCUMENTO } from "@bybus/core";
 
 /** Linhas de negócio da empresa (ADR 0005). */
@@ -120,6 +120,9 @@ export const pontosEmbarque = pgTable("pontos_embarque", {
   endereco: text(),
   ehTransfer: boolean().notNull().default(false),
   ativo: boolean().notNull().default(true),
+  /** Coordenadas oficiais do ponto (rastreio do ônibus); nulas até serem cadastradas. */
+  latitude: doublePrecision(),
+  longitude: doublePrecision(),
 }, (t) => [uniqueIndex("pontos_passeio_ordem_uq").on(t.passeioId, t.ordem)]);
 
 /** Cadastro único de pessoas: guias, motoristas, colaboradores e parceiros (pessoa física). */
@@ -284,3 +287,4 @@ export * from "./esquemas/marketing.js";
 export * from "./esquemas/biblioteca.js";
 export * from "./esquemas/ia.js";
 export * from "./esquemas/financeiro.js";
+export * from "./esquemas/rastreio.js";
