@@ -11,3 +11,8 @@ export * from "./importadores/anonimizar.js";
 export * from "./importadores/paytour-api.js";
 export * from "./importadores/decolar-email.js";
 export * from "./sugestao-ponto.js";
+export * from "./financeiro/dinheiro.js";
+export * from "./financeiro/plano.js";
+export * from "./financeiro/extrato.js";
+export * from "./financeiro/conciliacao.js";
+export * from "./financeiro/relatorios.js";
