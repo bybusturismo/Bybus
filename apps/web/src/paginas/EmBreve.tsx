@@ -30,24 +30,6 @@ export const MODULOS_PLANEJADOS: Record<string, ModuloPlanejado> = {
     objetivo: "Empresas de fretamento, publicidade e fornecedores (ex.: Grupo Oceanic).",
     funcoes: ["Contratos e contatos", "Serviços prestados e faturamento"],
   },
-  "contas-a-pagar": {
-    titulo: "Contas a pagar",
-    area: "Administrativo",
-    objetivo: "Controle de despesas por praça, linha de negócio e veículo.",
-    funcoes: ["Lançamentos com vencimento e categoria", "Pagamento de guias, motoristas e parceiros", "Manutenção e abastecimento da frota", "Alertas de vencimento"],
-  },
-  "contas-a-receber": {
-    titulo: "Contas a receber",
-    area: "Administrativo",
-    objetivo: "O que cada canal deve repassar (Paytour, OTAs, fretamentos, publicidade).",
-    funcoes: ["Repasses por canal com conciliação", "Recebimentos de fretamento e publicidade", "Fluxo de caixa"],
-  },
-  cartoes: {
-    titulo: "Cartões de crédito",
-    area: "Administrativo",
-    objetivo: "Gastos e faturas dos cartões da empresa.",
-    funcoes: ["Lançamentos por cartão e categoria", "Fechamento e vencimento da fatura", "Conferência com o extrato"],
-  },
 };
 
 export function EmBreve() {

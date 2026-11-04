@@ -22,7 +22,9 @@ describe("Menu por permissão", () => {
     const todas = itensPermitidos(() => true);
     expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
       "Saídas", "Conferência de embarque", "Escala de guias", "Fechamento e mensagens", "Importar reservas", "Integrações",
-      "Passeios e pontos", "Guias e equipe", "Frota e manutenção", "Checklist do veículo",
+      "Passeios e pontos", "Guias e equipe",
+      "Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias",
+      "Frota e manutenção", "Checklist do veículo",
       "Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes", "Biblioteca", "Gestores de IA",
       "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta",
     ]);
@@ -45,6 +47,18 @@ describe("Marketing e Biblioteca no menu", () => {
   it("os itens planejados de marketing viraram telas reais", () => {
     const planejados = itensPermitidos(() => true).filter((i) => i.planejado).map((i) => i.para);
     expect(planejados.some((p) => /avaliacoes|origem-clientes|campanhas|afiliados/.test(p))).toBe(false);
+  });
+});
+
+describe("Menu do financeiro", () => {
+  it("só aparece para quem tem financeiro:ver", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("FIN", ["financeiro:ver"]) });
+    expect(rotulosMenu()).toEqual(["Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias", "Minha conta"]);
+  });
+
+  it("não aparece sem a permissão", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("GUIA", ["manifesto:ver"]) });
+    expect(rotulosMenu().some((r) => r?.includes("financeiro") || r === "Contas a pagar")).toBe(false);
   });
 });
 

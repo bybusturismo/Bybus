@@ -33,6 +33,8 @@ export const PERMISSOES = [
   "biblioteca:editar",
   "ia:usar",
   "ia:gestores",
+  "financeiro:ver",
+  "financeiro:gerenciar",
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 
