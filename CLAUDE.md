@@ -19,6 +19,8 @@ Sistema gerencial da **By Bus Turismo** (Florianópolis e Balneário Camboriú/S
 7. Fatos não confirmados são marcados "a confirmar" — nunca inventar.
 8. Ao aprender algo novo sobre o negócio, atualize o arquivo correspondente em `docs/conhecimento/`.
 
-## Estado atual (22/10/2026)
-- Fase de descoberta concluída (Drive, buscas públicas, regulação). Site oficial ainda não lido integralmente (rede bloqueada).
-- Decisões: integrar Paytour (ADR 0001); primeira entrega no ambiente de testes = **Acesso + Frota**. Orçamento de hospedagem sem preferência — comparar provedores antes de contratar. Stack ainda a definir (próximo ADR).
+## Estado atual (04/11/2026)
+- Stack: monorepo pnpm — `packages/core` (regras puras), `apps/api` (Fastify + Drizzle + PostgreSQL), `apps/web` (React). Pacote de implantação em `implantacao/` (Docker + Caddy), hospedagem ainda a contratar.
+- Pronto no desenvolvimento: acesso (login, MFA, perfis, praças, auditoria), saídas e lista de passageiros, importação Paytour (API), Viator/Bókun e Decolar (e-mail), escala de guias, link de embarque, conferência, fechamento das 21h e mensagens (WhatsApp simulado), financeiro, frota, marketing, biblioteca e gestores de IA (desligados sem chave). Resumo e pendências em `docs/produto/plano-fase-2.md` (seção 6).
+- Migrações: `pnpm --filter @bybus/api db:generate <nome>`. Testes da API com banco próprio quando houver outras sessões: `DATABASE_URL_TESTE`.
+- Decisões do dono pendentes: provedor de WhatsApp, API do Khronos, coordenadas oficiais dos pontos, textos oficiais das mensagens, custo da IA, permissões dos perfis padrão nos módulos novos, hospedagem.

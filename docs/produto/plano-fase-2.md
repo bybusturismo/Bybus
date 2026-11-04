@@ -69,5 +69,33 @@
 | 2C | Rastreamento com mapa e previsão + mensagem da manhã | API Khronos ou Traccar; coordenadas dos pontos |
 | 2D | Administrativo (contas a pagar/receber, cartões, frota) e Marketing | priorizar com o dono |
 
-## 6. O que foi construído nesta etapa
-(atualizado ao final do trabalho — ver seção no fim do arquivo)
+## 6. O que foi construído nesta etapa (04/11/2026)
+
+Tudo no ambiente de desenvolvimento, com dados fictícios na demonstração; nada enviado de verdade (WhatsApp em modo simulado, IA sem chave).
+
+**Passeios (operação)**
+- Menu por áreas (Passeios, Cadastros, Administrativo, Marketing, Biblioteca, Gestão, Configurações); itens planejados aparecem só para o administrador, como "em breve".
+- Escala mensal de guias (com motorista e veículo padrão do passeio); depois de publicada, troca só com motivo (força maior), auditada. Veículo indisponível na frota é recusado.
+- Link de embarque do passageiro (sem login, token aleatório guardado só como hash, expira no dia seguinte ao passeio, limite de 30 pedidos/min): o cliente informa a hospedagem, recebe a sugestão do ponto mais próximo e escolhe. Vale também depois do fechamento — a escolha entra no adendo.
+- Conferência de embarque: fila por reserva com ponto, pagamento, origem, contato e alertas; o colaborador confirma ou corrige.
+- Fechamento da lista às 21h da véspera (automático, recupera até as 05h se o servidor estava fora), em ordem de embarque, texto para o grupo do WhatsApp sem documentos nem telefones; adendos numerados; confirmação para cada titular (com o link de embarque para quem não tem ponto). Pede confirmação antes de fechar manualmente.
+- Central de mensagens: fila com situação (simulada, enviada, falha, sem telefone) e reenvio. Provedor Evolution pronto, desligado.
+
+**Administrativo**
+- Financeiro: contas a pagar e a receber (parcelas, recorrência, baixa com juros/multa/desconto), importação de extrato OFX/CSV com conciliação sugerida (nada concilia sozinho), cartões com fatura por ciclo, transferências, fluxo de caixa semanal e DRE gerencial. Dinheiro em centavos. Ver `modulo-financeiro.md`.
+- Frota: veículos, documentos com alerta de 30 dias, manutenção preventiva por km/tempo, ordens, abastecimento com consumo e alerta, checklist do motorista no celular (item de segurança reprovado imobiliza o veículo). Ver `modulo-frota.md`.
+
+**Marketing e Biblioteca**
+- Vendas por canal e por passeio, origem dos clientes, campanhas (retorno lançado à mão), calendário de conteúdo, pedidos de avaliação (copiar e colar), afiliados com QR code. Ver `modulo-marketing.md`.
+- Biblioteca de manuais em árvore, com busca e páginas restritas; 7 manuais iniciais tirados de `docs/conhecimento`. Ver `modulo-biblioteca.md`.
+
+**Gestão (IA)**
+- Oito gestores de IA (comercial, logístico, frotas, administrativo, marketing, jurídico, RH, tecnologia) avaliam todo dia às 6h30, leem os achados uns dos outros e entregam uma síntese com vulnerabilidades, oportunidades e ações; ação só vale com aprovação de uma pessoa. Assistente Turistinha para consultas. Só dados agregados vão para a IA (LGPD). Teto mensal de gasto. Desligado até o dono aprovar o custo e configurar a chave. Ver `modulo-ia.md`.
+
+**Revisão de código (04/11)**
+Três revisões (servidor inteiro, telas e as integrações) encontraram e corrigiram, entre outros: sinais e valores errados na leitura de extratos (OFX ×1000, "R$-10,00" positivo, colunas trocadas), saldo contando em dobro, desfazer conciliação apagando baixa manual; reserva Paytour duplicada quando o pedido ganha itens ou muda de canal, data mudada no canal ignorada, reserva cancelada pela equipe voltando sozinha, sincronização perdendo páginas ou rodando em dobro; link de embarque invalidado pelo adendo e recusado depois do fechamento; escala que não limpava guia removido e desfazia ajuste feito na saída; km que podia diminuir; token do link de embarque nos logs. Consultas repetidas foram juntadas (menos idas ao banco) e funções duplicadas viraram uma só.
+
+**Pendências conhecidas**
+- Rastreamento (Khronos) e voucher automático após a compra: dependem do dono (API do Khronos, texto oficial e provedor de WhatsApp).
+- Pedido Paytour que perde um item ou muda a data de um dos itens (pedido com vários passeios): a reserva antiga não é cancelada sozinha — aparece para conferência.
+- Telas de Saídas e Escala ainda usam placa em texto (a lista de veículos da frota já existe na API).
