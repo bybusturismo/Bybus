@@ -13,4 +13,8 @@ describe("log", () => {
     expect(mascararUrl("/api/rastreio/saidas/3f2b8a9e-1c1d-4e5f-9a6b-7c8d9e0f1a2b")).toBe("/api/rastreio/saidas/3f2b8a9e-1c1d-4e5f-9a6b-7c8d9e0f1a2b");
     expect(mascararUrl("/api/rastreio/minhas-saidas")).toBe("/api/rastreio/minhas-saidas");
   });
+
+  it("não registra o token do aviso do WhatsApp (rota interna)", () => {
+    expect(mascararUrl("/api/interno/whatsapp/0123456789abcdef0123456789abcdef0123")).toBe("/api/interno/whatsapp/***");
+  });
 });

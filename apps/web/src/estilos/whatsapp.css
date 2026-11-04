@@ -1,0 +1,288 @@
+/* WhatsApp: central de conversas (duas colunas; no celular, uma por vez). Só tokens de tokens.css. */
+
+.pagina--whatsapp .aviso {
+  margin-bottom: var(--esp-3);
+}
+.wa {
+  display: grid;
+  grid-template-columns: 21rem minmax(0, 1fr);
+  height: calc(100dvh - var(--altura-topo) - 13rem);
+  min-height: 24rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+  overflow: hidden;
+}
+
+/* ---------- Lista ---------- */
+.wa-lista {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--cor-borda);
+}
+.wa-lista__filtros {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--cor-borda);
+}
+.wa-lista__nao-lidas {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-fraco);
+}
+.wa-lista__itens {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.wa-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--esp-2) var(--esp-3);
+  border: 0;
+  border-bottom: 1px solid var(--cor-borda);
+  background: transparent;
+  color: var(--cor-texto);
+  text-align: left;
+  font: inherit;
+  font-size: var(--texto-sm);
+  cursor: pointer;
+}
+.wa-item:hover {
+  background: var(--cor-superficie-2);
+}
+.wa-item--ativa,
+.wa-item--ativa:hover {
+  background: var(--cor-primaria-suave);
+}
+.wa-item__linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  min-width: 0;
+}
+.wa-item__nome {
+  font-weight: var(--peso-medio);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wa-item--nova .wa-item__nome {
+  font-weight: var(--peso-forte);
+}
+.wa-item__hora {
+  flex: none;
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-fraco);
+}
+.wa-item__previa {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--cor-texto-fraco);
+  font-size: var(--texto-xs);
+}
+.wa-item__contador {
+  flex: none;
+  min-width: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--cor-primaria);
+  color: var(--cor-sobre-primaria);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-forte);
+  text-align: center;
+  line-height: 1.25rem;
+}
+
+/* ---------- Conversa ---------- */
+.wa-conversa {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.wa-conversa--vazia {
+  justify-content: center;
+}
+.wa-conversa__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--cor-borda);
+}
+.wa-conversa__quem {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--texto-sm);
+}
+.wa .wa-voltar {
+  display: none;
+}
+.wa-voltar svg {
+  transform: rotate(180deg);
+}
+.wa-reservas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+}
+.wa-reserva {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--esp-2);
+  padding: 2px var(--esp-2);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  font-size: var(--texto-xs);
+  text-decoration: none;
+}
+.wa-reserva:hover {
+  border-color: var(--cor-primaria);
+}
+.wa-reserva__data {
+  font-weight: var(--peso-forte);
+  color: var(--cor-primaria);
+}
+.wa-mensagens {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--esp-3);
+  background: var(--cor-fundo);
+}
+.wa-mais {
+  align-self: center;
+  margin-bottom: var(--esp-2);
+}
+.wa-linha {
+  display: flex;
+  flex-direction: column;
+}
+.wa-dia {
+  align-self: center;
+  margin: var(--esp-2) 0;
+  padding: 1px var(--esp-3);
+  border-radius: 999px;
+  background: var(--cor-superficie-2);
+  color: var(--cor-texto-fraco);
+  font-size: var(--texto-xs);
+}
+.wa-balao {
+  display: flex;
+  flex-direction: column;
+  max-width: min(34rem, 82%);
+  margin-bottom: 3px;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 10px;
+  font-size: var(--texto-sm);
+  line-height: 1.4;
+}
+.wa-balao--entrada {
+  align-self: flex-start;
+  background: var(--cor-superficie);
+  border-top-left-radius: 2px;
+}
+.wa-balao--saida {
+  align-self: flex-end;
+  background: var(--cor-primaria-suave);
+  border-color: transparent;
+  border-top-right-radius: 2px;
+}
+.wa-balao--falha {
+  border-color: var(--cor-perigo);
+  background: var(--cor-perigo-fundo);
+}
+.wa-balao__texto {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wa-balao__auto {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-medio);
+  color: var(--cor-info);
+}
+.wa-balao__rodape {
+  align-self: flex-end;
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-fraco);
+}
+.wa-balao__situacao--falha {
+  color: var(--cor-perigo);
+  font-weight: var(--peso-medio);
+}
+.wa-resposta {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  border-top: 1px solid var(--cor-borda);
+}
+/* Deixa livre o canto onde fica o botão flutuante do Turistinha. */
+.wa-resposta:not(.wa-resposta--so-leitura) {
+  padding-right: 12rem;
+}
+.wa-resposta textarea {
+  flex: 1;
+  resize: none;
+  font-size: var(--texto-sm);
+}
+.wa-resposta--so-leitura {
+  margin: 0;
+  justify-content: center;
+  font-size: var(--texto-sm);
+}
+
+/* ---------- Celular: uma coluna (lista → conversa, com voltar) ---------- */
+@media (max-width: 760px) {
+  .wa {
+    grid-template-columns: minmax(0, 1fr);
+    height: calc(100dvh - var(--altura-topo) - 9rem);
+  }
+  .pagina--whatsapp .pagina__descricao {
+    display: none;
+  }
+  .wa .wa-conversa {
+    display: none;
+  }
+  .wa--aberta .wa-conversa {
+    display: flex;
+  }
+  .wa--aberta .wa-lista {
+    display: none;
+  }
+  .wa-lista {
+    border-right: 0;
+  }
+  .wa .wa-voltar {
+    display: inline-flex;
+  }
+  .wa-balao {
+    max-width: 90%;
+  }
+  .wa-resposta:not(.wa-resposta--so-leitura) {
+    padding-right: 5.5rem;
+  }
+}

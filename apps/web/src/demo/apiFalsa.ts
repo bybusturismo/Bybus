@@ -15,6 +15,7 @@ import { rotearFrota } from "./frotaDemo";
 import { rotearIa } from "./iaDemo";
 import { rotearMarketing } from "./marketingDemo";
 import { rotearRastreio } from "./rastreioDemo";
+import { criarWhatsappDemo } from "./whatsappDemo";
 
 /** Catálogo de permissões (espelha apps/api/src/seguranca/permissoes.ts). */
 const CATALOGO: Record<string, string> = {
@@ -46,14 +47,16 @@ const CATALOGO: Record<string, string> = {
   "ia:gestores": "Ver os gestores de IA, rodar a avaliação e aprovar ou descartar ações sugeridas",
   "financeiro:ver": "Ver o financeiro (contas a pagar e a receber, extratos, DRE)",
   "financeiro:gerenciar": "Lançar, baixar, importar extratos e conciliar no financeiro",
+  "whatsapp:ver": "Ver as conversas de WhatsApp com os clientes (telefones e textos)",
+  "whatsapp:responder": "Responder e iniciar conversas de WhatsApp pela tela",
 };
 const TODAS = Object.keys(CATALOGO);
 const SENSIVEIS = ["usuarios:gerenciar", "unidades:gerenciar", "manifesto:documentos", "pessoas:gerenciar", "auditoria:ver", "ia:gestores", "financeiro:ver", "financeiro:gerenciar"];
 interface PerfilDemo { id: string; codigo: string; nome: string; descricao: string | null; permissoes: string[]; sistema: boolean; criadoEm: string }
 const perfis: PerfilDemo[] = [
   { codigo: "ADMIN", nome: "Administrador", descricao: "Acesso total, inclusive usuários, perfis e praças.", permissoes: TODAS },
-  { codigo: "SUPERVISOR", nome: "Supervisor / líder", descricao: "Decide saídas, vê documentos completos, gerencia equipe e pontos.", permissoes: ["auditoria:ver", "pessoas:gerenciar", "pessoas:ver", "pontos:gerenciar", "saidas:gerenciar", "saidas:decidir", "escala:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:documentos", "manifesto:contatos", "embarque:registrar", "frota:ver", "frota:gerenciar", "marketing:ver", "biblioteca:ver", "ia:usar"] },
-  { codigo: "ATENDENTE", nome: "Atendente / vendedor", descricao: "Monta listas, lança e importa reservas.", permissoes: ["pessoas:ver", "saidas:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:contatos", "marketing:ver", "biblioteca:ver", "ia:usar"] },
+  { codigo: "SUPERVISOR", nome: "Supervisor / líder", descricao: "Decide saídas, vê documentos completos, gerencia equipe e pontos.", permissoes: ["auditoria:ver", "pessoas:gerenciar", "pessoas:ver", "pontos:gerenciar", "saidas:gerenciar", "saidas:decidir", "escala:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:documentos", "manifesto:contatos", "embarque:registrar", "frota:ver", "frota:gerenciar", "marketing:ver", "biblioteca:ver", "ia:usar", "whatsapp:ver", "whatsapp:responder"] },
+  { codigo: "ATENDENTE", nome: "Atendente / vendedor", descricao: "Monta listas, lança e importa reservas.", permissoes: ["pessoas:ver", "saidas:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:contatos", "marketing:ver", "biblioteca:ver", "ia:usar", "whatsapp:ver", "whatsapp:responder"] },
   { codigo: "GUIA", nome: "Guia de turismo", descricao: "Vê a lista e registra o embarque.", permissoes: ["manifesto:ver", "manifesto:contatos", "embarque:registrar", "biblioteca:ver"] },
   { codigo: "MOTORISTA", nome: "Motorista", descricao: "Vê a lista (sem contatos).", permissoes: ["manifesto:ver", "frota:checklist", "rastreio:transmitir", "biblioteca:ver"] },
 ].map((p) => ({ ...p, id: `perfil-${p.codigo.toLowerCase()}`, sistema: true, criadoEm: new Date().toISOString() }));
@@ -289,6 +292,14 @@ const alcance = (u: Usuario) => ehAdmin() || u.id === sessao!.id || (u.perfil !=
 
 // ---------- Módulos novos (financeiro, frota, marketing, biblioteca, IA): ver os arquivos *Demo.ts ----------
 const ctxModulos: Ctx = { exigir, erro: (status, codigo, msg) => new Erro(status, codigo, msg), id, auditar, dataMais, agoraIso };
+const whatsappDemo = criarWhatsappDemo({
+  podeUnidade: (unidadeId) => podeUnidade(unidadeId),
+  usuarioNome: () => sessao?.nome ?? "Atendente Demo",
+  reservas: () => reservas,
+  saida: (saidaId) => { const s = saidas.find((x) => x.id === saidaId); const p = s && passeios.find((x) => x.id === s.passeioId); return s && p ? { data: s.data, passeio: p.nome, unidadeId: p.unidadeId } : undefined; },
+  passageiros: (reservaId) => pax.filter((x) => x.reservaId === reservaId).length,
+});
+whatsappDemo.preparar(); // troca já os telefones das reservas ligadas às conversas (antes de qualquer mensagem da fila)
 
 // ---------- Rotas ----------
 type Corpo = Record<string, any>;
@@ -560,9 +571,10 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     for (const res of reservas.filter((x) => x.saidaId === s.id && x.status === "CONFIRMADA")) {
       if (mensagensDemo.some((x) => x.reservaId === res.id && x.tipo === "CONFIRMACAO")) continue;
       const ponto = pontos.find((p) => p.id === res.pontoEmbarqueId) ?? null;
+      const textoMsg = textoConfirmacao({ primeiroNome: res.contatoNome.split(" ")[0] ?? "", passeio: ps.nome, data: s.data, ponto: ponto ? { ...ponto, endereco: ponto.endereco ?? null } : null, linkEmbarque: null });
       mensagensDemo.push({ id: id("msg"), tipo: "CONFIRMACAO", status: res.contatoTelefone ? "SIMULADA" : "SEM_TELEFONE", provedor: "simulado", erro: null, criadoEm: agoraIso(), enviadaEm: null,
-        titular: res.contatoNome, destino: res.contatoTelefone, saidaId: s.id, reservaId: res.id,
-        texto: textoConfirmacao({ primeiroNome: res.contatoNome.split(" ")[0] ?? "", passeio: ps.nome, data: s.data, ponto: ponto ? { ...ponto, endereco: ponto.endereco ?? null } : null, linkEmbarque: null }) });
+        titular: res.contatoNome, destino: res.contatoTelefone, saidaId: s.id, reservaId: res.id, texto: textoMsg });
+      if (res.contatoTelefone) whatsappDemo.registrarFila({ telefone: res.contatoTelefone, texto: textoMsg, tipo: "CONFIRMACAO" }); // também aparece na conversa
     }
     auditar("LISTA_FECHADA", "saida", s.id);
     return { versao, texto: textoListaGrupo(man, { passeio: ps.nome, data: s.data, guia: s.guia, motorista: s.motorista, veiculo: s.veiculo, versao }, extras), resumo: {} };
@@ -708,7 +720,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   }
 
   if (metodo === "GET" && caminho === "/api/auditoria") { exigir("auditoria:ver"); return auditoria.slice(0, Number(q.get("limite") ?? 200)); }
-  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio]) {
+  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, whatsappDemo.rotear]) {
     const resposta = rotear(ctxModulos, metodo, caminho, q, c);
     if (resposta !== NAO) return resposta;
   }

@@ -297,3 +297,4 @@ export * from "./esquemas/biblioteca.js";
 export * from "./esquemas/ia.js";
 export * from "./esquemas/financeiro.js";
 export * from "./esquemas/rastreio.js";
+export * from "./esquemas/whatsapp.js";

@@ -77,3 +77,5 @@ Bókun (grupo Tripadvisor, US$ 49/mês + 1–1,5%), Rezdy, Checkfront, FareHarbo
 - Decisão: **rastreio próprio pelo celular do motorista** (GPS do navegador, enviado ao sistema). O rastreador da Khronos continua para a segurança da frota, sem integração com o Bybus.
 - Limitação conhecida: no navegador o GPS para com a tela apagada; o definitivo é o app Android/iOS (a fazer). Ver `docs/produto/modulo-rastreio.md` e ADR 0007.
 - Mapa: OpenStreetMap (blocos gratuitos, sem chave; política de uso justo; com muito volume trocar de provedor — a confirmar).
+## WhatsApp: central de conversas (04/11/2026)
+Escolha do dono (igual ao APP TOMA): Evolution API (WhatsApp Web, **não oficial**, risco de bloqueio do número; usar para conversar e responder, sem disparo em massa). A tela WhatsApp mostra o que chega (aviso interno `/api/interno/whatsapp/<token>`), o que a fila automática envia e as respostas da equipe, ligando o telefone às reservas. Modo simulado por padrão. Detalhes, segurança e configuração em `docs/produto/modulo-whatsapp.md`. A confirmar: número que será conectado (pessoal ou da empresa), política de retenção das conversas.

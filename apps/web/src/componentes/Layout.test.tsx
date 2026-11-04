@@ -22,7 +22,7 @@ describe("Menu por permissão", () => {
     const todas = itensPermitidos(() => true);
     expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
       "Listas de passageiros", "Saídas", "Conferência de embarque", "Rastreamento", "Escala de guias", "Rastreio do motorista",
-      "Importar reservas",
+      "WhatsApp", "Importar reservas",
       "Passeios e pontos", "Guias e equipe",
       "Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias",
       "Frota e manutenção", "Checklist do veículo",

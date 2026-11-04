@@ -36,6 +36,7 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/escala", rotulo: "Escala de guias", icone: "calendario", area: "Operação", permissao: "pessoas:ver", atalho: "l" },
   { para: "/motorista", rotulo: "Rastreio do motorista", icone: "pino", area: "Operação", permissao: "rastreio:transmitir", atalho: "y" },
   // Reservas
+  { para: "/whatsapp", rotulo: "WhatsApp", icone: "mensagem", area: "Reservas", permissao: "whatsapp:ver", atalho: "x" },
   { para: "/importar", rotulo: "Importar reservas", icone: "importar", area: "Reservas", permissao: "importacoes:executar", atalho: "i" },
   // Cadastros
   { para: "/passeios", rotulo: "Passeios e pontos", icone: "bilhete", area: "Cadastros", permissao: "produtos:gerenciar", atalho: "p" },

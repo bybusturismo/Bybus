@@ -16,6 +16,7 @@ import { EmBreve } from "./paginas/EmBreve";
 import { Escala } from "./paginas/Escala";
 import { Conferencia } from "./paginas/Conferencia";
 import { Fechamento } from "./paginas/Fechamento";
+import { Whatsapp } from "./paginas/Whatsapp";
 import { EmbarquePublico } from "./paginas/EmbarquePublico";
 import { RastreioPublico } from "./paginas/RastreioPublico";
 import { Motorista } from "./paginas/rastreio/Motorista";
@@ -150,6 +151,14 @@ export function Rotas() {
           }
         />
         <Route path="fechamento" element={<Navigate to="/listas" replace />} />
+        <Route
+          path="whatsapp"
+          element={
+            <Exige permissao="whatsapp:ver">
+              <Whatsapp />
+            </Exige>
+          }
+        />
         <Route
           path="escala"
           element={

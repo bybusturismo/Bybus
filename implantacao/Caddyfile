@@ -3,6 +3,11 @@
 {$DOMINIO:localhost} {
 	encode zstd gzip
 
+	# Rotas internas (avisos da Evolution) nunca saem pela internet: só a rede interna do Docker chama a API direto.
+	handle /api/interno/* {
+		respond 404
+	}
+
 	# API (sessão, CSRF e limites de tentativas ficam na própria API)
 	handle /api/* {
 		reverse_proxy api:3333

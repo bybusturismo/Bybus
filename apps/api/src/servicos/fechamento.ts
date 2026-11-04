@@ -8,6 +8,7 @@ import type { Cofre } from "../seguranca/cripto.js";
 import { carregarManifesto } from "./manifesto.js";
 import { gerarLinkEmbarque } from "./linkEmbarque.js";
 import { enviarWhatsapp, normalizarDestino } from "./whatsapp.js";
+import { registrarSaidaFila } from "./whatsappConversas.js";
 
 const FUSO = "America/Sao_Paulo";
 /** Hoje e amanhã no fuso de Brasília ("AAAA-MM-DD"), e a hora "HH:MM". */
@@ -32,6 +33,7 @@ export async function enviarMensagem(db: Db, config: Config, id: string) {
   if (!m || !m.destino || m.status === "ENVIADA") return;
   const r = await enviarWhatsapp(config, m.destino, m.texto);
   await db.update(mensagens).set({ status: r.status, provedor: r.provedor, erro: r.erro ?? null, enviadaEm: r.status === "ENVIADA" ? new Date() : null }).where(eq(mensagens.id, id));
+  await registrarSaidaFila(db, m, r); // também aparece na conversa do destinatário (grupo fica de fora)
 }
 
 /**

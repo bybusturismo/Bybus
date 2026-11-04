@@ -64,7 +64,74 @@ services:
           sleep 86400
         done
 
+  # ---- WhatsApp pela Evolution API (OPCIONAL: só sobe com `--profile whatsapp`). NÃO oficial (WhatsApp Web/Baileys): risco de
+  # bloqueio do número; use para conversar e responder, sem disparo em massa. Sem porta pública: a API fala com ela por
+  # http://evolution:8080 e ela avisa a API em http://api:3333/api/interno/whatsapp/<WHATSAPP_WEBHOOK_TOKEN>.
+  # Versão fixa (a 2.4.0 passa a exigir licença: avaliar antes de atualizar). Passo a passo: docs/produto/modulo-whatsapp.md.
+  evolution:
+    profiles: ["whatsapp"]
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: unless-stopped
+    depends_on:
+      evolution-db: { condition: service_healthy }
+    environment:
+      SERVER_TYPE: http
+      SERVER_PORT: 8080
+      SERVER_URL: http://evolution:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?defina EVOLUTION_API_KEY no .env}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "false"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${EVOLUTION_DB_PASSWORD:?defina EVOLUTION_DB_PASSWORD no .env}@evolution-db:5432/evolution?schema=evolution_api
+      DATABASE_CONNECTION_CLIENT_NAME: bybus
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      # LGPD: nada de conteúdo de mensagem nos registros
+      LOG_LEVEL: ERROR,WARN
+      LOG_BAILEYS: error
+      LOG_COLOR: "false"
+      TELEMETRY_ENABLED: "false"
+      WEBSOCKET_ENABLED: "false"
+      RABBITMQ_ENABLED: "false"
+      SQS_ENABLED: "false"
+      CHATWOOT_ENABLED: "false"
+      TYPEBOT_ENABLED: "false"
+      OPENAI_ENABLED: "false"
+      DIFY_ENABLED: "false"
+      N8N_ENABLED: "false"
+      EVOAI_ENABLED: "false"
+      S3_ENABLED: "false"
+      DEL_INSTANCE: "false"
+      CONFIG_SESSION_PHONE_CLIENT: Bybus Gestao
+      CONFIG_SESSION_PHONE_NAME: Chrome
+    volumes:
+      - evolution_instancias:/evolution/instances
+    mem_limit: 1g
+
+  evolution-db:
+    profiles: ["whatsapp"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: evolution
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${EVOLUTION_DB_PASSWORD:?defina EVOLUTION_DB_PASSWORD no .env}
+      TZ: UTC
+    volumes:
+      - evolution_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution -d evolution"]
+      interval: 10s
+      retries: 10
+
 volumes:
+  evolution_instancias:
+  evolution_pg:
   banco:
   caddy_dados:
   caddy_config:
