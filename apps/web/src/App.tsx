@@ -11,6 +11,7 @@ import { Auditoria } from "./paginas/Auditoria";
 import { Conta } from "./paginas/Conta";
 import { Importar } from "./paginas/importar/Importar";
 import { Integracoes } from "./paginas/Integracoes";
+import { EmBreve } from "./paginas/EmBreve";
 import { Login } from "./paginas/Login";
 import { TelaPendencia } from "./paginas/Pendencias";
 import { Embarque } from "./paginas/saida/Embarque";
@@ -78,6 +79,14 @@ export function Rotas() {
           element={
             <Exige permissao="importacoes:executar">
               <Importar />
+            </Exige>
+          }
+        />
+        <Route
+          path="em-breve/:modulo"
+          element={
+            <Exige permissao="usuarios:gerenciar">
+              <EmBreve />
             </Exige>
           }
         />

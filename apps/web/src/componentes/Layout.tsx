@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { Permissao } from "../api/tipos";
 import { useSessao } from "../sessao/Sessao";
 import logoHorizontal from "../marca/bybus-horizontal.png";
@@ -7,35 +7,62 @@ import { Icone, type NomeIcone } from "./Icone";
 import { Modal } from "./Modal";
 import { BotaoTema } from "./Tema";
 
+export const AREAS = ["Passeios", "Cadastros", "Administrativo", "Marketing", "Configurações"] as const;
+export type Area = (typeof AREAS)[number];
+
 export interface ItemMenu {
   para: string;
   rotulo: string;
   icone: NomeIcone;
+  area: Area;
   permissao?: Permissao;
-  atalho: string;
-  /** Cor da marca do ícone no menu (só visual). */
-  tinta: Tinta;
-  grupo: "Operação" | "Administração" | "Pessoal";
+  /** Letra do atalho "g + letra". */
+  atalho?: string;
+  /** Módulo planejado (tela com o escopo; visível só para administradores). */
+  planejado?: boolean;
 }
 
-export type Tinta = "azul" | "rosa" | "violeta" | "verde" | "laranja" | "ambar";
-
 export const ITENS_MENU: ItemMenu[] = [
-  { para: "/saidas", rotulo: "Saídas", icone: "onibus", permissao: "manifesto:ver", atalho: "s", tinta: "azul", grupo: "Operação" },
-  { para: "/importar", rotulo: "Importar", icone: "importar", permissao: "importacoes:executar", atalho: "i", tinta: "laranja", grupo: "Operação" },
-  { para: "/integracoes", rotulo: "Integrações", icone: "conexao", permissao: "importacoes:executar", atalho: "n", tinta: "violeta", grupo: "Operação" },
-  { para: "/equipe", rotulo: "Equipe", icone: "cracha", permissao: "pessoas:ver", atalho: "e", tinta: "verde", grupo: "Operação" },
-  { para: "/passeios", rotulo: "Passeios", icone: "bilhete", permissao: "produtos:gerenciar", atalho: "p", tinta: "rosa", grupo: "Operação" },
-  { para: "/pracas", rotulo: "Praças", icone: "pino", permissao: "unidades:gerenciar", atalho: "r", tinta: "violeta", grupo: "Administração" },
-  { para: "/usuarios", rotulo: "Usuários", icone: "usuarios", permissao: "usuarios:gerenciar", atalho: "u", tinta: "ambar", grupo: "Administração" },
-  { para: "/perfis", rotulo: "Perfis de acesso", icone: "escudo", permissao: "usuarios:gerenciar", atalho: "f", tinta: "verde", grupo: "Administração" },
-  { para: "/auditoria", rotulo: "Auditoria", icone: "auditoria", permissao: "auditoria:ver", atalho: "a", tinta: "azul", grupo: "Administração" },
-  { para: "/conta", rotulo: "Minha conta", icone: "conta", atalho: "c", tinta: "rosa", grupo: "Pessoal" },
+  { para: "/saidas", rotulo: "Saídas", icone: "onibus", area: "Passeios", permissao: "manifesto:ver", atalho: "s" },
+  { para: "/conferencia", rotulo: "Conferência de embarque", icone: "check", area: "Passeios", permissao: "reservas:editar", atalho: "k" },
+  { para: "/escala", rotulo: "Escala de guias", icone: "calendario", area: "Passeios", permissao: "pessoas:ver", atalho: "l" },
+  { para: "/fechamento", rotulo: "Fechamento e mensagens", icone: "mensagem", area: "Passeios", permissao: "saidas:decidir", atalho: "m" },
+  { para: "/importar", rotulo: "Importar reservas", icone: "importar", area: "Passeios", permissao: "importacoes:executar", atalho: "i" },
+  { para: "/integracoes", rotulo: "Integrações", icone: "conexao", area: "Passeios", permissao: "importacoes:executar", atalho: "n" },
+  { para: "/em-breve/rastreamento", rotulo: "Rastreamento", icone: "mapa", area: "Passeios", planejado: true },
+  { para: "/passeios", rotulo: "Passeios e pontos", icone: "bilhete", area: "Cadastros", permissao: "produtos:gerenciar", atalho: "p" },
+  { para: "/equipe", rotulo: "Guias e equipe", icone: "cracha", area: "Cadastros", permissao: "pessoas:ver", atalho: "e" },
+  { para: "/em-breve/passageiros", rotulo: "Passageiros e clientes", icone: "pessoas", area: "Cadastros", planejado: true },
+  { para: "/em-breve/afiliados", rotulo: "Afiliados", icone: "estrela", area: "Cadastros", planejado: true },
+  { para: "/em-breve/empresas", rotulo: "Empresas parceiras", icone: "predio", area: "Cadastros", planejado: true },
+  { para: "/em-breve/contas-a-pagar", rotulo: "Contas a pagar", icone: "dinheiro", area: "Administrativo", planejado: true },
+  { para: "/em-breve/contas-a-receber", rotulo: "Contas a receber", icone: "dinheiro", area: "Administrativo", planejado: true },
+  { para: "/em-breve/cartoes", rotulo: "Cartões de crédito", icone: "cartao", area: "Administrativo", planejado: true },
+  { para: "/em-breve/frota", rotulo: "Frota e manutenção", icone: "onibus", area: "Administrativo", planejado: true },
+  { para: "/em-breve/avaliacoes", rotulo: "Avaliações", icone: "estrela", area: "Marketing", planejado: true },
+  { para: "/em-breve/origem-clientes", rotulo: "Origem dos clientes", icone: "grafico", area: "Marketing", planejado: true },
+  { para: "/em-breve/campanhas", rotulo: "Campanhas", icone: "megafone", area: "Marketing", planejado: true },
+  { para: "/pracas", rotulo: "Praças", icone: "pino", area: "Configurações", permissao: "unidades:gerenciar", atalho: "r" },
+  { para: "/usuarios", rotulo: "Usuários", icone: "usuarios", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "u" },
+  { para: "/perfis", rotulo: "Perfis de acesso", icone: "escudo", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "f" },
+  { para: "/auditoria", rotulo: "Auditoria", icone: "auditoria", area: "Configurações", permissao: "auditoria:ver", atalho: "a" },
+  { para: "/conta", rotulo: "Minha conta", icone: "conta", area: "Configurações", atalho: "c" },
 ];
 
 /** Itens visíveis para o perfil (apenas conveniência: o servidor sempre confere a permissão). */
 export function itensPermitidos(pode: (p: Permissao) => boolean): ItemMenu[] {
-  return ITENS_MENU.filter((i) => !i.permissao || pode(i.permissao));
+  return ITENS_MENU.filter((i) => (i.planejado ? pode("usuarios:gerenciar") : !i.permissao || pode(i.permissao)));
+}
+
+const CHAVE_AREAS = "bybus.menu.fechadas";
+
+function lerFechadas(): Area[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(CHAVE_AREAS) ?? "[]");
+    return Array.isArray(v) ? v.filter((a): a is Area => (AREAS as readonly string[]).includes(a)) : [];
+  } catch {
+    return [];
+  }
 }
 
 function emCampoDeTexto(alvo: EventTarget | null): boolean {
@@ -47,9 +74,25 @@ function emCampoDeTexto(alvo: EventTarget | null): boolean {
 export function Layout() {
   const { usuario, pode, sair, unidades, praca, escolherPraca } = useSessao();
   const navegar = useNavigate();
+  const local = useLocation();
   const itens = itensPermitidos(pode);
   const [ajuda, setAjuda] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [fechadas, setFechadas] = useState<Area[]>(lerFechadas);
   const prefixo = useRef<number>(0);
+
+  // No celular, o menu é uma gaveta: fecha ao trocar de tela.
+  useEffect(() => setMenuAberto(false), [local.pathname]);
+
+  function alternarArea(a: Area) {
+    const nova = fechadas.includes(a) ? fechadas.filter((x) => x !== a) : [...fechadas, a];
+    setFechadas(nova);
+    try {
+      localStorage.setItem(CHAVE_AREAS, JSON.stringify(nova));
+    } catch {
+      /* sem armazenamento: vale só nesta visita */
+    }
+  }
 
   // Atalhos: "g" seguido da letra do menu; "?" abre a ajuda. Ignorados enquanto se digita.
   useEffect(() => {
@@ -76,14 +119,20 @@ export function Layout() {
     return () => window.removeEventListener("keydown", aoTeclar);
   }, [itens, navegar]);
 
+  const areas = AREAS.map((a) => ({ area: a, itens: itens.filter((i) => i.area === a) })).filter((g) => g.itens.length > 0);
+  const poucosItens = itens.length <= 4;
+
   return (
-    <div className="app">
+    <div className={`app${menuAberto ? " app--menu-aberto" : ""}`}>
       <a className="pular-conteudo" href="#conteudo">
         Pular para o conteúdo
       </a>
       <header className="topo nao-imprimir">
+        <button type="button" className="botao botao--fantasma botao--icone topo__menu" aria-label={menuAberto ? "Fechar menu" : "Abrir menu"} aria-expanded={menuAberto} aria-controls="menu-principal" onClick={() => setMenuAberto((v) => !v)}>
+          <Icone nome={menuAberto ? "x" : "menu"} />
+        </button>
         <div className="topo__marca">
-          <img className="topo__logo-img" src={logoHorizontal} alt="By Bus Turismo" width={67} height={38} />
+          <img className="topo__logo-img" src={logoHorizontal} alt="By Bus Turismo" width={60} height={34} />
           <span className="topo__nome">Gestão</span>
         </div>
         {unidades.length > 1 && (
@@ -112,28 +161,37 @@ export function Layout() {
         </div>
       </header>
 
-      <nav className="menu nao-imprimir" aria-label="Menu principal">
-        <ul>
-          {itens.map((i, n) => (
-            <li key={i.para} className={n > 0 && itens[n - 1]!.grupo !== i.grupo ? "menu__novo-grupo" : undefined}>
-              {(n === 0 || itens[n - 1]!.grupo !== i.grupo) && itens.length > 3 && (
-                <span className="menu__grupo" aria-hidden="true">
-                  {i.grupo}
-                </span>
+      <nav id="menu-principal" className="menu nao-imprimir" aria-label="Menu principal">
+        {areas.map(({ area, itens: doGrupo }) => {
+          const aberta = poucosItens || !fechadas.includes(area);
+          const idLista = `menu-area-${area.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()}`;
+          return (
+            <section key={area} className="menu__area">
+              {!poucosItens && (
+                <button type="button" className="menu__area-titulo" aria-expanded={aberta} aria-controls={idLista} onClick={() => alternarArea(area)}>
+                  <span>{area}</span>
+                  <Icone nome="seta" tamanho={14} />
+                </button>
               )}
-              <NavLink to={i.para} className={({ isActive }) => `menu__item tinta--${i.tinta}${isActive ? " menu__item--ativo" : ""}`}>
-                <span className="menu__icone">
-                  <Icone nome={i.icone} />
-                </span>
-                <span>{i.rotulo}</span>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
+              <ul id={idLista} hidden={!aberta}>
+                {doGrupo.map((i) => (
+                  <li key={i.para}>
+                    <NavLink to={i.para} className={({ isActive }) => `menu__item${isActive ? " menu__item--ativo" : ""}${i.planejado ? " menu__item--planejado" : ""}`}>
+                      <Icone nome={i.icone} tamanho={18} />
+                      <span>{i.rotulo}</span>
+                      {i.planejado && <span className="menu__breve">em breve</span>}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
         <button type="button" className="menu__ajuda" onClick={() => setAjuda(true)}>
           Atalhos do teclado <kbd>?</kbd>
         </button>
       </nav>
+      <div className="menu__fundo nao-imprimir" aria-hidden="true" onClick={() => setMenuAberto(false)} />
 
       <main id="conteudo" className="conteudo" tabIndex={-1}>
         <Outlet />
@@ -141,7 +199,7 @@ export function Layout() {
 
       <Modal aberto={ajuda} titulo="Atalhos do teclado" aoFechar={() => setAjuda(false)}>
         <dl className="atalhos">
-          {itens.map((i) => (
+          {itens.filter((i) => i.atalho).map((i) => (
             <div key={i.para}>
               <dt>
                 <kbd>g</kbd> <kbd>{i.atalho}</kbd>

@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Icone, type NomeIcone } from "./Icone";
-import type { Tinta } from "./Layout";
+
+/** Cor da marca usada em ícones e indicadores (classes .tinta--*). */
+export type Tinta = "azul" | "rosa" | "violeta" | "verde" | "laranja" | "ambar";
 
 /** Cartão de indicador (número grande + rótulo), com ícone na cor da marca. */
 export function Indicador({ tinta, icone, rotulo, valor, detalhe }: { tinta: Tinta; icone: NomeIcone; rotulo: string; valor: ReactNode; detalhe?: ReactNode }) {

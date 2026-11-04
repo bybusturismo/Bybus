@@ -15,12 +15,17 @@ describe("Menu por permissão", () => {
 
   it("usa as permissões, não o código do perfil: perfil personalizado com pessoas:ver vê Equipe", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("ESCALA_BC", ["manifesto:ver", "pessoas:ver"]) });
-    expect(rotulosMenu()).toEqual(["Saídas", "Equipe", "Minha conta"]);
+    expect(rotulosMenu()).toEqual(["Saídas", "Escala de guias", "Guias e equipe", "Minha conta"]);
   });
 
   it("admin vê todos os itens", () => {
-    const todas = itensPermitidos(() => true).map((i) => i.rotulo);
-    expect(todas).toEqual(["Saídas", "Importar", "Integrações", "Equipe", "Passeios", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta"]);
+    const todas = itensPermitidos(() => true);
+    expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
+      "Saídas", "Conferência de embarque", "Escala de guias", "Fechamento e mensagens", "Importar reservas", "Integrações",
+      "Passeios e pontos", "Guias e equipe", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta",
+    ]);
+    // Módulos planejados só aparecem para quem administra usuários.
+    expect(itensPermitidos((p) => p !== "usuarios:gerenciar").some((i) => i.planejado)).toBe(false);
   });
 });
 
