@@ -1,5 +1,6 @@
 import { categoriaPorRotulo, type ReservaImportada } from "./comum.js";
 import type { Canal, Categoria } from "../tipos.js";
+import { dataHoraBrasiliaParaUtc, lerValorBokun, type VendaImportada } from "../vendas/vendas.js";
 
 const MESES: Record<string, string> = {
   jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
@@ -26,6 +27,14 @@ export function lerDataBokun(texto: string): { data: string; horario: string | n
   const mes = MESES[m[2]!.toLowerCase()];
   if (!mes) return null;
   return { data: `20${m[3]}-${mes}-${m[1]!.padStart(2, "0")}`, horario: m[4] ? m[4].padStart(5, "0") : null };
+}
+
+/** "Wed, October 21 2026 @ 05:07" → ISO UTC (lido como horário de Brasília — [A CONFIRMAR] o fuso da conta Bókun). */
+export function lerCriacaoBokun(texto: string): string | null {
+  const m = /([A-Za-z]{3})[a-z]*\s+(\d{1,2})\s+(\d{4})(?:\s*@\s*(\d{1,2}):(\d{2}))?/.exec(texto);
+  const mes = m ? MESES[m[1]!.toLowerCase()] : undefined;
+  if (!m || !mes) return null;
+  return dataHoraBrasiliaParaUtc(`${m[3]}-${mes}-${m[2]!.padStart(2, "0")} ${(m[4] ?? "12").padStart(2, "0")}:${m[5] ?? "00"}`);
 }
 
 /** "2 Adult, 1 Child" → [ADULTO, ADULTO, INFANTIL] */
@@ -87,8 +96,23 @@ export function lerEmailBokun(assunto: string, corpo: string): ReservaImportada 
     .filter((x): x is string => !!x)
     .map((x) => x.replace(/\s+/g, ""));
 
+  // Valor: o e-mail da Bókun pode trazer o total da reserva (chaves a confirmar com um e-mail real). Só em reais.
+  const textoValor = ["total", "total price", "total amount", "price", "amount", "gross price", "sell price", "total paid"].map((k) => c.get(k)).find((v) => !!v);
+  const valor = lerValorBokun(textoValor);
+  if (textoValor && valor.centavos === null) avisos.push(valor.moeda && valor.moeda !== "BRL" ? `Valor em ${valor.moeda} não convertido: reserva ficou sem valor em R$.` : "Valor do e-mail não reconhecido: reserva ficou sem valor.");
+  const criada = lerCriacaoBokun(c.get("created") ?? "");
+  const venda: VendaImportada | null = valor.centavos === null ? null : {
+    pedidoCodigo: ref, fonte: "BOKUN_EMAIL", canalVenda: "OTA", valorCentavos: valor.centavos, subtotalCentavos: valor.centavos, descontoCentavos: 0,
+    cupomExternoId: null, metodoPagamento: null, metodoPagamentoExterno: null, tipoPagamento: null, parcelas: null, dataHoraCompra: criada,
+    operadorId: null, afiliadoId: null, afiliadoComissaoCentavos: null, parceiroId: null, parceiroComissaoCentavos: null, pagamentoPendenteCentavos: 0,
+    utmSource: null, utmMedium: null, utmCampaign: null, clienteCidade: null,
+  };
+
   return {
     canal,
+    valorCentavos: venda?.valorCentavos ?? null,
+    descontoCentavos: 0,
+    venda,
     // Reserva de OTA chega paga no canal.
     pagamento: "PAGO",
     formaPagamento: canal === "VIATOR" ? "Pago na Viator" : "Pago no canal",

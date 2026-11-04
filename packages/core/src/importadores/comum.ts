@@ -1,4 +1,5 @@
 import type { Canal, Categoria, TipoDocumento } from "../tipos.js";
+import type { VendaImportada } from "../vendas/vendas.js";
 
 /** Formato intermediário de toda importação, independente do canal. */
 export interface ReservaImportada {
@@ -25,6 +26,12 @@ export interface ReservaImportada {
   formaPagamento?: string | null;
   /** UF ou país do cliente (coluna "Estado" da lista). */
   origemCliente?: string | null;
+  /** Parte desta reserva no valor do pedido (centavos), quando o canal informa valores. */
+  valorCentavos?: number | null;
+  /** Parte desta reserva no desconto do pedido (centavos). */
+  descontoCentavos?: number;
+  /** Dados do pedido inteiro (o mesmo em todas as reservas que ele gerou). */
+  venda?: VendaImportada | null;
   passageiros: Array<{
     nome: string;
     categoria: Categoria;
