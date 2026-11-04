@@ -18,7 +18,7 @@ export const ROTULO_PAPEL: Record<PapelPessoa, string> = {
 /** Agrupamento das permissões por área (tela de perfis de acesso). Ordem = ordem de exibição. */
 export const AREAS_PERMISSAO: Array<{ area: string; prefixos: string[] }> = [
   { area: "Administração", prefixos: ["usuarios", "unidades", "auditoria"] },
-  { area: "Equipe", prefixos: ["pessoas"] },
+  { area: "Equipe e escala", prefixos: ["pessoas", "escala"] },
   { area: "Produtos e pontos", prefixos: ["produtos", "pontos"] },
   { area: "Saídas e reservas", prefixos: ["saidas", "reservas", "importacoes"] },
   { area: "Lista de passageiros e embarque", prefixos: ["manifesto", "embarque"] },

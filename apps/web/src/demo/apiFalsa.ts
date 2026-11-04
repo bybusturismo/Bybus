@@ -19,6 +19,7 @@ const CATALOGO: Record<string, string> = {
   "pontos:gerenciar": "Editar pontos de embarque",
   "saidas:gerenciar": "Criar saídas e editar veículo/equipe",
   "saidas:decidir": "Confirmar, cancelar ou encerrar saídas",
+  "escala:gerenciar": "Montar a escala mensal e trocar guia/motorista",
   "reservas:editar": "Lançar e editar reservas e passageiros",
   "importacoes:executar": "Importar reservas (Bókun, Paytour)",
   "manifesto:ver": "Ver a lista de passageiros",
@@ -31,7 +32,7 @@ const SENSIVEIS = ["usuarios:gerenciar", "unidades:gerenciar", "manifesto:docume
 interface PerfilDemo { id: string; codigo: string; nome: string; descricao: string | null; permissoes: string[]; sistema: boolean; criadoEm: string }
 const perfis: PerfilDemo[] = [
   { codigo: "ADMIN", nome: "Administrador", descricao: "Acesso total, inclusive usuários, perfis e praças.", permissoes: TODAS },
-  { codigo: "SUPERVISOR", nome: "Supervisor / líder", descricao: "Decide saídas, vê documentos completos, gerencia equipe e pontos.", permissoes: ["auditoria:ver", "pessoas:gerenciar", "pessoas:ver", "pontos:gerenciar", "saidas:gerenciar", "saidas:decidir", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:documentos", "manifesto:contatos", "embarque:registrar"] },
+  { codigo: "SUPERVISOR", nome: "Supervisor / líder", descricao: "Decide saídas, vê documentos completos, gerencia equipe e pontos.", permissoes: ["auditoria:ver", "pessoas:gerenciar", "pessoas:ver", "pontos:gerenciar", "saidas:gerenciar", "saidas:decidir", "escala:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:documentos", "manifesto:contatos", "embarque:registrar"] },
   { codigo: "ATENDENTE", nome: "Atendente / vendedor", descricao: "Monta listas, lança e importa reservas.", permissoes: ["pessoas:ver", "saidas:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:contatos"] },
   { codigo: "GUIA", nome: "Guia de turismo", descricao: "Vê a lista e registra o embarque.", permissoes: ["manifesto:ver", "manifesto:contatos", "embarque:registrar"] },
   { codigo: "MOTORISTA", nome: "Motorista", descricao: "Vê a lista (sem contatos).", permissoes: ["manifesto:ver"] },

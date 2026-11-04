@@ -17,6 +17,7 @@ export const PERMISSOES = [
   "pontos:gerenciar",
   "saidas:gerenciar",
   "saidas:decidir",
+  "escala:gerenciar",
   "reservas:editar",
   "importacoes:executar",
   "manifesto:ver",

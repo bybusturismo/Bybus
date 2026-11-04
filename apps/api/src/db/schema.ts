@@ -106,6 +106,9 @@ export const passeios = pgTable("passeios", {
   /** Expressão regular (case-insensitive) para reconhecer o produto nas importações. */
   padraoProduto: text(),
   ativo: boolean().notNull().default(true),
+  /** Motorista e veículo de sempre (em Florianópolis o motorista costuma ser o mesmo). */
+  motoristaPadraoId: uuid().references(() => pessoas.id),
+  veiculoPadrao: text(),
 });
 
 export const pontosEmbarque = pgTable("pontos_embarque", {
@@ -155,6 +158,9 @@ export const saidas = pgTable("saidas", {
   guiaId: uuid().references(() => pessoas.id),
   motoristaId: uuid().references(() => pessoas.id),
   observacoes: text(),
+  /** Fechamento da lista (21h da véspera ou manual); nulo = lista aberta. */
+  listaFechadaEm: timestamp({ withTimezone: true }),
+  listaVersao: integer().notNull().default(0),
   criadoEm: agora(),
 }, (t) => [uniqueIndex("saidas_passeio_data_uq").on(t.passeioId, t.data)]);
 
@@ -173,6 +179,23 @@ export const reservas = pgTable("reservas", {
   status: statusReservaEnum().notNull().default("CONFIRMADA"),
   observacoes: text(),
   origem: text().notNull().default("MANUAL"),
+  /** PAGO, A_PAGAR (paga no embarque) ou CORTESIA; nulo = não informado. */
+  pagamento: text(),
+  /** Forma legível (ex.: "Pix", "Cartão", "Pago na Viator", "Pagamento no dia"). */
+  formaPagamento: text(),
+  /** Origem do cliente (UF ou país), para a coluna "Estado" da lista. */
+  origemCliente: text(),
+  /** Conferência humana do embarque: PENDENTE ou CONFERIDA. */
+  conferencia: text().notNull().default("PENDENTE"),
+  conferidaPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  conferidaEm: timestamp({ withTimezone: true }),
+  /** O que o cliente informou no link de embarque (hotel/endereço) e se pediu transfer. */
+  hospedagemInformada: text(),
+  pediuTransfer: boolean().notNull().default(false),
+  informadoPeloClienteEm: timestamp({ withTimezone: true }),
+  /** Link de embarque: só o hash SHA-256 do token fica no banco. */
+  tokenEmbarqueHash: text().unique(),
+  tokenEmbarqueExpiraEm: timestamp({ withTimezone: true }),
   criadoEm: agora(),
   atualizadoEm: agora(),
 }, (t) => [
@@ -211,3 +234,48 @@ export const integracoesEstado = pgTable("integracoes_estado", {
   ultimoErro: text(),
   atualizadoEm: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Escala de guia e motorista por passeio e dia. Troca depois de publicada exige motivo (força maior). */
+export const escalas = pgTable("escalas", {
+  id: uuid().primaryKey().defaultRandom(),
+  passeioId: uuid().notNull().references(() => passeios.id),
+  data: date({ mode: "string" }).notNull(),
+  guiaId: uuid().references(() => pessoas.id),
+  motoristaId: uuid().references(() => pessoas.id),
+  /** ESCALA (planejamento do mês) ou TROCA (força maior). */
+  origem: text().notNull().default("ESCALA"),
+  motivo: text(),
+  publicada: boolean().notNull().default(false),
+  alteradoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  atualizadoEm: agora(),
+}, (t) => [uniqueIndex("escalas_passeio_data_uq").on(t.passeioId, t.data)]);
+
+/** Cada fechamento da lista (o das 21h e eventuais adendos). Só números: a lista em si é gerada na hora. */
+export const fechamentos = pgTable("fechamentos", {
+  id: uuid().primaryKey().defaultRandom(),
+  saidaId: uuid().notNull().references(() => saidas.id),
+  versao: integer().notNull(),
+  automatico: boolean().notNull().default(false),
+  fechadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  fechadoEm: agora(),
+  resumo: jsonb(),
+}, (t) => [uniqueIndex("fechamentos_saida_versao_uq").on(t.saidaId, t.versao)]);
+
+/** Fila de mensagens (WhatsApp): voucher, link de embarque, confirmação da véspera, rastreamento. */
+export const mensagens = pgTable("mensagens", {
+  id: uuid().primaryKey().defaultRandom(),
+  tipo: text().notNull(),
+  reservaId: uuid().references(() => reservas.id, { onDelete: "cascade" }),
+  saidaId: uuid().references(() => saidas.id),
+  destino: text(),
+  texto: text().notNull(),
+  /** PENDENTE, ENVIADA, SIMULADA (sem provedor contratado), SEM_TELEFONE ou FALHA. */
+  status: text().notNull().default("PENDENTE"),
+  provedor: text(),
+  erro: text(),
+  criadoEm: agora(),
+  enviadaEm: timestamp({ withTimezone: true }),
+}, (t) => [
+  uniqueIndex("mensagens_reserva_tipo_uq").on(t.reservaId, t.tipo),
+  index("mensagens_saida_idx").on(t.saidaId),
+]);

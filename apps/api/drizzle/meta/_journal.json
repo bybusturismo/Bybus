@@ -50,6 +50,13 @@
       "when": 1793749431323,
       "tag": "0006_integracoes_estado",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793758935777,
+      "tag": "0007_fase2_operacao",
+      "breakpoints": true
     }
   ]
 }
