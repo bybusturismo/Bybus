@@ -537,11 +537,12 @@ describe("entrada automática de e-mails de reserva (robô do Gmail)", () => {
         // Formato real da Decolar (PAM), com dados FICTÍCIOS.
         { id: "m2", remetente: "Decolar <reservas@decolar.com>", assunto: "Nova reserva", corpo: "Informamos que foi gerada uma nova reserva.\nTitular da reserva: Pessoa Ficticia Decolar (Contatar passageiro *)\nPassageiros: Adultos: 2 | Crianças: 0 | Infantes: 0\nCódigo de reserva PAM: 8700001\nID Compra Decolar: 13600000001\nProduto comprado: Descubra Floripa a bordo do Floripa by Bus Tour: Toda ilha\nData de excursão: 25/10/2026" },
         { id: "m3", remetente: "promo@loja.com", assunto: "Oferta", corpo: "texto" },
+        { id: "m4", remetente: "Decolar <as-viagens@decolar.com>", assunto: "✍️ Precisamos da sua ajuda com a reserva 7000000", corpo: "Precisamos solicitar a alteração das datas da reserva sem cobranças." },
       ];
       const r = await enviar(comToken.app, TOKEN, msgs);
       expect(r.statusCode).toBe(200);
-      expect(r.json().resumo).toMatchObject({ mensagens: 3, CRIAR: 2, semLeitor: 0, naoReconhecidas: 1 });
-      expect(r.json().mensagens.map((m: { resultado: string; canal: string | null }) => `${m.resultado}:${m.canal}`)).toEqual(["IMPORTADO:BOKUN", "IMPORTADO:DECOLAR", "NAO_RECONHECIDO:null"]);
+      expect(r.json().resumo).toMatchObject({ mensagens: 4, CRIAR: 2, semLeitor: 0, precisamAtencao: 1, naoReconhecidas: 1 });
+      expect(r.json().mensagens.map((m: { resultado: string; canal: string | null }) => `${m.resultado}:${m.canal}`)).toEqual(["IMPORTADO:BOKUN", "IMPORTADO:DECOLAR", "NAO_RECONHECIDO:null", "ATENCAO:DECOLAR"]);
       expect(JSON.stringify(r.json())).not.toMatch(/Ficticio, Cliente|Ficticia Decolar/);
       // Reenviar o mesmo e-mail não cria outra reserva.
       expect((await enviar(comToken.app, TOKEN, msgs.slice(0, 1))).json().resumo).toMatchObject({ ATUALIZAR: 1 });

@@ -8,7 +8,7 @@ describe("Integrações", () => {
   it("resume o resultado dos dois formatos (Paytour aninhado e e-mails direto)", () => {
     expect(resumoResultado(null)).toBe("Ainda não rodou.");
     expect(resumoResultado({ pedidos: 5, resumo: { CRIAR: 3, ATUALIZAR: 1, CANCELAR: 1, IGNORAR: 0 } })).toBe("5 pedidos lidos · 3 reservas novas · 1 atualizada · 1 cancelada");
-    expect(resumoResultado({ mensagens: 2, CRIAR: 0, ATUALIZAR: 0, semLeitor: 2 })).toBe("2 e-mails lidos · 2 aguardando leitor (Decolar)");
+    expect(resumoResultado({ mensagens: 2, CRIAR: 0, ATUALIZAR: 0, precisamAtencao: 1 })).toBe("2 e-mails lidos · 1 e-mail da Decolar pede resposta da equipe");
   });
 
   it("mostra a situação e sincroniza a Paytour a partir de uma data", async () => {

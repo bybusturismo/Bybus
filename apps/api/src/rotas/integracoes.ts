@@ -10,7 +10,11 @@ import { ClientePaytour, ErroPaytour, estadoPaytour, paytourConfigurada, sincron
 import { gravarEstadoIntegracao, lerEstadoIntegracao } from "../servicos/estadoIntegracao.js";
 import { importarReservas, USUARIO_INTEGRACAO } from "../servicos/importacao.js";
 
-export type ResultadoEmail = "IMPORTADO" | "SEM_LEITOR" | "NAO_RECONHECIDO";
+/** ATENCAO: e-mail do canal que pede resposta da equipe (ex.: Decolar pedindo mudança de data ou estorno). */
+export type ResultadoEmail = "IMPORTADO" | "SEM_LEITOR" | "ATENCAO" | "NAO_RECONHECIDO";
+
+/** A Decolar não manda aviso automático de cancelamento: mudanças e estornos chegam como conversa com a equipe. */
+const PEDE_ACAO = /precisamos da sua ajuda|altera[cç][aã]o|cancelamento|reembolso|estorno|solicita[cç][aã]o/i;
 
 /** Escolhe o leitor pelo remetente/assunto/conteúdo. "SEM_LEITOR" fica para canais futuros (o robô reenvia depois). */
 export function lerEmailReserva(m: { remetente: string; assunto: string; corpo: string }): { resultado: ResultadoEmail; reserva?: ReservaImportada; canal?: string } {
@@ -21,7 +25,8 @@ export function lerEmailReserva(m: { remetente: string; assunto: string; corpo: 
   }
   if (de.includes("decolar") || de.includes("despegar") || ehEmailDecolar(m.assunto, m.corpo)) {
     const r = lerEmailDecolar(m.assunto, m.corpo);
-    return r ? { resultado: "IMPORTADO", reserva: r, canal: "DECOLAR" } : { resultado: "NAO_RECONHECIDO", canal: "DECOLAR" };
+    if (r) return { resultado: "IMPORTADO", reserva: r, canal: "DECOLAR" };
+    return { resultado: PEDE_ACAO.test(`${m.assunto} ${m.corpo.slice(0, 5000)}`) ? "ATENCAO" : "NAO_RECONHECIDO", canal: "DECOLAR" };
   }
   return { resultado: "NAO_RECONHECIDO" };
 }
@@ -55,7 +60,7 @@ export async function rotasIntegracoes(app: FastifyInstance, { db, config, cofre
     const importacao = reservas.length
       ? await importarReservas(db, cofre, reservas, { confirmar: true, origem: "EMAIL_AUTOMATICO", usuario: USUARIO_INTEGRACAO, anonimizar: deveAnonimizar(config) })
       : null;
-    const resumo = { mensagens: lidas.length, ...(importacao?.resumo ?? {}), semLeitor: lidas.filter((l) => l.resultado === "SEM_LEITOR").length, naoReconhecidas: lidas.filter((l) => l.resultado === "NAO_RECONHECIDO").length };
+    const resumo = { mensagens: lidas.length, ...(importacao?.resumo ?? {}), semLeitor: lidas.filter((l) => l.resultado === "SEM_LEITOR").length, precisamAtencao: lidas.filter((l) => l.resultado === "ATENCAO").length, naoReconhecidas: lidas.filter((l) => l.resultado === "NAO_RECONHECIDO").length };
     await auditar(db, req, "IMPORTACAO_EMAIL_AUTOMATICA", { tipo: "importacao" }, resumo);
     await gravarEstadoIntegracao(db, "emails", { cursor: null, ultimoResultado: resumo, ultimoErro: null });
     // Devolve só o resultado por mensagem (o robô marca no Gmail o que já foi processado). Sem dados pessoais.

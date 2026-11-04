@@ -5,7 +5,7 @@ Lê as confirmações de reserva que chegam por e-mail e coloca cada passageiro 
 | Caixa | O que chega | Leitor no sistema |
 |---|---|---|
 | admbybus@gmail.com | Bókun "New/Cancelled booking" (Tripadvisor/Viator) | pronto |
-| contatofbyb@gmail.com | Decolar ("Informamos que foi gerada uma nova reserva", sistema PAM) | pronto (cancelamento a confirmar) |
+| contatofbyb@gmail.com | Decolar ("Informamos que foi gerada uma nova reserva", sistema PAM); pedidos de mudança/estorno são marcados para a equipe responder | pronto |
 
 **Por que Apps Script e não "login com Google" no sistema:** o acesso de leitura ao Gmail por app externo exige verificação de segurança paga do Google (escopo restrito), e em modo de teste a autorização vence a cada 7 dias. O Apps Script roda dentro da própria conta, de graça, e só envia ao sistema os e-mails de reserva.
 

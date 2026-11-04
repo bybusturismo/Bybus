@@ -21,7 +21,8 @@ export function resumoResultado(bruto: Record<string, unknown> | null | undefine
     num(r.ATUALIZAR) ? plural(num(r.ATUALIZAR), "atualizada", "atualizadas") : null,
     num(r.CANCELAR) ? plural(num(r.CANCELAR), "cancelada", "canceladas") : null,
     num(r.IGNORAR) ? plural(num(r.IGNORAR), "ignorada", "ignoradas") : null,
-    num(r.semLeitor) ? `${num(r.semLeitor)} aguardando leitor (Decolar)` : null,
+    num(r.semLeitor) ? `${num(r.semLeitor)} aguardando leitor` : null,
+    num(r.precisamAtencao) ? `${plural(num(r.precisamAtencao), "e-mail da Decolar pede", "e-mails da Decolar pedem")} resposta da equipe` : null,
   ].filter(Boolean);
   return partes.join(" · ") || "Nada novo.";
 }
@@ -127,7 +128,7 @@ function CartaoEmails() {
               <span className="etiqueta etiqueta--sucesso">Pronto</span> Tripadvisor/Viator — reserva nova, alterada e cancelada. A Viator não informa o ponto de embarque: a reserva entra no bloco “a definir”.
             </li>
             <li>
-              <span className="etiqueta etiqueta--sucesso">Pronto</span> Decolar — nova reserva (titular, quantidade por faixa, data e códigos PAM/Decolar). Também sem ponto de embarque; cancelamento a confirmar.
+              <span className="etiqueta etiqueta--sucesso">Pronto</span> Decolar — nova reserva (titular, quantidade por faixa, data e códigos PAM/Decolar). Também sem ponto de embarque. A Decolar não avisa cancelamento automaticamente: mudanças e estornos chegam como conversa e são marcados aqui para a equipe responder (o cancelamento é feito na saída).
             </li>
           </ul>
           {!s.configurada && <Aviso tipo="info">Para ligar: no servidor, a variável INTEGRACAO_EMAIL_TOKEN; em cada caixa do Gmail, o robô do arquivo integracoes/gmail (passo a passo no README).</Aviso>}
