@@ -9,7 +9,7 @@
  */
 
 const ROTULO_ENVIADO = "bybus/enviado";
-// Decolar: o remetente exato está a confirmar, então também vale o texto fixo do e-mail ("ID Compra Decolar").
+// Decolar envia de noreply@decolar.com; o texto fixo "ID Compra Decolar" cobre também e-mails encaminhados.
 const BUSCA = '(from:bokun.io OR from:decolar.com OR from:despegar.com OR "ID Compra Decolar") newer_than:30d -label:' + ROTULO_ENVIADO.replace("/", "-");
 const LOTE = 20;
 

@@ -44,3 +44,47 @@ describe("lerEmailDecolar", () => {
     expect(ehEmailDecolar("Seu pedido", "Obrigado pela compra")).toBe(false);
   });
 });
+
+it("formato real do texto: rótulos com asteriscos, linhas quebradas e e-mail encaminhado", () => {
+  // Estrutura idêntica ao texto puro do e-mail real (dados FICTÍCIOS).
+  const real = `---------- Forwarded message ---------
+De: Despegar Argentina <noreply@decolar.com>
+Date: sáb., 28 de dez. de 2026 às 23:29
+Subject: Decolar - Nova reserva ID: 13600000002
+To: <contatofbyb@gmail.com>
+
+[image: Decolar]
+<https://www.decolar.com/emtm/tl?u=http%3A%2F%2Fwww.decolar.com&cid=1>
+
+Informamos que foi gerada uma nova reserva.
+Detalhe da Reserva
+*Titular da reserva*: Pessoa Ficticia Longa de Sobrenome (Contatar passageiro *
+<pessoa.ficticia@exemplo.invalid>)
+*Leve em consideração! Todas as respostas chegarão a *contatofbyb@gmail.com
+<contatofbyb@gmail.com>*.
+*Telefone*: 5600000000001
+*Passageiros*: Adultos: 3 | Crianças: 0 | Infantes: 0
+
+*Service id*: 15458
+*Data de reserva*: 29/12/2026 - 02:28
+*Código de reserva PAM*: 8700002
+*ID Compra Decolar*: 13600000002
+*Lugar de compra*: Chile
+*Canal*: Despegar
+
+*Produto comprado*: Descubra Floripa a bordo do Floripa by Bus Tour: Toda
+ilha
+*Temporada*: Temporada 2019
+
+*Data de excursão*: 14/01/2027
+
+Para obter mais informação sobre esta reserva deverá ingressar ao sistema
+PAM.`;
+  const r = lerEmailDecolar("Fwd: Decolar - Nova reserva ID: 13600000002", real)!;
+  expect(r).toMatchObject({
+    codigoExterno: "DEC-13600000002", data: "2027-01-14", cancelada: false, contatoNome: "Pessoa Ficticia Longa de Sobrenome",
+    produto: "Descubra Floripa a bordo do Floripa by Bus Tour: Toda ilha", contatoTelefone: "+5600000000001",
+  });
+  expect(r.passageiros).toHaveLength(3);
+  expect(new RegExp("toda ilha|whole island|floripa city tour", "i").test(r.produto)).toBe(true); // casa com o passeio Toda Ilha
+});

@@ -3,7 +3,8 @@ import { MAX_PASSAGEIROS_POR_RESERVA } from "./bokun-email.js";
 import type { ReservaImportada } from "./comum.js";
 
 /**
- * E-mail "nova reserva" da Decolar/Despegar (sistema PAM), enviado a contatofbyb@gmail.com.
+ * E-mail "nova reserva" da Decolar/Despegar (sistema PAM), enviado a contatofbyb@gmail.com
+ * por "Despegar Argentina <noreply@decolar.com>", assunto "Decolar - Nova reserva ID: <ID Compra>".
  * Formato visto em 04/11/2026 (linhas "Rótulo: valor"):
  *   Titular da reserva: … (Contatar passageiro *) · Telefone: … · Passageiros: Adultos: 3 | Crianças: 0 | Infantes: 0
  *   Service id · Data de reserva · Código de reserva PAM · ID Compra Decolar · Lugar de compra · Canal: Despegar
@@ -11,16 +12,34 @@ import type { ReservaImportada } from "./comum.js";
  * Não traz horário nem ponto de embarque. [A CONFIRMAR] formato do e-mail de cancelamento.
  */
 
-/** Lê "Rótulo: valor" linha a linha (sem regex com retrocesso; ignora negrito/asteriscos do HTML convertido). */
+/**
+ * Lê "Rótulo: valor" linha a linha (sem regex com retrocesso; ignora os asteriscos do negrito).
+ * O texto do e-mail quebra linhas longas ("…Tour: Toda" + "ilha"): linha sem rótulo continua o campo anterior,
+ * até uma linha em branco.
+ */
 function campos(corpo: string): Map<string, string> {
   const mapa = new Map<string, string>();
+  let ultimo: string | null = null;
   for (const linha of corpo.split(/\r?\n/)) {
     const t = linha.replace(/[*_]/g, "").trim();
-    if (t.length < 3 || t.length > 500) continue;
+    if (!t) {
+      ultimo = null;
+      continue;
+    }
+    if (t.length > 500) continue;
     const i = t.indexOf(":");
-    if (i < 2 || i > 40) continue;
-    const chave = t.slice(0, i).trim().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-    if (!mapa.has(chave)) mapa.set(chave, t.slice(i + 1).trim());
+    const rotulo = i >= 2 && i <= 40 ? t.slice(0, i).trim() : "";
+    if (rotulo && /^[\p{L} ]+$/u.test(rotulo)) {
+      const chave = rotulo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      if (mapa.has(chave)) {
+        ultimo = null;
+        continue;
+      }
+      mapa.set(chave, t.slice(i + 1).trim());
+      ultimo = chave;
+    } else if (ultimo) {
+      mapa.set(ultimo, `${mapa.get(ultimo)} ${t}`.trim());
+    }
   }
   return mapa;
 }

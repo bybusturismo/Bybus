@@ -69,4 +69,5 @@ Bókun (grupo Tripadvisor, US$ 49/mês + 1–1,5%), Rezdy, Checkfront, FareHarbo
 
 ## Decolar — formato do e-mail (visto em 04/11/2026)
 - Enviado a contatofbyb@gmail.com pelo sistema **PAM** da Decolar/Despegar: "Informamos que foi gerada uma nova reserva." Campos: titular, telefone, passageiros (Adultos | Crianças | Infantes), Service id, data da reserva, **Código de reserva PAM**, **ID Compra Decolar**, lugar de compra (ex.: Chile), canal (ex.: Despegar), produto ("Descubra Floripa a bordo do Floripa by Bus Tour: Toda ilha"), temporada e **data de excursão**. Sem horário nem ponto de embarque.
-- A confirmar: remetente exato, assunto e formato do e-mail de cancelamento.
+- **Confirmado (e-mail real encaminhado):** remetente "Despegar Argentina <noreply@decolar.com>", assunto "Decolar - Nova reserva ID: <ID Compra>"; no texto puro os rótulos vêm entre asteriscos e linhas longas quebram (o leitor junta).
+- A confirmar: formato do e-mail de **cancelamento**.
