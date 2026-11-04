@@ -18,6 +18,8 @@ import { rotasOperacao } from "./rotas/operacao.js";
 import { rotasUsuarios } from "./rotas/usuarios.js";
 import { rotasPessoas } from "./rotas/pessoas.js";
 import { rotasFrota } from "./rotas/frota.js";
+import { rotasMarketing } from "./rotas/marketing.js";
+import { rotasBiblioteca } from "./rotas/biblioteca.js";
 import { Cofre } from "./seguranca/cripto.js";
 import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
 
@@ -96,6 +98,8 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasEmbarque(app, ctx);
   await rotasFechamento(app, ctx);
   await rotasFrota(app, ctx);
+  await rotasMarketing(app, ctx);
+  await rotasBiblioteca(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);

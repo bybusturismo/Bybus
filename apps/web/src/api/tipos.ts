@@ -27,6 +27,10 @@ export const PERMISSOES = [
   "frota:ver",
   "frota:gerenciar",
   "frota:checklist",
+  "marketing:ver",
+  "marketing:gerenciar",
+  "biblioteca:ver",
+  "biblioteca:editar",
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 

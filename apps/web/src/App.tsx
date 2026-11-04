@@ -34,6 +34,13 @@ import { Equipe } from "./paginas/Equipe";
 import { Passeios } from "./paginas/Passeios";
 import { Perfis } from "./paginas/Perfis";
 import { Pracas } from "./paginas/Pracas";
+import { Biblioteca } from "./paginas/biblioteca/Biblioteca";
+import { Afiliados } from "./paginas/marketing/Afiliados";
+import { Avaliacoes } from "./paginas/marketing/Avaliacoes";
+import { Campanhas } from "./paginas/marketing/Campanhas";
+import { Canais } from "./paginas/marketing/Canais";
+import { Conteudo } from "./paginas/marketing/Conteudo";
+import { Origem } from "./paginas/marketing/Origem";
 import { ProvedorSessao, useSessao } from "./sessao/Sessao";
 
 /** Esconde a tela de quem não tem a permissão (o servidor também recusa). */
@@ -230,6 +237,70 @@ export function Rotas() {
           element={
             <Exige permissao="auditoria:ver">
               <Auditoria />
+            </Exige>
+          }
+        />
+        <Route
+          path="marketing/canais"
+          element={
+            <Exige permissao="marketing:ver">
+              <Canais />
+            </Exige>
+          }
+        />
+        <Route
+          path="marketing/origem"
+          element={
+            <Exige permissao="marketing:ver">
+              <Origem />
+            </Exige>
+          }
+        />
+        <Route
+          path="marketing/campanhas"
+          element={
+            <Exige permissao="marketing:ver">
+              <Campanhas />
+            </Exige>
+          }
+        />
+        <Route
+          path="marketing/conteudo"
+          element={
+            <Exige permissao="marketing:ver">
+              <Conteudo />
+            </Exige>
+          }
+        />
+        <Route
+          path="marketing/avaliacoes"
+          element={
+            <Exige permissao="marketing:ver">
+              <Avaliacoes />
+            </Exige>
+          }
+        />
+        <Route
+          path="marketing/afiliados"
+          element={
+            <Exige permissao="marketing:ver">
+              <Afiliados />
+            </Exige>
+          }
+        />
+        <Route
+          path="biblioteca"
+          element={
+            <Exige permissao="biblioteca:ver">
+              <Biblioteca />
+            </Exige>
+          }
+        />
+        <Route
+          path="biblioteca/:id"
+          element={
+            <Exige permissao="biblioteca:ver">
+              <Biblioteca />
             </Exige>
           }
         />

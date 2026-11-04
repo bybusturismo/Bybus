@@ -23,6 +23,8 @@ export const AREAS_PERMISSAO: Array<{ area: string; prefixos: string[] }> = [
   { area: "Saídas e reservas", prefixos: ["saidas", "reservas", "importacoes"] },
   { area: "Lista de passageiros e embarque", prefixos: ["manifesto", "embarque"] },
   { area: "Frota e manutenção", prefixos: ["frota"] },
+  { area: "Marketing", prefixos: ["marketing"] },
+  { area: "Biblioteca", prefixos: ["biblioteca"] },
 ];
 
 export function areaDaPermissao(p: Permissao | string): string {

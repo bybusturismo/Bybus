@@ -1,0 +1,192 @@
+/* Marketing e Biblioteca: usa só os tokens de tokens.css (claro e escuro). */
+
+.barra-prop {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 8rem;
+}
+.barra-prop__trilho {
+  flex: 1;
+  height: 0.6rem;
+  background: var(--cor-superficie-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.barra-prop__preenchimento {
+  display: block;
+  height: 100%;
+  background: var(--cor-primaria);
+  border-radius: 999px;
+}
+.barra-prop__valor {
+  min-width: 2.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.secao-cartoes {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  margin-block: 1rem;
+}
+
+.destaque-tripadvisor {
+  border-left: 4px solid var(--marca-verde-escuro);
+}
+
+.qr-codigo {
+  display: block;
+  margin: 0 auto 0.75rem;
+  width: min(100%, 16rem);
+  height: auto;
+  background: #fff;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.texto-copiavel {
+  white-space: pre-wrap;
+  background: var(--cor-superficie-2);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin: 0;
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.estrelas {
+  letter-spacing: 0.1em;
+  color: var(--cor-atencao);
+}
+
+/* Biblioteca */
+.biblioteca {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  align-items: start;
+}
+@media (max-width: 52rem) {
+  .biblioteca {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.biblioteca__lateral {
+  position: sticky;
+  top: 0.5rem;
+}
+@media (max-width: 52rem) {
+  .biblioteca__lateral {
+    position: static;
+  }
+}
+.arvore,
+.arvore ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.arvore ul {
+  margin-left: 0.9rem;
+  border-left: 1px solid var(--cor-borda);
+  padding-left: 0.4rem;
+}
+.arvore__item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.4rem;
+  color: var(--cor-texto);
+  text-decoration: none;
+  min-height: 2rem;
+}
+.arvore__item:hover {
+  background: var(--cor-superficie-2);
+}
+.arvore__item--ativo {
+  background: var(--cor-primaria-suave);
+  color: var(--cor-primaria-forte);
+  font-weight: 600;
+}
+.biblioteca__trilha {
+  font-size: 0.875rem;
+  color: var(--cor-texto-fraco);
+  margin: 0 0 0.5rem;
+}
+.biblioteca__editor {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+}
+.biblioteca__editor textarea {
+  width: 100%;
+  min-height: 22rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+}
+
+.md {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  line-height: 1.25;
+  margin: 1.25em 0 0.5em;
+}
+.md h1 {
+  font-size: 1.5rem;
+  margin-top: 0;
+}
+.md h2 {
+  font-size: 1.25rem;
+}
+.md h3 {
+  font-size: 1.1rem;
+}
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md pre,
+.md .tabela-rolagem {
+  margin: 0 0 0.9em;
+}
+.md blockquote {
+  border-left: 4px solid var(--cor-atencao-borda);
+  background: var(--cor-atencao-fundo);
+  color: var(--cor-atencao);
+  padding: 0.5rem 0.9rem;
+  border-radius: 0 0.4rem 0.4rem 0;
+}
+.md pre {
+  background: var(--cor-superficie-2);
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.4rem;
+  overflow-x: auto;
+}
+.md code {
+  background: var(--cor-superficie-2);
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+}
+.md pre code {
+  background: none;
+  padding: 0;
+}
+.md hr {
+  border: 0;
+  border-top: 1px solid var(--cor-borda);
+  margin: 1.25em 0;
+}

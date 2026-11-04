@@ -280,3 +280,5 @@ export const mensagens = pgTable("mensagens", {
   index("mensagens_saida_idx").on(t.saidaId),
 ]);
 export * from "./esquemas/frota.js";
+export * from "./esquemas/marketing.js";
+export * from "./esquemas/biblioteca.js";
