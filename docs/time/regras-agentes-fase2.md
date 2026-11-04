@@ -27,3 +27,5 @@ O dono tem outro sistema pronto, o APP TOMA (JS/Express), em `/home/user/tomafel
   ```
 - **Não faça push.** No relatório final: branch e último commit, arquivos compartilhados alterados, permissões/variáveis de ambiente/pacotes criados, pendências.
 - Seja econômico: leia só o necessário da referência; não reescreva código que já existe.
+
+- Migração: `pnpm --filter @bybus/api db:generate <nome>` (o script tira e devolve o `.js` dos imports que o drizzle-kit não resolve).

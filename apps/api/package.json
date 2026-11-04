@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "node scripts/gerar-migracao.mjs",
     "db:migrate": "tsx src/db/migrar.ts",
     "db:seed": "tsx src/db/semear.ts"
   },
