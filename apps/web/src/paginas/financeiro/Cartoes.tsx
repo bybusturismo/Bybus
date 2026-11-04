@@ -5,12 +5,11 @@ import { Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
 import { Modal } from "../../componentes/Modal";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { useSessao } from "../../sessao/Sessao";
-import { formatarData } from "../../util/formato";
+import { formatarData, formatarMoeda, textoDeCentavos } from "../../util/formato";
 import { useCarregar } from "../../util/useCarregar";
 import { useContas } from "./dados";
 import { FormTransferencia, ImportadorExtrato, PainelLinhas } from "./Extrato";
 import type { CartaoFin, Fatura } from "./tipos";
-import { centavosParaCampo, formatarReais } from "./util";
 
 const ROTULO_SITUACAO: Record<Fatura["situacao"], string> = { ABERTA: "Aberta", FECHADA: "Fechada", ENCERRADA: "Vencimento passado" };
 
@@ -52,7 +51,7 @@ export function Cartoes() {
             <h2 id="titulo-faturas">{ativo.nome}</h2>
             <p className="texto-fraco">
               Fecha no dia {ativo.diaFechamento}, vence no dia {ativo.diaVencimento}.
-              {ativo.finalConta ? ` Final ${ativo.finalConta}.` : ""} Saldo do cartão: <strong>{formatarReais(ativo.saldoCentavos)}</strong> (negativo = fatura a pagar).
+              {ativo.finalConta ? ` Final ${ativo.finalConta}.` : ""} Saldo do cartão: <strong>{formatarMoeda(ativo.saldoCentavos)}</strong> (negativo = fatura a pagar).
             </p>
             {ativo.faturas.length === 0 ? <p className="texto-fraco">Nenhuma compra importada ainda.</p> : (
               <div className="tabela-rolagem">
@@ -64,7 +63,7 @@ export function Cartoes() {
                         <td>{f.referencia.split("-").reverse().join("/")}</td>
                         <td>{formatarData(f.fechamento)}</td>
                         <td>{formatarData(f.vencimento)}</td>
-                        <td className="fin-valor">{formatarReais(f.totalCentavos)}<div className="texto-fraco">{f.linhas} compra(s)</div></td>
+                        <td className="fin-valor">{formatarMoeda(f.totalCentavos)}<div className="texto-fraco">{f.linhas} compra(s)</div></td>
                         <td>
                           <span className={`etiqueta ${f.situacao === "ABERTA" ? "etiqueta--neutra" : f.situacao === "FECHADA" ? "etiqueta--atencao" : "etiqueta--neutra"}`}>{ROTULO_SITUACAO[f.situacao]}</span>
                           {f.pendentes > 0 && <span className="etiqueta etiqueta--atencao">{f.pendentes} sem classificar</span>}
@@ -72,7 +71,7 @@ export function Cartoes() {
                         {podeEditar && (
                           <td>
                             {f.situacao !== "ABERTA" && f.totalCentavos > 0 && (
-                              <button type="button" className="botao botao--pequeno botao--secundario" onClick={() => setPagando({ cartao: ativo, valor: centavosParaCampo(f.totalCentavos) })}>Pagar fatura</button>
+                              <button type="button" className="botao botao--pequeno botao--secundario" onClick={() => setPagando({ cartao: ativo, valor: textoDeCentavos(f.totalCentavos) })}>Pagar fatura</button>
                             )}
                           </td>
                         )}
@@ -83,8 +82,8 @@ export function Cartoes() {
               </div>
             )}
           </section>
-          {podeEditar && <ImportadorExtrato conta={ativo} aoImportar={() => setVersao((v) => v + 1)} />}
-          <PainelLinhas conta={ativo} versao={versao} />
+          {podeEditar && <ImportadorExtrato key={`importar-${ativo.id}`} conta={ativo} aoImportar={() => setVersao((v) => v + 1)} />}
+          <PainelLinhas key={`linhas-${ativo.id}`} conta={ativo} versao={versao} />
         </>
       )}
       <Modal aberto={pagando !== null} titulo="Pagar fatura do cartão" aoFechar={() => setPagando(null)}>

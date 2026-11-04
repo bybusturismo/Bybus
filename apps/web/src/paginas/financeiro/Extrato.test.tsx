@@ -1,8 +1,8 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { corpoEnviado, FLN, renderizar, sessaoFicticia, simularApi } from "../../teste/ajuda";
-import { PainelLinhas } from "./Extrato";
+import { Extrato, PainelLinhas } from "./Extrato";
 import type { ContaFin, LinhaExtratoFin, SugestaoConc } from "./tipos";
 
 const conta: ContaFin = { id: "k1", unidadeId: FLN.id, nome: "Corrente Teste", tipo: "CORRENTE", banco: null, finalConta: null, saldoInicialCentavos: 0, saldoInicialEm: null, diaFechamento: null, diaVencimento: null, contaPagamentoId: null, ativa: true, saldoCentavos: 0, linhasPendentes: 2 };
@@ -83,5 +83,64 @@ describe("Conciliação", () => {
     expect(await screen.findByText("Conciliada")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
     expect(screen.getByText(/-.*1\.234,56/)).toBeInTheDocument();
+  });
+});
+
+describe("Importador e busca", () => {
+  const outra: ContaFin = { ...conta, id: "k2", nome: "Corrente Outra" };
+  const previa = (id: string) => ({ previa: true, previaId: id.repeat(64).slice(0, 64), total: 1, novas: 1, repetidas: 0, ignoradas: [], avisos: [], inicio: "2026-10-03", fim: "2026-10-03", amostra: [{ data: "2026-10-03", valorCentavos: -1000, descricao: "Teste" }] });
+
+  function arquivo() {
+    const f = new File(["Data;Descrição;Valor\n03/10/2026;Teste;-10,00\n"], "extrato.csv", { type: "text/csv" });
+    Object.defineProperty(f, "arrayBuffer", { value: async () => new TextEncoder().encode("Data;Descrição;Valor\n03/10/2026;Teste;-10,00\n").buffer });
+    return f;
+  }
+
+  it("trocar de conta descarta o arquivo e a prévia: a confirmação nunca vai para a conta nova", async () => {
+    const spy = simularApi({
+      "GET /api/financeiro/contas": [conta, outra],
+      "GET /api/financeiro/categorias": [],
+      "GET /api/financeiro/extrato/linhas": { conta: { id: "k1", nome: "Corrente Teste", tipo: "CORRENTE" }, linhas: [], total: 0, porStatus: {} },
+      "POST /api/financeiro/extratos/importar": previa("a"),
+    });
+    renderizar(<Extrato />, { sessao: gerente() });
+    const u = userEvent.setup();
+    await u.upload(await screen.findByLabelText("Arquivo"), arquivo());
+    expect(await screen.findByRole("button", { name: /Importar 1 lançamento/ })).toBeInTheDocument();
+    expect(corpoEnviado(spy, "POST", "/api/financeiro/extratos/importar")).toMatchObject({ contaId: "k1", confirmar: false });
+    await u.selectOptions(screen.getByLabelText("Conta"), "k2");
+    expect(screen.queryByRole("button", { name: /Importar 1 lançamento/ })).not.toBeInTheDocument();
+    expect(spy.mock.calls.filter(([, i]) => (i?.method ?? "GET") === "POST" && JSON.parse(String(i?.body)).confirmar === true)).toHaveLength(0);
+  });
+
+  it("a confirmação leva o identificador da prévia", async () => {
+    const spy = simularApi({
+      "GET /api/financeiro/contas": [conta],
+      "GET /api/financeiro/categorias": [],
+      "GET /api/financeiro/extrato/linhas": { conta: { id: "k1", nome: "Corrente Teste", tipo: "CORRENTE" }, linhas: [], total: 0, porStatus: {} },
+      "POST /api/financeiro/extratos/importar": (corpo: unknown) => ((corpo as { confirmar: boolean }).confirmar ? { ...previa("b"), previa: false } : previa("b")),
+    });
+    renderizar(<Extrato />, { sessao: gerente() });
+    const u = userEvent.setup();
+    await u.upload(await screen.findByLabelText("Arquivo"), arquivo());
+    await u.click(await screen.findByRole("button", { name: /Importar 1 lançamento/ }));
+    await screen.findByText(/importado/);
+    expect(corpoEnviado(spy, "POST", "/api/financeiro/extratos/importar", 1)).toMatchObject({ confirmar: true, previaId: "b".repeat(64) });
+  });
+
+  it("a busca espera a pessoa parar de digitar: uma só requisição, já na página 1", async () => {
+    const spy = simularApi({
+      "GET /api/financeiro/categorias": [],
+      "GET /api/financeiro/extrato/linhas": { conta: { id: "k1", nome: "Corrente Teste", tipo: "CORRENTE" }, linhas: [], total: 0, porStatus: {} },
+    });
+    renderizar(<PainelLinhas conta={conta} versao={0} />, { sessao: gerente() });
+    await screen.findByText(/Nada pendente/);
+    const antes = spy.mock.calls.filter(([u]) => String(u).includes("/extrato/linhas")).length;
+    await userEvent.setup().type(screen.getByLabelText("Buscar"), "posto");
+    await waitFor(() => expect(spy.mock.calls.some(([u]) => String(u).includes("q=posto"))).toBe(true));
+    const urls = spy.mock.calls.map(([u]) => String(u)).filter((u) => u.includes("/extrato/linhas"));
+    expect(urls.length).toBe(antes + 1);
+    expect(urls.at(-1)).toContain("pagina=1");
+    expect(urls.some((u) => /q=(p|po|pos|post)(&|$)/.test(u))).toBe(false);
   });
 });

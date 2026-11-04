@@ -4,11 +4,11 @@ import { api, qs } from "../../api/cliente";
 import { Carregando, ErroCarga } from "../../componentes/Estados";
 import { Indicador, Indicadores } from "../../componentes/Indicador";
 import { nomePraca, useSessao } from "../../sessao/Sessao";
-import { formatarData, hojeIso } from "../../util/formato";
+import { formatarData, formatarMoeda, hojeIso, nomeMes, somarMes } from "../../util/formato";
 import { ROTULO_LINHA } from "../../util/rotulos";
 import { useCarregar } from "../../util/useCarregar";
 import type { RespostaResumo } from "./tipos";
-import { formatarMargem, formatarReais, nomeMes, somarMesAno } from "./util";
+import { formatarMargem } from "./util";
 
 const sinal = (v: number) => (v < 0 ? "fin-valor--saida" : v > 0 ? "fin-valor--entrada" : "");
 
@@ -26,20 +26,20 @@ export function Resumo() {
           <p className="pagina__descricao">Contas do mês, vencidas, fluxo de caixa semanal e resultado por categoria, praça e linha de negócio.</p>
         </div>
         <div className="fin-meses">
-          <button type="button" className="botao botao--secundario" aria-label="Mês anterior" onClick={() => setMes(somarMesAno(mes, -1))}>←</button>
+          <button type="button" className="botao botao--secundario" aria-label="Mês anterior" onClick={() => setMes(somarMes(mes, -1))}>←</button>
           <span className="fin-meses__nome" aria-live="polite">{nomeMes(mes)}</span>
-          <button type="button" className="botao botao--secundario" aria-label="Próximo mês" onClick={() => setMes(somarMesAno(mes, 1))}>→</button>
+          <button type="button" className="botao botao--secundario" aria-label="Próximo mês" onClick={() => setMes(somarMes(mes, 1))}>→</button>
         </div>
       </div>
 
       {r.carregando && !d ? <Carregando /> : r.erro ? <ErroCarga mensagem={r.erro} tentarDeNovo={r.recarregar} /> : d && (
         <>
           <Indicadores rotulo="Indicadores do mês">
-            <Indicador tinta="rosa" icone="dinheiro" rotulo="A pagar no mês (em aberto)" valor={formatarReais(d.aPagar.abertoCentavos)} detalhe={`${d.aPagar.abertoQtd} conta(s) · já pago ${formatarReais(d.aPagar.realizadoCentavos)}`} />
-            <Indicador tinta="verde" icone="dinheiro" rotulo="A receber no mês (em aberto)" valor={formatarReais(d.aReceber.abertoCentavos)} detalhe={`${d.aReceber.abertoQtd} conta(s) · já recebido ${formatarReais(d.aReceber.realizadoCentavos)}`} />
-            <Indicador tinta="laranja" icone="calendario" rotulo="Vencidas a pagar" valor={formatarReais(d.vencidas.pagar.centavos)} detalhe={`${d.vencidas.pagar.qtd} conta(s)`} />
-            <Indicador tinta="ambar" icone="calendario" rotulo="Vencidas a receber" valor={formatarReais(d.vencidas.receber.centavos)} detalhe={`${d.vencidas.receber.qtd} conta(s)`} />
-            <Indicador tinta="azul" icone="cartao" rotulo="Saldo em contas" valor={formatarReais(d.saldoCaixaCentavos)} detalhe="Corrente, aplicação e caixa" />
+            <Indicador tinta="rosa" icone="dinheiro" rotulo="A pagar no mês (em aberto)" valor={formatarMoeda(d.aPagar.abertoCentavos)} detalhe={`${d.aPagar.abertoQtd} conta(s) · já pago ${formatarMoeda(d.aPagar.realizadoCentavos)}`} />
+            <Indicador tinta="verde" icone="dinheiro" rotulo="A receber no mês (em aberto)" valor={formatarMoeda(d.aReceber.abertoCentavos)} detalhe={`${d.aReceber.abertoQtd} conta(s) · já recebido ${formatarMoeda(d.aReceber.realizadoCentavos)}`} />
+            <Indicador tinta="laranja" icone="calendario" rotulo="Vencidas a pagar" valor={formatarMoeda(d.vencidas.pagar.centavos)} detalhe={`${d.vencidas.pagar.qtd} conta(s)`} />
+            <Indicador tinta="ambar" icone="calendario" rotulo="Vencidas a receber" valor={formatarMoeda(d.vencidas.receber.centavos)} detalhe={`${d.vencidas.receber.qtd} conta(s)`} />
+            <Indicador tinta="azul" icone="cartao" rotulo="Saldo em contas" valor={formatarMoeda(d.saldoCaixaCentavos)} detalhe="Corrente, aplicação e caixa" />
           </Indicadores>
           {d.linhasPendentes > 0 && (
             <p className="aviso aviso--atencao" role="status">
@@ -64,14 +64,14 @@ export function Resumo() {
                         <tr key={s.inicio} className={s.atual ? "fin-semana--atual" : ""}>
                           <th scope="row">{formatarData(s.inicio).slice(0, 5)} a {formatarData(s.fim).slice(0, 5)}{s.atual && <span className="etiqueta etiqueta--neutra">atual</span>}</th>
                           <td className="fin-valor">
-                            {formatarReais(ent)}
-                            {s.entradasPrevistasCentavos > 0 && <div className="texto-fraco">prev. {formatarReais(s.entradasPrevistasCentavos)}</div>}
+                            {formatarMoeda(ent)}
+                            {s.entradasPrevistasCentavos > 0 && <div className="texto-fraco">prev. {formatarMoeda(s.entradasPrevistasCentavos)}</div>}
                           </td>
                           <td className="fin-valor">
-                            {formatarReais(sai)}
-                            {s.saidasPrevistasCentavos > 0 && <div className="texto-fraco">prev. {formatarReais(s.saidasPrevistasCentavos)}</div>}
+                            {formatarMoeda(sai)}
+                            {s.saidasPrevistasCentavos > 0 && <div className="texto-fraco">prev. {formatarMoeda(s.saidasPrevistasCentavos)}</div>}
                           </td>
-                          <td className={`fin-valor ${s.saldoProjetadoCentavos === null ? "" : sinal(s.saldoProjetadoCentavos)}`}>{s.saldoProjetadoCentavos === null ? "—" : formatarReais(s.saldoProjetadoCentavos)}</td>
+                          <td className={`fin-valor ${s.saldoProjetadoCentavos === null ? "" : sinal(s.saldoProjetadoCentavos)}`}>{s.saldoProjetadoCentavos === null ? "—" : formatarMoeda(s.saldoProjetadoCentavos)}</td>
                         </tr>
                       );
                     })}
@@ -92,7 +92,7 @@ export function Resumo() {
                       ))}
                       <tr className="fin-total">
                         <th scope="row">Resultado do mês <span className="texto-fraco">(margem {formatarMargem(d.dre.margemPontosBase)})</span></th>
-                        <td className={`fin-valor ${sinal(d.dre.resultadoCentavos)}`}>{formatarReais(d.dre.resultadoCentavos)}</td>
+                        <td className={`fin-valor ${sinal(d.dre.resultadoCentavos)}`}>{formatarMoeda(d.dre.resultadoCentavos)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -114,9 +114,9 @@ export function Resumo() {
                       <tr key={`${x.unidadeId}|${x.linha}`}>
                         <td>{x.unidadeId ? nomePraca(unidades, x.unidadeId) : "Empresa toda"}</td>
                         <td>{x.linha ? ROTULO_LINHA[x.linha] : "Sem linha"}</td>
-                        <td className="fin-valor">{formatarReais(x.receitaCentavos)}</td>
-                        <td className="fin-valor">{formatarReais(x.despesaCentavos)}</td>
-                        <td className={`fin-valor ${sinal(x.resultadoCentavos)}`}>{formatarReais(x.resultadoCentavos)}</td>
+                        <td className="fin-valor">{formatarMoeda(x.receitaCentavos)}</td>
+                        <td className="fin-valor">{formatarMoeda(x.despesaCentavos)}</td>
+                        <td className={`fin-valor ${sinal(x.resultadoCentavos)}`}>{formatarMoeda(x.resultadoCentavos)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -131,7 +131,7 @@ export function Resumo() {
               <ul className="fin-lista">
                 {d.saldos.map((s) => (
                   <li key={s.contaId}>
-                    {s.nome} <span className={`fin-valor ${sinal(s.saldoCentavos)}`}>{formatarReais(s.saldoCentavos)}</span>
+                    {s.nome} <span className={`fin-valor ${sinal(s.saldoCentavos)}`}>{formatarMoeda(s.saldoCentavos)}</span>
                     {s.tipo === "CARTAO" && <span className="texto-fraco"> (fatura em aberto, sinal negativo)</span>}
                   </li>
                 ))}
@@ -147,7 +147,7 @@ export function Resumo() {
 function TrechoDre({ titulo, grupos, total }: { titulo: string; grupos: RespostaResumo["dre"]["grupos"]; total: number }) {
   return (
     <>
-      <tr className="fin-total"><th scope="row">{titulo}</th><td className="fin-valor">{formatarReais(total)}</td></tr>
+      <tr className="fin-total"><th scope="row">{titulo}</th><td className="fin-valor">{formatarMoeda(total)}</td></tr>
       {grupos.map((g) => (
         <GrupoLinhas key={`${g.tipo}|${g.grupo}`} grupo={g} />
       ))}
@@ -158,9 +158,9 @@ function TrechoDre({ titulo, grupos, total }: { titulo: string; grupos: Resposta
 function GrupoLinhas({ grupo }: { grupo: RespostaResumo["dre"]["grupos"][number] }) {
   return (
     <>
-      <tr className="fin-grupo"><th scope="row">{grupo.grupo}</th><td className="fin-valor">{formatarReais(grupo.totalCentavos)}</td></tr>
+      <tr className="fin-grupo"><th scope="row">{grupo.grupo}</th><td className="fin-valor">{formatarMoeda(grupo.totalCentavos)}</td></tr>
       {grupo.categorias.map((c) => (
-        <tr key={c.categoriaId ?? c.nome} className="fin-sub"><td>{c.nome}</td><td className="fin-valor">{formatarReais(c.totalCentavos)}</td></tr>
+        <tr key={c.categoriaId ?? c.nome} className="fin-sub"><td>{c.nome}</td><td className="fin-valor">{formatarMoeda(c.totalCentavos)}</td></tr>
       ))}
     </>
   );

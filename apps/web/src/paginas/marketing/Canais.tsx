@@ -6,7 +6,8 @@ import { Indicador, Indicadores } from "../../componentes/Indicador";
 import { useSessao } from "../../sessao/Sessao";
 import { formatarNumero } from "../../util/formato";
 import { useCarregar } from "../../util/useCarregar";
-import { BarraProporcao, FiltroPeriodo, nomeMes, usePeriodo } from "./comum";
+import { nomeMes } from "../../util/formato";
+import { BarraProporcao, FiltroPeriodo, usePeriodo } from "./comum";
 
 interface RespostaCanais {
   periodo: { de: string; ate: string };
@@ -73,7 +74,7 @@ export function Canais() {
                 <tbody>
                   {d.porPasseioMes.map((l) => (
                     <tr key={`${l.mes}-${l.passeioId}`}>
-                      <td>{nomeMes(l.mes)}</td>
+                      <td>{nomeMes(l.mes, "short")}</td>
                       <td>{l.passeio}</td>
                       <td className="num">{formatarNumero(l.reservas)}</td>
                       <td className="num">{formatarNumero(l.passageiros)}</td>

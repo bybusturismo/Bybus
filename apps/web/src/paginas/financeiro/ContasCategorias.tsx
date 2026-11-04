@@ -7,7 +7,8 @@ import { nomePraca, useSessao } from "../../sessao/Sessao";
 import { useCarregar } from "../../util/useCarregar";
 import { useCategorias, useContas } from "./dados";
 import { TIPOS_CONTA, type CategoriaFin, type ContaFin, type RegraFin, type TipoConta } from "./tipos";
-import { centavosParaCampo, formatarReais, lerReais, ROTULO_TIPO_CONTA } from "./util";
+import { ROTULO_TIPO_CONTA } from "./util";
+import { centavosDeTexto, formatarMoeda, textoDeCentavos } from "../../util/formato";
 
 function FormConta({ conta, contas, aoSalvar, aoCancelar }: { conta: ContaFin | null; contas: ContaFin[]; aoSalvar: () => Promise<void>; aoCancelar: () => void }) {
   const { unidades, praca, usuario } = useSessao();
@@ -16,7 +17,7 @@ function FormConta({ conta, contas, aoSalvar, aoCancelar }: { conta: ContaFin | 
   const [unidadeId, setUnidadeId] = useState(conta ? (conta.unidadeId ?? "") : (praca || (unidades.length === 1 ? unidades[0]!.id : "")));
   const [banco, setBanco] = useState(conta?.banco ?? "");
   const [finalConta, setFinalConta] = useState(conta?.finalConta ?? "");
-  const [saldo, setSaldo] = useState(centavosParaCampo(conta?.saldoInicialCentavos ?? 0));
+  const [saldo, setSaldo] = useState(textoDeCentavos(conta?.saldoInicialCentavos ?? 0));
   const [saldoEm, setSaldoEm] = useState(conta?.saldoInicialEm ?? "");
   const [fechamento, setFechamento] = useState(String(conta?.diaFechamento ?? ""));
   const [vencimento, setVencimento] = useState(String(conta?.diaVencimento ?? ""));
@@ -28,12 +29,12 @@ function FormConta({ conta, contas, aoSalvar, aoCancelar }: { conta: ContaFin | 
   async function salvar(e: FormEvent) {
     e.preventDefault();
     setErro(null);
-    const saldoC = lerReais(saldo || "0");
+    const saldoC = centavosDeTexto(saldo || "0");
     const dFech = Number(fechamento);
     const dVenc = Number(vencimento);
     if (nome.trim().length < 2) return setErro("Informe o nome da conta.");
     if (!unidadeId && !usuario?.todasUnidades) return setErro("Escolha a praça.");
-    if (saldoC === null) return setErro("Saldo inicial: valor em reais com até duas casas decimais.");
+    if (saldoC === null || Number.isNaN(saldoC)) return setErro("Saldo inicial: valor em reais com até duas casas decimais.");
     if (tipo === "CARTAO" && (!Number.isInteger(dFech) || dFech < 1 || dFech > 31 || !Number.isInteger(dVenc) || dVenc < 1 || dVenc > 31)) return setErro("Cartão: informe o dia de fechamento e o de vencimento (1 a 31).");
     setSalvando(true);
     try {
@@ -200,7 +201,7 @@ export function ContasCategorias() {
                     <td>{c.nome}{!c.ativa && <span className="etiqueta etiqueta--neutra">inativa</span>}{c.banco && <div className="texto-fraco">{c.banco}{c.finalConta ? ` · final ${c.finalConta}` : ""}</div>}</td>
                     <td>{ROTULO_TIPO_CONTA[c.tipo]}{c.tipo === "CARTAO" && <div className="texto-fraco">fecha dia {c.diaFechamento}, vence dia {c.diaVencimento}</div>}</td>
                     <td className="fin-esconder-celular">{c.unidadeId ? nomePraca(unidades, c.unidadeId) : "Empresa toda"}</td>
-                    <td className="fin-valor">{formatarReais(c.saldoCentavos)}</td>
+                    <td className="fin-valor">{formatarMoeda(c.saldoCentavos)}</td>
                     {podeEditar && <td><button type="button" className="botao botao--pequeno botao--secundario" onClick={() => setEditando(c)}>Editar</button></td>}
                   </tr>
                 ))}

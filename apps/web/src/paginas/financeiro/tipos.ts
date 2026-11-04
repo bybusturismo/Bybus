@@ -126,6 +126,7 @@ export interface RespostaLinhas {
 
 export interface PreviaImportacao {
   previa: boolean;
+  previaId?: string;
   total: number;
   novas: number;
   repetidas: number;

@@ -5,9 +5,9 @@ import { Icone } from "../../componentes/Icone";
 import { Confirmar, Modal } from "../../componentes/Modal";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { nomePraca, useSessao } from "../../sessao/Sessao";
-import { centavosDeTexto, formatarData, formatarMoeda, formatarNumero, textoDeCentavos } from "../../util/formato";
+import { centavosDeTexto, formatarData, formatarMoeda, formatarNumero, nomeMes, textoDeCentavos } from "../../util/formato";
 import { useCarregar } from "../../util/useCarregar";
-import { nomeMes, ROTULO_MIDIA } from "./comum";
+import { ROTULO_MIDIA } from "./comum";
 
 interface Resultado { id: string; mes: string; reservas: number; passageiros: number; receitaCentavos: number | null; fonte: string }
 interface Campanha {
@@ -148,7 +148,7 @@ function Resultados({ campanha, aoMudar }: { campanha: Campanha; aoMudar: () => 
             <tbody>
               {campanha.resultados.map((r) => (
                 <tr key={r.id}>
-                  <td>{nomeMes(r.mes)}</td><td className="num">{r.reservas}</td><td className="num">{r.passageiros}</td>
+                  <td>{nomeMes(r.mes, "short")}</td><td className="num">{r.reservas}</td><td className="num">{r.passageiros}</td>
                   <td className="num">{r.receitaCentavos == null ? "—" : formatarMoeda(r.receitaCentavos)}</td><td>{r.fonte}</td>
                   <td><button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => void remover(r.mes)}>Remover</button></td>
                 </tr>
@@ -252,7 +252,7 @@ export function Campanhas() {
       </Modal>
       <Modal aberto={!!campanhaResultados && !podeGerenciar} titulo={campanhaResultados ? `Resultados — ${campanhaResultados.nome}` : "Resultados"} aoFechar={() => setResultadosDe(null)}>
         {campanhaResultados && (campanhaResultados.resultados.length === 0 ? <p>Nenhum resultado lançado.</p> : (
-          <ul>{campanhaResultados.resultados.map((x) => <li key={x.id}>{nomeMes(x.mes)}: {x.reservas} reservas, {x.passageiros} passageiros ({x.fonte})</li>)}</ul>
+          <ul>{campanhaResultados.resultados.map((x) => <li key={x.id}>{nomeMes(x.mes, "short")}: {x.reservas} reservas, {x.passageiros} passageiros ({x.fonte})</li>)}</ul>
         ))}
       </Modal>
       <Confirmar aberto={!!excluir} titulo="Excluir campanha" perigo ocupado={excluindo} textoConfirmar="Excluir campanha" aoFechar={() => setExcluir(null)} aoConfirmar={() => void confirmarExclusao()}

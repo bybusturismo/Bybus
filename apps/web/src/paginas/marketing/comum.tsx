@@ -53,8 +53,3 @@ export const ROTULO_STATUS_PEDIDO: Record<string, string> = {
   PENDENTE: "A enviar", ENVIADA_MANUAL: "Enviada à mão", SIMULADA: "Simulada", SEM_TELEFONE: "Sem telefone", IGNORADA: "Ignorada",
 };
 
-export function nomeMes(mes: string): string {
-  const [a, m] = mes.split("-").map(Number) as [number, number];
-  const t = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, 15)));
-  return t.charAt(0).toUpperCase() + t.slice(1);
-}

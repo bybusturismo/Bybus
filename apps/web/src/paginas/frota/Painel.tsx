@@ -3,15 +3,10 @@ import { Link } from "react-router-dom";
 import { api, qs } from "../../api/cliente";
 import { Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
 import { Indicador, Indicadores } from "../../componentes/Indicador";
-import { formatarData, formatarMoeda, formatarNumero } from "../../util/formato";
+import { formatarData, formatarMoeda, formatarNumero, nomeMes } from "../../util/formato";
 import { useCarregar } from "../../util/useCarregar";
 import { CabecalhoFrota, EtiquetaPlano, EtiquetaVencimento, formatarKm } from "./comum";
 import { ROTULO_TIPO_DOC, rotuloVeiculo, type PainelFrota } from "./tipos";
-
-function nomeMes(mes: string): string {
-  const [a, m] = mes.split("-").map(Number) as [number, number];
-  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, 15)));
-}
 
 export function PainelFrotaPagina() {
   const [mes, setMes] = useState("");
