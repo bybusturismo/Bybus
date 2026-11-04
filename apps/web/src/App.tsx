@@ -13,6 +13,9 @@ import { Importar } from "./paginas/importar/Importar";
 import { Integracoes } from "./paginas/Integracoes";
 import { EmBreve } from "./paginas/EmBreve";
 import { Escala } from "./paginas/Escala";
+import { Conferencia } from "./paginas/Conferencia";
+import { Fechamento } from "./paginas/Fechamento";
+import { EmbarquePublico } from "./paginas/EmbarquePublico";
 import { Login } from "./paginas/Login";
 import { TelaPendencia } from "./paginas/Pendencias";
 import { Embarque } from "./paginas/saida/Embarque";
@@ -80,6 +83,22 @@ export function Rotas() {
           element={
             <Exige permissao="importacoes:executar">
               <Importar />
+            </Exige>
+          }
+        />
+        <Route
+          path="conferencia"
+          element={
+            <Exige permissao="reservas:editar">
+              <Conferencia />
+            </Exige>
+          }
+        />
+        <Route
+          path="fechamento"
+          element={
+            <Exige permissao="saidas:decidir">
+              <Fechamento />
             </Exige>
           }
         />
@@ -170,6 +189,9 @@ export function Rotas() {
 }
 
 export function App() {
+  // Link público do passageiro (sem login nem sessão).
+  const publico = /^\/embarque\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
+  if (publico) return <EmbarquePublico token={publico[1]!} />;
   return (
     <Roteador future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ProvedorSessao>

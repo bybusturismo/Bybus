@@ -1,0 +1,163 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { api, mensagemDeErro, qs } from "../api/cliente";
+import type { MensagemFila, SituacaoFechamento } from "../api/tipos";
+import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
+import { Modal } from "../componentes/Modal";
+import { useNotificar } from "../componentes/Notificacoes";
+import { formatarDataCurta, formatarDataHora, hojeIso, somarDias } from "../util/formato";
+import { useCarregar } from "../util/useCarregar";
+
+const ROTULO_STATUS: Record<string, string> = { ENVIADA: "Enviadas", SIMULADA: "Simuladas", PENDENTE: "Na fila", SEM_TELEFONE: "Sem telefone", FALHA: "Falharam" };
+const ROTULO_TIPO = (t: string) => (t.startsWith("LISTA_GRUPO") ? "Lista no grupo" : ({ CONFIRMACAO: "Confirmação da véspera", VOUCHER: "Voucher", RASTREIO: "Rastreamento" } as Record<string, string>)[t] ?? t);
+
+function TextoLista({ titulo, texto, aoFechar }: { titulo: string; texto: string; aoFechar: () => void }) {
+  const notificar = useNotificar();
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(texto);
+      notificar("Texto copiado. Cole no grupo do WhatsApp.");
+    } catch {
+      notificar("Não consegui copiar: selecione o texto e copie.");
+    }
+  }
+  return (
+    <Modal aberto titulo={titulo} aoFechar={aoFechar} largura="larga">
+      <p className="texto-fraco">Em ordem de embarque. Sem documentos nem telefones (LGPD).</p>
+      <textarea className="fechamento__texto" readOnly value={texto} rows={18} aria-label="Texto da lista" />
+      <div className="modal__acoes">
+        <a className="botao botao--secundario" href={`https://wa.me/?text=${encodeURIComponent(texto)}`} target="_blank" rel="noreferrer">Abrir no WhatsApp</a>
+        <button type="button" className="botao botao--primario" onClick={() => void copiar()}>Copiar texto</button>
+      </div>
+    </Modal>
+  );
+}
+
+function Mensagens({ saidaId, aoFechar }: { saidaId: string; aoFechar: () => void }) {
+  const lista = useCarregar((s) => api.get<MensagemFila[]>(`/api/mensagens${qs({ saidaId })}`, s), [saidaId]);
+  const [erro, setErro] = useState<string | null>(null);
+  async function reenviar(id: string) {
+    try {
+      await api.post(`/api/mensagens/${id}/reenviar`);
+      await lista.recarregar();
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    }
+  }
+  return (
+    <Modal aberto titulo="Mensagens desta saída" aoFechar={aoFechar} largura="larga">
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      {lista.carregando && !lista.dados ? <Carregando /> : lista.erro ? <ErroCarga mensagem={lista.erro} /> : lista.dados?.length === 0 ? <Vazio titulo="Nenhuma mensagem ainda." /> : (
+        <div className="tabela-rolagem">
+          <table className="tabela tabela--compacta">
+            <thead><tr><th>Tipo</th><th>Para</th><th>Situação</th><th>Quando</th><th /></tr></thead>
+            <tbody>
+              {lista.dados?.map((m) => (
+                <tr key={m.id}>
+                  <td>{ROTULO_TIPO(m.tipo)}</td>
+                  <td>{m.titular ?? "—"}<span className="texto-fraco"> {m.destino ?? ""}</span></td>
+                  <td><span className={`etiqueta ${m.status === "ENVIADA" ? "etiqueta--sucesso" : m.status === "FALHA" || m.status === "SEM_TELEFONE" ? "etiqueta--perigo" : "etiqueta--neutra"}`}>{ROTULO_STATUS[m.status] ?? m.status}</span>{m.erro ? <span className="texto-fraco"> {m.erro}</span> : null}</td>
+                  <td className="sem-quebra">{formatarDataHora(m.enviadaEm ?? m.criadoEm)}</td>
+                  <td>{(m.status === "FALHA" || m.status === "SIMULADA") && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => void reenviar(m.id)}>Reenviar</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+export function Fechamento() {
+  const notificar = useNotificar();
+  const [data, setData] = useState(() => somarDias(hojeIso(), 1));
+  const sit = useCarregar((s) => api.get<SituacaoFechamento>(`/api/fechamento${qs({ data })}`, s), [data]);
+  const [texto, setTexto] = useState<{ titulo: string; texto: string } | null>(null);
+  const [mensagensDe, setMensagensDe] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function fechar(saidaId: string, passeio: string) {
+    setOcupado(saidaId);
+    setErro(null);
+    try {
+      const r = await api.post<{ versao: number; texto: string }>(`/api/saidas/${saidaId}/fechar`);
+      notificar(r.versao > 1 ? `Adendo ${r.versao - 1} gerado.` : "Lista fechada.");
+      setTexto({ titulo: `${passeio} — lista ${r.versao > 1 ? `(adendo ${r.versao - 1})` : "fechada"}`, texto: r.texto });
+      await sit.recarregar();
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setOcupado(null);
+    }
+  }
+  async function verTexto(saidaId: string, passeio: string) {
+    try {
+      const r = await api.get<{ texto: string }>(`/api/saidas/${saidaId}/texto-lista`);
+      setTexto({ titulo: `${passeio} — prévia da lista`, texto: r.texto });
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    }
+  }
+
+  const s = sit.dados;
+  return (
+    <div className="pagina">
+      <div className="pagina__cabecalho">
+        <div>
+          <h1>Fechamento e mensagens</h1>
+          <p className="pagina__descricao">
+            A lista da véspera fecha {s?.automatico ? `sozinha às ${s.horaFechamento}` : "pelo botão (fechamento automático desligado)"}, em ordem de embarque, e cada titular recebe a confirmação. Venda depois disso gera um adendo.
+          </p>
+        </div>
+        <div className="campo campo--linha"><label htmlFor="fech-data">Data do passeio</label><input id="fech-data" type="date" value={data} onChange={(e) => setData(e.target.value)} /></div>
+      </div>
+      {s && !s.whatsapp.envioReal && (
+        <Aviso tipo="info" titulo="WhatsApp em modo simulado">
+          As mensagens são registradas mas não saem. Para enviar de verdade é preciso contratar e configurar o provedor (ver o plano da Fase 2).{s.whatsapp.grupoConfigurado ? "" : " O grupo da lista também não está configurado: use “Copiar texto” e cole no grupo."}
+        </Aviso>
+      )}
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      {sit.carregando && !s ? <Carregando /> : sit.erro ? <ErroCarga mensagem={sit.erro} tentarDeNovo={sit.recarregar} /> : s?.saidas.length === 0 ? (
+        <Vazio titulo={`Nenhuma saída em ${formatarDataCurta(data)}.`} />
+      ) : (
+        <ul className="lista-fechamento">
+          {s?.saidas.map((x) => {
+            const fechada = !!x.listaFechadaEm;
+            return (
+              <li key={x.saidaId} className={`cartao fechamento${fechada ? " fechamento--fechada" : ""}`}>
+                <div className="fechamento__topo">
+                  <div>
+                    <h2><Link to={`/saidas/${x.saidaId}`}>{x.passeio}</Link></h2>
+                    <p className="texto-fraco">Guia: {x.guia ?? "a definir"} · Motorista: {x.motorista ?? "a definir"}{x.veiculo ? ` · ${x.veiculo}` : ""}</p>
+                  </div>
+                  <span className={`etiqueta ${fechada ? "etiqueta--sucesso" : "etiqueta--atencao"}`}>
+                    {fechada ? `Fechada${x.versao > 1 ? ` · adendo ${x.versao - 1}` : ""} · ${formatarDataHora(x.listaFechadaEm)}` : "Aberta"}
+                  </span>
+                </div>
+                <div className="fechamento__numeros">
+                  <span><strong>{x.reservas}</strong> reservas</span>
+                  <span className={x.naoConferidas ? "texto-atencao" : ""}><strong>{x.naoConferidas}</strong> a conferir</span>
+                  <span className={x.semPonto ? "texto-perigo" : ""}><strong>{x.semPonto}</strong> sem ponto</span>
+                  {fechada && x.depoisDoFechamento > 0 && <span className="texto-atencao"><strong>{x.depoisDoFechamento}</strong> depois do fechamento</span>}
+                  {Object.entries(x.mensagens).map(([k, n]) => <span key={k}>{n} {ROTULO_STATUS[k]?.toLowerCase() ?? k}</span>)}
+                </div>
+                <div className="barra-acoes">
+                  <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void verTexto(x.saidaId, x.passeio)}>Ver texto da lista</button>
+                  {x.naoConferidas > 0 && <Link className="botao botao--secundario botao--pequeno" to="/conferencia">Conferir pendências</Link>}
+                  <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado === x.saidaId} onClick={() => void fechar(x.saidaId, x.passeio)}>
+                    {fechada ? "Gerar adendo" : "Fechar lista agora"}
+                  </button>
+                  <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setMensagensDe(x.saidaId)}>Mensagens</button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {texto && <TextoLista titulo={texto.titulo} texto={texto.texto} aoFechar={() => setTexto(null)} />}
+      {mensagensDe && <Mensagens saidaId={mensagensDe} aoFechar={() => setMensagensDe(null)} />}
+    </div>
+  );
+}

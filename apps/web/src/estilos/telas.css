@@ -1545,3 +1545,133 @@
   margin-top: var(--esp-4);
   justify-content: flex-end;
 }
+
+/* ---------- Conferência ---------- */
+.lista-conferencia,
+.lista-fechamento {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+.conferencia {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-left: 4px solid var(--cor-atencao-borda);
+  border-radius: var(--raio-lg);
+  padding: var(--esp-3) var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+.conferencia--ok {
+  border-left-color: var(--cor-sucesso);
+}
+.conferencia__topo {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  flex-wrap: wrap;
+}
+.conferencia__dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--esp-2) var(--esp-4);
+  margin: 0;
+  font-size: var(--texto-sm);
+}
+.conferencia__dados dt {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-fraco);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.conferencia__dados dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.conferencia__dados .etiqueta,
+.conferencia__alertas .etiqueta {
+  margin: 0 var(--esp-1) 0 0;
+}
+.conferencia__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  align-items: center;
+}
+.conferencia__acoes select {
+  width: auto;
+  min-width: min(100%, 20rem);
+  min-height: 36px;
+  flex: 1 1 16rem;
+}
+
+/* ---------- Fechamento ---------- */
+.fechamento {
+  margin-bottom: 0;
+  border-left: 4px solid var(--cor-atencao-borda);
+}
+.fechamento--fechada {
+  border-left-color: var(--cor-sucesso);
+}
+.fechamento__topo {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  flex-wrap: wrap;
+}
+.fechamento__topo h2 {
+  font-size: var(--texto-lg);
+  margin: 0;
+}
+.fechamento__numeros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2) var(--esp-4);
+  margin: var(--esp-3) 0;
+  font-size: var(--texto-sm);
+}
+.fechamento__texto {
+  width: 100%;
+  font-family: var(--fonte-mono);
+  font-size: var(--texto-sm);
+}
+
+/* ---------- Embarque (página pública do passageiro) ---------- */
+.embarque-publico__busca {
+  display: flex;
+  gap: var(--esp-2);
+  flex-wrap: wrap;
+}
+.embarque-publico__busca input {
+  flex: 1 1 14rem;
+}
+.embarque-publico__pontos {
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+.embarque-publico__ponto {
+  display: flex;
+  gap: var(--esp-3);
+  align-items: flex-start;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  cursor: pointer;
+}
+.embarque-publico__ponto span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.embarque-publico__ponto .etiqueta {
+  margin-left: 0;
+  align-self: flex-start;
+}
+.embarque-publico__ponto--escolhido {
+  border-color: var(--cor-primaria);
+  background: var(--cor-primaria-suave);
+}

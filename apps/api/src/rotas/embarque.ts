@@ -115,7 +115,7 @@ export async function rotasEmbarque(app: FastifyInstance, { db, config }: Contex
       if (r.pagamento === "A_PAGAR") alertas.push("Pagar no embarque");
       if (s.listaFechadaEm) alertas.push("Lista já fechada");
       return {
-        id: r.id, saidaId: s.id, data: s.data, passeio: p.nome, canal: r.canalOrigem ?? r.canal, codigoExterno: r.codigoExterno,
+        id: r.id, saidaId: s.id, data: s.data, passeio: p.nome, passeioId: p.id, canal: r.canalOrigem ?? r.canal, codigoExterno: r.codigoExterno,
         contatoNome: r.contatoNome, contatoTelefone: verContatos ? r.contatoTelefone : null,
         passageiros: meus.length, categorias: meus.reduce<Record<string, number>>((m, x) => ({ ...m, [x.categoria]: (m[x.categoria] ?? 0) + 1 }), {}),
         pagamento: r.pagamento, formaPagamento: r.formaPagamento, origemCliente: r.origemCliente,

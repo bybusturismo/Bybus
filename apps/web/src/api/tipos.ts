@@ -369,3 +369,47 @@ export interface EquipeEscala {
   guias: Array<{ id: string; nome: string; cadasturValidade: string | null }>;
   motoristas: Array<{ id: string; nome: string }>;
 }
+
+/** GET /api/conferencia */
+export interface ItemConferencia {
+  id: string;
+  saidaId: string;
+  data: string;
+  passeio: string;
+  passeioId: string;
+  canal: Canal;
+  codigoExterno: string | null;
+  contatoNome: string;
+  contatoTelefone: string | null;
+  passageiros: number;
+  categorias: Partial<Record<Categoria, number>>;
+  pagamento: "PAGO" | "A_PAGAR" | "CORTESIA" | null;
+  formaPagamento: string | null;
+  origemCliente: string | null;
+  ponto: { id: string; nome: string; horario: string; ehTransfer: boolean } | null;
+  hospedagemInformada: string | null;
+  pediuTransfer: boolean;
+  informadoPeloClienteEm: string | null;
+  conferencia: "PENDENTE" | "CONFERIDA";
+  conferidaEm: string | null;
+  conferidaPor: string | null;
+  linkGerado: boolean;
+  alertas: string[];
+}
+
+/** GET /api/fechamento */
+export interface SituacaoFechamento {
+  data: string;
+  horaFechamento: string;
+  automatico: boolean;
+  whatsapp: { provedor: string; envioReal: boolean; grupoConfigurado: boolean };
+  saidas: Array<{
+    saidaId: string; passeio: string; data: string; guia: string | null; motorista: string | null; veiculo: string | null;
+    listaFechadaEm: string | null; versao: number; reservas: number; naoConferidas: number; semPonto: number; depoisDoFechamento: number;
+    mensagens: Record<string, number>;
+  }>;
+}
+export interface MensagemFila {
+  id: string; tipo: string; status: string; provedor: string | null; erro: string | null; criadoEm: string; enviadaEm: string | null;
+  titular: string | null; destino: string | null; texto: string | null;
+}
