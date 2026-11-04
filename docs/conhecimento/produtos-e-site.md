@@ -91,3 +91,9 @@ Outros produtos sabidos por documentos internos: **Nascer do Sol** (2021) e **Br
 - Formulário de passageiro na Paytour: nome completo, documento (RG/CPF/Passaporte) e ponto de embarque (lista com horário + local, ex.: "8h - No ponto de táxi do Villa Romana Shopping…"). Embarques com transfer (Ingleses 6h40, Cachoeira 6h50, Canasvieiras 7h, Jurerê 7h10) "possuem custo adicional".
 - Bruxólico e Oktobertour cadastrados no sistema como passeios **inativos**, só para o histórico (capacidade e mínimos a confirmar).
 - Também aparecem na Paytour: "City Tour Toda Ilha – PROMOÇÃO ESPECIAL PARA MORADORES DA GRANDE FLORIANÓPOLIS" (jul/2026, faixa "VALOR PROMOCIONAL MORADOR").
+
+## Lista de passageiros em uso (modelo "Lista de Pax By Bus Florianópolis", recebido em 04/11/2026)
+- Documento Word impresso em A4 paisagem, com logo e título **"RELAÇÃO DE PASSAGEIROS"**; cabeçalho **DATA, HORÁRIO, ROTEIRO, GUIA**.
+- Colunas: **Nº, Nome, Documento, TP, Estado, PG, Embarque, Telefone, Pesquisa**.
+- **72 linhas**: 1–57 (andar de cima) e **58–72 "PISO BAIXO"** (ônibus de dois andares); as linhas 20 e 24 têm uma marca "•" no modelo.
+- A confirmar: significado exato de **TP** (tipo: adulto/criança/sênior?), **Estado** (UF/país de origem?), **PG** (pago × pagar no embarque?), **Pesquisa** (pesquisa de satisfação?) e da marca "•" nas linhas 20 e 24.
