@@ -27,6 +27,7 @@ export const AREAS_PERMISSAO: Array<{ area: string; prefixos: string[] }> = [
   { area: "Biblioteca", prefixos: ["biblioteca"] },
   { area: "Inteligência artificial", prefixos: ["ia"] },
   { area: "Financeiro", prefixos: ["financeiro"] },
+  { area: "WhatsApp", prefixos: ["whatsapp"] },
 ];
 
 export function areaDaPermissao(p: Permissao | string): string {

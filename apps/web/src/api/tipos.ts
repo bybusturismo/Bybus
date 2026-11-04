@@ -35,6 +35,8 @@ export const PERMISSOES = [
   "ia:gestores",
   "financeiro:ver",
   "financeiro:gerenciar",
+  "whatsapp:ver",
+  "whatsapp:responder",
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 
@@ -513,3 +515,21 @@ export interface RespostaAssistente {
   ferramentas: string[];
   custoUsd: number;
 }
+
+// ---------- WhatsApp: central de conversas (apps/api/src/rotas/whatsapp.ts) ----------
+
+export interface WaModo { provedor: "simulado" | "evolution"; envioReal: boolean; simulado: boolean; avisosLigados: boolean; conexao: string | null }
+export interface WaConversaResumo {
+  id: string; telefone: string; nome: string | null; naoLidas: number; ultimaMensagemEm: string | null;
+  unidadeId: string | null; unidadeCodigo: string | null;
+  previa: string | null; previaTipo: string | null; previaDirecao: "ENTRADA" | "SAIDA" | null;
+}
+export interface WaLista { modo: WaModo; naoLidasTotal: number; conversas: WaConversaResumo[] }
+export interface WaReservaContato { reservaId: string; saidaId: string; data: string; passeio: string; titular: string; canal: string; passageiros: number; proxima: boolean }
+export interface WaConversaDetalhe { id: string; telefone: string; nome: string | null; naoLidas: number; unidadeId: string | null; modo: WaModo; reservas: WaReservaContato[] }
+export interface WaMensagem {
+  id: string; direcao: "ENTRADA" | "SAIDA"; texto: string | null; tipo: "TEXTO" | "IMAGEM" | "AUDIO" | "DOCUMENTO" | "OUTRO";
+  status: "ENVIADA" | "SIMULADA" | "FALHA" | "RECEBIDA" | "LIDA"; criadoEm: string; automatica: boolean; tipoFila: string | null; enviadaPor: string | null;
+}
+export interface WaMensagens { itens: WaMensagem[]; temMais: boolean }
+export interface WaEnvio { id: string | null; status: "ENVIADA" | "SIMULADA" | "FALHA"; erro: string | null }

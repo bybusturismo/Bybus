@@ -31,6 +31,7 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/conferencia", rotulo: "Conferência de embarque", icone: "check", area: "Passeios", permissao: "reservas:editar", atalho: "k" },
   { para: "/escala", rotulo: "Escala de guias", icone: "calendario", area: "Passeios", permissao: "pessoas:ver", atalho: "l" },
   { para: "/fechamento", rotulo: "Fechamento e mensagens", icone: "mensagem", area: "Passeios", permissao: "saidas:decidir", atalho: "m" },
+  { para: "/whatsapp", rotulo: "WhatsApp", icone: "mensagem", area: "Passeios", permissao: "whatsapp:ver", atalho: "w" },
   { para: "/importar", rotulo: "Importar reservas", icone: "importar", area: "Passeios", permissao: "importacoes:executar", atalho: "i" },
   { para: "/integracoes", rotulo: "Integrações", icone: "conexao", area: "Configurações", permissao: "importacoes:executar", atalho: "n" },
   { para: "/em-breve/rastreamento", rotulo: "Rastreamento", icone: "mapa", area: "Passeios", planejado: true },
