@@ -9,24 +9,26 @@ const rotulosMenu = () => within(screen.getByRole("navigation", { name: "Menu pr
 describe("Menu por permissão", () => {
   it("guia vê só Saídas (perfil e sair ficam no menu do usuário)", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("GUIA", ["manifesto:ver", "manifesto:contatos", "embarque:registrar"]) });
-    expect(rotulosMenu()).toEqual(["Saídas", "Rastreamento"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento"]);
     expect(screen.getByRole("button", { name: /^Conta de / })).toBeInTheDocument();
   });
 
   it("usa as permissões, não o código do perfil: perfil personalizado com pessoas:ver vê Equipe", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("ESCALA_BC", ["manifesto:ver", "pessoas:ver"]) });
-    expect(rotulosMenu()).toEqual(["Saídas", "Escala de guias", "Rastreamento", "Guias e equipe"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Escala de guias", "Guias e equipe"]);
   });
 
   it("admin vê todos os itens", () => {
     const todas = itensPermitidos(() => true);
     expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
-      "Saídas", "Conferência de embarque", "Escala de guias", "Fechamento e mensagens", "Importar reservas", "Integrações", "Rastreamento", "Rastreio do motorista",
+      "Listas de passageiros", "Saídas", "Conferência de embarque", "Rastreamento", "Escala de guias", "Rastreio do motorista",
+      "Importar reservas",
       "Passeios e pontos", "Guias e equipe",
       "Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias",
       "Frota e manutenção", "Checklist do veículo",
-      "Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes", "Biblioteca", "Gestores de IA",
-      "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Meu perfil",
+      "Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes",
+      "Gestores de IA", "Biblioteca",
+      "Integrações", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Meu perfil",
     ]);
     // Módulos planejados só aparecem para quem administra usuários.
     expect(itensPermitidos((p) => p !== "usuarios:gerenciar").some((i) => i.planejado)).toBe(false);
@@ -41,7 +43,7 @@ describe("Rastreamento no menu", () => {
 
   it("o motorista vê o rastreio dele; quem só vê a lista não", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("MOTORISTA", ["manifesto:ver", "rastreio:transmitir"]) });
-    expect(rotulosMenu()).toEqual(["Saídas", "Rastreamento", "Rastreio do motorista"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Rastreio do motorista"]);
   });
 });
 

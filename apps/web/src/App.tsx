@@ -142,13 +142,14 @@ export function Rotas() {
           }
         />
         <Route
-          path="fechamento"
+          path="listas"
           element={
-            <Exige permissao="saidas:decidir">
+            <Exige permissao="manifesto:ver">
               <Fechamento />
             </Exige>
           }
         />
+        <Route path="fechamento" element={<Navigate to="/listas" replace />} />
         <Route
           path="escala"
           element={

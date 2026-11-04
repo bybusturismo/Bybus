@@ -18,7 +18,8 @@ export async function rotasFechamento(app: FastifyInstance, { db, config, cofre 
   const decidir = { preHandler: exigir(config, "saidas:decidir") };
 
   /** Saídas de uma data (padrão: amanhã) com a situação da lista e das mensagens. */
-  app.get("/api/fechamento", decidir, async (req) => {
+  // Ver as listas e a situação da automação: quem vê a lista de passageiros. Fechar e reenviar: só quem decide a saída.
+  app.get("/api/fechamento", { preHandler: exigir(config, "manifesto:ver") }, async (req) => {
     const q = z.object({ data: dataIso.optional() }).parse(req.query);
     const data = q.data ?? agoraSp().amanha;
     return {

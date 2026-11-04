@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSessao } from "../sessao/Sessao";
 import { Link } from "react-router-dom";
 import { api, mensagemDeErro, qs } from "../api/cliente";
 import type { MensagemFila, SituacaoFechamento } from "../api/tipos";
@@ -74,8 +75,20 @@ function Mensagens({ saidaId, aoFechar }: { saidaId: string; aoFechar: () => voi
   );
 }
 
+/** Prévia da lista (mesmo texto que vai para o grupo, em ordem de embarque). */
+function PreviaLista({ saidaId }: { saidaId: string }) {
+  const r = useCarregar((s) => api.get<{ texto: string }>(`/api/saidas/${saidaId}/texto-lista`, s), [saidaId]);
+  if (r.carregando && !r.dados) return <Carregando />;
+  if (r.erro) return <ErroCarga mensagem={r.erro} tentarDeNovo={r.recarregar} />;
+  return <pre className="listas__previa">{r.dados?.texto}</pre>;
+}
+
+/** Central das listas de passageiros (pedido do dono, 04/11: o campo principal para a automação). */
 export function Fechamento() {
   const notificar = useNotificar();
+  const { pode } = useSessao();
+  const podeDecidir = pode("saidas:decidir");
+  const [aberta, setAberta] = useState<string | null>(null);
   const [data, setData] = useState(() => somarDias(hojeIso(), 1));
   const sit = useCarregar((s) => api.get<SituacaoFechamento>(`/api/fechamento${qs({ data })}`, s), [data]);
   const [texto, setTexto] = useState<{ titulo: string; texto: string } | null>(null);
@@ -113,13 +126,24 @@ export function Fechamento() {
     <div className="pagina">
       <div className="pagina__cabecalho">
         <div>
-          <h1>Fechamento e mensagens</h1>
+          <h1>Listas de passageiros</h1>
           <p className="pagina__descricao">
             A lista da véspera fecha {s?.automatico ? `sozinha às ${s.horaFechamento}` : "pelo botão (fechamento automático desligado)"}, em ordem de embarque, e cada titular recebe a confirmação. Venda depois disso gera um adendo.
           </p>
         </div>
         <div className="campo campo--linha"><label htmlFor="fech-data">Data do passeio</label><input id="fech-data" type="date" value={data} onChange={(e) => setData(e.target.value)} /></div>
       </div>
+      {s && (
+        <section className="cartao listas__automacao" aria-label="Automação da lista">
+          <h2>Automação</h2>
+          <ul>
+            <li><strong>Fechamento:</strong> {s.automatico ? `automático às ${s.horaFechamento} da véspera` : "manual (automático desligado)"}</li>
+            <li><strong>Grupo do WhatsApp:</strong> {s.whatsapp.grupoConfigurado ? "a lista vai sozinha para o grupo" : "não configurado — use “Copiar texto”"}</li>
+            <li><strong>Confirmação para cada titular:</strong> enviada ao fechar{s.whatsapp.envioReal ? "" : " (simulada)"}</li>
+            <li><strong>Listas desta data:</strong> {s.saidas.filter((x) => x.listaFechadaEm).length} fechada(s) de {s.saidas.length}</li>
+          </ul>
+        </section>
+      )}
       {s && !s.whatsapp.envioReal && (
         <Aviso tipo="info" titulo="WhatsApp em modo simulado">
           As mensagens são registradas mas não saem. Para enviar de verdade é preciso contratar e configurar o provedor (ver o plano da Fase 2).{s.whatsapp.grupoConfigurado ? "" : " O grupo da lista também não está configurado: use “Copiar texto” e cole no grupo."}
@@ -151,16 +175,21 @@ export function Fechamento() {
                   {Object.entries(x.mensagens).map(([k, n]) => <span key={k}>{n} {ROTULO_STATUS[k]?.toLowerCase() ?? k}</span>)}
                 </div>
                 <div className="barra-acoes">
-                  <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void verTexto(x.saidaId, x.passeio)}>Ver texto da lista</button>
+                  <button type="button" className="botao botao--secundario botao--pequeno" aria-expanded={aberta === x.saidaId} onClick={() => setAberta((a) => (a === x.saidaId ? null : x.saidaId))}>
+                    {aberta === x.saidaId ? "Esconder lista" : "Ver lista"}
+                  </button>
+                  <Link className="botao botao--secundario botao--pequeno" to={`/saidas/${x.saidaId}`}>Abrir / imprimir</Link>
+                  <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void verTexto(x.saidaId, x.passeio)}>Texto para o WhatsApp</button>
                   {x.naoConferidas > 0 && <Link className="botao botao--secundario botao--pequeno" to="/conferencia">Conferir pendências</Link>}
-                  {(!fechada || x.depoisDoFechamento > 0) && (
+                  {podeDecidir && (!fechada || x.depoisDoFechamento > 0) && (
                     <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado === x.saidaId}
                       onClick={() => setConfirmar({ saidaId: x.saidaId, passeio: x.passeio, adendo: fechada, titulares: fechada ? x.depoisDoFechamento : x.reservas })}>
                       {fechada ? "Gerar adendo" : "Fechar lista agora"}
                     </button>
                   )}
-                  <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setMensagensDe(x.saidaId)}>Mensagens</button>
+                  {podeDecidir && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setMensagensDe(x.saidaId)}>Mensagens</button>}
                 </div>
+                {aberta === x.saidaId && <PreviaLista saidaId={x.saidaId} />}
               </li>
             );
           })}

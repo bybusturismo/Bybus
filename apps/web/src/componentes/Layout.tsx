@@ -11,7 +11,8 @@ import { MenuTopo } from "./MenuTopo";
 import { TuristinhaFlutuante } from "./TuristinhaFlutuante";
 import { BotaoTema } from "./Tema";
 
-export const AREAS = ["Passeios", "Cadastros", "Administrativo", "Marketing", "Biblioteca", "Gestão", "Configurações"] as const;
+// Menu organizado pela rotina (pedido do dono, 04/11/2026): operação do dia primeiro, depois reservas, cadastros e gestão.
+export const AREAS = ["Operação", "Reservas", "Cadastros", "Financeiro", "Frota", "Marketing", "Gestão", "Configurações"] as const;
 export type Area = (typeof AREAS)[number];
 
 export interface ItemMenu {
@@ -27,34 +28,42 @@ export interface ItemMenu {
 }
 
 export const ITENS_MENU: ItemMenu[] = [
-  { para: "/saidas", rotulo: "Saídas", icone: "onibus", area: "Passeios", permissao: "manifesto:ver", atalho: "s" },
-  { para: "/conferencia", rotulo: "Conferência de embarque", icone: "check", area: "Passeios", permissao: "reservas:editar", atalho: "k" },
-  { para: "/escala", rotulo: "Escala de guias", icone: "calendario", area: "Passeios", permissao: "pessoas:ver", atalho: "l" },
-  { para: "/fechamento", rotulo: "Fechamento e mensagens", icone: "mensagem", area: "Passeios", permissao: "saidas:decidir", atalho: "m" },
-  { para: "/importar", rotulo: "Importar reservas", icone: "importar", area: "Passeios", permissao: "importacoes:executar", atalho: "i" },
-  { para: "/integracoes", rotulo: "Integrações", icone: "conexao", area: "Configurações", permissao: "importacoes:executar", atalho: "n" },
-  { para: "/rastreamento", rotulo: "Rastreamento", icone: "mapa", area: "Passeios", permissao: "manifesto:ver", atalho: "w" },
-  { para: "/motorista", rotulo: "Rastreio do motorista", icone: "pino", area: "Passeios", permissao: "rastreio:transmitir", atalho: "y" },
+  // Operação do dia
+  { para: "/listas", rotulo: "Listas de passageiros", icone: "lista", area: "Operação", permissao: "manifesto:ver", atalho: "m" },
+  { para: "/saidas", rotulo: "Saídas", icone: "onibus", area: "Operação", permissao: "manifesto:ver", atalho: "s" },
+  { para: "/conferencia", rotulo: "Conferência de embarque", icone: "check", area: "Operação", permissao: "reservas:editar", atalho: "k" },
+  { para: "/rastreamento", rotulo: "Rastreamento", icone: "mapa", area: "Operação", permissao: "manifesto:ver", atalho: "w" },
+  { para: "/escala", rotulo: "Escala de guias", icone: "calendario", area: "Operação", permissao: "pessoas:ver", atalho: "l" },
+  { para: "/motorista", rotulo: "Rastreio do motorista", icone: "pino", area: "Operação", permissao: "rastreio:transmitir", atalho: "y" },
+  // Reservas
+  { para: "/importar", rotulo: "Importar reservas", icone: "importar", area: "Reservas", permissao: "importacoes:executar", atalho: "i" },
+  // Cadastros
   { para: "/passeios", rotulo: "Passeios e pontos", icone: "bilhete", area: "Cadastros", permissao: "produtos:gerenciar", atalho: "p" },
   { para: "/equipe", rotulo: "Guias e equipe", icone: "cracha", area: "Cadastros", permissao: "pessoas:ver", atalho: "e" },
   { para: "/em-breve/passageiros", rotulo: "Passageiros e clientes", icone: "pessoas", area: "Cadastros", planejado: true },
   { para: "/em-breve/empresas", rotulo: "Empresas parceiras", icone: "predio", area: "Cadastros", planejado: true },
-  { para: "/financeiro", rotulo: "Resumo financeiro", icone: "grafico", area: "Administrativo", permissao: "financeiro:ver", atalho: "q" },
-  { para: "/financeiro/pagar", rotulo: "Contas a pagar", icone: "dinheiro", area: "Administrativo", permissao: "financeiro:ver" },
-  { para: "/financeiro/receber", rotulo: "Contas a receber", icone: "dinheiro", area: "Administrativo", permissao: "financeiro:ver" },
-  { para: "/financeiro/extrato", rotulo: "Extrato e conciliação", icone: "importar", area: "Administrativo", permissao: "financeiro:ver" },
-  { para: "/financeiro/cartoes", rotulo: "Cartões de crédito", icone: "cartao", area: "Administrativo", permissao: "financeiro:ver" },
-  { para: "/financeiro/contas", rotulo: "Contas e categorias", icone: "predio", area: "Administrativo", permissao: "financeiro:ver" },
-  { para: "/frota", rotulo: "Frota e manutenção", icone: "onibus", area: "Administrativo", permissao: "frota:ver" },
-  { para: "/frota/checklist", rotulo: "Checklist do veículo", icone: "check", area: "Administrativo", permissao: "frota:checklist" },
+  // Financeiro
+  { para: "/financeiro", rotulo: "Resumo financeiro", icone: "grafico", area: "Financeiro", permissao: "financeiro:ver", atalho: "q" },
+  { para: "/financeiro/pagar", rotulo: "Contas a pagar", icone: "dinheiro", area: "Financeiro", permissao: "financeiro:ver" },
+  { para: "/financeiro/receber", rotulo: "Contas a receber", icone: "dinheiro", area: "Financeiro", permissao: "financeiro:ver" },
+  { para: "/financeiro/extrato", rotulo: "Extrato e conciliação", icone: "importar", area: "Financeiro", permissao: "financeiro:ver" },
+  { para: "/financeiro/cartoes", rotulo: "Cartões de crédito", icone: "cartao", area: "Financeiro", permissao: "financeiro:ver" },
+  { para: "/financeiro/contas", rotulo: "Contas e categorias", icone: "predio", area: "Financeiro", permissao: "financeiro:ver" },
+  // Frota
+  { para: "/frota", rotulo: "Frota e manutenção", icone: "onibus", area: "Frota", permissao: "frota:ver" },
+  { para: "/frota/checklist", rotulo: "Checklist do veículo", icone: "check", area: "Frota", permissao: "frota:checklist" },
+  // Marketing
   { para: "/marketing/canais", rotulo: "Vendas por canal", icone: "grafico", area: "Marketing", permissao: "marketing:ver", atalho: "v" },
   { para: "/marketing/origem", rotulo: "Origem dos clientes", icone: "mapa", area: "Marketing", permissao: "marketing:ver", atalho: "o" },
   { para: "/marketing/campanhas", rotulo: "Campanhas", icone: "megafone", area: "Marketing", permissao: "marketing:ver", atalho: "j" },
   { para: "/marketing/conteudo", rotulo: "Calendário de conteúdo", icone: "calendario", area: "Marketing", permissao: "marketing:ver", atalho: "t" },
   { para: "/marketing/avaliacoes", rotulo: "Avaliações", icone: "estrela", area: "Marketing", permissao: "marketing:ver", atalho: "z" },
   { para: "/marketing/afiliados", rotulo: "Afiliados e QR codes", icone: "pessoas", area: "Marketing", permissao: "marketing:ver", atalho: "h" },
-  { para: "/biblioteca", rotulo: "Biblioteca", icone: "lista", area: "Biblioteca", permissao: "biblioteca:ver", atalho: "b" },
+  // Gestão
   { para: "/gestores", rotulo: "Gestores de IA", icone: "faisca", area: "Gestão", permissao: "ia:gestores", atalho: "d" },
+  { para: "/biblioteca", rotulo: "Biblioteca", icone: "lista", area: "Gestão", permissao: "biblioteca:ver", atalho: "b" },
+  // Configurações (página própria, aberta pela engrenagem do topo)
+  { para: "/integracoes", rotulo: "Integrações", icone: "conexao", area: "Configurações", permissao: "importacoes:executar", atalho: "n" },
   { para: "/pracas", rotulo: "Praças", icone: "pino", area: "Configurações", permissao: "unidades:gerenciar", atalho: "r" },
   { para: "/usuarios", rotulo: "Usuários", icone: "usuarios", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "u" },
   { para: "/perfis", rotulo: "Perfis de acesso", icone: "escudo", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "f" },

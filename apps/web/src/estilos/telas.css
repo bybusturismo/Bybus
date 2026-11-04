@@ -2353,3 +2353,32 @@
     gap: 2px;
   }
 }
+/* ---------- Listas de passageiros ---------- */
+.listas__automacao {
+  padding: var(--esp-3) var(--esp-4);
+}
+.listas__automacao h2 {
+  margin: 0 0 var(--esp-2);
+  font-size: var(--texto-md);
+}
+.listas__automacao ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--esp-1) var(--esp-4);
+  font-size: var(--texto-sm);
+}
+.listas__previa {
+  margin: var(--esp-2) 0 0;
+  padding: var(--esp-3);
+  max-height: 420px;
+  overflow: auto;
+  background: var(--cor-superficie-2);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  font-family: var(--fonte-mono);
+  font-size: var(--texto-xs);
+  white-space: pre-wrap;
+}
