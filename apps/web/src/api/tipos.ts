@@ -31,6 +31,8 @@ export const PERMISSOES = [
   "marketing:gerenciar",
   "biblioteca:ver",
   "biblioteca:editar",
+  "ia:usar",
+  "ia:gestores",
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 
@@ -419,4 +421,93 @@ export interface SituacaoFechamento {
 export interface MensagemFila {
   id: string; tipo: string; status: string; provedor: string | null; erro: string | null; criadoEm: string; enviadaEm: string | null;
   titular: string | null; destino: string | null; texto: string | null;
+}
+
+// ---------- IA: gestores e assistente (apps/api/src/rotas/ia.ts) ----------
+
+export const IDS_GESTORES = ["comercial", "logistico", "frotas", "administrativo", "marketing", "juridico", "rh", "tecnologia"] as const;
+export type IdGestor = (typeof IDS_GESTORES)[number];
+
+export interface EstadoIa {
+  ligada: boolean;
+  assistente: boolean;
+  gestores: boolean;
+  /** Só para quem tem ia:gestores. */
+  modelo?: string;
+  modeloSintese?: string;
+  limiteMesUsd?: number;
+  gastoMesUsd?: number;
+  avaliacaoDiaria?: boolean;
+  horario?: string;
+  emAndamento?: boolean;
+}
+
+export type NivelIa = "baixa" | "media" | "alta";
+export interface ItemIa {
+  titulo: string;
+  detalhe: string;
+  gravidade?: NivelIa;
+  impacto?: "baixo" | "medio" | "alto";
+  evidencia?: string;
+}
+export type StatusAcaoIa = "SUGERIDA" | "APROVADA" | "CONCLUIDA" | "DESCARTADA";
+export interface AcaoIa {
+  id: string;
+  avaliacaoId?: string;
+  titulo: string;
+  detalhe: string;
+  area: IdGestor;
+  prioridade: NivelIa;
+  prazoDias: number | null;
+  status: StatusAcaoIa;
+  decididaEm: string | null;
+  observacao: string | null;
+}
+export interface ParecerAvaliacao {
+  achados: ItemIa[];
+  vulnerabilidades: ItemIa[];
+  oportunidades: ItemIa[];
+  acoes_sugeridas: Array<{ titulo: string; detalhe: string; prioridade: NivelIa; prazo_dias: number; area: IdGestor }>;
+}
+export interface ParecerDebate {
+  comentarios: Array<{ gestor: IdGestor; tipo: "concordo" | "complemento" | "discordo"; texto: string }>;
+  riscos_cruzados: Array<{ titulo: string; detalhe: string; areas: IdGestor[] }>;
+  acoes_sugeridas: ParecerAvaliacao["acoes_sugeridas"];
+}
+export interface SinteseIa {
+  resumo: string;
+  vulnerabilidades: ItemIa[];
+  oportunidades: ItemIa[];
+  acoes_sugeridas: ParecerAvaliacao["acoes_sugeridas"];
+  pontos_de_discordia: string[];
+}
+export type StatusAvaliacaoIa = "EXECUTANDO" | "CONCLUIDA" | "PARCIAL" | "FALHA" | "LIMITE";
+export interface AvaliacaoResumoIa {
+  id: string;
+  dataRef: string;
+  origem: "AUTOMATICA" | "MANUAL";
+  status: StatusAvaliacaoIa;
+  modelo: string;
+  modeloSintese: string;
+  iniciadaEm: string;
+  concluidaEm: string | null;
+  erro: string | null;
+  custoUsd: number;
+  resumo: string | null;
+  acoes: Partial<Record<StatusAcaoIa, number>>;
+}
+export interface AvaliacaoDetalheIa extends Omit<AvaliacaoResumoIa, "resumo" | "acoes"> {
+  retratos: Partial<Record<IdGestor, { alertas?: string[] } & Record<string, unknown>>> | null;
+  sintese: SinteseIa | null;
+  pareceres: Array<{ gestor: IdGestor; rodada: 1 | 2; conteudo: ParecerAvaliacao | ParecerDebate }>;
+  acoes: AcaoIa[];
+}
+export interface RetratosIa {
+  data: string;
+  retratos: Record<IdGestor, { alertas?: string[] } & Record<string, unknown>>;
+}
+export interface RespostaAssistente {
+  resposta: string;
+  ferramentas: string[];
+  custoUsd: number;
 }

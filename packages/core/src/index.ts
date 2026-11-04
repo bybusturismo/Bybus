@@ -16,3 +16,7 @@ export * from "./frota/index.js";
 export * from "./marketing/marketing.js";
 export * from "./biblioteca/markdown.js";
 export * from "./biblioteca/arvore.js";
+export * from "./ia/gestores.js";
+export * from "./ia/custo.js";
+export * from "./ia/agenda.js";
+export * from "./ia/lgpd.js";

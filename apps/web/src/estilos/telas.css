@@ -1680,3 +1680,227 @@
   border-color: var(--cor-primaria);
   background: var(--cor-primaria-suave);
 }
+/* ---------- Turistinha (painel lateral do assistente de IA) ---------- */
+.app--turistinha {
+  grid-template-columns: var(--largura-menu) minmax(0, 1fr) var(--largura-turistinha, 360px);
+  grid-template-areas:
+    "topo topo topo"
+    "menu conteudo painel";
+}
+.botao--turistinha {
+  gap: var(--esp-1);
+}
+.botao--turistinha-ativo {
+  background: var(--cor-primaria-suave);
+}
+.mascote {
+  display: block;
+  flex: none;
+}
+.turistinha {
+  grid-area: painel;
+  position: sticky;
+  top: var(--altura-topo);
+  height: calc(100vh - var(--altura-topo));
+  display: flex;
+  flex-direction: column;
+  background: var(--cor-superficie);
+  border-left: 1px solid var(--cor-borda);
+  min-width: 0;
+}
+.turistinha__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
+  border-bottom: 1px solid var(--cor-borda);
+}
+.turistinha__titulo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+.turistinha__titulo span {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-fraco);
+}
+.turistinha__mensagens {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+.turistinha__boas-vindas p {
+  margin-top: 0;
+  color: var(--cor-texto-fraco);
+}
+.turistinha__sugestoes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  align-items: flex-start;
+}
+.turistinha__balao {
+  max-width: 92%;
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--raio-lg);
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie-2);
+}
+.turistinha__balao p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.turistinha__balao--usuario {
+  align-self: flex-end;
+  background: var(--cor-primaria-suave);
+}
+.turistinha__balao--erro {
+  border-color: var(--cor-perigo);
+  background: var(--cor-perigo-fundo);
+}
+.turistinha__quem {
+  display: block;
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-fraco);
+}
+.turistinha__form {
+  display: flex;
+  gap: var(--esp-2);
+  align-items: flex-end;
+  padding: var(--esp-3) var(--esp-4) 0;
+  border-top: 1px solid var(--cor-borda);
+}
+.turistinha__form textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+}
+.turistinha__rodape {
+  margin: 0;
+  padding: var(--esp-2) var(--esp-4) var(--esp-3);
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-fraco);
+}
+@media (max-width: 899px) {
+  .app--turistinha {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "topo"
+      "conteudo";
+  }
+  /* No celular não há espaço ao lado: o painel ocupa a tela abaixo do topo enquanto estiver aberto. */
+  .turistinha {
+    position: fixed;
+    inset: var(--altura-topo) 0 0 0;
+    height: auto;
+    z-index: 45;
+    border-left: 0;
+  }
+  .botao--turistinha span {
+    display: none;
+  }
+}
+
+/* ---------- Gestores de IA ---------- */
+.ia-estado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2) var(--esp-4);
+  align-items: center;
+  color: var(--cor-texto-fraco);
+  font-size: var(--texto-sm);
+  margin-bottom: var(--esp-4);
+}
+.ia-grade {
+  display: grid;
+  gap: var(--esp-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  margin-bottom: var(--esp-5);
+}
+.ia-grade .cartao {
+  margin-bottom: 0;
+}
+.ia-lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+.ia-item {
+  padding-bottom: var(--esp-3);
+  border-bottom: 1px solid var(--cor-borda);
+}
+.ia-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.ia-item__titulo {
+  font-weight: var(--peso-medio);
+}
+.ia-item__detalhe,
+.ia-item__meta {
+  margin: var(--esp-1) 0 0;
+  color: var(--cor-texto-fraco);
+  font-size: var(--texto-sm);
+}
+.ia-item__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  margin-top: var(--esp-2);
+}
+.ia-resumo {
+  font-size: var(--texto-lg);
+  line-height: 1.5;
+  margin: 0;
+}
+.ia-seletor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-4);
+}
+.ia-fala {
+  padding: var(--esp-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-lg);
+  background: var(--cor-superficie-2);
+}
+.ia-fala__quem {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-fraco);
+  margin: 0 0 var(--esp-1);
+}
+.ia-fala p:last-child {
+  margin-bottom: 0;
+}
+.etiqueta--grav-alta {
+  color: var(--cor-perigo);
+  background: var(--cor-perigo-fundo);
+}
+.etiqueta--grav-media {
+  color: var(--cor-atencao);
+  background: var(--cor-atencao-fundo);
+}
+.etiqueta--grav-baixa,
+.etiqueta--ia-aprovada {
+  color: var(--cor-info);
+  background: var(--cor-info-fundo);
+}
+.etiqueta--ia-concluida {
+  color: var(--cor-sucesso);
+  background: var(--cor-sucesso-fundo);
+}

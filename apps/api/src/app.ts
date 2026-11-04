@@ -20,6 +20,8 @@ import { rotasPessoas } from "./rotas/pessoas.js";
 import { rotasFrota } from "./rotas/frota.js";
 import { rotasMarketing } from "./rotas/marketing.js";
 import { rotasBiblioteca } from "./rotas/biblioteca.js";
+import { rotasIa } from "./rotas/ia.js";
+import { agendarAvaliacaoIa } from "./servicos/ia/agendamento.js";
 import { Cofre } from "./seguranca/cripto.js";
 import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
 
@@ -100,9 +102,11 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasFrota(app, ctx);
   await rotasMarketing(app, ctx);
   await rotasBiblioteca(app, ctx);
+  await rotasIa(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);
+  const pararIa = agendarAvaliacaoIa(db, config, app.log);
 
-  return { app, fechar: async () => { pararPaytour(); pararFechamento(); await app.close(); await pool.end(); } };
+  return { app, fechar: async () => { pararPaytour(); pararFechamento(); pararIa(); await app.close(); await pool.end(); } };
 }
