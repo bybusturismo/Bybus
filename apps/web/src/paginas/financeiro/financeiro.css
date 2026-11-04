@@ -1,0 +1,91 @@
+/* Telas do financeiro. Cores sempre pelos tokens do tema; o sinal do valor nunca depende só da cor. */
+.fin-valor {
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.fin-valor--entrada {
+  color: var(--cor-sucesso);
+}
+.fin-valor--saida {
+  color: var(--cor-perigo);
+}
+.fin-total {
+  font-weight: var(--peso-medio);
+  background: var(--cor-superficie-2);
+}
+.fin-sub td:first-child {
+  padding-left: var(--esp-6);
+}
+.fin-grupo td {
+  font-weight: var(--peso-medio);
+  border-top: 1px solid var(--cor-borda);
+}
+.fin-grade {
+  display: grid;
+  gap: var(--esp-5);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  align-items: start;
+}
+.fin-grade > .cartao {
+  margin-bottom: 0;
+}
+.fin-semana--atual td {
+  background: var(--cor-primaria-suave);
+}
+.fin-sugestao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-1) 0;
+  font-size: var(--texto-sm);
+}
+.fin-sugestao__texto {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.fin-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1);
+}
+.fin-meses {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+.fin-meses__nome {
+  min-width: 9em;
+  text-align: center;
+  font-weight: var(--peso-medio);
+}
+.fin-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--esp-2);
+}
+.fin-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--esp-2);
+}
+.fin-oculto-visual {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.fin-abas {
+  margin-bottom: var(--esp-5);
+}
+@media (max-width: 720px) {
+  .fin-esconder-celular {
+    display: none;
+  }
+}

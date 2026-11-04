@@ -13,6 +13,12 @@ import { Importar } from "./paginas/importar/Importar";
 import { Integracoes } from "./paginas/Integracoes";
 import { EmBreve } from "./paginas/EmBreve";
 import { Escala } from "./paginas/Escala";
+import { Cartoes } from "./paginas/financeiro/Cartoes";
+import { ContasCategorias } from "./paginas/financeiro/ContasCategorias";
+import { Extrato } from "./paginas/financeiro/Extrato";
+import { Financeiro } from "./paginas/financeiro/Financeiro";
+import { Lancamentos } from "./paginas/financeiro/Lancamentos";
+import { Resumo } from "./paginas/financeiro/Resumo";
 import { Login } from "./paginas/Login";
 import { TelaPendencia } from "./paginas/Pendencias";
 import { Embarque } from "./paginas/saida/Embarque";
@@ -91,6 +97,21 @@ export function Rotas() {
             </Exige>
           }
         />
+        <Route
+          path="financeiro"
+          element={
+            <Exige permissao="financeiro:ver">
+              <Financeiro />
+            </Exige>
+          }
+        >
+          <Route index element={<Resumo />} />
+          <Route path="pagar" element={<Lancamentos tipo="PAGAR" />} />
+          <Route path="receber" element={<Lancamentos tipo="RECEBER" />} />
+          <Route path="extrato" element={<Extrato />} />
+          <Route path="cartoes" element={<Cartoes />} />
+          <Route path="contas" element={<ContasCategorias />} />
+        </Route>
         <Route
           path="em-breve/:modulo"
           element={
