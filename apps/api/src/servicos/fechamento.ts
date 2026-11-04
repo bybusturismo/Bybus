@@ -79,13 +79,19 @@ export function agendarFechamento(db: Db, cofre: Cofre, config: Config, log: { e
     if (rodando) return;
     rodando = true;
     try {
-      const { amanha, hora } = agoraSp();
-      if (hora >= config.FECHAMENTO_HORA) {
+      const { hoje, amanha, hora } = agoraSp();
+      // Depois das 21h fecha a de amanhã; se o servidor ficou fora nessa hora, ainda fecha a de hoje até as 05h.
+      const data = hora >= config.FECHAMENTO_HORA ? amanha : hora < "05:00" ? hoje : null;
+      if (data) {
         const abertas = await db.select({ id: saidas.id }).from(saidas).innerJoin(passeios, eq(passeios.id, saidas.passeioId))
-          .where(and(eq(saidas.data, amanha), isNull(saidas.listaFechadaEm), ne(saidas.status, "CANCELADA"), eq(passeios.ativo, true)));
+          .where(and(eq(saidas.data, data), isNull(saidas.listaFechadaEm), ne(saidas.status, "CANCELADA"), eq(passeios.ativo, true)));
         for (const s of abertas) {
-          const r = await fecharLista(db, cofre, config, s.id, { usuarioId: null, automatico: true });
-          log.info({ saida: s.id, passageiros: r.resumo.passageiros }, "Lista fechada automaticamente");
+          try {
+            const r = await fecharLista(db, cofre, config, s.id, { usuarioId: null, automatico: true });
+            log.info({ saida: s.id, passageiros: r.resumo.passageiros }, "Lista fechada automaticamente");
+          } catch (e) {
+            log.error({ saida: s.id, erro: e instanceof Error ? e.message : e }, "Falha ao fechar lista");
+          }
         }
       }
       const pendentes = await db.select({ id: mensagens.id }).from(mensagens).where(and(eq(mensagens.status, "PENDENTE"), gte(mensagens.criadoEm, new Date(Date.now() - 86_400_000)))).limit(50);
