@@ -581,6 +581,9 @@ describe("sincronização com a API da Paytour (servidor simulado)", () => {
         res.statusCode = ok ? 200 : 401;
         return res.end(JSON.stringify(ok ? { access_token: "tok-1", expires_in: Math.floor(Date.now() / 1000) + 3600, token_type: "bearer" } : { message: "Unauthorized.", code: 1 }));
       }
+      if (req.url?.startsWith("/v2/afiliados") && req.headers.authorization === "Bearer tok-1") {
+        return res.end(JSON.stringify({ info: { total_paginas: 1 }, itens: [{ id: "12823", nome: "TripAdvisor interno", empresa: null }] }));
+      }
       if (req.url?.startsWith("/v2/pedidos") && req.headers.authorization === "Bearer tok-1") {
         res.statusCode = 201; // a documentação mostra 201 na listagem
         return res.end(JSON.stringify({ info: { total: 1, pagina: 1, total_paginas: 1, por_pagina: 100 }, itens: [pedido()] }));

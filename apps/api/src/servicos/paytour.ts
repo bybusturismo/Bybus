@@ -107,7 +107,8 @@ export async function sincronizarPaytour(
       if (!r.itens?.length || pagina >= (r.info?.total_paginas ?? 1)) break;
     }
 
-    const reservas = pedidos.flatMap((p) => pedidoPaytourParaReservas(p));
+    const afiliados = await carregarAfiliados(cliente);
+    const reservas = pedidos.flatMap((p) => pedidoPaytourParaReservas(p, afiliados));
     const { previa, resumo } = reservas.length
       ? await importarReservas(db, cofre, reservas, { confirmar: true, origem: "PAYTOUR_API", usuario: USUARIO_INTEGRACAO, anonimizar: deveAnonimizar(config) })
       : { previa: [], resumo: { CRIAR: 0, ATUALIZAR: 0, CANCELAR: 0, IGNORAR: 0 } };
@@ -120,6 +121,20 @@ export async function sincronizarPaytour(
     await gravarEstado(db, { cursor: estado?.cursor ?? null, ultimoResultado: estado?.ultimoResultado ?? null, ultimoErro: e instanceof Error ? e.message : String(e) });
     throw e;
   }
+}
+
+/**
+ * Nome de cada afiliado (id → "nome empresa"): o afiliado "TripAdvisor interno" marca as cópias da Viator
+ * lançadas à mão na Paytour. Só o nome é usado (para reconhecer o canal); nada é gravado.
+ */
+async function carregarAfiliados(cliente: ClientePaytour): Promise<Record<string, string>> {
+  const mapa: Record<string, string> = {};
+  for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
+    const r = await cliente.get<{ info?: { total_paginas?: number }; itens?: Array<{ id: string | number; nome?: string | null; empresa?: string | null }> }>("/afiliados", { page: pagina, perPage: 100 });
+    for (const a of r.itens ?? []) mapa[String(a.id)] = `${a.nome ?? ""} ${a.empresa ?? ""}`.trim();
+    if (!r.itens?.length || pagina >= (r.info?.total_paginas ?? 1)) break;
+  }
+  return mapa;
 }
 
 async function gravarEstado(db: Db, v: { cursor: string | null; ultimoResultado: unknown; ultimoErro: string | null }) {
