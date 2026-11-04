@@ -1623,6 +1623,11 @@
   gap: var(--esp-2);
   flex-wrap: wrap;
 }
+.fechamento__topo > .etiqueta {
+  flex: none;
+  align-self: flex-start;
+  white-space: nowrap;
+}
 .fechamento__topo h2 {
   font-size: var(--texto-lg);
   margin: 0;

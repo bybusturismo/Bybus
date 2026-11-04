@@ -5,7 +5,7 @@
  */
 import {
   PONTOS_TODA_ILHA, detectarDuplicatas, documentoValido, formatarCpf, lerCsvPaytour, lerEmailBokun, mascararDocumento,
-  montarManifesto, normalizarDocumento, type Canal, type Categoria, type ReservaImportada, type TipoDocumento,
+  montarManifesto, normalizarDocumento, textoConfirmacao, textoListaGrupo, type Canal, type Categoria, type ReservaImportada, type TipoDocumento,
 } from "@bybus/core";
 
 /** Catálogo de permissões (espelha apps/api/src/seguranca/permissoes.ts). */
@@ -89,6 +89,17 @@ const pessoas: Pessoa[] = [
   { ...pessoaBase, id: "pe-fred", nome: "Motorista Fictício Fred", papeis: ["MOTORISTA", "COLABORADOR"], unidadeId: "un-bc", cnhCategoria: "E", cnhValidade: dataMais(25) },
 ];
 const saidas: Saida[] = [];
+const conferenciaDemo = new Map<string, { em: string; por: string }>();
+const fechamentoDemo = new Map<string, { em: string; versao: number }>();
+const mensagensDemo: Array<{ id: string; tipo: string; status: string; provedor: string; erro: string | null; criadoEm: string; enviadaEm: string | null; titular: string; destino: string | null; texto: string; saidaId: string; reservaId: string }> = [];
+/** Pagamento e origem fictícios e estáveis por reserva. */
+function extrasDemo(r: { id: string; canal: string; canalOrigem: string | null }) {
+  const n = [...r.id].reduce((t, ch) => t + ch.charCodeAt(0), 0);
+  const canal = r.canalOrigem ?? r.canal;
+  if (canal !== "PAYTOUR" && canal !== "BALCAO") return { pagamento: "PAGO" as const, formaPagamento: `Pago na ${canal === "VIATOR" ? "Viator" : canal === "DECOLAR" ? "Decolar" : "Civitatis"}`, origemCliente: ["ARG", "USA", "CHL", "URY"][n % 4]! };
+  const opcoes = [{ pagamento: "PAGO" as const, formaPagamento: "Pix" }, { pagamento: "PAGO" as const, formaPagamento: "Cartão" }, { pagamento: "A_PAGAR" as const, formaPagamento: "Pagar no dia" }];
+  return { ...opcoes[n % 3]!, origemCliente: ["SP", "RS", "PR", "SC", "MG", "RJ"][n % 6]! };
+}
 const escalaDemo = new Map<string, { guiaId: string | null; motoristaId: string | null; origem: "ESCALA" | "TROCA"; motivo: string | null; publicada: boolean }>();
 const motoristaPadraoDemo: Record<string, string | null> = { "toda-ilha": "pe-davi" };
 // Mês atual do City Tour: Ana e Bia se revezam; amanhã houve uma troca por força maior.
@@ -451,6 +462,83 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     auditar("ESCALA_TROCA", "passeio", ps.id);
     return { ok: true };
   }
+  // Conferência, fechamento e mensagens (demonstração; WhatsApp sempre simulado).
+  if (metodo === "GET" && caminho === "/api/conferencia") {
+    exigir("reservas:editar");
+    const de = q.get("de") ?? dataMais(0), ate = q.get("ate") ?? dataMais(7), sit = q.get("situacao") ?? "PENDENTE", uni = q.get("unidadeId");
+    return reservas.filter((r) => r.status === "CONFIRMADA").map((r) => ({ r, s: saidas.find((x) => x.id === r.saidaId)! }))
+      .filter(({ s }) => s && s.data >= de && s.data <= ate && podeUnidade(unidadeDaSaida(s)) && (!uni || unidadeDaSaida(s) === uni))
+      .map(({ r, s }) => {
+        const extra = extrasDemo(r);
+        const conf = conferenciaDemo.get(r.id);
+        const ponto = pontos.find((p) => p.id === r.pontoEmbarqueId) ?? null;
+        const meus = pax.filter((p) => p.reservaId === r.id);
+        const alertas = [!ponto ? "Sem ponto de embarque" : null, !r.contatoTelefone ? "Sem telefone" : null, extra.pagamento === "A_PAGAR" ? "Pagar no embarque" : null].filter((x): x is string => !!x);
+        return { id: r.id, saidaId: s.id, data: s.data, passeio: passeioDe(s.passeioId).nome, passeioId: s.passeioId, canal: r.canalOrigem ?? r.canal, codigoExterno: r.codigoExterno,
+          contatoNome: r.contatoNome, contatoTelefone: pode("manifesto:contatos") ? r.contatoTelefone : null, passageiros: meus.length,
+          categorias: meus.reduce<Record<string, number>>((m2, x) => ({ ...m2, [x.categoria]: (m2[x.categoria] ?? 0) + 1 }), {}),
+          ...extra, ponto: ponto ? { id: ponto.id, nome: ponto.nome, horario: ponto.horario, ehTransfer: ponto.ehTransfer } : null,
+          hospedagemInformada: null, pediuTransfer: !!ponto?.ehTransfer, informadoPeloClienteEm: null,
+          conferencia: conf ? "CONFERIDA" : "PENDENTE", conferidaEm: conf?.em ?? null, conferidaPor: conf?.por ?? null, linkGerado: false, alertas };
+      })
+      .filter((x) => sit === "TODAS" || x.conferencia === sit)
+      .sort((a, b) => a.data.localeCompare(b.data) || (a.ponto?.horario ?? "99").localeCompare(b.ponto?.horario ?? "99"));
+  }
+  if (metodo === "POST" && r(/^\/api\/reservas\/([^/]+)\/conferir$/)) {
+    exigir("reservas:editar");
+    const res = achar(reservas, m![1]!, "Reserva");
+    const pid = (c.pontoEmbarqueId as string | null | undefined) ?? res.pontoEmbarqueId;
+    if (!pid) throw new Erro(400, "PONTO_OBRIGATORIO", "Defina o ponto de embarque antes de conferir.");
+    res.pontoEmbarqueId = pid;
+    conferenciaDemo.set(res.id, { em: agoraIso(), por: sessao!.nome });
+    auditar("RESERVA_CONFERIDA", "reserva", res.id);
+    return { ok: true };
+  }
+  if (metodo === "POST" && r(/^\/api\/reservas\/([^/]+)\/link-embarque$/)) {
+    exigir("reservas:editar");
+    achar(reservas, m![1]!, "Reserva");
+    return { caminho: "/embarque/demonstracao-link-ficticio-0000", expiraEm: agoraIso() };
+  }
+  if (metodo === "GET" && caminho === "/api/fechamento") {
+    exigir("saidas:decidir");
+    const data = q.get("data") ?? dataMais(1);
+    return {
+      data, horaFechamento: "21:00", automatico: true, whatsapp: { provedor: "simulado", envioReal: false, grupoConfigurado: false },
+      saidas: saidas.filter((s) => s.data === data && s.status !== "CANCELADA" && podeUnidade(unidadeDaSaida(s))).map((s) => {
+        const rs = reservas.filter((r) => r.saidaId === s.id && r.status === "CONFIRMADA");
+        const f = fechamentoDemo.get(s.id);
+        const ms = mensagensDemo.filter((x) => x.saidaId === s.id);
+        return { saidaId: s.id, passeio: passeioDe(s.passeioId).nome, data: s.data, guia: s.guia, motorista: s.motorista, veiculo: s.veiculo,
+          listaFechadaEm: f?.em ?? null, versao: f?.versao ?? 0, reservas: rs.length, naoConferidas: rs.filter((r) => !conferenciaDemo.has(r.id)).length,
+          semPonto: rs.filter((r) => !r.pontoEmbarqueId).length, depoisDoFechamento: 0,
+          mensagens: ms.reduce<Record<string, number>>((acc, x) => ({ ...acc, [x.status]: (acc[x.status] ?? 0) + 1 }), {}) };
+      }),
+    };
+  }
+  if (r(/^\/api\/saidas\/([^/]+)\/(fechar|texto-lista)$/)) {
+    const { saida: s, passeio: ps, manifesto: man } = manifesto(m![1]!, false);
+    const extras = new Map(reservas.filter((x) => x.saidaId === s.id).map((x) => [x.id, extrasDemo(x)]));
+    if (metodo === "GET") { exigir("manifesto:ver"); return { texto: textoListaGrupo(man, { passeio: ps.nome, data: s.data, guia: s.guia, motorista: s.motorista, veiculo: s.veiculo, versao: Math.max(1, fechamentoDemo.get(s.id)?.versao ?? 1) }, extras) }; }
+    exigir("saidas:decidir");
+    const versao = (fechamentoDemo.get(s.id)?.versao ?? 0) + 1;
+    fechamentoDemo.set(s.id, { em: agoraIso(), versao });
+    for (const res of reservas.filter((x) => x.saidaId === s.id && x.status === "CONFIRMADA")) {
+      if (mensagensDemo.some((x) => x.reservaId === res.id && x.tipo === "CONFIRMACAO")) continue;
+      const ponto = pontos.find((p) => p.id === res.pontoEmbarqueId) ?? null;
+      mensagensDemo.push({ id: id("msg"), tipo: "CONFIRMACAO", status: res.contatoTelefone ? "SIMULADA" : "SEM_TELEFONE", provedor: "simulado", erro: null, criadoEm: agoraIso(), enviadaEm: null,
+        titular: res.contatoNome, destino: res.contatoTelefone, saidaId: s.id, reservaId: res.id,
+        texto: textoConfirmacao({ primeiroNome: res.contatoNome.split(" ")[0] ?? "", passeio: ps.nome, data: s.data, ponto: ponto ? { ...ponto, endereco: ponto.endereco ?? null } : null, linkEmbarque: null }) });
+    }
+    auditar("LISTA_FECHADA", "saida", s.id);
+    return { versao, texto: textoListaGrupo(man, { passeio: ps.nome, data: s.data, guia: s.guia, motorista: s.motorista, veiculo: s.veiculo, versao }, extras), resumo: {} };
+  }
+  if (metodo === "GET" && caminho === "/api/mensagens") {
+    exigir("saidas:decidir");
+    const ver = pode("manifesto:contatos");
+    return mensagensDemo.filter((x) => x.saidaId === q.get("saidaId")).map(({ saidaId: _s, reservaId: _r, ...x }) => ({ ...x, destino: ver ? x.destino : x.destino ? `…${x.destino.slice(-4)}` : null, texto: ver ? x.texto : null }));
+  }
+  if (metodo === "POST" && r(/^\/api\/mensagens\/([^/]+)\/reenviar$/)) { exigir("saidas:decidir"); return { ok: true }; }
+
   // Integrações (demonstração): situação fictícia; "sincronizar" só simula a leitura.
   if (metodo === "GET" && caminho === "/api/integracoes/paytour") {
     exigir("importacoes:executar");

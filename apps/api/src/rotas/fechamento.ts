@@ -6,7 +6,8 @@ import { mensagens, reservas } from "../db/schema.js";
 import { filtroUnidade, garantirSaida } from "../seguranca/escopo.js";
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
-import { agoraSp, enviarMensagem, fecharLista, situacaoFechamento, textoListaGrupo } from "../servicos/fechamento.js";
+import { textoListaGrupo } from "@bybus/core";
+import { agoraSp, enviarMensagem, fecharLista, situacaoFechamento } from "../servicos/fechamento.js";
 import { carregarManifesto } from "../servicos/manifesto.js";
 import { envioReal } from "../servicos/whatsapp.js";
 
