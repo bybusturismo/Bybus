@@ -61,7 +61,8 @@ export async function rotasEmbarque(app: FastifyInstance, { db, config }: Contex
     const { token: t } = z.object({ token }).parse(req.params);
     const corpo = z.object({ pontoId: uuid, hospedagem: z.string().trim().max(200).default("") }).parse(req.body);
     const { reserva, saida, passeio } = await reservaDoToken(t);
-    if (saida.listaFechadaEm) throw new ErroHttp(409, "LISTA_FECHADA", "A lista deste passeio já foi fechada. Para mudar o embarque, fale com a By Bus pelo WhatsApp.");
+    // Depois do fechamento ainda vale (o link vai na própria confirmação da véspera): a escolha entra no adendo,
+    // e a equipe confere antes do embarque.
     const ponto = (await pontosDe(passeio.id)).find((p) => p.id === corpo.pontoId);
     if (!ponto) throw new ErroHttp(400, "PONTO_INVALIDO", "Escolha um dos pontos da lista.");
     // Escolha do cliente volta para a conferência da equipe.
@@ -71,7 +72,7 @@ export async function rotasEmbarque(app: FastifyInstance, { db, config }: Contex
     }).where(eq(reservas.id, reserva.id));
     await db.update(passageiros).set({ pontoEmbarqueId: null }).where(eq(passageiros.reservaId, reserva.id));
     await auditar(db, req, "EMBARQUE_INFORMADO_PELO_CLIENTE", { tipo: "reserva", id: reserva.id }, { transfer: ponto.ehTransfer });
-    return { ok: true, ponto: { nome: ponto.nome, horario: ponto.horario, endereco: ponto.endereco } };
+    return { ok: true, aposFechamento: !!saida.listaFechadaEm, ponto: { nome: ponto.nome, horario: ponto.horario, endereco: ponto.endereco } };
   });
 
   // ---------- Equipe ----------

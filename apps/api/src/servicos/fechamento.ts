@@ -59,7 +59,11 @@ export async function fecharLista(db: Db, cofre: Cofre, config: Config, saidaId:
   if (config.WHATSAPP_GRUPO_LISTA) await enfileirarMensagem(db, config, { tipo: `LISTA_GRUPO_V${versao}`, reservaId: null, saidaId, destino: config.WHATSAPP_GRUPO_LISTA, texto });
 
   const pontos = await db.select().from(pontosEmbarque).where(eq(pontosEmbarque.passeioId, passeio.id));
+  // Adendo: quem já recebeu a confirmação não recebe outra (e o link enviado continua valendo).
+  const jaConfirmadas = new Set((await db.select({ id: mensagens.reservaId }).from(mensagens)
+    .where(and(eq(mensagens.saidaId, saidaId), eq(mensagens.tipo, "CONFIRMACAO")))).map((m) => m.id));
   for (const r of ativas) {
+    if (jaConfirmadas.has(r.id)) continue;
     const p = pontos.find((x) => x.id === r.pontoEmbarqueId) ?? null;
     // Sem ponto: a confirmação já leva o link para o cliente informar (só com o endereço público configurado).
     const link = !p && config.URL_PUBLICA ? `${config.URL_PUBLICA.replace(/\/$/, "")}${(await gerarLinkEmbarque(db, r.id)).caminho}` : null;
@@ -122,7 +126,8 @@ export async function situacaoFechamento(db: Db, data: string, filtro: SQL | und
       reservas: minhas.length,
       naoConferidas: minhas.filter((r) => r.conferencia !== "CONFERIDA").length,
       semPonto: minhas.filter((r) => !r.pontoEmbarqueId).length,
-      depoisDoFechamento: s.listaFechadaEm ? minhas.filter((r) => r.criadoEm > s.listaFechadaEm!).length : 0,
+      // Vendas novas ou embarque informado pelo cliente depois da lista: entram no próximo adendo.
+      depoisDoFechamento: s.listaFechadaEm ? minhas.filter((r) => r.criadoEm > s.listaFechadaEm! || (r.informadoPeloClienteEm && r.informadoPeloClienteEm > s.listaFechadaEm!)).length : 0,
       mensagens: ms.filter((m) => m.saidaId === s.id).reduce<Record<string, number>>((acc, m) => ({ ...acc, [m.status]: (acc[m.status] ?? 0) + 1 }), {}),
     };
   });

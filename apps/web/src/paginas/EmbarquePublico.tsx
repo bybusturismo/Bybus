@@ -82,10 +82,10 @@ export function EmbarquePublico({ token }: { token: string }) {
             <p className="cartao-acesso__subtitulo">
               Olá{info.titular ? `, ${info.titular}` : ""}! <strong>{info.passeio}</strong> — {dataLonga(info.data)} · {info.passageiros} passageiro(s).
             </p>
-            {info.listaFechada ? (
-              <div className="aviso aviso--atencao">A lista deste passeio já foi fechada. Para mudar o embarque, fale com a By Bus pelo WhatsApp.</div>
-            ) : (
-              <>
+            {info.listaFechada && (
+              <div className="aviso aviso--atencao">A lista deste passeio já foi fechada. Você ainda pode informar o embarque: nossa equipe confirma antes da saída.</div>
+            )}
+            <>
                 <form onSubmit={sugerir} className="campo">
                   <label htmlFor="hospedagem">Onde você vai estar hospedado(a)? (hotel, pousada ou bairro)</label>
                   <div className="embarque-publico__busca">
@@ -114,8 +114,7 @@ export function EmbarquePublico({ token }: { token: string }) {
                 <button type="button" className="botao botao--primario botao--bloco" disabled={!pontoId || enviando} onClick={() => void confirmar()}>
                   {enviando ? "Enviando…" : "Confirmar meu ponto de embarque"}
                 </button>
-              </>
-            )}
+            </>
           </>
         )}
       </main>

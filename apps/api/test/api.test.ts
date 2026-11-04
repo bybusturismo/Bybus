@@ -756,11 +756,15 @@ describe("fechamento da lista e mensagens", () => {
     expect(situacao.whatsapp).toMatchObject({ provedor: "simulado", envioReal: false });
     expect(situacao.saidas.find((s: { saidaId: string }) => s.saidaId === saida.id)).toMatchObject({ versao: 2, reservas: 2, naoConferidas: 2 });
 
-    // Lista fechada: o passageiro não muda mais o ponto pelo link.
+    // Lista fechada: o link (que vai na própria confirmação) ainda vale; a escolha entra no próximo adendo.
     const reserva = (await c.req("GET", `/api/saidas/${saida.id}/reservas`)).json()[0];
     const token = (await c.req("POST", `/api/reservas/${reserva.id}/link-embarque`)).json().caminho.split("/").pop();
     const anon = new Cliente(app);
-    expect((await anon.req("POST", `/api/publico/embarque/${token}`, { pontoId: villa.id })).statusCode).toBe(409);
+    const escolha = await anon.req("POST", `/api/publico/embarque/${token}`, { pontoId: villa.id });
+    expect(escolha.statusCode).toBe(200);
+    expect(escolha.json().aposFechamento).toBe(true);
+    const depois = (await c.req("GET", `/api/fechamento?data=${saida.data}`)).json().saidas.find((x: { saidaId: string }) => x.saidaId === saida.id);
+    expect(depois.depoisDoFechamento).toBeGreaterThanOrEqual(1);
   });
 
   it("envio pela Evolution só fora do modo simulado e nunca registra o texto no erro", async () => {

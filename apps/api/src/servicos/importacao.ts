@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, like, or, sql } from "drizzle-orm";
 import { anonimizarReserva, type ReservaImportada } from "@bybus/core";
 import type { Db } from "../db/cliente.js";
 import { passageiros, passeios, pontosEmbarque, reservas, saidas } from "../db/schema.js";
@@ -13,6 +13,16 @@ export const USUARIO_INTEGRACAO: UsuarioSessao = {
   id: "integracao", nome: "Integração automática", email: "", perfil: "INTEGRACAO", perfilNome: "Integração",
   permissoes: ["importacoes:executar"], todasUnidades: true, unidadeIds: [], trocarSenha: false, totpAtivo: false, sessaoId: "",
 };
+
+/** Padrão de produto do passeio (regex digitada no cadastro). Padrão inválido não derruba a importação: não casa. */
+export function casaProduto(padrao: string | null, produto: string): boolean {
+  if (!padrao) return false;
+  try {
+    return new RegExp(padrao, "i").test(produto);
+  } catch {
+    return false;
+  }
+}
 
 export type Acao = "CRIAR" | "ATUALIZAR" | "CANCELAR" | "IGNORAR";
 
@@ -61,35 +71,39 @@ export async function importarReservas(
 ): Promise<{ previa: ItemPrevia[]; resumo: Record<Acao, number> }> {
   // Fora da produção (LGPD): dados pessoais viram fictícios antes de qualquer gravação ou prévia.
   const itens = opcoes.anonimizar ? itensRecebidos.map(anonimizarReserva) : itensRecebidos;
+  // Texto do ponto como veio no canal: casa com a tabela de pontos, mas fora da produção não aparece em avisos
+  // (o campo de hospedagem pode ter o endereço do cliente).
+  const textoPonto = (i: number) => itensRecebidos[i]!.pontoEmbarqueTexto;
   // Só passeios das praças de quem está importando.
   // Inclui passeios inativos (encerrados): o histórico de vendas também precisa entrar.
   const todosPasseios = (await db.select().from(passeios)).filter((p) => podeUnidade(opcoes.usuario, p.unidadeId));
   const previa: ItemPrevia[] = [];
 
   const executar = async (tx: Db) => {
-    for (const item of itens) {
+    for (const [indice, item] of itens.entries()) {
       const avisos = [...item.avisos];
       const passeio = opcoes.passeioCodigo
         ? todosPasseios.find((p) => p.codigo === opcoes.passeioCodigo)
-        : todosPasseios.find((p) => p.padraoProduto && new RegExp(p.padraoProduto, "i").test(item.produto));
+        : todosPasseios.find((p) => casaProduto(p.padraoProduto, item.produto));
       const base = { canal: item.canal, codigoExterno: item.codigoExterno, data: item.data, contatoNome: item.contatoNome, passageiros: item.passageiros.length };
 
       if (!passeio) {
         previa.push({ ...base, pontoEmbarque: null, acao: "IGNORAR", avisos: [...avisos, `Produto não reconhecido: "${item.produto}".`] });
         continue;
       }
-      if (passeio.padraoProduto && item.produto && !new RegExp(passeio.padraoProduto, "i").test(item.produto)) {
+      if (passeio.padraoProduto && item.produto && !casaProduto(passeio.padraoProduto, item.produto)) {
         previa.push({ ...base, pontoEmbarque: null, acao: "IGNORAR", avisos: [...avisos, `Produto "${item.produto}" não é ${passeio.nome}.`] });
         continue;
       }
 
       const pontos = await tx.select().from(pontosEmbarque).where(and(eq(pontosEmbarque.passeioId, passeio.id), eq(pontosEmbarque.ativo, true)));
       // Passeio com um único ponto (ex.: Bruxólico): quem não informou ou informou algo ilegível embarca nele.
-      const ponto = casarPonto(item.pontoEmbarqueTexto, pontos) ?? (pontos.length === 1 ? pontos[0]! : null);
-      if (item.pontoEmbarqueTexto && !ponto) avisos.push(`Ponto de embarque "${item.pontoEmbarqueTexto}" não reconhecido — definir manualmente.`);
-      if (!item.pontoEmbarqueTexto && !ponto) avisos.push("Sem ponto de embarque — contatar o cliente no dia anterior.");
+      const textoDoCanal = textoPonto(indice);
+      const ponto = casarPonto(textoDoCanal, pontos) ?? (pontos.length === 1 ? pontos[0]! : null);
+      if (textoDoCanal && !ponto) avisos.push(opcoes.anonimizar ? "Ponto de embarque informado não reconhecido — definir manualmente." : `Ponto de embarque "${textoDoCanal}" não reconhecido — definir manualmente.`);
+      if (!textoDoCanal && !ponto) avisos.push("Sem ponto de embarque — contatar o cliente no dia anterior.");
 
-      const [existente] = await tx.select().from(reservas).where(and(eq(reservas.canal, item.canal), eq(reservas.codigoExterno, item.codigoExterno)));
+      const existente = await acharExistente(tx, item, passeio.id);
       if (existente) {
         const [s] = await tx.select({ passeioId: saidas.passeioId }).from(saidas).where(eq(saidas.id, existente.saidaId));
         if (!todosPasseios.some((p) => p.id === s?.passeioId)) {
@@ -100,13 +114,21 @@ export async function importarReservas(
 
       let acao: Acao;
       if (item.cancelada) acao = existente && existente.status !== "CANCELADA" ? "CANCELAR" : "IGNORAR";
-      else acao = existente ? "ATUALIZAR" : "CRIAR";
+      else if (existente?.status === "CANCELADA") {
+        // Cancelada pela equipe (ou pelo canal antes): não volta sozinha para a lista.
+        acao = "IGNORAR";
+        avisos.push("Reserva cancelada no sistema, mas ativa no canal — conferir.");
+      } else acao = existente ? "ATUALIZAR" : "CRIAR";
 
       if (acao === "ATUALIZAR" && existente) {
         const qtd = (await tx.select({ id: passageiros.id }).from(passageiros).where(eq(passageiros.reservaId, existente.id))).length;
         if (qtd !== item.passageiros.length) avisos.push(`Quantidade mudou no canal (${qtd} → ${item.passageiros.length}). Ajuste os passageiros manualmente.`);
       }
 
+      if (acao === "ATUALIZAR" && existente) {
+        const [atual] = await tx.select({ data: saidas.data }).from(saidas).where(eq(saidas.id, existente.saidaId));
+        if (atual && atual.data !== item.data) avisos.push(`Data mudou no canal (${atual.data} → ${item.data}): reserva movida, conferir de novo.`);
+      }
       previa.push({ ...base, pontoEmbarque: ponto?.nome ?? null, acao, avisos });
       if (!opcoes.confirmar || acao === "IGNORAR") continue;
 
@@ -115,7 +137,12 @@ export async function importarReservas(
         continue;
       }
       if (acao === "ATUALIZAR") {
+        // Data (ou passeio) mudou no canal: a reserva vai para a saída certa.
+        const [atual] = await tx.select({ data: saidas.data, passeioId: saidas.passeioId }).from(saidas).where(eq(saidas.id, existente!.saidaId));
+        const mudouSaida = atual && (atual.data !== item.data || atual.passeioId !== passeio.id);
         await tx.update(reservas).set({
+          ...(mudouSaida ? { saidaId: (await obterSaida(tx, passeio, item.data)).id, conferencia: "PENDENTE" as const } : {}),
+          codigoExterno: item.codigoExterno,
           contatoTelefone: existente!.contatoTelefone ?? item.contatoTelefone,
           contatoEmail: existente!.contatoEmail ?? item.contatoEmail,
           pontoEmbarqueId: existente!.pontoEmbarqueId ?? ponto?.id ?? null,
@@ -129,11 +156,7 @@ export async function importarReservas(
         continue;
       }
 
-      let [saida] = await tx.select().from(saidas).where(and(eq(saidas.passeioId, passeio.id), eq(saidas.data, item.data)));
-      if (!saida) {
-        [saida] = await tx.insert(saidas).values({ passeioId: passeio.id, data: item.data, capacidade: passeio.capacidadePadrao }).returning();
-        await aplicarEscalaNaSaida(tx, passeio.id, item.data, false);
-      }
+      const saida = await obterSaida(tx, passeio, item.data);
       const [nova] = await tx.insert(reservas).values({
         saidaId: saida!.id,
         canal: item.canal,
@@ -164,4 +187,42 @@ export async function importarReservas(
   const resumo: Record<Acao, number> = { CRIAR: 0, ATUALIZAR: 0, CANCELAR: 0, IGNORAR: 0 };
   previa.forEach((p) => resumo[p.acao]++);
   return { previa, resumo };
+}
+
+async function obterSaida(tx: Db, passeio: { id: string; capacidadePadrao: number }, data: string) {
+  const [s] = await tx.select().from(saidas).where(and(eq(saidas.passeioId, passeio.id), eq(saidas.data, data)));
+  if (s) return s;
+  const [nova] = await tx.insert(saidas).values({ passeioId: passeio.id, data, capacidade: passeio.capacidadePadrao }).returning();
+  await aplicarEscalaNaSaida(tx, passeio.id, data, false);
+  return nova!;
+}
+
+/**
+ * Reserva já importada do mesmo pedido. Procura, nesta ordem:
+ * 1. o mesmo código (o canal detectado pode mudar entre sincronizações na Paytour, então o código manda);
+ * 2. Paytour com código antigo do mesmo pedido e item (PAYTOUR-<id> ou PAYTOUR-<id>-<data>-<n>) no mesmo passeio e data;
+ * 3. mesmo canal e mesma origem do código, com uma referência em comum (ex.: Decolar com ID de compra num e-mail e só o PAM em outro).
+ */
+async function acharExistente(tx: Db, item: ReservaImportada, passeioId: string) {
+  const mesmoCodigo = item.codigoExterno.startsWith("PAYTOUR-")
+    ? eq(reservas.codigoExterno, item.codigoExterno)
+    : and(eq(reservas.canal, item.canal), eq(reservas.codigoExterno, item.codigoExterno));
+  const [porCodigo] = await tx.select().from(reservas).where(mesmoCodigo);
+  if (porCodigo) return porCodigo;
+  const pedido = /^PAYTOUR-(\d+)-\d{4}-\d{2}-\d{2}-/.exec(item.codigoExterno)?.[1] ?? (/^PAYTOUR-(\d+)$/.exec(item.codigoExterno)?.[1]);
+  if (pedido) {
+    const [antigo] = await tx.select({ r: reservas }).from(reservas).innerJoin(saidas, eq(saidas.id, reservas.saidaId))
+      .where(and(
+        or(eq(reservas.codigoExterno, `PAYTOUR-${pedido}`), like(reservas.codigoExterno, `PAYTOUR-${pedido}-${item.data}-%`)),
+        eq(saidas.passeioId, passeioId), eq(saidas.data, item.data),
+      ));
+    if (antigo) return antigo.r;
+  }
+  if (item.referencias.length) {
+    const [porReferencia] = await tx.select().from(reservas)
+      // Só entre códigos da mesma origem (DEC- com DEC-): a cópia de uma Viator na Paytour não pode "virar" a original.
+      .where(and(eq(reservas.canal, item.canal), like(reservas.codigoExterno, `${item.codigoExterno.split("-")[0]}-%`), sql`${reservas.referencias} && ${sql.param(item.referencias)}::text[]`));
+    if (porReferencia) return porReferencia;
+  }
+  return undefined;
 }

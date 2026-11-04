@@ -161,6 +161,10 @@ function horarioInicial(t: string | null): string | null {
  * `codigoExterno` = "PAYTOUR-<id do pedido>" (o mesmo da importação por CSV, para não duplicar);
  * com mais de um passeio/dia no pedido, ganha o sufixo "-<data>-<n>".
  */
+/** "City Tour Toda Ilha" → "city-tour-toda-ilha" (parte estável do código de reservas com vários itens). */
+export const slugProduto = (produto: string) =>
+  produto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "produto";
+
 export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Record<string, string> = {}): ReservaImportada[] {
   const id = String(pedido.id);
   const status = normalizar(texto(pedido.status) ?? "");
@@ -179,7 +183,7 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
   }
 
   const chaves = [...grupos.keys()].sort();
-  return chaves.flatMap((chave, n) => {
+  return chaves.flatMap((chave) => {
     const doGrupo = grupos.get(chave)!;
     const [data, produto] = chave.split("|") as [string, string];
     const avisos: string[] = [];
@@ -220,7 +224,9 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
       ...pagamentoPaytour(pedido, canal),
       origemCliente: origemPaytour(pedido),
       canal,
-      codigoExterno: chaves.length > 1 ? `PAYTOUR-${id}-${data}-${n + 1}` : `PAYTOUR-${id}`,
+      // Estável quando o pedido ganha ou perde itens: depende da data e do produto, não da posição.
+      // A importação reconhece a mesma reserva gravada antes com o código antigo (PAYTOUR-<id> ou PAYTOUR-<id>-<data>-<n>).
+      codigoExterno: chaves.length > 1 ? `PAYTOUR-${id}-${data}-${slugProduto(produto)}` : `PAYTOUR-${id}`,
       referencias: [...new Set([...extrairReferenciasOta(obs), ...doGrupo.map((i) => texto(i.voucher_code)).filter((v): v is string => !!v)])],
       data,
       horario: horarioInicial(texto(doGrupo[0]!.produto_disponibilidade_hora_de) ?? texto(doGrupo[0]!.produto_disponibilidade_hora)),
