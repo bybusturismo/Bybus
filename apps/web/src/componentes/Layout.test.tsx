@@ -22,7 +22,7 @@ describe("Menu por permissão", () => {
     const todas = itensPermitidos(() => true);
     expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
       "Saídas", "Conferência de embarque", "Escala de guias", "Fechamento e mensagens", "Importar reservas", "Integrações",
-      "Passeios e pontos", "Guias e equipe", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta",
+      "Passeios e pontos", "Guias e equipe", "Frota e manutenção", "Checklist do veículo", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta",
     ]);
     // Módulos planejados só aparecem para quem administra usuários.
     expect(itensPermitidos((p) => p !== "usuarios:gerenciar").some((i) => i.planejado)).toBe(false);
