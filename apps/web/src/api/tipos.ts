@@ -24,6 +24,8 @@ export const PERMISSOES = [
   "manifesto:documentos",
   "manifesto:contatos",
   "embarque:registrar",
+  "financeiro:ver",
+  "financeiro:gerenciar",
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 

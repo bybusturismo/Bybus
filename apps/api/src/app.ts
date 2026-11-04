@@ -10,6 +10,7 @@ import { rotasImportacao } from "./rotas/importacao.js";
 import { rotasIntegracoes } from "./rotas/integracoes.js";
 import { rotasEscala } from "./rotas/escala.js";
 import { rotasEmbarque } from "./rotas/embarque.js";
+import { rotasFinanceiro } from "./rotas/financeiro.js";
 import { agendarPaytour } from "./servicos/paytour.js";
 import { rotasManifesto } from "./rotas/manifesto.js";
 import { rotasOperacao } from "./rotas/operacao.js";
@@ -84,6 +85,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasIntegracoes(app, ctx);
   await rotasEscala(app, ctx);
   await rotasEmbarque(app, ctx);
+  await rotasFinanceiro(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
 

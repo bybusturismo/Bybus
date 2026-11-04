@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  calcularBaixa, centavosParaTexto, chaveLinha, dataFlexivel, inicioDaSemana, lerCsvExtrato, lerOfx, montarDre, montarFluxoSemanal,
+  calcularBaixa, centavosParaTexto, faturaDaData, chaveLinha, dataFlexivel, inicioDaSemana, lerCsvExtrato, lerOfx, montarDre, montarFluxoSemanal,
   paraCentavos, parcelar, prepararLinhas, somarMeses, sugerirCategoria, sugerirCorrespondencias,
   type CategoriaInfo, type LancamentoRelatorio,
 } from "../src/index.js";
@@ -223,5 +223,17 @@ describe("fluxo semanal e DRE", () => {
     const fln = dre.porPracaLinha.find((x) => x.unidadeId === "fln")!;
     expect(fln.despesaCentavos).toBe(43633);
     expect(dre.porPracaLinha.reduce((s, x) => s + x.resultadoCentavos, 0)).toBe(dre.resultadoCentavos);
+  });
+});
+
+describe("fatura do cartão", () => {
+  it("compra até o fechamento cai na fatura do mês; depois, na do seguinte", () => {
+    expect(faturaDaData("2026-10-10", 15, 25)).toEqual({ referencia: "2026-10", fechamento: "2026-10-15", vencimento: "2026-10-25" });
+    expect(faturaDaData("2026-10-15", 15, 25).referencia).toBe("2026-10");
+    expect(faturaDaData("2026-10-16", 15, 25)).toEqual({ referencia: "2026-11", fechamento: "2026-11-15", vencimento: "2026-11-25" });
+  });
+  it("vencimento antes do fechamento vai para o mês seguinte; fim de mês curto usa o último dia", () => {
+    expect(faturaDaData("2026-12-20", 25, 5)).toEqual({ referencia: "2026-12", fechamento: "2026-12-25", vencimento: "2027-01-05" });
+    expect(faturaDaData("2026-02-10", 31, 10)).toEqual({ referencia: "2026-02", fechamento: "2026-02-28", vencimento: "2026-03-10" });
   });
 });

@@ -16,3 +16,4 @@ export * from "./financeiro/plano.js";
 export * from "./financeiro/extrato.js";
 export * from "./financeiro/conciliacao.js";
 export * from "./financeiro/relatorios.js";
+export * from "./financeiro/cartao.js";

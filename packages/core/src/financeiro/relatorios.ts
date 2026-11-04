@@ -148,7 +148,10 @@ export function montarDre(lancamentos: LancamentoRelatorio[], categorias: Readon
   const lista = [...grupos.values()].map((g) => ({ ...g, categorias: g.categorias.sort((a, b) => ordemCategoria(a) - ordemCategoria(b)) }));
   const ordemGrupo = (g: GrupoDre) => Math.min(...g.categorias.map(ordemCategoria));
   lista.sort((a, b) => (a.tipo === b.tipo ? ordemGrupo(a) - ordemGrupo(b) : a.tipo === "RECEITA" ? -1 : 1));
-  if (encargosReceita !== 0) lista.push({ grupo: ENCARGOS, tipo: "RECEITA", totalCentavos: encargosReceita, categorias: [{ categoriaId: null, nome: "Juros e multas recebidos, menos descontos concedidos", totalCentavos: encargosReceita }] });
+  if (encargosReceita !== 0) {
+    const ultimaReceita = lista.map((g) => g.tipo).lastIndexOf("RECEITA");
+    lista.splice(ultimaReceita + 1, 0, { grupo: ENCARGOS, tipo: "RECEITA", totalCentavos: encargosReceita, categorias: [{ categoriaId: null, nome: "Juros e multas recebidos, menos descontos concedidos", totalCentavos: encargosReceita }] });
+  }
   if (encargosDespesa !== 0) lista.push({ grupo: ENCARGOS, tipo: "DESPESA", totalCentavos: encargosDespesa, categorias: [{ categoriaId: null, nome: "Juros e multas pagos, menos descontos obtidos", totalCentavos: encargosDespesa }] });
   const receita = lista.filter((g) => g.tipo === "RECEITA").reduce((s, g) => s + g.totalCentavos, 0);
   const despesa = lista.filter((g) => g.tipo === "DESPESA").reduce((s, g) => s + g.totalCentavos, 0);
