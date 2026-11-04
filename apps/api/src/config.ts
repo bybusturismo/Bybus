@@ -42,6 +42,11 @@ const esquema = z.object({
   EVOLUTION_INSTANCIA: z.string().min(1).default("bybus"),
   /** Fora da produção, só envia de verdade com "true" (proteção contra mandar mensagem a cliente real em teste). */
   WHATSAPP_ENVIO_REAL: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /**
+   * Segredo da rota interna que recebe os avisos da Evolution (mensagens, status, conexão): /api/interno/whatsapp/<token>.
+   * Sem ele a rota responde 404 e a central de conversas só mostra o que a fila enviou. Gere com: openssl rand -hex 32
+   */
+  WHATSAPP_WEBHOOK_TOKEN: z.string().min(32, "WHATSAPP_WEBHOOK_TOKEN deve ter pelo menos 32 caracteres").optional(),
   /** Grupo do WhatsApp que recebe a lista fechada (JID "...@g.us"); vazio = só gera o texto para copiar. */
   WHATSAPP_GRUPO_LISTA: z.string().regex(/^[\d-]+@g\.us$/, "WHATSAPP_GRUPO_LISTA deve ser o JID do grupo (…@g.us)").optional(),
   /** Fechamento automático da lista na véspera (America/Sao_Paulo). */

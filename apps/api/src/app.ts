@@ -13,6 +13,7 @@ import { rotasEmbarque } from "./rotas/embarque.js";
 import { rotasFechamento } from "./rotas/fechamento.js";
 import { agendarFechamento } from "./servicos/fechamento.js";
 import { rotasFinanceiro } from "./rotas/financeiro.js";
+import { rotasWhatsapp } from "./rotas/whatsapp.js";
 import { agendarPaytour } from "./servicos/paytour.js";
 import { rotasManifesto } from "./rotas/manifesto.js";
 import { rotasOperacao } from "./rotas/operacao.js";
@@ -33,7 +34,7 @@ export interface Contexto {
 }
 
 /** Esconde tokens de links públicos na URL registrada no log. */
-export const mascararUrl = (url: string) => url.replace(/(\/embarque\/)[A-Za-z0-9_-]+/g, "$1***");
+export const mascararUrl = (url: string) => url.replace(/(\/embarque\/|\/api\/interno\/whatsapp\/)[A-Za-z0-9_-]+/g, "$1***");
 
 export async function criarApp(config: Config): Promise<{ app: FastifyInstance; fechar: () => Promise<void> }> {
   const { db, pool } = criarDb(config.DATABASE_URL);
@@ -63,6 +64,8 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
 
   // Proteção CSRF: toda requisição que altera dados precisa do cabeçalho X-Bybus (navegadores não o enviam em ataques cross-site).
   app.addHook("onRequest", async (req) => {
+    // O aviso da Evolution (rede interna) não é navegador: ele se protege pelo token na URL e pela recusa de X-Forwarded-For.
+    if (req.url.startsWith("/api/interno/whatsapp/")) return;
     if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers["x-bybus"] !== "1") {
       throw new ErroHttp(403, "CSRF", "Requisição bloqueada.");
     }
@@ -105,6 +108,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasBiblioteca(app, ctx);
   await rotasIa(app, ctx);
   await rotasFinanceiro(app, ctx);
+  await rotasWhatsapp(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);

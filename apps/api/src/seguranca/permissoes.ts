@@ -30,6 +30,8 @@ export const CATALOGO_PERMISSOES = {
   "ia:gestores": "Ver os gestores de IA, rodar a avaliação e aprovar ou descartar ações sugeridas",
   "financeiro:ver": "Ver o financeiro (contas a pagar e a receber, extratos, DRE)",
   "financeiro:gerenciar": "Lançar, baixar, importar extratos e conciliar no financeiro",
+  "whatsapp:ver": "Ver as conversas de WhatsApp com os clientes (telefones e textos)",
+  "whatsapp:responder": "Responder e iniciar conversas de WhatsApp pela tela",
 } as const;
 
 export type Permissao = keyof typeof CATALOGO_PERMISSOES;
