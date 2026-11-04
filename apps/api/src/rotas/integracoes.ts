@@ -7,6 +7,7 @@ import type { Contexto } from "../app.js";
 import { deveAnonimizar } from "../config.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { ClientePaytour, ErroPaytour, estadoPaytour, paytourConfigurada, sincronizarPaytour } from "../servicos/paytour.js";
+import { gravarEstadoIntegracao, lerEstadoIntegracao } from "../servicos/estadoIntegracao.js";
 import { importarReservas, USUARIO_INTEGRACAO } from "../servicos/importacao.js";
 
 export type ResultadoEmail = "IMPORTADO" | "SEM_LEITOR" | "NAO_RECONHECIDO";
@@ -53,12 +54,19 @@ export async function rotasIntegracoes(app: FastifyInstance, { db, config, cofre
       : null;
     const resumo = { mensagens: lidas.length, ...(importacao?.resumo ?? {}), semLeitor: lidas.filter((l) => l.resultado === "SEM_LEITOR").length, naoReconhecidas: lidas.filter((l) => l.resultado === "NAO_RECONHECIDO").length };
     await auditar(db, req, "IMPORTACAO_EMAIL_AUTOMATICA", { tipo: "importacao" }, resumo);
+    await gravarEstadoIntegracao(db, "emails", { cursor: null, ultimoResultado: resumo, ultimoErro: null });
     // Devolve só o resultado por mensagem (o robô marca no Gmail o que já foi processado). Sem dados pessoais.
     return { resumo, mensagens: lidas.map((l) => ({ id: l.id, resultado: l.resultado, canal: l.canal ?? null })) };
   });
 
   const pre = { preHandler: exigir(config, "importacoes:executar") };
   const cliente = paytourConfigurada(config) ? new ClientePaytour({ url: config.PAYTOUR_URL, appKey: config.PAYTOUR_APP_KEY, appSecret: config.PAYTOUR_APP_SECRET }) : null;
+
+  /** Situação do robô de e-mails (sem expor o token). */
+  app.get("/api/integracoes/emails", pre, async () => {
+    const e = await lerEstadoIntegracao(db, "emails");
+    return { configurada: !!config.INTEGRACAO_EMAIL_TOKEN, ultimaExecucaoEm: e?.ultimaExecucaoEm ?? null, ultimoResultado: e?.ultimoResultado ?? null };
+  });
 
   /** Situação da conexão com a Paytour (sem expor as credenciais). */
   app.get("/api/integracoes/paytour", pre, async () => {

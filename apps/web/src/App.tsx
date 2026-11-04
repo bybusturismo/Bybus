@@ -10,6 +10,7 @@ import { ProvedorNotificacoes } from "./componentes/Notificacoes";
 import { Auditoria } from "./paginas/Auditoria";
 import { Conta } from "./paginas/Conta";
 import { Importar } from "./paginas/importar/Importar";
+import { Integracoes } from "./paginas/Integracoes";
 import { Login } from "./paginas/Login";
 import { TelaPendencia } from "./paginas/Pendencias";
 import { Embarque } from "./paginas/saida/Embarque";
@@ -77,6 +78,14 @@ export function Rotas() {
           element={
             <Exige permissao="importacoes:executar">
               <Importar />
+            </Exige>
+          }
+        />
+        <Route
+          path="integracoes"
+          element={
+            <Exige permissao="importacoes:executar">
+              <Integracoes />
             </Exige>
           }
         />

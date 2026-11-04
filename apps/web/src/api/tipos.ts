@@ -331,3 +331,18 @@ export interface SessaoAtiva {
   userAgent: string | null;
   atual: boolean;
 }
+
+/** Situação de uma integração automática (GET /api/integracoes/paytour e /emails). */
+export interface SituacaoIntegracao {
+  configurada: boolean;
+  automaticaACadaMinutos?: number;
+  ultimaExecucaoEm: string | null;
+  ultimoResultado: Record<string, unknown> | null;
+  ultimoErro?: string | null;
+}
+
+export interface ResultadoSincronizacaoPaytour extends ResultadoImportacao {
+  de: string;
+  ate: string;
+  pedidos: number;
+}

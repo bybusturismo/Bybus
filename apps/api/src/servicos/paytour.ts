@@ -1,10 +1,9 @@
-import { eq } from "drizzle-orm";
 import { pedidoPaytourParaReservas, type PedidoPaytour } from "@bybus/core";
 import { auditar } from "../auditoria.js";
 import { deveAnonimizar, type Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
-import { integracoesEstado } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
+import { gravarEstadoIntegracao, lerEstadoIntegracao } from "./estadoIntegracao.js";
 import { importarReservas, USUARIO_INTEGRACAO, type Acao, type ItemPrevia } from "./importacao.js";
 
 /**
@@ -85,7 +84,7 @@ export async function sincronizarPaytour(
   db: Db, cofre: Cofre, config: Config, cliente: ClientePaytour, opcoes: { desde?: string; agora?: Date } = {},
 ): Promise<ResultadoSincronizacao> {
   const agora = opcoes.agora ?? new Date();
-  const [estado] = await db.select().from(integracoesEstado).where(eq(integracoesEstado.chave, CHAVE));
+  const estado = await lerEstadoIntegracao(db, CHAVE);
   const inicio = opcoes.desde
     ? new Date(`${opcoes.desde}T03:00:00Z`) // 00:00 em Brasília
     : estado?.cursor
@@ -144,15 +143,9 @@ async function carregarAfiliados(cliente: ClientePaytour): Promise<Record<string
   return mapa;
 }
 
-async function gravarEstado(db: Db, v: { cursor: string | null; ultimoResultado: unknown; ultimoErro: string | null }) {
-  const linha = { ...v, ultimaExecucaoEm: new Date(), atualizadoEm: new Date() };
-  await db.insert(integracoesEstado).values({ chave: CHAVE, ...linha }).onConflictDoUpdate({ target: integracoesEstado.chave, set: linha });
-}
+const gravarEstado = (db: Db, v: { cursor: string | null; ultimoResultado: unknown; ultimoErro: string | null }) => gravarEstadoIntegracao(db, CHAVE, v);
 
-export async function estadoPaytour(db: Db) {
-  const [e] = await db.select().from(integracoesEstado).where(eq(integracoesEstado.chave, CHAVE));
-  return e ?? null;
-}
+export const estadoPaytour = (db: Db) => lerEstadoIntegracao(db, CHAVE);
 
 /** Rotina automática: roda a cada N minutos, uma execução por vez. Devolve a função que a desliga. */
 export function agendarPaytour(db: Db, cofre: Cofre, config: Config, log: { error: (o: unknown, m: string) => void; info: (o: unknown, m: string) => void }): () => void {

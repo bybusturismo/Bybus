@@ -544,6 +544,11 @@ describe("entrada automática de e-mails de reserva (robô do Gmail)", () => {
       expect(JSON.stringify(r.json())).not.toContain("Ficticio, Cliente");
       // Reenviar o mesmo e-mail não cria outra reserva.
       expect((await enviar(comToken.app, TOKEN, msgs.slice(0, 1))).json().resumo).toMatchObject({ ATUALIZAR: 1 });
+      const adm = new Cliente(comToken.app);
+      await adm.login("admin@bybus.test");
+      const situacao = (await adm.req("GET", "/api/integracoes/emails")).json();
+      expect(situacao).toMatchObject({ configurada: true, ultimoResultado: { mensagens: 1, ATUALIZAR: 1 } });
+      expect(JSON.stringify(situacao)).not.toContain(TOKEN);
 
       const c = await logado("admin@bybus.test");
       const s25 = (await primeiraSaida(c)).find((s) => s.data === "2026-10-25")!;

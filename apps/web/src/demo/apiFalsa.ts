@@ -57,6 +57,12 @@ interface Pax { id: string; reservaId: string; nome: string; categoria: Categori
 interface Reserva { id: string; saidaId: string; canal: Canal; canalOrigem: Canal; codigoExterno: string | null; referencias: string[]; contatoNome: string; contatoTelefone: string | null; contatoEmail: string | null; pontoEmbarqueId: string | null; status: "CONFIRMADA" | "CANCELADA"; observacoes: string | null; origem: string; criadoEm: string; atualizadoEm: string }
 interface Saida { id: string; passeioId: string; data: string; status: "PREVISTA" | "CONFIRMADA" | "CANCELADA" | "REALIZADA"; capacidade: number; veiculo: string | null; guia: string | null; motorista: string | null; guiaId: string | null; motoristaId: string | null; observacoes: string | null; criadoEm: string }
 
+const demoIntegracao: { paytourEm: string; emailsEm: string; paytour: Record<string, unknown> } = {
+  paytourEm: new Date(Date.now() - 90_000).toISOString(),
+  emailsEm: new Date(Date.now() - 240_000).toISOString(),
+  paytour: { pedidos: 5, CRIAR: 3, ATUALIZAR: 1, CANCELAR: 1, IGNORAR: 0 },
+};
+
 const usuarios: Usuario[] = ([
   ["Admin Demo", "admin@bybus.test", "ADMIN", null], ["Supervisora Demo", "supervisor@bybus.test", "SUPERVISOR", "un-fln"],
   ["Atendente Demo", "atendente@bybus.test", "ATENDENTE", "un-fln"], ["Guia Demo", "guia@bybus.test", "GUIA", "un-fln"], ["Motorista Demo", "motorista@bybus.test", "MOTORISTA", "un-fln"],
@@ -381,6 +387,21 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     exigir("embarque:registrar");
     const p = achar(pax, m![1]!, "Passageiro"); p.embarque = c.status; auditar("EMBARQUE_REGISTRADO", "passageiro", p.id, { status: c.status });
     return { id: p.id, embarque: p.embarque };
+  }
+  // Integrações (demonstração): situação fictícia; "sincronizar" só simula a leitura.
+  if (metodo === "GET" && caminho === "/api/integracoes/paytour") {
+    exigir("importacoes:executar");
+    return { configurada: true, automaticaACadaMinutos: 2, ultimaExecucaoEm: demoIntegracao.paytourEm, ultimoResultado: demoIntegracao.paytour, ultimoErro: null };
+  }
+  if (metodo === "POST" && caminho === "/api/integracoes/paytour/sincronizar") {
+    exigir("importacoes:executar");
+    demoIntegracao.paytourEm = agoraIso();
+    demoIntegracao.paytour = { de: "", ate: "", pedidos: 2, resumo: { CRIAR: 0, ATUALIZAR: 2, CANCELAR: 0, IGNORAR: 0 } };
+    return { de: "", ate: "", pedidos: 2, previa: [], resumo: { CRIAR: 0, ATUALIZAR: 2, CANCELAR: 0, IGNORAR: 0 } };
+  }
+  if (metodo === "GET" && caminho === "/api/integracoes/emails") {
+    exigir("importacoes:executar");
+    return { configurada: true, ultimaExecucaoEm: demoIntegracao.emailsEm, ultimoResultado: { mensagens: 3, CRIAR: 2, ATUALIZAR: 1, CANCELAR: 0, IGNORAR: 0, semLeitor: 1, naoReconhecidas: 0 } };
   }
   if (metodo === "POST" && caminho === "/api/importacoes/bokun-email") {
     exigir("importacoes:executar");

@@ -23,6 +23,7 @@ export type Tinta = "azul" | "rosa" | "violeta" | "verde" | "laranja" | "ambar";
 export const ITENS_MENU: ItemMenu[] = [
   { para: "/saidas", rotulo: "Saídas", icone: "onibus", permissao: "manifesto:ver", atalho: "s", tinta: "azul", grupo: "Operação" },
   { para: "/importar", rotulo: "Importar", icone: "importar", permissao: "importacoes:executar", atalho: "i", tinta: "laranja", grupo: "Operação" },
+  { para: "/integracoes", rotulo: "Integrações", icone: "conexao", permissao: "importacoes:executar", atalho: "n", tinta: "violeta", grupo: "Operação" },
   { para: "/equipe", rotulo: "Equipe", icone: "cracha", permissao: "pessoas:ver", atalho: "e", tinta: "verde", grupo: "Operação" },
   { para: "/passeios", rotulo: "Passeios", icone: "bilhete", permissao: "produtos:gerenciar", atalho: "p", tinta: "rosa", grupo: "Operação" },
   { para: "/pracas", rotulo: "Praças", icone: "pino", permissao: "unidades:gerenciar", atalho: "r", tinta: "violeta", grupo: "Administração" },

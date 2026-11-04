@@ -20,7 +20,7 @@ describe("Menu por permissão", () => {
 
   it("admin vê todos os itens", () => {
     const todas = itensPermitidos(() => true).map((i) => i.rotulo);
-    expect(todas).toEqual(["Saídas", "Importar", "Equipe", "Passeios", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta"]);
+    expect(todas).toEqual(["Saídas", "Importar", "Integrações", "Equipe", "Passeios", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta"]);
   });
 });
 
