@@ -7,6 +7,7 @@ import { escalas, passeios, pessoas, saidas } from "../db/schema.js";
 import { garantirPasseio } from "../seguranca/escopo.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { aplicarEscalaNaSaida, validarPessoaDaPraca } from "../servicos/escala.js";
+import { hojeSp, motivosIndisponibilidade } from "../servicos/frota.js";
 
 const uuid = z.string().uuid();
 const mesIso = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mês no formato AAAA-MM");
@@ -74,6 +75,10 @@ export async function rotasEscala(app: FastifyInstance, { db, config }: Contexto
       await validarPessoaDaPraca(db, d.motoristaId, "MOTORISTA", unidadeId);
     }
     if (corpo.motoristaPadraoId !== undefined) await validarPessoaDaPraca(db, corpo.motoristaPadraoId, "MOTORISTA", unidadeId);
+    if (corpo.veiculoPadrao) {
+      const motivos = await motivosIndisponibilidade(db, corpo.veiculoPadrao, hojeSp());
+      if (motivos?.length) throw new ErroHttp(409, "VEICULO_INDISPONIVEL", `Veículo indisponível: ${motivos.join("; ")}.`);
+    }
 
     const existentes = corpo.dias.length
       ? await db.select().from(escalas).where(and(eq(escalas.passeioId, corpo.passeioId), inArray(escalas.data, corpo.dias.map((d) => d.data))))

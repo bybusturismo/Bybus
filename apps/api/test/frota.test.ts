@@ -2,7 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { criarDb } from "../src/db/cliente.js";
-import { auditoria, perfis, unidades, usuarios, usuariosUnidades } from "../src/db/schema.js";
+import { auditoria, checklistItens, passeios, perfis, saidas, unidades, usuarios, usuariosUnidades } from "../src/db/schema.js";
+import { ITENS_CHECKLIST_PADRAO } from "@bybus/core";
+import { aplicarEscalaNaSaida } from "../src/servicos/escala.js";
+import { registrarLeituraKm } from "../src/servicos/frota.js";
 import { SENHA_DEMO } from "../src/db/ficticios.js";
 import { gerarHashSenha } from "../src/seguranca/senha.js";
 import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
@@ -213,5 +216,53 @@ describe("painel", () => {
     expect(man).toMatchObject({ manutencaoCentavos: 123_456, kmRodados: 400 });
     expect(man.custoPorKmCentavos).toBe(Math.round(123_456 / 400));
     expect((await admin.req("GET", "/api/frota/painel?mes=2026-13")).statusCode).toBe(400);
+  });
+});
+
+describe("regressões de concorrência e bloqueio no back-end", () => {
+  it("leituras de km concorrentes nunca baixam o km", async () => {
+    const admin = await logado("admin@bybus.test");
+    const v = await criarVeiculo(admin, "CON1A11", { kmAtual: 100 });
+    const { db, pool } = criarDb(DATABASE_URL);
+    const kms = [900, 300, 700, 500, 1000, 200, 800, 400, 600, 150];
+    await Promise.all(kms.map((km) => registrarLeituraKm(db, { veiculoId: v.id, km, data: hoje(), fonte: "KHRONOS" })));
+    await pool.end();
+    expect((await admin.req("GET", `/api/frota/veiculos/${v.id}`)).json().kmAtual).toBe(1000);
+  });
+
+  it("primeiras chamadas simultâneas não duplicam os itens do checklist", async () => {
+    const admin = await logado("admin@bybus.test");
+    const { db, pool } = criarDb(DATABASE_URL);
+    await db.delete(checklistItens);
+    const rs = await Promise.all(Array.from({ length: 6 }, () => admin.req("GET", "/api/frota/checklist/itens")));
+    expect(rs.every((r) => r.statusCode === 200)).toBe(true);
+    const total = await db.select().from(checklistItens);
+    await pool.end();
+    expect(total).toHaveLength(ITENS_CHECKLIST_PADRAO.length);
+  });
+
+  it("escala recusa veículo padrão indisponível, aceita placa fora da frota e a saída não copia indisponível", async () => {
+    const admin = await logado("admin@bybus.test");
+    const v = await criarVeiculo(admin, "ESC1A11");
+    await admin.req("POST", "/api/frota/documentos", { veiculoId: v.id, tipo: "CRLV", vencimento: somar(-3) });
+    const toda = (await admin.req("GET", "/api/passeios")).json().find((p: { codigo: string }) => p.codigo === "TODA_ILHA");
+    const put = (veiculoPadrao: string) => admin.req("PUT", "/api/escala", { passeioId: toda.id, mes: "2031-01", dias: [], veiculoPadrao });
+    const recusa = await put("esc-1a11");
+    expect(recusa.statusCode).toBe(409);
+    expect(recusa.json().codigo).toBe("VEICULO_INDISPONIVEL");
+    expect(recusa.json().mensagem).toContain("Documento vencido: CRLV");
+    expect((await put("ZZZ9Z99")).statusCode).toBe(200); // fora da frota: aceito
+
+    const { db, pool } = criarDb(DATABASE_URL);
+    await db.update(passeios).set({ veiculoPadrao: "ESC1A11" }).where(eq(passeios.id, toda.id));
+    const [s] = await db.insert(saidas).values({ passeioId: toda.id, data: "2031-01-10", capacidade: 10 }).returning();
+    await aplicarEscalaNaSaida(db, toda.id, "2031-01-10", false);
+    const [depois] = await db.select().from(saidas).where(eq(saidas.id, s!.id));
+    await db.update(passeios).set({ veiculoPadrao: "ZZZ9Z99" }).where(eq(passeios.id, toda.id));
+    await aplicarEscalaNaSaida(db, toda.id, "2031-01-10", false);
+    const [livre] = await db.select().from(saidas).where(eq(saidas.id, s!.id));
+    await pool.end();
+    expect(depois!.veiculo).toBeNull();
+    expect(livre!.veiculo).toBe("ZZZ9Z99");
   });
 });
