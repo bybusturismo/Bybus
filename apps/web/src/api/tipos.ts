@@ -27,6 +27,7 @@ export const PERMISSOES = [
   "frota:ver",
   "frota:gerenciar",
   "frota:checklist",
+  "rastreio:transmitir",
   "marketing:ver",
   "marketing:gerenciar",
   "biblioteca:ver",
@@ -154,6 +155,9 @@ export interface PontoEmbarque {
   endereco?: string | null;
   ehTransfer: boolean;
   ativo?: boolean;
+  /** Coordenadas do ponto (rastreio); nulas até serem cadastradas. */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface SaidaResumo {

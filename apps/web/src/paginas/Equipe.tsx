@@ -62,6 +62,8 @@ export function FormPessoa({
   const [diaria, setDiaria] = useState(textoDeCentavos(pessoa?.diariaCentavos));
   const [observacoes, setObservacoes] = useState(pessoa?.observacoes ?? "");
   const [ativo, setAtivo] = useState(pessoa?.ativo ?? true);
+  const [usuarioId, setUsuarioId] = useState(pessoa?.usuarioId ?? "");
+  const [usuariosLivres, setUsuariosLivres] = useState<Array<{ id: string; nome: string; email: string }> | null>(null);
   const [erros, setErros] = useState<Erros>({});
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -110,6 +112,8 @@ export function FormPessoa({
     if (documento.trim()) Object.assign(corpo, { documentoTipo: docTipo, documento: documento.trim() });
     else if (editando && !docTipo && pessoa?.documentoTipo) Object.assign(corpo, { documentoTipo: null, documento: null });
     if (editando) corpo.ativo = ativo;
+    // Ligação ao acesso do motorista (rastreio pelo celular): só vai quando mudou.
+    if (ehMotorista && usuarioId !== (pessoa?.usuarioId ?? "")) corpo.usuarioId = usuarioId || null;
 
     setSalvando(true);
     try {
@@ -121,6 +125,16 @@ export function FormPessoa({
       setSalvando(false);
     }
   }
+
+  // Usuários sem pessoa ligada, para escolher o acesso do motorista. Se não carregar, o campo some.
+  useEffect(() => {
+    if (!ehMotorista) return;
+    let ativa = true;
+    api.get<Array<{ id: string; nome: string; email: string }>>("/api/pessoas/usuarios-disponiveis").then((l) => ativa && setUsuariosLivres(l)).catch(() => ativa && setUsuariosLivres(null));
+    return () => {
+      ativa = false;
+    };
+  }, [ehMotorista]);
 
   return (
     <form onSubmit={salvar} noValidate>
@@ -212,6 +226,23 @@ export function FormPessoa({
                 <EtiquetaValidade rotulo="CNH" validade={cnhValidade} hoje={hoje} />
               </p>
             </div>
+            {usuariosLivres && (
+              <div className="campo campo--largo">
+                <label htmlFor="pe-usuario">Acesso do motorista (rastreio pelo celular)</label>
+                <select id="pe-usuario" value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)} aria-describedby="pe-usuario-ajuda">
+                  <option value="">Sem acesso ligado</option>
+                  {pessoa?.usuarioId && !usuariosLivres.some((x) => x.id === pessoa.usuarioId) && <option value={pessoa.usuarioId}>Acesso já ligado</option>}
+                  {usuariosLivres.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.nome} ({x.email})
+                    </option>
+                  ))}
+                </select>
+                <p id="pe-usuario-ajuda" className="campo__ajuda">
+                  Só o motorista ligado ao acesso dele pode transmitir a posição do ônibus nas saídas em que está escalado. O perfil precisa ter a permissão de rastreio.
+                </p>
+              </div>
+            )}
           </div>
         </fieldset>
       )}

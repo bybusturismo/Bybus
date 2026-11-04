@@ -11,13 +11,6 @@ interface ModuloPlanejado {
 
 /** Módulos que aparecem no menu e entram nas próximas fases (ver docs/produto/plano-fase-2.md e roadmap.md). */
 export const MODULOS_PLANEJADOS: Record<string, ModuloPlanejado> = {
-  rastreamento: {
-    titulo: "Rastreamento",
-    area: "Passeios",
-    objetivo: "Ver o ônibus no mapa e avisar o passageiro quando ele estiver chegando ao ponto, como nos aplicativos de transporte.",
-    funcoes: ["Posição do ônibus em tempo real", "Previsão de chegada em cada ponto de embarque", "Link de acompanhamento enviado pelo WhatsApp na manhã do passeio", "Avisos de 10 e 5 minutos e “o ônibus está no ponto”"],
-    depende: "API ou webhook de posição do rastreador (Grupo Khronos) ou aplicativo de GPS no celular do motorista; coordenadas oficiais dos pontos.",
-  },
   passageiros: {
     titulo: "Passageiros e clientes",
     area: "Cadastros",
