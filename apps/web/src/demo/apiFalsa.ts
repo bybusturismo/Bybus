@@ -89,6 +89,13 @@ const pessoas: Pessoa[] = [
   { ...pessoaBase, id: "pe-fred", nome: "Motorista Fictício Fred", papeis: ["MOTORISTA", "COLABORADOR"], unidadeId: "un-bc", cnhCategoria: "E", cnhValidade: dataMais(25) },
 ];
 const saidas: Saida[] = [];
+const escalaDemo = new Map<string, { guiaId: string | null; motoristaId: string | null; origem: "ESCALA" | "TROCA"; motivo: string | null; publicada: boolean }>();
+const motoristaPadraoDemo: Record<string, string | null> = { "toda-ilha": "pe-davi" };
+// Mês atual do City Tour: Ana e Bia se revezam; amanhã houve uma troca por força maior.
+for (let i = -10; i <= 40; i++) {
+  const data = dataMais(i);
+  escalaDemo.set(`toda-ilha|${data}`, { guiaId: i % 2 === 0 ? "pe-ana" : "pe-bia", motoristaId: null, origem: i === 1 ? "TROCA" : "ESCALA", motivo: i === 1 ? "Guia com atestado médico (fictício)" : null, publicada: i <= 25 });
+}
 const reservas: Reserva[] = [];
 const pax: Pax[] = [];
 const auditoria: Array<{ id: string; acao: string; entidade: string | null; entidadeId: string | null; dados: Record<string, unknown> | null; ip: string | null; criadoEm: string; usuario: string | null }> = [];
@@ -388,6 +395,61 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     exigir("embarque:registrar");
     const p = achar(pax, m![1]!, "Passageiro"); p.embarque = c.status; auditar("EMBARQUE_REGISTRADO", "passageiro", p.id, { status: c.status });
     return { id: p.id, embarque: p.embarque };
+  }
+  // Escala (demonstração): mês atual planejado e publicado, com uma troca de exemplo.
+  if (metodo === "GET" && caminho === "/api/escala/equipe") {
+    exigir("pessoas:ver");
+    const ps = achar(passeios, String(q.get("passeioId")), "Passeio");
+    const daPraca = pessoas.filter((p) => p.ativo && (!p.unidadeId || p.unidadeId === ps.unidadeId)).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    return { guias: daPraca.filter((p) => p.papeis.includes("GUIA")).map((p) => ({ id: p.id, nome: p.nome, cadasturValidade: p.cadasturValidade })), motoristas: daPraca.filter((p) => p.papeis.includes("MOTORISTA")).map((p) => ({ id: p.id, nome: p.nome })) };
+  }
+  if (metodo === "GET" && caminho === "/api/escala") {
+    exigir("pessoas:ver");
+    const ps = achar(passeios, String(q.get("passeioId")), "Passeio");
+    const mes = String(q.get("mes"));
+    const nome = (pid: string | null | undefined) => pessoas.find((p) => p.id === pid)?.nome ?? null;
+    const [a, mm] = mes.split("-").map(Number) as [number, number];
+    const total = new Date(Date.UTC(a, mm, 0)).getUTCDate();
+    const padrao = motoristaPadraoDemo[ps.id] ?? null;
+    return {
+      passeio: { id: ps.id, nome: ps.nome, unidadeId: ps.unidadeId, motoristaPadraoId: padrao, motoristaPadrao: nome(padrao), veiculoPadrao: ps.id === passeio.id ? "QJQ2A16 (fictício)" : null },
+      dias: Array.from({ length: total }, (_, i) => {
+        const data = `${mes}-${String(i + 1).padStart(2, "0")}`;
+        const e = escalaDemo.get(`${ps.id}|${data}`);
+        const guia = pessoas.find((p) => p.id === e?.guiaId);
+        const alertas = guia?.cadasturValidade && guia.cadasturValidade < data ? ["Cadastur do guia vencido nesta data."] : [];
+        const sd = saidas.find((x) => x.passeioId === ps.id && x.data === data);
+        return { data, guiaId: e?.guiaId ?? null, guia: guia?.nome ?? null, motoristaId: e?.motoristaId ?? null, motorista: nome(e?.motoristaId), origem: e ? e.origem : null, motivo: e?.motivo ?? null, publicada: e?.publicada ?? false, saida: sd ? { id: sd.id, data: sd.data, status: sd.status } : null, alertas };
+      }),
+    };
+  }
+  if (metodo === "PUT" && caminho === "/api/escala") {
+    exigir("escala:gerenciar");
+    const ps = achar(passeios, String(c.passeioId), "Passeio");
+    const dias = (c.dias as Array<{ data: string; guiaId: string | null; motoristaId: string | null }>) ?? [];
+    const bloqueados = dias.filter((d) => { const e = escalaDemo.get(`${ps.id}|${d.data}`); return e?.publicada && (e.guiaId !== d.guiaId || e.motoristaId !== d.motoristaId); });
+    if (bloqueados.length) throw new Erro(409, "TROCA_EXIGE_MOTIVO", "Escala já publicada nesses dias: use “Trocar” e informe o motivo.");
+    if (c.motoristaPadraoId !== undefined) motoristaPadraoDemo[ps.id] = (c.motoristaPadraoId as string | null) ?? null;
+    for (const d of dias) {
+      const e = escalaDemo.get(`${ps.id}|${d.data}`);
+      escalaDemo.set(`${ps.id}|${d.data}`, { guiaId: d.guiaId, motoristaId: d.motoristaId, origem: e?.origem ?? "ESCALA", motivo: e?.motivo ?? null, publicada: (e?.publicada ?? false) || !!c.publicar });
+    }
+    if (c.publicar) for (const [k, e] of escalaDemo) if (k.startsWith(`${ps.id}|${c.mes}`)) e.publicada = true;
+    auditar(c.publicar ? "ESCALA_PUBLICADA" : "ESCALA_SALVA", "passeio", ps.id);
+    return { ok: true };
+  }
+  if (metodo === "POST" && caminho === "/api/escala/troca") {
+    exigir("escala:gerenciar");
+    if (String(c.motivo ?? "").trim().length < 5) throw new Erro(400, "DADOS_INVALIDOS", "Descreva o motivo da troca.");
+    const ps = achar(passeios, String(c.passeioId), "Passeio");
+    const k = `${ps.id}|${c.data}`;
+    const e = escalaDemo.get(k);
+    escalaDemo.set(k, { guiaId: c.guiaId !== undefined ? (c.guiaId as string | null) : e?.guiaId ?? null, motoristaId: c.motoristaId !== undefined ? (c.motoristaId as string | null) : e?.motoristaId ?? null, origem: "TROCA", motivo: String(c.motivo).trim(), publicada: true });
+    const sd = saidas.find((x) => x.passeioId === ps.id && x.data === c.data);
+    const novo = escalaDemo.get(k)!;
+    if (sd) { sd.guiaId = novo.guiaId; sd.guia = pessoas.find((p) => p.id === novo.guiaId)?.nome ?? null; }
+    auditar("ESCALA_TROCA", "passeio", ps.id);
+    return { ok: true };
   }
   // Integrações (demonstração): situação fictícia; "sincronizar" só simula a leitura.
   if (metodo === "GET" && caminho === "/api/integracoes/paytour") {

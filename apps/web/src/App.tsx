@@ -12,6 +12,7 @@ import { Conta } from "./paginas/Conta";
 import { Importar } from "./paginas/importar/Importar";
 import { Integracoes } from "./paginas/Integracoes";
 import { EmBreve } from "./paginas/EmBreve";
+import { Escala } from "./paginas/Escala";
 import { Login } from "./paginas/Login";
 import { TelaPendencia } from "./paginas/Pendencias";
 import { Embarque } from "./paginas/saida/Embarque";
@@ -79,6 +80,14 @@ export function Rotas() {
           element={
             <Exige permissao="importacoes:executar">
               <Importar />
+            </Exige>
+          }
+        />
+        <Route
+          path="escala"
+          element={
+            <Exige permissao="pessoas:ver">
+              <Escala />
             </Exige>
           }
         />

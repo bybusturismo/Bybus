@@ -347,3 +347,25 @@ export interface ResultadoSincronizacaoPaytour extends ResultadoImportacao {
   ate: string;
   pedidos: number;
 }
+
+/** GET /api/escala */
+export interface DiaEscala {
+  data: string;
+  guiaId: string | null;
+  guia: string | null;
+  motoristaId: string | null;
+  motorista: string | null;
+  origem: "ESCALA" | "TROCA" | null;
+  motivo: string | null;
+  publicada: boolean;
+  saida: { id: string; data: string; status: string } | null;
+  alertas: string[];
+}
+export interface RespostaEscala {
+  passeio: { id: string; nome: string; unidadeId: string; motoristaPadraoId: string | null; motoristaPadrao: string | null; veiculoPadrao: string | null };
+  dias: DiaEscala[];
+}
+export interface EquipeEscala {
+  guias: Array<{ id: string; nome: string; cadasturValidade: string | null }>;
+  motoristas: Array<{ id: string; nome: string }>;
+}

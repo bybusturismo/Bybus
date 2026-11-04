@@ -43,7 +43,7 @@ const MENSAGENS_PADRAO: Record<number, string> = {
 };
 
 export interface OpcoesRequisicao {
-  metodo?: "GET" | "POST" | "PATCH" | "DELETE";
+  metodo?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   corpo?: unknown;
   sinal?: AbortSignal;
   /** Não notificar a sessão em 401 (usado no login e no /eu inicial). */
@@ -94,6 +94,7 @@ export const api = {
   get: <T>(caminho: string, sinal?: AbortSignal) => requisitar<T>(caminho, { sinal }),
   post: <T>(caminho: string, corpo?: unknown) => requisitar<T>(caminho, { metodo: "POST", corpo: corpo ?? {} }),
   patch: <T>(caminho: string, corpo: unknown) => requisitar<T>(caminho, { metodo: "PATCH", corpo }),
+  put: <T>(caminho: string, corpo: unknown) => requisitar<T>(caminho, { metodo: "PUT", corpo }),
   delete: <T>(caminho: string) => requisitar<T>(caminho, { metodo: "DELETE" }),
 };
 

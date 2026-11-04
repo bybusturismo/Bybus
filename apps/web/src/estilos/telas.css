@@ -1510,3 +1510,38 @@
   flex-direction: column;
   gap: var(--esp-1);
 }
+
+/* ---------- Escala ---------- */
+.escala__mes {
+  display: inline-flex;
+  align-items: center;
+  min-width: 11rem;
+  justify-content: center;
+  font-weight: var(--peso-medio);
+}
+.escala__resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-3);
+}
+.escala__resumo .etiqueta,
+.escala td .etiqueta {
+  margin: 0 var(--esp-1) 0 0;
+}
+.escala td {
+  vertical-align: middle;
+}
+.escala select {
+  min-height: 36px;
+  padding: var(--esp-1) var(--esp-2);
+  min-width: 12rem;
+}
+.escala__fds td:first-child {
+  font-weight: var(--peso-medio);
+  color: var(--cor-primaria);
+}
+.escala__acoes {
+  margin-top: var(--esp-4);
+  justify-content: flex-end;
+}
