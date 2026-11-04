@@ -6,12 +6,13 @@ import { EtiquetaLinha } from "../../componentes/Etiquetas";
 import { Modal } from "../../componentes/Modal";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { nomePraca, useSessao } from "../../sessao/Sessao";
-import { formatarData, hojeIso } from "../../util/formato";
+import { centavosDeTexto, formatarData, formatarMoeda, hojeIso, nomeMes, somarMes, textoDeCentavos, ultimoDiaDoMes } from "../../util/formato";
 import { ROTULO_LINHA } from "../../util/rotulos";
+import { useAtraso } from "../../util/useAtraso";
 import { useCarregar } from "../../util/useCarregar";
 import { useCategorias, useContas } from "./dados";
 import { CANAIS_FIN, FORMAS, type CategoriaFin, type ContaFin, type FormaPagamento, type LancamentoFin, type RespostaLancamentos, type TipoLancamento } from "./tipos";
-import { centavosParaCampo, formatarReais, lerReais, nomeMes, ROTULO_FORMA, somarMesAno, ultimoDiaDoMes } from "./util";
+import { ROTULO_FORMA } from "./util";
 
 type Repeticao = "UNICA" | "PARCELADO" | "RECORRENTE";
 
@@ -34,7 +35,7 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
   const [canal, setCanal] = useState<string>(lancamento?.canal ?? "");
   const [forma, setForma] = useState<string>(lancamento?.forma ?? "");
   const [contaId, setContaId] = useState(lancamento?.contaId ?? "");
-  const [valor, setValor] = useState(lancamento ? centavosParaCampo(lancamento.valorCentavos) : "");
+  const [valor, setValor] = useState(lancamento ? textoDeCentavos(lancamento.valorCentavos) : "");
   const [competencia, setCompetencia] = useState(lancamento?.competencia ?? hoje);
   const [vencimento, setVencimento] = useState(lancamento?.vencimento ?? hoje);
   const [repeticao, setRepeticao] = useState<Repeticao>("UNICA");
@@ -51,10 +52,10 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
   async function salvar(e: FormEvent) {
     e.preventDefault();
     setErro(null);
-    const centavos = lerReais(valor);
+    const centavos = centavosDeTexto(valor);
     if (descricao.trim().length < 2) return setErro("Informe a descrição.");
     if (!categoriaId) return setErro("Escolha a categoria.");
-    if (centavos === null || centavos <= 0) return setErro("Informe o valor em reais (ex.: 1.234,56), com no máximo duas casas decimais.");
+    if (centavos === null || Number.isNaN(centavos) || centavos <= 0) return setErro("Informe o valor em reais (ex.: 1.234,56), com no máximo duas casas decimais.");
     if (!unidadeId && !usuario?.todasUnidades) return setErro("Escolha a praça.");
     if (!competencia || !vencimento) return setErro("Informe a competência e o vencimento.");
     const n = Number(quantidade);
@@ -201,7 +202,11 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
   const [desconto, setDesconto] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
-  const campo = (t: string) => (t.trim() === "" ? 0 : lerReais(t));
+  const campo = (t: string) => {
+    if (t.trim() === "") return 0;
+    const v = centavosDeTexto(t);
+    return v === null || Number.isNaN(v) || v < 0 ? null : v;
+  };
   const j = campo(juros);
   const m = campo(multa);
   const d = campo(desconto);
@@ -228,7 +233,7 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
   return (
     <form onSubmit={salvar}>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
-      <p><strong>{lancamento.descricao}</strong> — devido {formatarReais(lancamento.valorCentavos)}, vencimento {formatarData(lancamento.vencimento)}</p>
+      <p><strong>{lancamento.descricao}</strong> — devido {formatarMoeda(lancamento.valorCentavos)}, vencimento {formatarData(lancamento.vencimento)}</p>
       <div className="grade-campos">
         <div className="campo">
           <label htmlFor="baixa-data">Data do pagamento</label>
@@ -245,7 +250,7 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
         <div className="campo"><label htmlFor="baixa-multa">Multa (R$)</label><input id="baixa-multa" inputMode="decimal" value={multa} onChange={(e) => setMulta(e.target.value)} placeholder="0,00" /></div>
         <div className="campo"><label htmlFor="baixa-desconto">Desconto (R$)</label><input id="baixa-desconto" inputMode="decimal" value={desconto} onChange={(e) => setDesconto(e.target.value)} placeholder="0,00" /></div>
       </div>
-      <p aria-live="polite">Valor {verbo}: <strong>{total === null ? "—" : formatarReais(total)}</strong></p>
+      <p aria-live="polite">Valor {verbo}: <strong>{total === null ? "—" : formatarMoeda(total)}</strong></p>
       <div className="modal__acoes">
         <button type="button" className="botao botao--secundario" onClick={aoCancelar}>Cancelar</button>
         <button type="submit" className="botao botao--primario" disabled={salvando}>{salvando ? "Salvando…" : lancamento.tipo === "PAGAR" ? "Confirmar pagamento" : "Confirmar recebimento"}</button>
@@ -260,7 +265,8 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
   const podeEditar = pode("financeiro:gerenciar");
   const [mes, setMes] = useState(() => hojeIso().slice(0, 7));
   const [situacao, setSituacao] = useState<"" | "ABERTO" | "VENCIDO" | "REALIZADO">("");
-  const [busca, setBusca] = useState("");
+  const [texto, setTexto] = useState("");
+  const busca = useAtraso(texto.trim(), 300);
   const [edicao, setEdicao] = useState<LancamentoFin | "novo" | null>(null);
   const [baixando, setBaixando] = useState<LancamentoFin | null>(null);
   const [excluindo, setExcluindo] = useState<LancamentoFin | null>(null);
@@ -269,7 +275,7 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
   const contas = useContas();
 
   const lista = useCarregar((s) => api.get<RespostaLancamentos>(`/api/financeiro/lancamentos${qs({
-    tipo, situacao, unidadeId: praca, q: busca.trim(), limite: 300,
+    tipo, situacao, unidadeId: praca, q: busca, limite: 300,
     de: situacao === "VENCIDO" ? "" : `${mes}-01`, ate: situacao === "VENCIDO" ? "" : ultimoDiaDoMes(mes),
   })}`, s), [tipo, mes, situacao, praca, busca]);
 
@@ -326,9 +332,9 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
 
       <div className="filtros">
         <div className="fin-meses" aria-label="Mês de vencimento">
-          <button type="button" className="botao botao--secundario" aria-label="Mês anterior" disabled={situacao === "VENCIDO"} onClick={() => setMes(somarMesAno(mes, -1))}>←</button>
+          <button type="button" className="botao botao--secundario" aria-label="Mês anterior" disabled={situacao === "VENCIDO"} onClick={() => setMes(somarMes(mes, -1))}>←</button>
           <span className="fin-meses__nome" aria-live="polite">{situacao === "VENCIDO" ? "Todos os meses" : nomeMes(mes)}</span>
-          <button type="button" className="botao botao--secundario" aria-label="Próximo mês" disabled={situacao === "VENCIDO"} onClick={() => setMes(somarMesAno(mes, 1))}>→</button>
+          <button type="button" className="botao botao--secundario" aria-label="Próximo mês" disabled={situacao === "VENCIDO"} onClick={() => setMes(somarMes(mes, 1))}>→</button>
         </div>
         <div className="campo campo--linha">
           <label htmlFor="fil-situacao">Situação</label>
@@ -341,7 +347,7 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
         </div>
         <div className="campo campo--linha campo--busca">
           <label htmlFor="fil-busca">Buscar</label>
-          <input id="fil-busca" type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Descrição ou fornecedor" />
+          <input id="fil-busca" type="search" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Descrição ou fornecedor" />
         </div>
       </div>
 
@@ -371,8 +377,8 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
                     {l.veiculo && <div className="texto-fraco">{l.veiculo}</div>}
                   </td>
                   <td className="fin-valor">
-                    {formatarReais(l.situacao === "REALIZADO" ? (l.valorPagoCentavos ?? l.valorCentavos) : l.valorCentavos)}
-                    {l.situacao === "REALIZADO" && l.valorPagoCentavos !== l.valorCentavos && <div className="texto-fraco">devido {formatarReais(l.valorCentavos)}</div>}
+                    {formatarMoeda(l.situacao === "REALIZADO" ? (l.valorPagoCentavos ?? l.valorCentavos) : l.valorCentavos)}
+                    {l.situacao === "REALIZADO" && l.valorPagoCentavos !== l.valorCentavos && <div className="texto-fraco">devido {formatarMoeda(l.valorCentavos)}</div>}
                   </td>
                   <td>
                     {l.situacao === "REALIZADO" ? <span className="etiqueta etiqueta--sucesso">{rotulos.realizado} em {formatarData(l.pagoEm)}</span> : l.vencido ? <span className="etiqueta etiqueta--perigo">Vencida</span> : <span className="etiqueta etiqueta--neutra">Em aberto</span>}
@@ -396,7 +402,7 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
               <tr className="fin-total">
                 <td colSpan={4}>{d.total} lançamento(s)</td>
                 <td className="fin-valor" colSpan={podeEditar ? 3 : 2}>
-                  Em aberto {formatarReais(d.somaAbertoCentavos)} · {rotulos.realizado} {formatarReais(d.somaRealizadoCentavos)}
+                  Em aberto {formatarMoeda(d.somaAbertoCentavos)} · {rotulos.realizado} {formatarMoeda(d.somaRealizadoCentavos)}
                 </td>
               </tr>
             </tfoot>
@@ -416,7 +422,7 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
       <Modal aberto={excluindo !== null} titulo="Excluir lançamento" aoFechar={() => setExcluindo(null)}>
         {excluindo && (
           <div>
-            <p>Excluir <strong>{excluindo.descricao}</strong> ({formatarReais(excluindo.valorCentavos)})?</p>
+            <p>Excluir <strong>{excluindo.descricao}</strong> ({formatarMoeda(excluindo.valorCentavos)})?</p>
             <div className="modal__acoes">
               <button type="button" className="botao botao--secundario" onClick={() => setExcluindo(null)}>Cancelar</button>
               {excluindo.grupoId && <button type="button" className="botao botao--perigo-contorno" onClick={() => void excluir(excluindo, true)}>Esta e as próximas em aberto</button>}

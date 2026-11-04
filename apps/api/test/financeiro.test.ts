@@ -510,6 +510,23 @@ describe("regressões da revisão", () => {
     expect(comFatura.find((s) => s.inicio === "2026-11-02")!.saidasRealizadasCentavos).toBe(antes.find((s) => s.inicio === "2026-11-02")!.saidasRealizadasCentavos + 5555);
   });
 
+  it("a confirmação da importação é amarrada à prévia: outra conta ou outro arquivo é recusado", async () => {
+    const a = await conta(usuarioFln, { nome: "Corrente prévia A", tipo: "CORRENTE", unidadeId: fln });
+    const b = await conta(usuarioFln, { nome: "Corrente prévia B", tipo: "CORRENTE", unidadeId: fln });
+    const conteudo = csv("14/10/2026;Compra prévia;-10,00");
+    const previa = json(await usuarioFln.req("POST", "/api/financeiro/extratos/importar", { contaId: a, formato: "CSV", conteudo }));
+    expect(previa.previaId).toMatch(/^[0-9a-f]{64}$/);
+    const naB = await usuarioFln.req("POST", "/api/financeiro/extratos/importar", { contaId: b, formato: "CSV", conteudo, confirmar: true, previaId: previa.previaId });
+    expect(naB.statusCode).toBe(409);
+    expect(naB.json().codigo).toBe("PREVIA_DE_OUTRA_CONTA");
+    expect(json(await usuarioFln.req("GET", `/api/financeiro/extrato/linhas?contaId=${b}`)).total).toBe(0);
+    const outroArquivo = await usuarioFln.req("POST", "/api/financeiro/extratos/importar", { contaId: a, formato: "CSV", conteudo: csv("14/10/2026;Outra;-11,00"), confirmar: true, previaId: previa.previaId });
+    expect(outroArquivo.json().codigo).toBe("PREVIA_DE_OUTRA_CONTA");
+    const ok = await usuarioFln.req("POST", "/api/financeiro/extratos/importar", { contaId: a, formato: "CSV", conteudo, confirmar: true, previaId: previa.previaId });
+    expect(ok.statusCode).toBe(200);
+    expect(json(ok).novas).toBe(1);
+  });
+
   it("lançar do extrato: praça omitida usa a da conta; null explícito vale 'empresa toda'; veículo vazio é aceito", async () => {
     const c = await conta(admin, { nome: "Corrente praça lançar", tipo: "CORRENTE", unidadeId: fln });
     await importar(admin, c, csv("12/10/2026;Compra A;-10,00", "12/10/2026;Compra B;-20,00"));

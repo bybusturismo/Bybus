@@ -81,21 +81,55 @@ export function plural(n: number, singular: string, pluralForma = `${singular}s`
 }
 
 /**
- * Texto digitado em reais → centavos (inteiro). Aceita "300", "300,5", "1.234,56", "R$ 1.234,56".
- * Retorna null se vazio e NaN se inválido.
+ * Texto digitado em reais → centavos (inteiro, sem arredondar). Aceita sinal ("-1.234,56", "R$ -10"), vírgula decimal,
+ * ponto de milhar ("1.234,56") e ponto decimal quando há um só ponto com 1 ou 2 casas ("300.50"; já "1.234" é milhar).
+ * Retorna null se vazio e NaN se inválido (inclusive com mais de duas casas decimais).
  */
 export function centavosDeTexto(texto: string): number | null {
-  const t = texto.replace(/R\$/i, "").replace(/\s/g, "");
+  let t = texto.replace(/\s/g, "");
   if (!t) return null;
-  if (!/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+(,\d{1,2})?$/.test(t)) return Number.NaN;
-  const [inteiro, decimal = ""] = t.replace(/\./g, "").split(",");
-  return Number(inteiro) * 100 + Number(decimal.padEnd(2, "0"));
+  let sinais = 0;
+  let negativo = false;
+  t = t.replace(/^([+-])?(?:R\$)?([+-])?/i, (_, a?: string, b?: string) => {
+    for (const x of [a, b]) if (x) { sinais++; if (x === "-") negativo = true; }
+    return "";
+  });
+  if (sinais > 1) return Number.NaN;
+  let inteiro: string;
+  let decimal = "";
+  if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(t)) [inteiro = "", decimal = ""] = t.replace(/\./g, "").split(",");
+  else if (/^\d+(,\d{1,2})?$/.test(t)) [inteiro = "", decimal = ""] = t.split(",");
+  else if (/^\d+\.\d{1,2}$/.test(t)) [inteiro = "", decimal = ""] = t.split(".");
+  else return Number.NaN;
+  const v = Number(inteiro) * 100 + Number(decimal.padEnd(2, "0"));
+  if (!Number.isSafeInteger(v)) return Number.NaN;
+  return negativo && v !== 0 ? -v : v;
 }
 
 /** Centavos → texto editável "1.234,56" (sem "R$"). */
 export function textoDeCentavos(centavos: number | null | undefined): string {
   if (centavos === null || centavos === undefined) return "";
   return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(centavos / 100);
+}
+
+/** "2026-11" → "Novembro de 2026" (estilo "short": "Nov. de 2026"). */
+export function nomeMes(mes: string, estilo: "long" | "short" = "long"): string {
+  const [a, m] = mes.split("-").map(Number) as [number, number];
+  const t = new Intl.DateTimeFormat("pt-BR", { month: estilo, year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, 15)));
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/** Soma meses a um mês "AAAA-MM". */
+export function somarMes(mes: string, n: number): string {
+  const [a, m] = mes.split("-").map(Number) as [number, number];
+  const d = new Date(Date.UTC(a, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Último dia de um mês "AAAA-MM" → "AAAA-MM-DD". */
+export function ultimoDiaDoMes(mes: string): string {
+  const [a, m] = mes.split("-").map(Number) as [number, number];
+  return `${mes}-${String(new Date(Date.UTC(a, m, 0)).getUTCDate()).padStart(2, "0")}`;
 }
 
 export type SituacaoValidade = "vencido" | "vencendo" | "ok";

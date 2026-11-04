@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { Passeio } from "../api/tipos";
 import { corpoEnviado, FLN, renderizar, sessaoFicticia, simularApi } from "../teste/ajuda";
-import { Escala, somarMes } from "./Escala";
+import { somarMes } from "../util/formato";
+import { Escala } from "./Escala";
 
 const passeio: Passeio = { id: "p1", codigo: "TODA_ILHA", nome: "City Tour Toda Ilha", cidade: "Florianópolis", unidadeId: FLN.id, linha: "CITY_TOUR", capacidadePadrao: 73, minimoConfirmacao: 12, minimoSupervisor: 10, ativo: true };
 const dia = (data: string, extra: Record<string, unknown> = {}) => ({ data, guiaId: null, guia: null, motoristaId: null, motorista: null, origem: null, motivo: null, publicada: false, saida: null, alertas: [], ...extra });

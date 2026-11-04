@@ -5,7 +5,7 @@ import {
 } from "@bybus/core";
 import { and, asc, desc, eq, gte, ilike, inArray, lte, sql } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
@@ -29,11 +29,17 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
     const corpo = z.object({
       contaId: uuid, formato: z.enum(["OFX", "CSV"]), conteudo: z.string().min(1).max(5_500_000),
       arquivo: z.string().trim().max(200).nullish(), confirmar: z.boolean().default(false),
+      /** Identificador da prévia (devolvido na prévia): amarra a confirmação à conta e ao arquivo que foram conferidos. */
+      previaId: z.string().regex(/^[0-9a-f]{64}$/).optional(),
     }).parse(req.body);
     const conta = await garantirConta(db, u, corpo.contaId);
     if (!conta.ativa) throw new ErroHttp(400, "CONTA_INATIVA", "Esta conta está desativada.");
     if (conta.tipo === "CAIXA") throw new ErroHttp(400, "CONTA_SEM_EXTRATO", "Caixa em dinheiro não tem extrato: lance os recebimentos e pagamentos direto nas contas a receber e a pagar.");
 
+    const previaId = createHash("sha256").update(`${conta.id}\n${corpo.formato}\n${corpo.conteudo}`).digest("hex");
+    if (corpo.confirmar && corpo.previaId && corpo.previaId !== previaId) {
+      throw new ErroHttp(409, "PREVIA_DE_OUTRA_CONTA", "A prévia conferida era de outra conta ou de outro arquivo. Escolha o arquivo de novo e confira a prévia.");
+    }
     let lido: ExtratoLido;
     try {
       lido = corpo.formato === "OFX" ? lerOfx(corpo.conteudo) : lerCsvExtrato(corpo.conteudo, { faturaCartao: conta.tipo === "CARTAO" });
@@ -56,7 +62,7 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
     const novas = preparadas.filter((l) => !existentes.has(l.idUnico));
     const repetidas = lido.linhas.length - novas.length;
     const resumo = { total: lido.linhas.length, novas: novas.length, repetidas, ignoradas: lido.ignoradas.slice(0, 20), avisos, inicio: lido.inicio, fim: lido.fim, saldoCentavos: lido.saldoCentavos };
-    if (!corpo.confirmar) return { previa: true as const, ...resumo, amostra: novas.slice(0, 10).map((l) => ({ data: l.data, valorCentavos: l.valorCentavos, descricao: l.descricao })) };
+    if (!corpo.confirmar) return { previa: true as const, previaId, ...resumo, amostra: novas.slice(0, 10).map((l) => ({ data: l.data, valorCentavos: l.valorCentavos, descricao: l.descricao })) };
 
     const extratoId = await db.transaction(async (tx) => {
       const [ext] = await tx.insert(finExtratos).values({

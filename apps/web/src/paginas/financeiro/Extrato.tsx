@@ -1,16 +1,17 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
 import { LINHAS_NEGOCIO, type LinhaNegocio } from "../../api/tipos";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
 import { Modal } from "../../componentes/Modal";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { useSessao } from "../../sessao/Sessao";
-import { formatarData, hojeIso } from "../../util/formato";
+import { centavosDeTexto, formatarData, formatarMoeda, hojeIso } from "../../util/formato";
 import { ROTULO_LINHA } from "../../util/rotulos";
+import { useAtraso } from "../../util/useAtraso";
 import { useCarregar } from "../../util/useCarregar";
 import { useCategorias, useContas } from "./dados";
 import type { CategoriaFin, ContaFin, LinhaExtratoFin, PreviaImportacao, RespostaLinhas, StatusLinha, SugestaoConc } from "./tipos";
-import { decodificarArquivo, formatarReais, lerReais, ROTULO_TIPO_CONTA } from "./util";
+import { decodificarArquivo, ROTULO_TIPO_CONTA } from "./util";
 
 const ROTULO_STATUS: Record<StatusLinha, string> = { PENDENTE: "Pendente", CONCILIADO: "Conciliada", TRANSFERENCIA: "Transferência", IGNORADO: "Ignorada" };
 const CLASSE_STATUS: Record<StatusLinha, string> = { PENDENTE: "etiqueta--atencao", CONCILIADO: "etiqueta--sucesso", TRANSFERENCIA: "etiqueta--neutra", IGNORADO: "etiqueta--neutra" };
@@ -50,7 +51,7 @@ export function ImportadorExtrato({ conta, aoImportar }: { conta: ContaFin; aoIm
     setOcupado(true);
     setErro(null);
     try {
-      const r = await api.post<PreviaImportacao>("/api/financeiro/extratos/importar", { contaId: conta.id, formato: arquivo.formato, conteudo: arquivo.conteudo, arquivo: arquivo.nome, confirmar: true });
+      const r = await api.post<PreviaImportacao>("/api/financeiro/extratos/importar", { contaId: conta.id, formato: arquivo.formato, conteudo: arquivo.conteudo, arquivo: arquivo.nome, confirmar: true, previaId: previa?.previaId });
       notificar(`${r.novas} lançamento(s) importado(s); ${r.repetidas} já existiam.`);
       setArquivo(null);
       setPrevia(null);
@@ -82,7 +83,7 @@ export function ImportadorExtrato({ conta, aoImportar }: { conta: ContaFin; aoIm
           </p>
           {previa.amostra && previa.amostra.length > 0 && (
             <ul className="fin-lista">
-              {previa.amostra.map((l, i) => <li key={i}><span>{formatarData(l.data)} · {l.descricao}</span><span className={`fin-valor ${l.valorCentavos < 0 ? "fin-valor--saida" : "fin-valor--entrada"}`}>{formatarReais(l.valorCentavos)}</span></li>)}
+              {previa.amostra.map((l, i) => <li key={i}><span>{formatarData(l.data)} · {l.descricao}</span><span className={`fin-valor ${l.valorCentavos < 0 ? "fin-valor--saida" : "fin-valor--entrada"}`}>{formatarMoeda(l.valorCentavos)}</span></li>)}
             </ul>
           )}
           <div className="modal__acoes">
@@ -108,10 +109,10 @@ export function FormTransferencia({ contas, origemInicial, destinoInicial, valor
   async function salvar(e: FormEvent) {
     e.preventDefault();
     setErro(null);
-    const v = lerReais(valor);
+    const v = centavosDeTexto(valor);
     if (!origem || !destino) return setErro("Escolha as duas contas.");
     if (origem === destino) return setErro("Escolha contas diferentes.");
-    if (v === null || v <= 0) return setErro("Informe o valor em reais (ex.: 1.234,56).");
+    if (v === null || Number.isNaN(v) || v <= 0) return setErro("Informe o valor em reais (ex.: 1.234,56).");
     setSalvando(true);
     try {
       await api.post("/api/financeiro/transferencias", { contaOrigemId: origem, contaDestinoId: destino, valorCentavos: v, data });
@@ -167,7 +168,7 @@ function FormLancar({ linha, categorias, aoConcluir, aoCancelar }: { linha: Linh
   }
   return (
     <form onSubmit={salvar}>
-      <p>{formatarData(linha.data)} · <strong className={saida ? "fin-valor--saida" : "fin-valor--entrada"}>{formatarReais(linha.valorCentavos)}</strong></p>
+      <p>{formatarData(linha.data)} · <strong className={saida ? "fin-valor--saida" : "fin-valor--entrada"}>{formatarMoeda(linha.valorCentavos)}</strong></p>
       {linha.categoriaSugerida && <Aviso tipo="info">Sugestão por regra: {linha.categoriaSugerida.categoriaNome}. Confira antes de lançar.</Aviso>}
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       <div className="grade-campos">
@@ -192,15 +193,19 @@ export function PainelLinhas({ conta, versao }: { conta: ContaFin; versao: numbe
   const podeEditar = pode("financeiro:gerenciar");
   const categorias = useCategorias();
   const [status, setStatus] = useState<StatusLinha | "">("PENDENTE");
-  const [busca, setBusca] = useState("");
-  const [pagina, setPagina] = useState(1);
+  const [texto, setTexto] = useState("");
+  const busca = useAtraso(texto.trim(), 300);
+  // A página pertence ao filtro: mudou a conta, a situação ou a busca, volta à 1ª sem efeito extra (uma só requisição).
+  const chaveFiltro = `${conta.id}|${status}|${busca}`;
+  const [pag, setPag] = useState({ chave: "", n: 1 });
+  const pagina = pag.chave === chaveFiltro ? pag.n : 1;
+  const setPagina = (n: number) => setPag({ chave: chaveFiltro, n });
   const [erro, setErro] = useState<string | null>(null);
   const [lancando, setLancando] = useState<LinhaExtratoFin | null>(null);
   const [diferenca, setDiferenca] = useState<{ linha: LinhaExtratoFin; sugestao: SugestaoConc } | null>(null);
   const [destinoDiferenca, setDestinoDiferenca] = useState("");
 
-  useEffect(() => setPagina(1), [conta.id, status, busca]);
-  const r = useCarregar((s) => api.get<RespostaLinhas>(`/api/financeiro/extrato/linhas${qs({ contaId: conta.id, status, q: busca.trim(), pagina, limite: 50 })}`, s), [conta.id, status, busca, pagina, versao]);
+  const r = useCarregar((s) => api.get<RespostaLinhas>(`/api/financeiro/extrato/linhas${qs({ contaId: conta.id, status, q: busca, pagina, limite: 50 })}`, s), [conta.id, status, busca, pagina, versao]);
   const d = r.dados;
 
   async function agir(caminho: string, corpo: unknown, msg: string) {
@@ -237,7 +242,7 @@ export function PainelLinhas({ conta, versao }: { conta: ContaFin; versao: numbe
         ))}
       </div>
       <div className="barra-ferramentas">
-        <div className="campo campo--busca"><label htmlFor="busca-linhas" className="fin-oculto-visual">Buscar</label><input id="busca-linhas" type="search" placeholder="Buscar na descrição" value={busca} onChange={(e) => setBusca(e.target.value)} /></div>
+        <div className="campo campo--busca"><label htmlFor="busca-linhas" className="fin-oculto-visual">Buscar</label><input id="busca-linhas" type="search" placeholder="Buscar na descrição" value={texto} onChange={(e) => setTexto(e.target.value)} /></div>
       </div>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       {r.carregando && !d ? <Carregando /> : r.erro ? <ErroCarga mensagem={r.erro} tentarDeNovo={r.recarregar} /> : d && (d.linhas.length === 0 ? <Vazio titulo={status === "PENDENTE" ? "Nada pendente nesta conta." : "Nenhuma linha neste filtro."} /> : (
@@ -249,7 +254,7 @@ export function PainelLinhas({ conta, versao }: { conta: ContaFin; versao: numbe
                 <tr key={l.id}>
                   <td className="sem-quebra">{formatarData(l.data)}</td>
                   <td>{l.descricao || <span className="texto-fraco">(sem descrição)</span>}{l.manual && <span className="etiqueta etiqueta--neutra">manual</span>}{l.documento && <div className="texto-fraco">Doc. {l.documento}</div>}</td>
-                  <td className={`fin-valor ${l.valorCentavos < 0 ? "fin-valor--saida" : "fin-valor--entrada"}`}>{formatarReais(l.valorCentavos)}</td>
+                  <td className={`fin-valor ${l.valorCentavos < 0 ? "fin-valor--saida" : "fin-valor--entrada"}`}>{formatarMoeda(l.valorCentavos)}</td>
                   <td>
                     <span className={`etiqueta ${CLASSE_STATUS[l.status]}`}>{ROTULO_STATUS[l.status]}</span>
                     {l.lancamentoDescricao && <span className="texto-fraco"> {l.lancamentoDescricao}</span>}
@@ -258,8 +263,8 @@ export function PainelLinhas({ conta, versao }: { conta: ContaFin; versao: numbe
                         {(l.sugestoes ?? []).map((s) => (
                           <div key={s.lancamentoId} className="fin-sugestao">
                             <span className="fin-sugestao__texto">
-                              Sugestão ({s.nivel === "ALTA" ? "alta" : s.nivel === "MEDIA" ? "média" : "baixa"} confiança): <strong>{s.lancamento.descricao}</strong> · {formatarReais(s.lancamento.valorCentavos)} · venc. {formatarData(s.lancamento.vencimento)}
-                              {s.diferencaCentavos !== 0 && <> · diferença de {formatarReais(Math.abs(s.diferencaCentavos))}</>}
+                              Sugestão ({s.nivel === "ALTA" ? "alta" : s.nivel === "MEDIA" ? "média" : "baixa"} confiança): <strong>{s.lancamento.descricao}</strong> · {formatarMoeda(s.lancamento.valorCentavos)} · venc. {formatarData(s.lancamento.vencimento)}
+                              {s.diferencaCentavos !== 0 && <> · diferença de {formatarMoeda(Math.abs(s.diferencaCentavos))}</>}
                               <span className="texto-fraco"> ({s.motivos.join(", ")})</span>
                             </span>
                             <button type="button" className="botao botao--pequeno botao--primario" onClick={() => confirmar(l, s)}>Confirmar</button>
@@ -303,7 +308,7 @@ export function PainelLinhas({ conta, versao }: { conta: ContaFin; versao: numbe
         {diferenca && (
           <div>
             <p>
-              A linha tem {formatarReais(Math.abs(diferenca.linha.valorCentavos))} e o lançamento, {formatarReais(diferenca.sugestao.lancamento.valorCentavos)}. A diferença de <strong>{formatarReais(Math.abs(diferenca.sugestao.diferencaCentavos))}</strong> precisa de um destino explícito.
+              A linha tem {formatarMoeda(Math.abs(diferenca.linha.valorCentavos))} e o lançamento, {formatarMoeda(diferenca.sugestao.lancamento.valorCentavos)}. A diferença de <strong>{formatarMoeda(Math.abs(diferenca.sugestao.diferencaCentavos))}</strong> precisa de um destino explícito.
             </p>
             <div className="campo">
               <label htmlFor="dif-destino">A diferença é</label>
@@ -354,10 +359,10 @@ export function Extrato() {
                 {comExtrato.map((c) => <option key={c.id} value={c.id}>{c.nome} — {ROTULO_TIPO_CONTA[c.tipo]}{c.linhasPendentes ? ` (${c.linhasPendentes} pendentes)` : ""}</option>)}
               </select>
             </div>
-            <span>Saldo: <strong className={`fin-valor ${conta.saldoCentavos < 0 ? "fin-valor--saida" : ""}`}>{formatarReais(conta.saldoCentavos)}</strong></span>
+            <span>Saldo: <strong className={`fin-valor ${conta.saldoCentavos < 0 ? "fin-valor--saida" : ""}`}>{formatarMoeda(conta.saldoCentavos)}</strong></span>
           </div>
-          {podeEditar && <ImportadorExtrato conta={conta} aoImportar={() => { setVersao((v) => v + 1); void contas.recarregar(); }} />}
-          <PainelLinhas conta={conta} versao={versao} />
+          {podeEditar && <ImportadorExtrato key={`importar-${conta.id}`} conta={conta} aoImportar={() => { setVersao((v) => v + 1); void contas.recarregar(); }} />}
+          <PainelLinhas key={`linhas-${conta.id}`} conta={conta} versao={versao} />
         </>
       )}
       <Modal aberto={transferindo} titulo="Transferência entre contas" aoFechar={() => setTransferindo(false)}>

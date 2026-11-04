@@ -4,6 +4,7 @@ import type { Alerta, BlocoManifesto, Pessoa, Saida, StatusSaida } from "../../a
 import { Aviso, Vazio } from "../../componentes/Estados";
 import { Icone } from "../../componentes/Icone";
 import { Confirmar, Modal } from "../../componentes/Modal";
+import { normalizarBusca } from "../../componentes/Tabela";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { useSessao } from "../../sessao/Sessao";
 import { formatarData, formatarDataExtenso, formatarDataHora, hojeIso } from "../../util/formato";
@@ -47,15 +48,10 @@ function tituloBloco(b: BlocoManifesto): string {
   return b.ponto ? `${b.ponto.horario} — ${b.ponto.nome}` : "A DEFINIR — sem ponto de embarque";
 }
 
-/** Normaliza para busca sem acento e sem caixa. */
-function norm(s: string | null | undefined): string {
-  return (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-}
-
 export function BlocoPassageiros({ bloco, filtro }: { bloco: BlocoManifesto; filtro: string }) {
-  const f = norm(filtro.trim());
+  const f = normalizarBusca(filtro.trim());
   const visiveis = bloco.linhas.filter(
-    (l) => !f || norm(l.passageiro.nome).includes(f) || norm(l.contatoNome).includes(f) || norm(l.codigoExterno).includes(f) || String(l.numero) === f,
+    (l) => !f || normalizarBusca(l.passageiro.nome).includes(f) || normalizarBusca(l.contatoNome).includes(f) || normalizarBusca(l.codigoExterno).includes(f) || String(l.numero) === f,
   );
   const id = `bloco-${bloco.ponto?.id ?? "a-definir"}`;
   return (

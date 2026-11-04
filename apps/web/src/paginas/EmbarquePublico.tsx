@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { mensagemDeErro, requisitar } from "../api/cliente";
+import { formatarDataExtenso } from "../util/formato";
 import logoVertical from "../marca/bybus-vertical.png";
 
 interface PontoPublico { id: string; nome: string; horario: string; endereco: string | null; ehTransfer: boolean }
@@ -9,11 +10,6 @@ interface InfoEmbarque {
   escolha: { pontoId: string | null; hospedagem: string | null; pediuTransfer: boolean } | null;
   conferida: boolean; listaFechada: boolean;
 }
-
-const dataLonga = (iso: string) => {
-  const t = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`));
-  return t.charAt(0).toUpperCase() + t.slice(1);
-};
 
 /** Página do link de embarque (sem login): o passageiro informa a hospedagem e escolhe o ponto. */
 export function EmbarquePublico({ token }: { token: string }) {
@@ -80,7 +76,7 @@ export function EmbarquePublico({ token }: { token: string }) {
         {info && !feito && (
           <>
             <p className="cartao-acesso__subtitulo">
-              Olá{info.titular ? `, ${info.titular}` : ""}! <strong>{info.passeio}</strong> — {dataLonga(info.data)} · {info.passageiros} passageiro(s).
+              Olá{info.titular ? `, ${info.titular}` : ""}! <strong>{info.passeio}</strong> — {formatarDataExtenso(info.data)} · {info.passageiros} passageiro(s).
             </p>
             {info.listaFechada && (
               <div className="aviso aviso--atencao">A lista deste passeio já foi fechada. Você ainda pode informar o embarque: nossa equipe confirma antes da saída.</div>

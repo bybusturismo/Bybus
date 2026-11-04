@@ -6,22 +6,10 @@ import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { Modal } from "../componentes/Modal";
 import { useNotificar } from "../componentes/Notificacoes";
 import { useSessao } from "../sessao/Sessao";
-import { formatarDataCurta, hojeIso } from "../util/formato";
+import { formatarDataCurta, hojeIso, nomeMes, somarMes } from "../util/formato";
 import { useCarregar } from "../util/useCarregar";
 
 type Plano = Record<string, { guiaId: string | null; motoristaId: string | null }>;
-
-export function somarMes(mes: string, n: number): string {
-  const [a, m] = mes.split("-").map(Number) as [number, number];
-  const d = new Date(Date.UTC(a, m - 1 + n, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function nomeMes(mes: string): string {
-  const [a, m] = mes.split("-").map(Number) as [number, number];
-  const t = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, 15)));
-  return t.charAt(0).toUpperCase() + t.slice(1);
-}
 
 function Troca({ dia, passeioId, equipe, aoConcluir, aoFechar }: { dia: DiaEscala; passeioId: string; equipe: EquipeEscala; aoConcluir: () => Promise<void>; aoFechar: () => void }) {
   const [guiaId, setGuiaId] = useState(dia.guiaId ?? "");

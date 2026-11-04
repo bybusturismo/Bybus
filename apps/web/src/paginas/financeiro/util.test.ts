@@ -1,32 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { centavosParaCampo, decodificarArquivo, formatarMargem, formatarReais, lerReais, nomeMes, somarMesAno, ultimoDiaDoMes } from "./util";
+import { centavosDeTexto, formatarMoeda, nomeMes, somarMes, textoDeCentavos, ultimoDiaDoMes } from "../../util/formato";
+import { decodificarArquivo, formatarMargem } from "./util";
 
-describe("dinheiro na tela", () => {
+describe("dinheiro na tela (helpers comuns)", () => {
   it("lê valores em reais como centavos inteiros, sem arredondar", () => {
-    expect(lerReais("1.234,56")).toBe(123456);
-    expect(lerReais("1234,5")).toBe(123450);
-    expect(lerReais("1234.56")).toBe(123456);
-    expect(lerReais("R$ 10")).toBe(1000);
-    expect(lerReais("1.234")).toBe(123400);
-    expect(lerReais("0,07")).toBe(7);
-    expect(lerReais("19,99")).toBe(1999);
+    expect(centavosDeTexto("1.234,56")).toBe(123456);
+    expect(centavosDeTexto("1234,5")).toBe(123450);
+    expect(centavosDeTexto("1234.56")).toBe(123456);
+    expect(centavosDeTexto("300.50")).toBe(30050);
+    expect(centavosDeTexto("R$ 10")).toBe(1000);
+    expect(centavosDeTexto("1.234")).toBe(123400);
+    expect(centavosDeTexto("0,07")).toBe(7);
+    expect(centavosDeTexto("")).toBeNull();
   });
 
-  it("recusa o que não é valor, negativo ou com mais de duas casas", () => {
-    for (const ruim of ["", "abc", "-5", "12,345", "1,2,3", "1.2.3", "10,5x"]) expect(lerReais(ruim), ruim).toBeNull();
+  it("aceita negativo (saldo inicial negativo) e devolve ao campo sem estragar o sinal", () => {
+    expect(centavosDeTexto("-1.234,56")).toBe(-123456);
+    expect(centavosDeTexto("R$ -10")).toBe(-1000);
+    expect(centavosDeTexto("-R$ 10,50")).toBe(-1050);
+    expect(textoDeCentavos(-15150)).toBe("-151,50");
+    expect(centavosDeTexto(textoDeCentavos(-15150))).toBe(-15150);
+    expect(centavosDeTexto(textoDeCentavos(-5))).toBe(-5);
+    expect(centavosDeTexto(textoDeCentavos(123456))).toBe(123456);
   });
 
-  it("formata e devolve ao campo", () => {
-    expect(formatarReais(123456).replace(/\s/g, " ")).toBe("R$ 1.234,56");
-    expect(centavosParaCampo(5)).toBe("0,05");
-    expect(lerReais(centavosParaCampo(123456))).toBe(123456);
+  it("recusa o que não é valor ou tem mais de duas casas", () => {
+    for (const ruim of ["abc", "12,345", "1,2,3", "1.2.3", "10,5x", "--5", "5-"]) expect(centavosDeTexto(ruim), ruim).toBeNaN();
+  });
+
+  it("formata moeda, margem e meses", () => {
+    expect(formatarMoeda(123456)).toBe("R$ 1.234,56");
     expect(formatarMargem(1234)).toBe("12,34%");
     expect(formatarMargem(null)).toBe("—");
-  });
-
-  it("meses", () => {
     expect(nomeMes("2026-11")).toBe("Novembro de 2026");
-    expect(somarMesAno("2026-12", 1)).toBe("2027-01");
+    expect(somarMes("2026-12", 1)).toBe("2027-01");
     expect(ultimoDiaDoMes("2028-02")).toBe("2028-02-29");
   });
 
