@@ -409,9 +409,12 @@ export function Usuarios() {
                             {u.ativo ? "Desativar" : "Reativar"}
                           </button>
                         )}
-                        <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setAcao({ tipo: "senha", u })}>
-                          Redefinir senha
-                        </button>
+                        {/* A própria senha muda em "Minha conta": redefinir aqui derrubaria a sessão antes de copiar a temporária. */}
+                        {!souEu && (
+                          <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setAcao({ tipo: "senha", u })}>
+                            Redefinir senha
+                          </button>
+                        )}
                         {u.totpAtivo && !souEu && (
                           <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setAcao({ tipo: "mfa", u })}>
                             Redefinir MFA

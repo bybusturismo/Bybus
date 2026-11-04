@@ -93,7 +93,8 @@ export function CamposPassageiro({ valor, aoMudar, indice, mostrarErros, ajudaDo
             value={valor.documentoTipo}
             onChange={(e) => {
               const tipo = e.target.value as TipoDocumento | "";
-              mudar({ documentoTipo: tipo, documento: tipo === "CPF" ? mascararCpf(valor.documento) : valor.documento });
+              // "Sem documento" limpa o número (o campo fica desabilitado e não daria para apagar).
+              mudar({ documentoTipo: tipo, documento: !tipo ? "" : tipo === "CPF" ? mascararCpf(valor.documento) : valor.documento });
             }}
             aria-invalid={!!erros.documentoTipo}
             aria-describedby={erros.documentoTipo ? `${id}-tipo-erro` : undefined}

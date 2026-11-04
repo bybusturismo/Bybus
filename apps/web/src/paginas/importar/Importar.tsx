@@ -170,6 +170,8 @@ function ImportarPaytour() {
   const [conteudo, setConteudo] = useState<string | null>(null);
   const [arquivo, setArquivo] = useState<{ nome: string; codificacao: string; linhas: number } | null>(null);
   const [erroArquivo, setErroArquivo] = useState<string | null>(null);
+  // Troca a chave do <input type=file> em "Nova importação": sem isso, escolher o mesmo arquivo de novo não dispara onChange.
+  const [chaveArquivo, setChaveArquivo] = useState(0);
   const imp = useImportacao("/api/importacoes/paytour-csv");
 
   async function escolher(e: ChangeEvent<HTMLInputElement>) {
@@ -194,7 +196,7 @@ function ImportarPaytour() {
     <div className="importar">
       <div className="campo">
         <label htmlFor="paytour-arquivo">Arquivo CSV exportado da Paytour</label>
-        <input id="paytour-arquivo" type="file" accept=".csv,text/csv" onChange={(e) => void escolher(e)} aria-describedby="paytour-ajuda" />
+        <input key={chaveArquivo} id="paytour-arquivo" type="file" accept=".csv,text/csv" onChange={(e) => void escolher(e)} aria-describedby="paytour-ajuda" />
         <p id="paytour-ajuda" className="campo__ajuda">
           O arquivo é lido no seu navegador e enviado ao servidor só ao pré-visualizar. Reimportar o mesmo arquivo não duplica reservas.
         </p>
@@ -213,7 +215,7 @@ function ImportarPaytour() {
           Confirmar importação
         </button>
       </div>
-      <ResultadoArea imp={imp} aoConfirmar={() => void imp.enviar({ conteudo }, true)} aoNova={() => setConteudo(null)} />
+      <ResultadoArea imp={imp} aoConfirmar={() => void imp.enviar({ conteudo }, true)} aoNova={() => { setConteudo(null); setArquivo(null); setChaveArquivo((k) => k + 1); }} />
     </div>
   );
 }

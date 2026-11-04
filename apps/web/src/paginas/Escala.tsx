@@ -176,7 +176,7 @@ export function Escala() {
       </div>
 
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
-      {escala.carregando && !e ? <Carregando /> : escala.erro ? <ErroCarga mensagem={escala.erro} tentarDeNovo={escala.recarregar} /> : e && eq && (
+      {escala.carregando && !e ? <Carregando /> : escala.erro ? <ErroCarga mensagem={escala.erro} tentarDeNovo={escala.recarregar} /> : equipe.erro ? <ErroCarga mensagem={equipe.erro} tentarDeNovo={equipe.recarregar} /> : e && eq && (
         <>
           <div className="escala__resumo">
             <span className={`etiqueta ${publicado ? "etiqueta--sucesso" : "etiqueta--neutra"}`}>{publicado ? "Publicada" : "Em planejamento"}</span>

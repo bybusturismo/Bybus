@@ -36,12 +36,17 @@ function TextoLista({ titulo, texto, aoFechar }: { titulo: string; texto: string
 function Mensagens({ saidaId, aoFechar }: { saidaId: string; aoFechar: () => void }) {
   const lista = useCarregar((s) => api.get<MensagemFila[]>(`/api/mensagens${qs({ saidaId })}`, s), [saidaId]);
   const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState<string | null>(null);
   async function reenviar(id: string) {
+    if (enviando) return;
+    setEnviando(id);
     try {
       await api.post(`/api/mensagens/${id}/reenviar`);
       await lista.recarregar();
     } catch (e) {
       setErro(mensagemDeErro(e));
+    } finally {
+      setEnviando(null);
     }
   }
   return (
@@ -58,7 +63,7 @@ function Mensagens({ saidaId, aoFechar }: { saidaId: string; aoFechar: () => voi
                   <td>{m.titular ?? "—"}<span className="texto-fraco"> {m.destino ?? ""}</span></td>
                   <td><span className={`etiqueta ${m.status === "ENVIADA" ? "etiqueta--sucesso" : m.status === "FALHA" || m.status === "SEM_TELEFONE" ? "etiqueta--perigo" : "etiqueta--neutra"}`}>{ROTULO_STATUS[m.status] ?? m.status}</span>{m.erro ? <span className="texto-fraco"> {m.erro}</span> : null}</td>
                   <td className="sem-quebra">{formatarDataHora(m.enviadaEm ?? m.criadoEm)}</td>
-                  <td>{(m.status === "FALHA" || m.status === "SIMULADA") && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => void reenviar(m.id)}>Reenviar</button>}</td>
+                  <td>{(m.status === "FALHA" || m.status === "SIMULADA") && <button type="button" className="botao botao--fantasma botao--pequeno" disabled={!!enviando} onClick={() => void reenviar(m.id)}>{enviando === m.id ? "Enviando…" : "Reenviar"}</button>}</td>
                 </tr>
               ))}
             </tbody>
@@ -77,8 +82,10 @@ export function Fechamento() {
   const [mensagensDe, setMensagensDe] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [confirmar, setConfirmar] = useState<{ saidaId: string; passeio: string; adendo: boolean; titulares: number } | null>(null);
 
   async function fechar(saidaId: string, passeio: string) {
+    setConfirmar(null);
     setOcupado(saidaId);
     setErro(null);
     try {
@@ -146,15 +153,30 @@ export function Fechamento() {
                 <div className="barra-acoes">
                   <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void verTexto(x.saidaId, x.passeio)}>Ver texto da lista</button>
                   {x.naoConferidas > 0 && <Link className="botao botao--secundario botao--pequeno" to="/conferencia">Conferir pendências</Link>}
-                  <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado === x.saidaId} onClick={() => void fechar(x.saidaId, x.passeio)}>
-                    {fechada ? "Gerar adendo" : "Fechar lista agora"}
-                  </button>
+                  {(!fechada || x.depoisDoFechamento > 0) && (
+                    <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado === x.saidaId}
+                      onClick={() => setConfirmar({ saidaId: x.saidaId, passeio: x.passeio, adendo: fechada, titulares: fechada ? x.depoisDoFechamento : x.reservas })}>
+                      {fechada ? "Gerar adendo" : "Fechar lista agora"}
+                    </button>
+                  )}
                   <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setMensagensDe(x.saidaId)}>Mensagens</button>
                 </div>
               </li>
             );
           })}
         </ul>
+      )}
+      {confirmar && (
+        <Modal aberto titulo={confirmar.adendo ? "Gerar adendo da lista?" : "Fechar a lista agora?"} aoFechar={() => setConfirmar(null)}>
+          <p>
+            {confirmar.passeio}: {confirmar.adendo ? `${confirmar.titulares} reserva(s) nova(s) ou alterada(s) entram no adendo` : "a lista fecha em ordem de embarque"}
+            {s?.whatsapp.envioReal ? " e a confirmação sai pelo WhatsApp para quem ainda não recebeu." : " (WhatsApp em modo simulado: nada é enviado)."}
+          </p>
+          <div className="modal__acoes">
+            <button type="button" className="botao botao--secundario" onClick={() => setConfirmar(null)}>Cancelar</button>
+            <button type="button" className="botao botao--primario" onClick={() => void fechar(confirmar.saidaId, confirmar.passeio)}>{confirmar.adendo ? "Gerar adendo" : "Fechar lista"}</button>
+          </div>
+        </Modal>
       )}
       {texto && <TextoLista titulo={texto.titulo} texto={texto.texto} aoFechar={() => setTexto(null)} />}
       {mensagensDe && <Mensagens saidaId={mensagensDe} aoFechar={() => setMensagensDe(null)} />}

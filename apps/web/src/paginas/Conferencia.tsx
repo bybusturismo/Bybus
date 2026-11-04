@@ -82,7 +82,7 @@ function Cartao({ item, pontos, aoMudar }: { item: ItemConferencia; pontos: Pont
         <label className="visualmente-oculto" htmlFor={`ponto-${item.id}`}>Ponto de embarque de {item.contatoNome}</label>
         <select id={`ponto-${item.id}`} value={pontoId} onChange={(e) => setPontoId(e.target.value)}>
           <option value="">Ponto de embarque…</option>
-          {pontos.map((p) => <option key={p.id} value={p.id}>{p.horario} — {p.nome}</option>)}
+          {pontos.filter((p) => p.ativo !== false || p.id === pontoId).map((p) => <option key={p.id} value={p.id}>{p.horario} — {p.nome}{p.ativo === false ? " (inativo)" : ""}</option>)}
         </select>
         <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado || !pontoId} onClick={() => void conferir()}>
           {conferida ? "Conferir de novo" : "Confirmar embarque"}

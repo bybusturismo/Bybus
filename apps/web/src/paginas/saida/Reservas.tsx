@@ -353,9 +353,10 @@ export function Reservas() {
   const reservas = useCarregar((s) => api.get<Reserva[]>(`/api/saidas/${id}/reservas`, s), [id]);
   const pontosCarga = useCarregar((s) => api.get<PontoEmbarque[]>(`/api/passeios/${dados.saida.passeioId}/pontos`, s), [dados.saida.passeioId]);
   const pontos = useMemo(() => ordenarPontos(pontosCarga.dados ?? []), [pontosCarga.dados]);
+  // Nome também de ponto desativado (a reserva antiga continua apontando para ele).
   const nomePonto = (pid: string | null) => {
-    const p = pontos.find((x) => x.id === pid);
-    return p ? `${p.horario} — ${p.nome}` : null;
+    const p = (pontosCarga.dados ?? []).find((x) => x.id === pid);
+    return p ? `${p.horario} — ${p.nome}${p.ativo === false ? " (inativo)" : ""}` : null;
   };
 
   async function atualizarTudo() {

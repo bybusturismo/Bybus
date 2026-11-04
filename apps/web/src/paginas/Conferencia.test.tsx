@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { ItemConferencia } from "../api/tipos";
@@ -41,7 +41,11 @@ describe("Fechamento e mensagens", () => {
     });
     renderizar(<Fechamento />, { sessao: sessaoFicticia("SUPERVISOR", ["saidas:decidir", "manifesto:ver"], { unidades: [FLN] }) });
     expect(await screen.findByText("WhatsApp em modo simulado")).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Fechar lista agora" }));
+    const u = userEvent.setup();
+    await u.click(screen.getByRole("button", { name: "Fechar lista agora" }));
+    // Pede confirmação antes (fecha a lista e dispara as confirmações).
+    expect(api.mock.calls.some(([x]) => String(x) === "/api/saidas/s1/fechar")).toBe(false);
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Fechar lista" }));
     expect((await screen.findByLabelText("Texto da lista") as HTMLTextAreaElement).value).toContain("RELAÇÃO DE PASSAGEIROS");
     expect(api.mock.calls.some(([u, i]) => String(u) === "/api/saidas/s1/fechar" && i?.method === "POST")).toBe(true);
   });

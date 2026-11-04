@@ -107,10 +107,11 @@ export function Saidas() {
 
   const passeios = useCarregar((s) => api.get<Passeio[]>("/api/passeios", s), []);
   const daPraca = (passeios.dados ?? []).filter((p) => !praca || p.unidadeId === praca);
-  const filtroPasseio = daPraca.some((p) => p.id === passeioSalvo) ? passeioSalvo : "";
+  // Antes de os passeios chegarem, já usa o filtro salvo (evita carregar a lista duas vezes ao abrir a tela).
+  const filtroPasseio = !passeios.dados ? passeioSalvo : daPraca.some((p) => p.id === passeioSalvo) ? passeioSalvo : "";
   const porId = new Map((passeios.dados ?? []).map((p) => [p.id, p]));
   /** Passeio usado nos botões "Criar saída" de cada dia: o filtrado, ou o único da praça. */
-  const passeioDoDia = filtroPasseio ? porId.get(filtroPasseio)! : daPraca.length === 1 ? daPraca[0]! : null;
+  const passeioDoDia = filtroPasseio ? porId.get(filtroPasseio) ?? null : daPraca.length === 1 ? daPraca[0]! : null;
   const grupos = agruparPorPraca(daPraca, unidades);
   const passeioCriar = daPraca.find((p) => p.id === passeioNovo) ?? passeioDoDia ?? daPraca[0] ?? null;
   const mostrarPraca = !praca && unidades.length > 1;
