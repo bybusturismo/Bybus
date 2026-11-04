@@ -18,3 +18,9 @@ A lista de passageiros é prioridade. As confirmações de Tripadvisor/Viator ch
 - Decolar: o robô já envia, mas o sistema responde "sem leitor" e o e-mail fica pendente até o leitor existir (precisa de um e-mail de exemplo).
 - O robô só funciona com o sistema publicado em `https://` (depende da escolha de hospedagem).
 - Paytour continua por exportação CSV (tela Importar) até haver API.
+
+## Adendo (04/11/2026) — dados reais em desenvolvimento
+O dono autorizou importar os **dados reais** da Paytour (últimos 120 dias) no **banco temporário de desenvolvimento** da sessão de trabalho na nuvem, para conferir a lista de passageiros com casos reais.
+- Interruptor explícito `DADOS_REAIS_AUTORIZADOS=true`, aceito **só** com `AMBIENTE=desenvolvimento` (a configuração recusa em testes; em produção os dados já são reais).
+- Documentos continuam criptografados (AES-256-GCM). Nada vai para o GitHub, para a demonstração publicada ou para relatórios; nas conversas, apenas números agregados.
+- O banco some quando a sessão é encerrada.

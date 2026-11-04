@@ -30,16 +30,29 @@ const esquema = z.object({
   PAYTOUR_SINCRONIZAR_MINUTOS: z.coerce.number().int().min(0).max(1440).default(5),
   /** Na primeira sincronização, quantos dias para trás buscar pedidos alterados. */
   PAYTOUR_DIAS_INICIAIS: z.coerce.number().int().min(1).max(365).default(30),
+  /**
+   * LGPD: fora da produção os dados pessoais importados são anonimizados. "true" grava dados reais —
+   * permitido só em desenvolvimento, com autorização do dono registrada (ADR 0006, 04/11/2026).
+   */
+  DADOS_REAIS_AUTORIZADOS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   /** MFA obrigatório para ADMIN e SUPERVISOR. */
   EXIGIR_MFA_ADMIN: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
 });
 
-const esquemaValidado = esquema.refine((c) => c.AMBIENTE !== "producao" || c.EXIGIR_MFA_ADMIN, {
+const esquemaValidado = esquema.refine((c) => !c.DADOS_REAIS_AUTORIZADOS || c.AMBIENTE === "desenvolvimento", {
+  message: "DADOS_REAIS_AUTORIZADOS só vale em desenvolvimento (em testes os dados são sempre fictícios; em produção já são reais).",
+  path: ["DADOS_REAIS_AUTORIZADOS"],
+}).refine((c) => c.AMBIENTE !== "producao" || c.EXIGIR_MFA_ADMIN, {
   message: "Em produção, EXIGIR_MFA_ADMIN não pode ser false.",
   path: ["EXIGIR_MFA_ADMIN"],
 });
 
 export type Config = z.infer<typeof esquema>;
+
+/** Anonimizar dados pessoais nas importações? Sim fora da produção, salvo autorização explícita em desenvolvimento. */
+export function deveAnonimizar(c: Config): boolean {
+  return c.AMBIENTE !== "producao" && !c.DADOS_REAIS_AUTORIZADOS;
+}
 
 export function lerConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const r = esquemaValidado.safeParse(env);

@@ -61,7 +61,8 @@ export async function importarReservas(
   // Fora da produção (LGPD): dados pessoais viram fictícios antes de qualquer gravação ou prévia.
   const itens = opcoes.anonimizar ? itensRecebidos.map(anonimizarReserva) : itensRecebidos;
   // Só passeios das praças de quem está importando.
-  const todosPasseios = (await db.select().from(passeios).where(eq(passeios.ativo, true))).filter((p) => podeUnidade(opcoes.usuario, p.unidadeId));
+  // Inclui passeios inativos (encerrados): o histórico de vendas também precisa entrar.
+  const todosPasseios = (await db.select().from(passeios)).filter((p) => podeUnidade(opcoes.usuario, p.unidadeId));
   const previa: ItemPrevia[] = [];
 
   const executar = async (tx: Db) => {

@@ -4,6 +4,7 @@ import { lerEmailBokun, type ReservaImportada } from "@bybus/core";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
+import { deveAnonimizar } from "../config.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { ClientePaytour, ErroPaytour, estadoPaytour, paytourConfigurada, sincronizarPaytour } from "../servicos/paytour.js";
 import { importarReservas, USUARIO_INTEGRACAO } from "../servicos/importacao.js";
@@ -48,7 +49,7 @@ export async function rotasIntegracoes(app: FastifyInstance, { db, config, cofre
     const lidas = corpo.mensagens.map((m) => ({ id: m.id, ...lerEmailReserva(m) }));
     const reservas = lidas.flatMap((l) => (l.reserva ? [l.reserva] : []));
     const importacao = reservas.length
-      ? await importarReservas(db, cofre, reservas, { confirmar: true, origem: "EMAIL_AUTOMATICO", usuario: USUARIO_INTEGRACAO, anonimizar: config.AMBIENTE !== "producao" })
+      ? await importarReservas(db, cofre, reservas, { confirmar: true, origem: "EMAIL_AUTOMATICO", usuario: USUARIO_INTEGRACAO, anonimizar: deveAnonimizar(config) })
       : null;
     const resumo = { mensagens: lidas.length, ...(importacao?.resumo ?? {}), semLeitor: lidas.filter((l) => l.resultado === "SEM_LEITOR").length, naoReconhecidas: lidas.filter((l) => l.resultado === "NAO_RECONHECIDO").length };
     await auditar(db, req, "IMPORTACAO_EMAIL_AUTOMATICA", { tipo: "importacao" }, resumo);

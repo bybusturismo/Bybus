@@ -11,7 +11,7 @@ Sistema gerencial da **By Bus Turismo** (Florianópolis e Balneário Camboriú/S
 
 ## Regras
 1. **Pergunte ao dono antes** de decisões de negócio, custos recorrentes, ações irreversíveis ou externas (Google Drive, Paytour, e-mail, publicação).
-2. **LGPD:** nenhum dado pessoal real no repositório, no ambiente de testes ou em relatórios. Use dados fictícios.
+2. **LGPD:** nenhum dado pessoal real no repositório, no ambiente de testes, na demonstração publicada ou em relatórios/conversas. Use dados fictícios. Única exceção (autorizada pelo dono em 04/11/2026, ADR 0006): o banco **temporário de desenvolvimento** da sessão pode receber dados reais da Paytour com `DADOS_REAIS_AUTORIZADOS=true` — nunca exportados, versionados ou exibidos; nas respostas, só números agregados.
 3. Segredos só em variáveis de ambiente/cofre; `.env` nunca é versionado.
 4. Decisões técnicas relevantes viram ADR em `docs/arquitetura/adr/`.
 5. Regras de negócio no back-end; dinheiro em centavos; datas UTC no banco, America/Sao_Paulo na tela.

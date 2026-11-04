@@ -66,7 +66,9 @@ function camposFormulario(f: ItemPedidoPaytour["formulario"]): CampoFormulario[]
     const campo = c as Record<string, unknown>;
     const valor = texto(campo.valor_formatado) ?? texto(campo.valor);
     if (!valor) return [];
-    return [{ chave: normalizar(String(campo.chave ?? "")), label: normalizar(String(campo.label ?? "")), tipo: normalizar(String(campo.tipo ?? "")), valor }];
+    // Pedidos antigos usam chaves com hífen ("nome-completo"); os novos, com sublinhado ("nome_completo").
+    const chave = normalizar(String(campo.chave ?? "")).replace(/[-\s]+/g, "_");
+    return [{ chave, label: normalizar(String(campo.label ?? "")), tipo: normalizar(String(campo.tipo ?? "")), valor }];
   });
 }
 
@@ -76,7 +78,18 @@ function campo(campos: CampoFormulario[], padrao: RegExp): string | null {
 }
 const PADRAO_NOME = /nome_completo|^nome$|^nome do passageiro$/;
 const PADRAO_DOCUMENTO = /cpf|documento|passaporte|\brg\b|identidade|dni/;
-const PADRAO_PONTO = /embarque|ponto|hotel|hospedagem|local|encontro|pick ?up/;
+/** Em ordem de prioridade: o campo de embarque vale mais que o de hotel/estada do cliente. */
+const PADROES_PONTO = [/embarque/, /ponto|encontro|pick ?up/, /hospedagem|local/];
+/** Resposta de "ciente" num campo cujo nome já é o local (ex.: chave "embarque_as_18h30_no_ponto_de_taxi_do_villa_romana_shopping"). */
+const RESPOSTA_CIENTE = /^(sim|ok|yes|s|x|true|ciente|confirmo|de acordo|concordo)$/i;
+
+function pontoDoFormulario(campos: CampoFormulario[]): string | null {
+  for (const padrao of PADROES_PONTO) {
+    const c = campos.find((x) => padrao.test(x.chave) || padrao.test(x.label) || (padrao.source.includes("hospedagem") && x.tipo === "hospedagem"));
+    if (c) return RESPOSTA_CIENTE.test(c.valor.trim()) ? (c.label || c.chave.replace(/_/g, " ")) : c.valor;
+  }
+  return null;
+}
 
 /** "08:00", "08:00 até 10:00", "8h" → "08:00" */
 function horarioInicial(t: string | null): string | null {
@@ -122,7 +135,7 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
     let origemOta = canalPorAfiliado(afiliado);
     for (const item of doGrupo) {
       const campos = camposFormulario(item.formulario);
-      ponto ??= campo(campos, PADRAO_PONTO);
+      ponto ??= pontoDoFormulario(campos);
       const faixa = texto(item.produto_faixa_etaria_nome);
       const categoria = faixa ? categoriaPorRotulo(faixa) ?? categoriaPorRotulo(faixa.split(/[\s-]/)[0] ?? faixa) : "ADULTO";
       if (faixa && !categoria) avisos.push(`Faixa etária "${faixa}" desconhecida, tratada como adulto.`);

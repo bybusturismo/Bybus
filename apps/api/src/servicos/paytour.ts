@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { pedidoPaytourParaReservas, type PedidoPaytour } from "@bybus/core";
 import { auditar } from "../auditoria.js";
-import type { Config } from "../config.js";
+import { deveAnonimizar, type Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
 import { integracoesEstado } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
@@ -109,7 +109,7 @@ export async function sincronizarPaytour(
 
     const reservas = pedidos.flatMap((p) => pedidoPaytourParaReservas(p));
     const { previa, resumo } = reservas.length
-      ? await importarReservas(db, cofre, reservas, { confirmar: true, origem: "PAYTOUR_API", usuario: USUARIO_INTEGRACAO, anonimizar: config.AMBIENTE !== "producao" })
+      ? await importarReservas(db, cofre, reservas, { confirmar: true, origem: "PAYTOUR_API", usuario: USUARIO_INTEGRACAO, anonimizar: deveAnonimizar(config) })
       : { previa: [], resumo: { CRIAR: 0, ATUALIZAR: 0, CANCELAR: 0, IGNORAR: 0 } };
 
     const resultado = { de, ate, pedidos: pedidos.length, resumo };

@@ -80,3 +80,12 @@ it("faixas reais da Paytour: \"Preço único\" e \"Sênior e PNE\"", () => {
   expect(r!.passageiros.map((p) => p.categoria)).toEqual(["ADULTO", "SENIOR"]);
   expect(r!.avisos).toEqual([]);
 });
+
+it("formato antigo do formulário (objeto com chaves com hífen) e campo de embarque \"ciente\"", () => {
+  const [r] = pedidoPaytourParaReservas({ id: 8, status: "aprovado", itens: [{ id: 1, quantidade: "1", nome_produto: "City Tour - Passeio Bruxólico", produto_disponibilidade_data: "2026-10-30",
+    produto_faixa_etaria_nome: "VALOR PROMOCIONAL MORADOR",
+    formulario: { "informe-o-hotel-ou-endereco-de-estada": "Hotel Qualquer", "nome-completo": "Pessoa Antiga Fictícia", "documento-rgcpfpassaporte": "529.982.247-25", "embarque-as-18h30-no-ponto-de-taxi-do-villa-romana-shopping": "Ciente" } }] });
+  expect(r!.passageiros[0]).toMatchObject({ nome: "Pessoa Antiga Fictícia", documentoTipo: "CPF", categoria: "ADULTO" });
+  expect(r!.pontoEmbarqueTexto).toBe("embarque as 18h30 no ponto de taxi do villa romana shopping");
+  expect(r!.avisos).toEqual([]);
+});
