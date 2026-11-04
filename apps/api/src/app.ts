@@ -13,6 +13,7 @@ import { rotasEmbarque } from "./rotas/embarque.js";
 import { rotasFechamento } from "./rotas/fechamento.js";
 import { agendarFechamento } from "./servicos/fechamento.js";
 import { rotasFinanceiro } from "./rotas/financeiro.js";
+import { rotasRastreio } from "./rotas/rastreio.js";
 import { agendarPaytour } from "./servicos/paytour.js";
 import { rotasManifesto } from "./rotas/manifesto.js";
 import { rotasOperacao } from "./rotas/operacao.js";
@@ -23,6 +24,7 @@ import { rotasMarketing } from "./rotas/marketing.js";
 import { rotasBiblioteca } from "./rotas/biblioteca.js";
 import { rotasIa } from "./rotas/ia.js";
 import { agendarAvaliacaoIa } from "./servicos/ia/agendamento.js";
+import { agendarLimpezaRastreio } from "./servicos/rastreio.js";
 import { Cofre } from "./seguranca/cripto.js";
 import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
 
@@ -33,7 +35,10 @@ export interface Contexto {
 }
 
 /** Esconde tokens de links públicos na URL registrada no log. */
-export const mascararUrl = (url: string) => url.replace(/(\/embarque\/)[A-Za-z0-9_-]+/g, "$1***");
+export const mascararUrl = (url: string) => url
+  .replace(/(\/embarque\/)[A-Za-z0-9_-]+/g, "$1***")
+  // O token do rastreio tem 20+ caracteres; rotas internas (/api/rastreio/saidas…) não são afetadas.
+  .replace(/(\/rastreio\/)[A-Za-z0-9_-]{20,}/g, "$1***");
 
 export async function criarApp(config: Config): Promise<{ app: FastifyInstance; fechar: () => Promise<void> }> {
   const { db, pool } = criarDb(config.DATABASE_URL);
@@ -105,10 +110,12 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasBiblioteca(app, ctx);
   await rotasIa(app, ctx);
   await rotasFinanceiro(app, ctx);
+  await rotasRastreio(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);
   const pararIa = agendarAvaliacaoIa(db, config, app.log);
+  const pararRastreio = agendarLimpezaRastreio(db, config, app.log);
 
-  return { app, fechar: async () => { pararPaytour(); pararFechamento(); pararIa(); await app.close(); await pool.end(); } };
+  return { app, fechar: async () => { pararPaytour(); pararFechamento(); pararIa(); pararRastreio(); await app.close(); await pool.end(); } };
 }

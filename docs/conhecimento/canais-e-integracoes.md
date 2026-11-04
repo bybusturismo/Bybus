@@ -71,3 +71,9 @@ Bókun (grupo Tripadvisor, US$ 49/mês + 1–1,5%), Rezdy, Checkfront, FareHarbo
 - Enviado a contatofbyb@gmail.com pelo sistema **PAM** da Decolar/Despegar: "Informamos que foi gerada uma nova reserva." Campos: titular, telefone, passageiros (Adultos | Crianças | Infantes), Service id, data da reserva, **Código de reserva PAM**, **ID Compra Decolar**, lugar de compra (ex.: Chile), canal (ex.: Despegar), produto ("Descubra Floripa a bordo do Floripa by Bus Tour: Toda ilha"), temporada e **data de excursão**. Sem horário nem ponto de embarque.
 - **Confirmado (e-mail real encaminhado):** remetente "Despegar Argentina <noreply@decolar.com>", assunto "Decolar - Nova reserva ID: <ID Compra>"; no texto puro os rótulos vêm entre asteriscos e linhas longas quebram (o leitor junta).
 - **Cancelamento/alteração na Decolar não tem aviso automático** (visto em 04/11/2026): são conversas por e-mail entre a equipe e a Decolar (ex.: "Precisamos da sua ajuda com a reserva …" de as-viagens@decolar.com pedindo mudança de data; "Cancelamento de reserva" com o atendimento/financeiro). O sistema marca esses e-mails como "pedem resposta da equipe"; o cancelamento da reserva é feito manualmente na saída.
+
+## Rastreador Khronos (decisão de 04/11/2026)
+- A frota tem rastreador do **Grupo Khronos** (contrato em nome da TOMA Marketing). A Khronos **não libera API** de posição; só pagando um plano caro, que o dono **recusou em 04/11/2026**.
+- Decisão: **rastreio próprio pelo celular do motorista** (GPS do navegador, enviado ao sistema). O rastreador da Khronos continua para a segurança da frota, sem integração com o Bybus.
+- Limitação conhecida: no navegador o GPS para com a tela apagada; o definitivo é o app Android/iOS (a fazer). Ver `docs/produto/modulo-rastreio.md` e ADR 0007.
+- Mapa: OpenStreetMap (blocos gratuitos, sem chave; política de uso justo; com muito volume trocar de provedor — a confirmar).

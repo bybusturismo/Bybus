@@ -22,6 +22,7 @@ export const CATALOGO_PERMISSOES = {
   "frota:ver": "Consultar frota: veículos, documentos, manutenção, abastecimento e painel",
   "frota:gerenciar": "Cadastrar veículos, documentos, planos, ordens de manutenção, abastecimentos e km",
   "frota:checklist": "Preencher o checklist diário do veículo (motorista)",
+  "rastreio:transmitir": "Transmitir a posição do ônibus pelo celular (motorista da saída)",
   "marketing:ver": "Ver os painéis de marketing (canais, origem dos clientes, campanhas, avaliações, afiliados)",
   "marketing:gerenciar": "Gerenciar campanhas, calendário de conteúdo, avaliações e afiliados",
   "biblioteca:ver": "Ler as páginas da Biblioteca (manuais e procedimentos)",

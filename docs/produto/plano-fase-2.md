@@ -1,6 +1,6 @@
 # Plano de ação — Fase 2: operação de Florianópolis ponta a ponta (04/11/2026)
 
-> Pedido do dono (04/11/2026): layout mais limpo com áreas (Passeios, Administrativo, Marketing…), voucher e cadastro de embarque pelo WhatsApp com sugestão do ponto mais próximo, conferência por um colaborador, lista fechada às 21h do dia anterior em ordem de embarque e enviada ao grupo do WhatsApp, guia por escala mensal (com troca por força maior), motorista fixo, confirmação ao passageiro na véspera e link de rastreamento do ônibus pela manhã (rastreador Khronos), estilo Uber/99.
+> Pedido do dono (04/11/2026): layout mais limpo com áreas (Passeios, Administrativo, Marketing…), voucher e cadastro de embarque pelo WhatsApp com sugestão do ponto mais próximo, conferência por um colaborador, lista fechada às 21h do dia anterior em ordem de embarque e enviada ao grupo do WhatsApp, guia por escala mensal (com troca por força maior), motorista fixo, confirmação ao passageiro na véspera e link de rastreamento do ônibus pela manhã (rastreador Khronos, depois trocado pelo celular do motorista), estilo Uber/99.
 
 ## 1. Fluxo proposto (City Tour Florianópolis)
 
@@ -13,7 +13,7 @@
 | 5 | Escala do mês | Guia de cada dia definido na **escala mensal**; motorista padrão; troca por força maior com **motivo registrado** | Supervisão | ✅ construído |
 | 6 | Véspera, 21h | **Fechamento automático**: lista em ordem de embarque, com guia/motorista, pronta para o **grupo do WhatsApp** (copiar ou enviar) | Sistema + supervisão | ✅ fechamento e texto prontos; envio ao grupo depende do item 8.1 |
 | 7 | Véspera, após o fechamento | Mensagem de **confirmação** ao passageiro (dia, horário e ponto) | Sistema | 🟡 mensagem pronta; envio depende do provedor |
-| 8 | Manhã do passeio | Mensagem com **link de rastreamento** (mapa + previsão de chegada ao ponto) | Sistema | 🔴 depende da API da Khronos e de coordenadas dos pontos |
+| 8 | Manhã do passeio | Mensagem com **link de rastreamento** (mapa + previsão de chegada ao ponto), enviada quando o motorista inicia o rastreio | Sistema | 🟡 pronto; depende das coordenadas dos pontos e do WhatsApp real |
 | 9 | Embarque | Guia marca embarcou/não embarcou no modo embarque | Guia | ✅ pronto (Fase 1) |
 | 10 | Pós-passeio | Pedido de avaliação com destaque Tripadvisor | Sistema | ⏳ fase seguinte |
 
@@ -44,11 +44,11 @@
 - Reservas sem ponto ou não conferidas no fechamento → aparecem destacadas no topo da lista.
 - Dependência do servidor: o agendamento só roda com o sistema publicado; enquanto isso, botão "Fechar lista agora".
 
-### 3.4 Rastreamento (Khronos)
-- O contrato do rastreador é com o **Grupo Khronos** (Khronos Segurança Privada, (48) 3381-9999), em nome da TOMA Marketing. **Não há API pública** documentada. → Pedir à Khronos: API ou webhook de posição (frequência ≤ 30 s), identificador do veículo, custo e exemplo de resposta.
-- Plano B sem custo: celular do motorista com **Traccar Client** (aplicativo gratuito) enviando a posição; ou reconfigurar o equipamento para um servidor Traccar próprio (se o modelo permitir).
-- **Previsão de chegada:** precisa de coordenadas dos pontos e do histórico de trechos; começar com "horário previsto + atraso atual" e melhorar com média histórica.
-- Mapa: Leaflet + OpenStreetMap (gratuito para baixo volume; respeitar a política de uso dos mapas).
+### 3.4 Rastreamento (celular do motorista)
+- **Decisão do dono (04/11/2026):** a Khronos não libera API (só pagando caro, recusado). O rastreio será feito pelo **celular do motorista**, conectado ao nosso sistema. Detalhes em `docs/produto/modulo-rastreio.md` e `docs/arquitetura/adr/0007-rastreio-pelo-celular-do-motorista.md`.
+- **Previsão de chegada:** estimativa simples (distância em linha reta pelos pontos restantes × 1,3 ÷ velocidade média recente, mínimo 15 km/h, padrão 25 km/h, + 1 min por parada). Sem coordenadas no ponto, sem previsão.
+- Mapa: Leaflet + OpenStreetMap (sem chave e sem custo; política de uso justo registrada no documento do módulo).
+- **Risco principal:** no navegador do celular o GPS **para com a tela apagada ou com outro app em primeiro plano**. Mitigação atual: tela do motorista com aviso claro, tela mantida acesa (Wake Lock) e celular no carregador. A solução definitiva é o **app Android/iOS com rastreio em segundo plano** (a fazer, depende de contas das lojas).
 
 ### 3.5 Escala de guias
 - Troca de última hora precisa avisar o novo guia → mensagem para o guia (provedor de WhatsApp) e registro na auditoria.
@@ -56,8 +56,8 @@
 
 ## 4. Decisões que dependem do dono
 1. **Provedor de WhatsApp** (BotConversa, que já usam, 360dialog, Twilio, Zenvia) e número dedicado — custo mensal.
-2. **Khronos:** autorizar o contato pedindo API/webhook (ou testar o plano B com Traccar no celular do motorista).
-3. **Coordenadas oficiais dos 13 pontos** (ou autorização para levantá-las no mapa e conferir).
+2. ~~Khronos~~ **Decidido em 04/11/2026:** sem API (recusada pelo dono); rastreio pelo celular do motorista.
+3. **Coordenadas oficiais dos 13 pontos** (ou autorização para levantá-las no mapa e conferir). Já há campos para cadastrá-las em Passeios e pontos; sem elas não há previsão de chegada.
 4. **Servidor** (necessário para links públicos, agendamento das 21h e integrações automáticas).
 5. Texto oficial das mensagens (voucher, confirmação, rastreamento) e da política de "não há tolerância para atrasos".
 
@@ -66,7 +66,7 @@
 |---|---|---|
 | 2A | Layout por áreas, escala de guias/motorista, cadastro de embarque com sugestão, conferência, fechamento 21h com texto para o grupo, central de mensagens (simulada) | construído nesta etapa (ver seção 6) |
 | 2B | Envio real de WhatsApp (voucher, confirmação, lista aos integrantes) | provedor contratado |
-| 2C | Rastreamento com mapa e previsão + mensagem da manhã | API Khronos ou Traccar; coordenadas dos pontos |
+| 2C | Rastreamento com mapa e previsão + mensagem ao iniciar o rastreio | **construído (04/11/2026)** pelo celular do motorista; falta cadastrar coordenadas dos pontos e, depois, o app com rastreio em segundo plano |
 | 2D | Administrativo (contas a pagar/receber, cartões, frota) e Marketing | priorizar com o dono |
 
 ## 6. O que foi construído nesta etapa (04/11/2026)
@@ -96,6 +96,6 @@ Tudo no ambiente de desenvolvimento, com dados fictícios na demonstração; nad
 Três revisões (servidor inteiro, telas e as integrações) encontraram e corrigiram, entre outros: sinais e valores errados na leitura de extratos (OFX ×1000, "R$-10,00" positivo, colunas trocadas), saldo contando em dobro, desfazer conciliação apagando baixa manual; reserva Paytour duplicada quando o pedido ganha itens ou muda de canal, data mudada no canal ignorada, reserva cancelada pela equipe voltando sozinha, sincronização perdendo páginas ou rodando em dobro; link de embarque invalidado pelo adendo e recusado depois do fechamento; escala que não limpava guia removido e desfazia ajuste feito na saída; km que podia diminuir; token do link de embarque nos logs. Consultas repetidas foram juntadas (menos idas ao banco) e funções duplicadas viraram uma só.
 
 **Pendências conhecidas**
-- Rastreamento (Khronos) e voucher automático após a compra: dependem do dono (API do Khronos, texto oficial e provedor de WhatsApp).
+- Rastreamento: construído pelo celular do motorista (sem Khronos). Falta cadastrar as coordenadas dos pontos, ligar o perfil MOTORISTA à permissão nova pela migração e, para rastrear com a tela apagada, o app Android/iOS. Voucher automático após a compra: depende do dono (texto oficial e provedor de WhatsApp).
 - Pedido Paytour que perde um item ou muda a data de um dos itens (pedido com vários passeios): a reserva antiga não é cancelada sozinha — aparece para conferência.
 - Telas de Saídas e Escala ainda usam placa em texto (a lista de veículos da frota já existe na API).

@@ -1,0 +1,168 @@
+/* Rastreamento: mapa, tela do motorista e página pública. Só tokens de tokens.css (claro e escuro). */
+
+.mapa-rastreio {
+  width: 100%;
+  height: 24rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: var(--cor-superficie-2);
+  z-index: 0;
+}
+.mapa-rastreio--carregando {
+  display: grid;
+  place-items: center;
+  color: var(--cor-texto-fraco);
+}
+@media (max-width: 40rem) {
+  .mapa-rastreio {
+    height: 20rem;
+  }
+}
+
+.mapa-marcador {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  font: 700 12px/1 system-ui, sans-serif;
+  color: #fff;
+}
+.mapa-marcador--ponto {
+  background: var(--marca-violeta);
+}
+.mapa-marcador--passou {
+  background: var(--marca-cinza);
+}
+.mapa-marcador--cliente {
+  background: var(--marca-rosa);
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+}
+.mapa-marcador--onibus {
+  background: var(--marca-laranja);
+  width: 34px;
+  height: 34px;
+  font-size: 15px;
+}
+
+.botao--grande {
+  min-height: 4.25rem;
+  width: 100%;
+  font-size: 1.35rem;
+  font-weight: 700;
+  border-radius: 1rem;
+}
+
+/* Tela do motorista (celular) */
+.motorista {
+  display: grid;
+  gap: 1rem;
+  max-width: 34rem;
+  margin: 0 auto;
+}
+.motorista__saida {
+  display: grid;
+  gap: 0.75rem;
+}
+.motorista__saida h2 {
+  margin: 0;
+}
+.motorista__estado {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--cor-sucesso-fundo);
+  color: var(--cor-sucesso);
+  font-weight: 600;
+}
+.motorista__estado--alerta {
+  background: var(--cor-atencao-fundo);
+  color: var(--cor-atencao);
+}
+.motorista__estado small {
+  font-weight: 400;
+}
+
+/* Rastreamento da equipe */
+.rastreio-lista {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rastreio-lista button {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: 0.75rem;
+  color: inherit;
+  cursor: pointer;
+}
+.rastreio-lista button[aria-pressed="true"] {
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 2px var(--cor-primaria-suave);
+}
+.rastreio-detalhe {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+}
+@media (max-width: 60rem) {
+  .rastreio-detalhe {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.rastreio-pontos {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.rastreio-pontos .passou {
+  color: var(--cor-texto-fraco);
+  text-decoration: line-through;
+}
+
+/* Página pública do passageiro */
+.rastreio-publico__situacao {
+  margin: 0 0 1rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--cor-info-fundo);
+  color: var(--cor-info);
+  font-size: 1.15rem;
+  font-weight: 600;
+  text-align: center;
+}
+.rastreio-publico__situacao--ok {
+  background: var(--cor-sucesso-fundo);
+  color: var(--cor-sucesso);
+}
+.rastreio-publico__situacao--alerta {
+  background: var(--cor-atencao-fundo);
+  color: var(--cor-atencao);
+}
+.rastreio-publico__minutos {
+  display: block;
+  font-size: 2rem;
+  line-height: 1.2;
+}
+.rastreio-publico__nota {
+  margin: 0.75rem 0 0;
+  color: var(--cor-texto-fraco);
+  font-size: 0.9rem;
+}
+.campo-coordenada {
+  width: 9.5rem;
+}

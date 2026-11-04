@@ -6,6 +6,7 @@ import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { Icone } from "../componentes/Icone";
 import { Modal } from "../componentes/Modal";
 import { useNotificar } from "../componentes/Notificacoes";
+import { PontosDoPasseio } from "./PontosDoPasseio";
 import { CabecalhoOrdenavel, compararTexto, normalizarBusca, Paginacao, useTabela } from "../componentes/Tabela";
 import { nomePraca, useSessao } from "../sessao/Sessao";
 import { ROTULO_LINHA } from "../util/rotulos";
@@ -151,6 +152,7 @@ export function Passeios() {
   const [filtroLinha, setFiltroLinha] = useState<LinhaNegocio | "">("");
   const [busca, setBusca] = useState("");
   const [form, setForm] = useState<{ passeio: Passeio | null } | null>(null);
+  const [pontos, setPontos] = useState<Passeio | null>(null);
   const tabela = useTabela<Campo>("praca");
   useEffect(() => setFiltroPraca(praca), [praca]);
 
@@ -266,6 +268,9 @@ export function Passeios() {
                       <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setForm({ passeio: p })} aria-label={`Editar passeio ${p.nome}`}>
                         Editar
                       </button>
+                      <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setPontos(p)} aria-label={`Pontos de embarque de ${p.nome}`}>
+                        Pontos
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -289,6 +294,9 @@ export function Passeios() {
             }}
           />
         )}
+      </Modal>
+      <Modal aberto={!!pontos} titulo={pontos ? `Pontos de ${pontos.nome}` : "Pontos"} aoFechar={() => setPontos(null)} largura="larga">
+        {pontos && <PontosDoPasseio passeio={pontos} />}
       </Modal>
     </div>
   );

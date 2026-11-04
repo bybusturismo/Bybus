@@ -54,3 +54,13 @@ export function textoConfirmacao(d: { primeiroNome: string; passeio: string; dat
   return linhas.join("\n");
 }
 
+
+/** Mensagem enviada quando o motorista inicia o rastreio: o link para acompanhar o ônibus. [A CONFIRMAR] texto oficial com o dono. */
+export function textoRastreio(d: { primeiroNome: string; passeio: string; link: string }): string {
+  const ola = d.primeiroNome ? `Olá, ${d.primeiroNome}!` : "Olá!";
+  return [
+    `${ola} O ônibus do passeio *${d.passeio}* já saiu.`,
+    `Acompanhe no mapa e veja quanto falta para ele chegar ao seu ponto: ${d.link}`,
+    "O horário é uma estimativa e pode variar com o trânsito. — By Bus Turismo",
+  ].join("\n");
+}

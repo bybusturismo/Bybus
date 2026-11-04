@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { Pessoa } from "../api/tipos";
@@ -103,5 +103,37 @@ describe("Equipe", () => {
     expect(within(d).getByText(/Valor inválido/)).toBeInTheDocument();
     expect(within(d).getByText(/CPF inválido/)).toBeInTheDocument();
     expect(api.mock.calls.some(([, i]) => i?.method === "POST")).toBe(false);
+  });
+
+  it("motorista: liga o acesso dele (rastreio pelo celular) e só envia o campo quando muda", async () => {
+    const davi = completa({ id: "1", nome: "Motorista Fictício Davi", papeis: ["MOTORISTA"] });
+    const api = simularApi({
+      "GET /api/pessoas": [davi],
+      "GET /api/pessoas/usuarios-disponiveis": [{ id: "u-9", nome: "Motorista Demo", email: "motorista@bybus.test" }],
+      "PATCH /api/pessoas/1": (c: unknown) => ({ ...davi, ...(c as object) }),
+    });
+    renderizar(<Equipe />, { sessao: sessaoFicticia("SUPERVISOR", ["pessoas:ver", "pessoas:gerenciar"]) });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: /Editar/ }));
+    const d = await screen.findByRole("dialog");
+    await u.click(within(d).getByRole("button", { name: "Salvar alterações" }));
+    await waitFor(() => expect(api.mock.calls.some(([, i]) => i?.method === "PATCH")).toBe(true));
+    expect(corpoEnviado(api, "PATCH", "/api/pessoas/1")).not.toHaveProperty("usuarioId");
+  });
+
+  it("motorista: escolher o acesso envia usuarioId", async () => {
+    const davi = completa({ id: "1", nome: "Motorista Fictício Davi", papeis: ["MOTORISTA"] });
+    const api = simularApi({
+      "GET /api/pessoas": [davi],
+      "GET /api/pessoas/usuarios-disponiveis": [{ id: "u-9", nome: "Motorista Demo", email: "motorista@bybus.test" }],
+      "PATCH /api/pessoas/1": (c: unknown) => ({ ...davi, ...(c as object) }),
+    });
+    renderizar(<Equipe />, { sessao: sessaoFicticia("SUPERVISOR", ["pessoas:ver", "pessoas:gerenciar"]) });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: /Editar/ }));
+    const d = await screen.findByRole("dialog");
+    await u.selectOptions(await within(d).findByLabelText(/Acesso do motorista/), "u-9");
+    await u.click(within(d).getByRole("button", { name: "Salvar alterações" }));
+    await waitFor(() => expect(corpoEnviado(api, "PATCH", "/api/pessoas/1")).toMatchObject({ usuarioId: "u-9" }));
   });
 });

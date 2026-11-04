@@ -17,6 +17,9 @@ import { Escala } from "./paginas/Escala";
 import { Conferencia } from "./paginas/Conferencia";
 import { Fechamento } from "./paginas/Fechamento";
 import { EmbarquePublico } from "./paginas/EmbarquePublico";
+import { RastreioPublico } from "./paginas/RastreioPublico";
+import { Motorista } from "./paginas/rastreio/Motorista";
+import { Rastreamento } from "./paginas/rastreio/Rastreamento";
 import { AbastecimentoPagina } from "./paginas/frota/Abastecimento";
 import { ChecklistPagina } from "./paginas/frota/Checklist";
 import { DocumentosPagina } from "./paginas/frota/Documentos";
@@ -64,7 +67,9 @@ function ExigeUma({ permissoes, children }: { permissoes: Permissao[]; children:
 
 function Inicio() {
   const { pode } = useSessao();
-  return <Navigate to={pode("manifesto:ver") ? "/saidas" : pode("frota:checklist") ? "/frota/checklist" : "/conta"} replace />;
+  // Motorista (transmite o rastreio ou só faz o checklist) cai direto na tela dele, no celular.
+  const soMotorista = !pode("saidas:decidir") && (pode("rastreio:transmitir") || (!pode("manifesto:ver") && pode("frota:checklist")));
+  return <Navigate to={soMotorista ? "/motorista" : pode("manifesto:ver") ? "/saidas" : "/conta"} replace />;
 }
 
 export function Rotas() {
@@ -104,6 +109,22 @@ export function Rotas() {
           <Route path="reservas" element={<Reservas />} />
           <Route path="embarque" element={<Embarque />} />
         </Route>
+        <Route
+          path="rastreamento"
+          element={
+            <Exige permissao="manifesto:ver">
+              <Rastreamento />
+            </Exige>
+          }
+        />
+        <Route
+          path="motorista"
+          element={
+            <ExigeUma permissoes={["rastreio:transmitir", "frota:checklist"]}>
+              <Motorista />
+            </ExigeUma>
+          }
+        />
         <Route
           path="importar"
           element={
@@ -354,6 +375,9 @@ export function App() {
   // Link público do passageiro (sem login nem sessão).
   const publico = /^\/embarque\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
   if (publico) return <EmbarquePublico token={publico[1]!} />;
+  // Link de acompanhamento do ônibus (sem login nem sessão).
+  const rastreio = /^\/rastreio\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
+  if (rastreio) return <RastreioPublico token={rastreio[1]!} />;
   return (
     <Roteador future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ProvedorSessao>

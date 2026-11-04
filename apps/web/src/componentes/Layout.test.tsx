@@ -9,19 +9,19 @@ const rotulosMenu = () => within(screen.getByRole("navigation", { name: "Menu pr
 describe("Menu por permissão", () => {
   it("guia vê só Saídas (perfil e sair ficam no menu do usuário)", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("GUIA", ["manifesto:ver", "manifesto:contatos", "embarque:registrar"]) });
-    expect(rotulosMenu()).toEqual(["Saídas"]);
+    expect(rotulosMenu()).toEqual(["Saídas", "Rastreamento"]);
     expect(screen.getByRole("button", { name: /^Conta de / })).toBeInTheDocument();
   });
 
   it("usa as permissões, não o código do perfil: perfil personalizado com pessoas:ver vê Equipe", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("ESCALA_BC", ["manifesto:ver", "pessoas:ver"]) });
-    expect(rotulosMenu()).toEqual(["Saídas", "Escala de guias", "Guias e equipe"]);
+    expect(rotulosMenu()).toEqual(["Saídas", "Escala de guias", "Rastreamento", "Guias e equipe"]);
   });
 
   it("admin vê todos os itens", () => {
     const todas = itensPermitidos(() => true);
     expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
-      "Saídas", "Conferência de embarque", "Escala de guias", "Fechamento e mensagens", "Importar reservas", "Integrações",
+      "Saídas", "Conferência de embarque", "Escala de guias", "Fechamento e mensagens", "Importar reservas", "Integrações", "Rastreamento", "Rastreio do motorista",
       "Passeios e pontos", "Guias e equipe",
       "Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias",
       "Frota e manutenção", "Checklist do veículo",
@@ -30,6 +30,18 @@ describe("Menu por permissão", () => {
     ]);
     // Módulos planejados só aparecem para quem administra usuários.
     expect(itensPermitidos((p) => p !== "usuarios:gerenciar").some((i) => i.planejado)).toBe(false);
+  });
+});
+
+describe("Rastreamento no menu", () => {
+  it("o item de rastreamento é real (não é mais módulo planejado)", () => {
+    expect(itensPermitidos(() => true).filter((i) => i.planejado).some((i) => /rastreamento/.test(i.para))).toBe(false);
+    expect(itensPermitidos(() => true).find((i) => i.rotulo === "Rastreamento")?.para).toBe("/rastreamento");
+  });
+
+  it("o motorista vê o rastreio dele; quem só vê a lista não", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("MOTORISTA", ["manifesto:ver", "rastreio:transmitir"]) });
+    expect(rotulosMenu()).toEqual(["Saídas", "Rastreamento", "Rastreio do motorista"]);
   });
 });
 

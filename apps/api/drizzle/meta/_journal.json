@@ -99,6 +99,13 @@
       "when": 1793833312438,
       "tag": "0013_foto_perfil",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793834352788,
+      "tag": "0014_rastreio",
+      "breakpoints": true
     }
   ]
 }

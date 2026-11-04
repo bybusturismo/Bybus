@@ -6,6 +6,7 @@ import "./estilos/fontes.css";
 import "./estilos/tokens.css";
 import "./estilos/base.css";
 import "./estilos/telas.css";
+import "./estilos/rastreio.css";
 import "./estilos/impressao.css";
 import "./estilos/demo.css";
 

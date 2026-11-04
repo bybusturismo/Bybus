@@ -14,6 +14,7 @@ import { rotearFinanceiro } from "./financeiroDemo";
 import { rotearFrota } from "./frotaDemo";
 import { rotearIa } from "./iaDemo";
 import { rotearMarketing } from "./marketingDemo";
+import { rotearRastreio } from "./rastreioDemo";
 
 /** Catálogo de permissões (espelha apps/api/src/seguranca/permissoes.ts). */
 const CATALOGO: Record<string, string> = {
@@ -36,6 +37,7 @@ const CATALOGO: Record<string, string> = {
   "frota:ver": "Consultar frota: veículos, documentos, manutenção, abastecimento e painel",
   "frota:gerenciar": "Cadastrar veículos, documentos, planos, ordens de manutenção, abastecimentos e km",
   "frota:checklist": "Preencher o checklist diário do veículo (motorista)",
+  "rastreio:transmitir": "Transmitir a posição do ônibus pelo celular (motorista da saída)",
   "marketing:ver": "Ver os painéis de marketing (canais, origem dos clientes, campanhas, avaliações, afiliados)",
   "marketing:gerenciar": "Gerenciar campanhas, calendário de conteúdo, avaliações e afiliados",
   "biblioteca:ver": "Ler as páginas da Biblioteca (manuais e procedimentos)",
@@ -53,7 +55,7 @@ const perfis: PerfilDemo[] = [
   { codigo: "SUPERVISOR", nome: "Supervisor / líder", descricao: "Decide saídas, vê documentos completos, gerencia equipe e pontos.", permissoes: ["auditoria:ver", "pessoas:gerenciar", "pessoas:ver", "pontos:gerenciar", "saidas:gerenciar", "saidas:decidir", "escala:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:documentos", "manifesto:contatos", "embarque:registrar", "frota:ver", "frota:gerenciar", "marketing:ver", "biblioteca:ver", "ia:usar"] },
   { codigo: "ATENDENTE", nome: "Atendente / vendedor", descricao: "Monta listas, lança e importa reservas.", permissoes: ["pessoas:ver", "saidas:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:contatos", "marketing:ver", "biblioteca:ver", "ia:usar"] },
   { codigo: "GUIA", nome: "Guia de turismo", descricao: "Vê a lista e registra o embarque.", permissoes: ["manifesto:ver", "manifesto:contatos", "embarque:registrar", "biblioteca:ver"] },
-  { codigo: "MOTORISTA", nome: "Motorista", descricao: "Vê a lista (sem contatos).", permissoes: ["manifesto:ver", "frota:checklist", "biblioteca:ver"] },
+  { codigo: "MOTORISTA", nome: "Motorista", descricao: "Vê a lista (sem contatos).", permissoes: ["manifesto:ver", "frota:checklist", "rastreio:transmitir", "biblioteca:ver"] },
 ].map((p) => ({ ...p, id: `perfil-${p.codigo.toLowerCase()}`, sistema: true, criadoEm: new Date().toISOString() }));
 const perfilDe = (codigo: string) => perfis.find((p) => p.codigo === codigo)!;
 const permissoesDe = (codigo: string) => (codigo === "ADMIN" ? TODAS : perfilDe(codigo)?.permissoes ?? []);
@@ -95,7 +97,7 @@ const passeios: PasseioDemo[] = [
   { id: "bc-tour", codigo: "BC_CITY_TOUR", nome: "City Tour Balneário Camboriú (fictício)", cidade: "Balneário Camboriú", unidadeId: "un-bc", linha: "CITY_TOUR", capacidadePadrao: 46, minimoConfirmacao: 10, minimoSupervisor: 8, ativo: true },
   { id: "bc-fret", codigo: "BC_FRETAMENTO", nome: "Fretamento para eventos (fictício)", cidade: "Balneário Camboriú", unidadeId: "un-bc", linha: "FRETAMENTO", capacidadePadrao: 46, minimoConfirmacao: 0, minimoSupervisor: 0, ativo: true },
 ];
-const pontos = PONTOS_TODA_ILHA.map((p, i) => ({ ...p, id: `ponto-${i + 1}`, passeioId: passeio.id, ativo: true }));
+const pontos = PONTOS_TODA_ILHA.map((p, i) => ({ ...p, id: `ponto-${i + 1}`, passeioId: passeio.id, ativo: true, latitude: null as number | null, longitude: null as number | null }));
 const pontosDe = (passeioId: string) => pontos.filter((p) => p.passeioId === passeioId);
 const pessoaBase = { telefone: null, email: null, documentoTipo: null, documento: null, cnhCategoria: null, cnhValidade: null, cadasturNumero: null, cadasturValidade: null, idiomas: [], diariaCentavos: null, observacoes: null, ativo: true, criadoEm: new Date().toISOString() };
 const pessoas: Pessoa[] = [
@@ -337,6 +339,18 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     auditar("PASSEIO_ALTERADO", "passeio", x.id); return x;
   }
   if (metodo === "GET" && r(/^\/api\/passeios\/([^/]+)\/pontos$/)) { exigir("manifesto:ver"); return pontosDe(m![1]!); }
+  if (metodo === "PATCH" && r(/^\/api\/pontos\/([^/]+)$/)) {
+    exigir("pontos:gerenciar");
+    const p = achar(pontos, m![1]!, "Ponto");
+    const { latitude: la, longitude: lo } = c;
+    if ((la == null) !== (lo == null)) throw new Erro(400, "DADOS_INVALIDOS", "Informe latitude e longitude juntas (ou deixe as duas em branco).");
+    if (la != null && (typeof la !== "number" || Math.abs(la) > 90)) throw new Erro(400, "DADOS_INVALIDOS", "Latitude entre -90 e 90.");
+    if (lo != null && (typeof lo !== "number" || Math.abs(lo) > 180)) throw new Erro(400, "DADOS_INVALIDOS", "Longitude entre -180 e 180.");
+    const antes = { latitude: p.latitude, longitude: p.longitude };
+    p.latitude = la ?? null; p.longitude = lo ?? null;
+    auditar("PONTO_ALTERADO", "ponto", p.id, { latitude: p.latitude, longitude: p.longitude, antes });
+    return p;
+  }
 
   if (metodo === "GET" && caminho === "/api/saidas") {
     exigir("manifesto:ver");
@@ -675,6 +689,10 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     p.email = c.email || null;
     pessoas.push(p); auditar("PESSOA_CRIADA", "pessoa", p.id, { papeis: p.papeis }); return pessoaPublica(p);
   }
+  if (metodo === "GET" && caminho === "/api/pessoas/usuarios-disponiveis") {
+    exigir("pessoas:gerenciar");
+    return usuarios.filter((u) => u.ativo && !pessoas.some((p) => (p as { usuarioId?: string | null }).usuarioId === u.id) && (sessao!.todasUnidades || (!u.todasUnidades && u.unidadeIds.some(podeUnidade)))).map((u) => ({ id: u.id, nome: u.nome, email: u.email }));
+  }
   if (r(/^\/api\/pessoas\/([^/]+)$/)) {
     exigir("pessoas:gerenciar");
     const p = achar(pessoas, m![1]!, "Pessoa");
@@ -683,14 +701,14 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     if (metodo === "PATCH") {
       if ("unidadeId" in c && (c.unidadeId ? !podeUnidade(c.unidadeId) : !sessao!.todasUnidades)) throw new Erro(403, "SEM_PERMISSAO", "Você só pode mover pessoas entre as suas praças.");
       if (c.documentoTipo !== undefined && c.documento === undefined) throw new Erro(400, "DOCUMENTO_INCOMPLETO", "Ao mudar o tipo de documento, informe também o número (ou null para remover).");
-      for (const k of ["nome", "papeis", "unidadeId", "telefone", "cnhCategoria", "cnhValidade", "cadasturNumero", "cadasturValidade", "idiomas", "diariaCentavos", "observacoes", "ativo", "documentoTipo", "documento"]) if (k in c) (p as any)[k] = c[k];
+      for (const k of ["nome", "papeis", "unidadeId", "telefone", "cnhCategoria", "cnhValidade", "cadasturNumero", "cadasturValidade", "idiomas", "diariaCentavos", "observacoes", "ativo", "documentoTipo", "documento", "usuarioId"]) if (k in c) (p as any)[k] = c[k];
       if ("email" in c) p.email = c.email || null;
       auditar("PESSOA_ALTERADA", "pessoa", p.id, { campos: Object.keys(c) }); return pessoaPublica(p);
     }
   }
 
   if (metodo === "GET" && caminho === "/api/auditoria") { exigir("auditoria:ver"); return auditoria.slice(0, Number(q.get("limite") ?? 200)); }
-  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa]) {
+  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio]) {
     const resposta = rotear(ctxModulos, metodo, caminho, q, c);
     if (resposta !== NAO) return resposta;
   }
