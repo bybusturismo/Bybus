@@ -4,6 +4,7 @@ import type { Db } from "../db/cliente.js";
 import { passageiros, passeios, pontosEmbarque, reservas, saidas } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
 import { camposDocumento } from "./passageiro.js";
+import { aplicarEscalaNaSaida } from "./escala.js";
 import { podeUnidade } from "../seguranca/escopo.js";
 import type { UsuarioSessao } from "../seguranca/sessao.js";
 
@@ -128,6 +129,7 @@ export async function importarReservas(
       let [saida] = await tx.select().from(saidas).where(and(eq(saidas.passeioId, passeio.id), eq(saidas.data, item.data)));
       if (!saida) {
         [saida] = await tx.insert(saidas).values({ passeioId: passeio.id, data: item.data, capacidade: passeio.capacidadePadrao }).returning();
+        await aplicarEscalaNaSaida(tx, passeio.id, item.data, false);
       }
       const [nova] = await tx.insert(reservas).values({
         saidaId: saida!.id,

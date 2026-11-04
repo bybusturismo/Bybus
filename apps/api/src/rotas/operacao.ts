@@ -9,6 +9,7 @@ import { filtroUnidade, garantirPassageiro, garantirPasseio, garantirPonto, gara
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { camposDocumento, documentoMascarado } from "../servicos/passageiro.js";
+import { aplicarEscalaNaSaida } from "../servicos/escala.js";
 
 const uuid = z.string().uuid();
 const dataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data no formato AAAA-MM-DD");
@@ -165,8 +166,11 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     if (!passeio) throw new ErroHttp(404, "NAO_ENCONTRADO", "Passeio não encontrado.");
     try {
       const [s] = await db.insert(saidas).values({ ...corpo, capacidade: corpo.capacidade ?? passeio.capacidadePadrao }).returning();
+      // Guia e motorista vêm da escala do mês (ou o motorista padrão do passeio).
+      await aplicarEscalaNaSaida(db, corpo.passeioId, corpo.data, false);
       await auditar(db, req, "SAIDA_CRIADA", { tipo: "saida", id: s!.id }, { data: corpo.data });
-      return s;
+      const [atual] = await db.select().from(saidas).where(eq(saidas.id, s!.id));
+      return atual;
     } catch (e) {
       if ((e as { code?: string }).code === "23505") throw new ErroHttp(409, "SAIDA_EXISTE", "Já existe saída deste passeio nesta data.");
       throw e;

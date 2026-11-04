@@ -651,3 +651,41 @@ describe("casamento de pontos de embarque (textos reais da Paytour)", () => {
     for (const [texto, esperado] of casos) expect(casarPonto(texto, pontos)?.nome).toBe(esperado);
   });
 });
+
+describe("escala mensal de guias e motoristas", () => {
+  it("planeja, publica, exige motivo na troca e leva a equipe para a saída", async () => {
+    const c = await logado("admin@bybus.test");
+    const toda = (await c.req("GET", "/api/passeios")).json().find((p: { codigo: string }) => p.codigo === "TODA_ILHA");
+    const equipe = (await c.req("GET", `/api/escala/equipe?passeioId=${toda.id}`)).json();
+    const [g1, g2] = equipe.guias;
+    const [m1] = equipe.motoristas;
+    expect(g1 && g2 && m1).toBeTruthy();
+    expect(equipe.motoristas.every((m: { nome: string }) => !/Edu|Fred|Gil/.test(m.nome))).toBe(true); // só da praça (FLN)
+
+    const salvar = (dias: unknown[], extra: Record<string, unknown> = {}) => c.req("PUT", "/api/escala", { passeioId: toda.id, mes: "2026-12", dias, ...extra });
+    expect((await salvar([{ data: "2026-12-05", guiaId: g1.id, motoristaId: null }], { motoristaPadraoId: m1.id })).statusCode).toBe(200);
+    expect((await salvar([{ data: "2026-12-05", guiaId: g2.id, motoristaId: null }])).statusCode).toBe(200); // ainda não publicada
+    expect((await salvar([], { publicar: true })).statusCode).toBe(200);
+    const bloqueada = await salvar([{ data: "2026-12-05", guiaId: g1.id, motoristaId: null }]);
+    expect(bloqueada.statusCode).toBe(409);
+    expect(bloqueada.json().codigo).toBe("TROCA_EXIGE_MOTIVO");
+
+    // Saída criada depois recebe guia da escala e o motorista padrão.
+    const saida = (await c.req("POST", "/api/saidas", { passeioId: toda.id, data: "2026-12-05" })).json();
+    expect(saida).toMatchObject({ guiaId: g2.id, motoristaId: m1.id });
+
+    expect((await c.req("POST", "/api/escala/troca", { passeioId: toda.id, data: "2026-12-05", guiaId: g1.id, motivo: "x" })).statusCode).toBe(400);
+    expect((await c.req("POST", "/api/escala/troca", { passeioId: toda.id, data: "2026-12-05", guiaId: g1.id, motivo: "Guia com febre" })).statusCode).toBe(200);
+    const dia = (await c.req("GET", `/api/escala?passeioId=${toda.id}&mes=2026-12`)).json().dias.find((d: { data: string }) => d.data === "2026-12-05");
+    expect(dia).toMatchObject({ guiaId: g1.id, origem: "TROCA", motivo: "Guia com febre", publicada: true });
+    expect((await c.req("GET", `/api/saidas/${saida.id}`)).json().saida.guiaId).toBe(g1.id); // a troca vai para a saída
+    const aud = (await c.req("GET", "/api/auditoria?acao=ESCALA_TROCA")).json();
+    expect(JSON.stringify(aud)).toContain("Guia com febre");
+  });
+
+  it("quem não tem a permissão não monta a escala", async () => {
+    const c = await logado("atendente@bybus.test");
+    const toda = (await c.req("GET", "/api/passeios")).json().find((p: { codigo: string }) => p.codigo === "TODA_ILHA");
+    expect((await c.req("PUT", "/api/escala", { passeioId: toda.id, mes: "2026-12", dias: [] })).statusCode).toBe(403);
+  });
+});
