@@ -7,15 +7,15 @@ import { itensPermitidos, Layout } from "./Layout";
 const rotulosMenu = () => within(screen.getByRole("navigation", { name: "Menu principal" })).getAllByRole("link").map((l) => l.textContent);
 
 describe("Menu por permissão", () => {
-  it("guia vê só Saídas e Minha conta", () => {
+  it("guia vê só Saídas (perfil e sair ficam no menu do usuário)", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("GUIA", ["manifesto:ver", "manifesto:contatos", "embarque:registrar"]) });
-    expect(rotulosMenu()).toEqual(["Saídas", "Minha conta"]);
-    expect(screen.getByRole("button", { name: "Sair" })).toBeInTheDocument();
+    expect(rotulosMenu()).toEqual(["Saídas"]);
+    expect(screen.getByRole("button", { name: /^Conta de / })).toBeInTheDocument();
   });
 
   it("usa as permissões, não o código do perfil: perfil personalizado com pessoas:ver vê Equipe", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("ESCALA_BC", ["manifesto:ver", "pessoas:ver"]) });
-    expect(rotulosMenu()).toEqual(["Saídas", "Escala de guias", "Guias e equipe", "Minha conta"]);
+    expect(rotulosMenu()).toEqual(["Saídas", "Escala de guias", "Guias e equipe"]);
   });
 
   it("admin vê todos os itens", () => {
@@ -26,7 +26,7 @@ describe("Menu por permissão", () => {
       "Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias",
       "Frota e manutenção", "Checklist do veículo",
       "Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes", "Biblioteca", "Gestores de IA",
-      "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta",
+      "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Meu perfil",
     ]);
     // Módulos planejados só aparecem para quem administra usuários.
     expect(itensPermitidos((p) => p !== "usuarios:gerenciar").some((i) => i.planejado)).toBe(false);
@@ -36,12 +36,12 @@ describe("Menu por permissão", () => {
 describe("Marketing e Biblioteca no menu", () => {
   it("só aparecem com as permissões certas", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("MKT", ["marketing:ver"]) });
-    expect(rotulosMenu()).toEqual(["Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes", "Minha conta"]);
+    expect(rotulosMenu()).toEqual(["Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes"]);
   });
 
   it("biblioteca:ver mostra só a Biblioteca", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("LEITOR", ["biblioteca:ver"]) });
-    expect(rotulosMenu()).toEqual(["Biblioteca", "Minha conta"]);
+    expect(rotulosMenu()).toEqual(["Biblioteca"]);
   });
 
   it("os itens planejados de marketing viraram telas reais", () => {
@@ -53,7 +53,7 @@ describe("Marketing e Biblioteca no menu", () => {
 describe("Menu do financeiro", () => {
   it("só aparece para quem tem financeiro:ver", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("FIN", ["financeiro:ver"]) });
-    expect(rotulosMenu()).toEqual(["Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias", "Minha conta"]);
+    expect(rotulosMenu()).toEqual(["Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias"]);
   });
 
   it("não aparece sem a permissão", () => {
@@ -79,7 +79,7 @@ describe("Seletor de praça", () => {
 });
 
 describe("Turistinha (assistente de IA)", () => {
-  it("o botão no topo só aparece com ia:usar e abre o painel ao lado do conteúdo", async () => {
+  it("o botão flutuante (canto inferior direito) só aparece com ia:usar e abre o painel ao lado do conteúdo", async () => {
     simularApi({ "GET /api/ia/estado": { ligada: true, assistente: true, gestores: false } });
     const { unmount } = renderizar(<Layout />, { sessao: sessaoFicticia("GUIA", ["manifesto:ver"]) });
     expect(screen.queryByRole("button", { name: /Turistinha/ })).not.toBeInTheDocument();
@@ -112,5 +112,25 @@ describe("Item ativo do menu", () => {
     const menu = screen.getByRole("navigation", { name: "Menu principal" });
     expect(within(menu).getByRole("link", { name: /Frota e manutenção/ })).toHaveAttribute("aria-current", "page");
     expect(within(menu).getByRole("link", { name: /Checklist do veículo/ })).not.toHaveAttribute("aria-current");
+  });
+});
+
+describe("Menu do usuário e Configurações (pedido do dono, 04/11)", () => {
+  it("foto/iniciais no canto superior direito abrem perfil, configurações e sair", async () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("ADMIN", ["usuarios:gerenciar", "importacoes:executar", "manifesto:ver"]) });
+    const u = userEvent.setup();
+    await u.click(screen.getByRole("button", { name: /^Conta de / }));
+    const lista = screen.getByRole("menu");
+    expect(within(lista).getByRole("menuitem", { name: /Meu perfil/ })).toHaveAttribute("href", "/conta");
+    expect(within(lista).getByRole("menuitem", { name: /Configurações/ })).toHaveAttribute("href", "/configuracoes");
+    expect(within(lista).getByRole("menuitem", { name: /Sair/ })).toBeInTheDocument();
+  });
+
+  it("Configurações vira um botão discreto no rodapé do menu, sem a área no menu lateral (Integrações incluída)", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("ADMIN", ["usuarios:gerenciar", "importacoes:executar", "manifesto:ver"]) });
+    const rotulos = rotulosMenu();
+    expect(rotulos).toContain("Configurações");
+    expect(rotulos).not.toContain("Usuários");
+    expect(rotulos).not.toContain("Integrações");
   });
 });

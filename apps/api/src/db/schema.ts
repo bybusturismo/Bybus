@@ -64,6 +64,15 @@ export const usuarios = pgTable("usuarios", {
   criadoEm: agora(),
 }, (t) => [uniqueIndex("usuarios_email_uq").on(sql`lower(${t.email})`)]);
 
+/** Foto de perfil do usuário (tabela à parte: não é carregada a cada requisição junto da sessão). */
+export const usuariosFotos = pgTable("usuarios_fotos", {
+  usuarioId: uuid().primaryKey().references(() => usuarios.id, { onDelete: "cascade" }),
+  tipo: text().notNull(),
+  /** Imagem em base64 (já reduzida no navegador; até ~200 KB). */
+  dados: text().notNull(),
+  atualizadaEm: agora(),
+});
+
 export const usuariosUnidades = pgTable("usuarios_unidades", {
   usuarioId: uuid().notNull().references(() => usuarios.id, { onDelete: "cascade" }),
   unidadeId: uuid().notNull().references(() => unidades.id),

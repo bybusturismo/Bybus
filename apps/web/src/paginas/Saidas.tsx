@@ -98,7 +98,12 @@ export function Saidas() {
   const [params, setParams] = useSearchParams();
   const hoje = hojeIso();
   const inicio = /^\d{4}-\d{2}-\d{2}$/.test(params.get("de") ?? "") ? params.get("de")! : hoje;
-  const fim = somarDias(inicio, DIAS - 1);
+  // Período livre (pedido do dono, 04/11): "de" e "até" na URL; padrão 14 dias; no máximo 1 ano.
+  const ateParam = params.get("ate") ?? "";
+  const fim = /^\d{4}-\d{2}-\d{2}$/.test(ateParam) && ateParam >= inicio && diferencaDias(inicio, ateParam) <= 365 ? ateParam : somarDias(inicio, DIAS - 1);
+  const dias = diferencaDias(inicio, fim) + 1;
+  /** Muda o período mantendo o tamanho escolhido. */
+  const irPara = (de: string, ate = somarDias(de, dias - 1)) => setParams(de === hoje && dias === DIAS ? {} : { de, ate });
   const [passeioSalvo, setPasseioSalvo] = useState<string>(lerPasseioSalvo);
   const [criando, setCriando] = useState<string | null>(null);
   const [erroCriar, setErroCriar] = useState<string | null>(null);
@@ -160,16 +165,22 @@ export function Saidas() {
           </p>
         </div>
         <div className="barra-acoes">
-          <button type="button" className="botao botao--secundario" onClick={() => setParams({ de: somarDias(inicio, -DIAS) })} aria-label="14 dias anteriores">
-            ← Anteriores
+          <div className="campo campo--linha periodo">
+            <label htmlFor="periodo-de">De</label>
+            <input id="periodo-de" type="date" value={inicio} onChange={(e) => e.target.value && irPara(e.target.value, e.target.value > fim ? somarDias(e.target.value, dias - 1) : fim)} />
+            <label htmlFor="periodo-ate">até</label>
+            <input id="periodo-ate" type="date" value={fim} min={inicio} max={somarDias(inicio, 365)} onChange={(e) => e.target.value && irPara(inicio, e.target.value)} />
+          </div>
+          <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => irPara(somarDias(inicio, -dias))} aria-label={`${dias} dias anteriores`}>
+            ←
           </button>
-          {inicio !== hoje && (
-            <button type="button" className="botao botao--secundario" onClick={() => setParams({})}>
+          {(inicio !== hoje || dias !== DIAS) && (
+            <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setParams({})}>
               Hoje
             </button>
           )}
-          <button type="button" className="botao botao--secundario" onClick={() => setParams({ de: somarDias(inicio, DIAS) })} aria-label="Próximos 14 dias">
-            Próximos →
+          <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => irPara(somarDias(inicio, dias))} aria-label={`Próximos ${dias} dias`}>
+            →
           </button>
         </div>
       </div>
@@ -234,9 +245,11 @@ export function Saidas() {
             </Vazio>
           )}
           <ul className="lista-saidas" aria-label="Saídas por dia" aria-busy={saidas.carregando}>
-            {intervaloDias(inicio, DIAS).flatMap((data) => {
+            {intervaloDias(inicio, dias).flatMap((data) => {
               const doDia = porData.get(data) ?? [];
               const relativo = rotuloRelativo(data, hoje);
+              // Período longo: dias sem saída não ocupam espaço.
+              if (doDia.length === 0 && dias > 31) return [];
               if (doDia.length === 0) {
                 return [
                   <li key={data} className="saida saida--vazia">

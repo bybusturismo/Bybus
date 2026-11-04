@@ -7,6 +7,69 @@ import { useSessao } from "../sessao/Sessao";
 import { formatarDataHora } from "../util/formato";
 import { useCarregar } from "../util/useCarregar";
 import { ConfigurarMfa, FormTrocarSenha } from "./Pendencias";
+import { Avatar } from "../componentes/MenuUsuario";
+
+/** Reduz a foto no navegador (quadrado de 256 px, JPEG) antes de enviar: arquivo pequeno e sem metadados (GPS etc.). */
+async function reduzirFoto(arquivo: File): Promise<string> {
+  const bitmap = await createImageBitmap(arquivo);
+  const lado = Math.min(bitmap.width, bitmap.height);
+  const tela = document.createElement("canvas");
+  tela.width = tela.height = 256;
+  tela.getContext("2d")!.drawImage(bitmap, (bitmap.width - lado) / 2, (bitmap.height - lado) / 2, lado, lado, 0, 0, 256, 256);
+  return tela.toDataURL("image/jpeg", 0.85);
+}
+
+function FotoPerfil() {
+  const { usuario, recarregar } = useSessao();
+  const notificar = useNotificar();
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [chave, setChave] = useState(0);
+  async function escolher(f: File | undefined) {
+    if (!f) return;
+    setErro(null);
+    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) return setErro("Escolha uma foto JPG, PNG ou WebP.");
+    setOcupado(true);
+    try {
+      await api.put("/api/auth/foto", { imagem: await reduzirFoto(f) });
+      await recarregar();
+      notificar("Foto atualizada.");
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setOcupado(false);
+      setChave((k) => k + 1);
+    }
+  }
+  async function remover() {
+    setOcupado(true);
+    try {
+      await api.delete("/api/auth/foto");
+      await recarregar();
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setOcupado(false);
+    }
+  }
+  return (
+    <section className="cartao foto-perfil" aria-labelledby="titulo-foto">
+      <Avatar nome={usuario?.nome} fotoVersao={usuario?.fotoVersao ?? null} tamanho={72} />
+      <div>
+        <h2 id="titulo-foto">Foto de perfil</h2>
+        <p className="texto-fraco">Aparece no canto superior direito. Fica só no sistema da By Bus.</p>
+        {erro && <Aviso tipo="erro">{erro}</Aviso>}
+        <div className="barra-acoes">
+          <label className={`botao botao--secundario botao--pequeno${ocupado ? " botao--desabilitado" : ""}`}>
+            {usuario?.fotoVersao ? "Trocar foto" : "Enviar foto"}
+            <input key={chave} type="file" accept="image/jpeg,image/png,image/webp" className="visualmente-oculto" disabled={ocupado} onChange={(e) => void escolher(e.target.files?.[0])} />
+          </label>
+          {usuario?.fotoVersao ? <button type="button" className="botao botao--fantasma botao--pequeno" disabled={ocupado} onClick={() => void remover()}>Remover</button> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 /** Descrição curta do navegador a partir do user-agent (sem mostrar a string inteira). */
 export function descreverNavegador(ua: string | null): string {
@@ -69,12 +132,14 @@ export function Conta() {
     <div className="pagina pagina--estreita">
       <div className="pagina__cabecalho">
         <div>
-          <h1>Minha conta</h1>
+          <h1>Meu perfil</h1>
           <p className="pagina__descricao">
             {usuario.nome} · {usuario.email} · {usuario.perfilNome ?? usuario.perfil}
           </p>
         </div>
       </div>
+
+      <FotoPerfil />
 
       <section className="cartao" aria-labelledby="titulo-senha">
         <h2 id="titulo-senha">Trocar senha</h2>

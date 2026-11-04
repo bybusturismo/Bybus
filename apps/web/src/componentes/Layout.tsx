@@ -4,9 +4,11 @@ import type { Permissao } from "../api/tipos";
 import { useSessao } from "../sessao/Sessao";
 import logoHorizontal from "../marca/bybus-horizontal.png";
 import { Icone, type NomeIcone } from "./Icone";
-import { Mascote } from "./Mascote";
 import { Modal } from "./Modal";
 import { PainelTuristinha } from "./PainelTuristinha";
+import { MenuUsuario } from "./MenuUsuario";
+import { MenuTopo } from "./MenuTopo";
+import { TuristinhaFlutuante } from "./TuristinhaFlutuante";
 import { BotaoTema } from "./Tema";
 
 export const AREAS = ["Passeios", "Cadastros", "Administrativo", "Marketing", "Biblioteca", "Gestão", "Configurações"] as const;
@@ -30,7 +32,7 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/escala", rotulo: "Escala de guias", icone: "calendario", area: "Passeios", permissao: "pessoas:ver", atalho: "l" },
   { para: "/fechamento", rotulo: "Fechamento e mensagens", icone: "mensagem", area: "Passeios", permissao: "saidas:decidir", atalho: "m" },
   { para: "/importar", rotulo: "Importar reservas", icone: "importar", area: "Passeios", permissao: "importacoes:executar", atalho: "i" },
-  { para: "/integracoes", rotulo: "Integrações", icone: "conexao", area: "Passeios", permissao: "importacoes:executar", atalho: "n" },
+  { para: "/integracoes", rotulo: "Integrações", icone: "conexao", area: "Configurações", permissao: "importacoes:executar", atalho: "n" },
   { para: "/em-breve/rastreamento", rotulo: "Rastreamento", icone: "mapa", area: "Passeios", planejado: true },
   { para: "/passeios", rotulo: "Passeios e pontos", icone: "bilhete", area: "Cadastros", permissao: "produtos:gerenciar", atalho: "p" },
   { para: "/equipe", rotulo: "Guias e equipe", icone: "cracha", area: "Cadastros", permissao: "pessoas:ver", atalho: "e" },
@@ -56,7 +58,7 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/usuarios", rotulo: "Usuários", icone: "usuarios", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "u" },
   { para: "/perfis", rotulo: "Perfis de acesso", icone: "escudo", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "f" },
   { para: "/auditoria", rotulo: "Auditoria", icone: "auditoria", area: "Configurações", permissao: "auditoria:ver", atalho: "a" },
-  { para: "/conta", rotulo: "Minha conta", icone: "conta", area: "Configurações", atalho: "c" },
+  { para: "/conta", rotulo: "Meu perfil", icone: "conta", area: "Configurações", atalho: "c" },
 ];
 
 /** Itens visíveis para o perfil (apenas conveniência: o servidor sempre confere a permissão). */
@@ -82,7 +84,7 @@ function emCampoDeTexto(alvo: EventTarget | null): boolean {
 }
 
 export function Layout() {
-  const { usuario, pode, sair, unidades, praca, escolherPraca } = useSessao();
+  const { pode, unidades, praca, escolherPraca } = useSessao();
   const navegar = useNavigate();
   const local = useLocation();
   const itens = useMemo(() => itensPermitidos(pode), [pode]);
@@ -130,13 +132,16 @@ export function Layout() {
     return () => window.removeEventListener("keydown", aoTeclar);
   }, [itens, navegar]);
 
-  const areas = AREAS.map((a) => ({ area: a, itens: itens.filter((i) => i.area === a) })).filter((g) => g.itens.length > 0);
-  const poucosItens = itens.length <= 4;
+  // "Configurações" saiu do menu lateral (pedido do dono, 04/11): fica num botão discreto no rodapé do menu e no menu do usuário.
+  const areas = AREAS.filter((a) => a !== "Configurações").map((a) => ({ area: a, itens: itens.filter((i) => i.area === a) })).filter((g) => g.itens.length > 0);
+  const temConfiguracoes = itens.some((i) => i.area === "Configurações" && i.para !== "/conta");
+  const poucosItens = areas.reduce((n, g) => n + g.itens.length, 0) <= 4;
   // Item ativo = o de caminho mais específico que casa com a URL (ex.: /financeiro/extrato não acende "Resumo financeiro").
   const ativo = useMemo(
     () => itens.filter((i) => matchPath({ path: i.para, end: false }, local.pathname)).sort((a, b) => b.para.length - a.para.length)[0]?.para,
     [itens, local.pathname],
   );
+  const emConfiguracoes = local.pathname === "/configuracoes" || itens.some((i) => i.area === "Configurações" && i.para === ativo);
 
   return (
     <div className={`app${menuAberto ? " app--menu-aberto" : ""}${turistinha && pode("ia:usar") ? " app--turistinha" : ""}`}>
@@ -147,10 +152,11 @@ export function Layout() {
         <button type="button" className="botao botao--fantasma botao--icone topo__menu" aria-label={menuAberto ? "Fechar menu" : "Abrir menu"} aria-expanded={menuAberto} aria-controls="menu-principal" onClick={() => setMenuAberto((v) => !v)}>
           <Icone nome={menuAberto ? "x" : "menu"} />
         </button>
-        <div className="topo__marca">
+        <Link to="/" className="topo__marca" aria-label="By Bus Gestão — início">
           <img className="topo__logo-img" src={logoHorizontal} alt="By Bus Turismo" width={60} height={34} />
           <span className="topo__nome">Gestão</span>
-        </div>
+        </Link>
+        <MenuTopo areas={areas} ativo={ativo} />
         {unidades.length > 1 && (
           <div className="topo__praca">
             <label htmlFor="seletor-praca">Praça</label>
@@ -165,21 +171,13 @@ export function Layout() {
           </div>
         )}
         <div className="topo__usuario">
-          <span className="topo__quem">
-            <span className="topo__nome-usuario">{usuario?.nome}</span>
-            <span className="topo__perfil">{usuario?.perfilNome ?? usuario?.perfil ?? ""}</span>
-          </span>
-          {pode("ia:usar") && (
-            <button type="button" className={`botao botao--fantasma botao--topo botao--turistinha${turistinha ? " botao--turistinha-ativo" : ""}`} aria-expanded={turistinha} aria-controls="painel-turistinha" onClick={() => setTuristinha((v) => !v)}>
-              <Mascote tamanho={22} titulo="" />
-              <span>Turistinha</span>
-            </button>
+          {temConfiguracoes && (
+            <Link to="/configuracoes" className={`botao botao--fantasma botao--icone botao--topo topo__config${emConfiguracoes ? " botao--topo-atual" : ""}`} aria-label="Configurações" title="Configurações">
+              <Icone nome="engrenagem" />
+            </Link>
           )}
           <BotaoTema />
-          <button type="button" className="botao botao--fantasma botao--topo" onClick={() => void sair()} aria-label="Sair">
-            <Icone nome="sair" />
-            <span>Sair</span>
-          </button>
+          <MenuUsuario temConfiguracoes={temConfiguracoes} aoAtalhos={() => setAjuda(true)} />
         </div>
       </header>
 
@@ -210,9 +208,17 @@ export function Layout() {
             </section>
           );
         })}
-        <button type="button" className="menu__ajuda" onClick={() => setAjuda(true)}>
-          Atalhos do teclado <kbd>?</kbd>
-        </button>
+        <div className="menu__rodape">
+          {temConfiguracoes && (
+            <Link to="/configuracoes" className={`menu__config${emConfiguracoes ? " menu__config--atual" : ""}`} aria-current={emConfiguracoes ? "page" : undefined}>
+              <Icone nome="engrenagem" tamanho={16} />
+              <span>Configurações</span>
+            </Link>
+          )}
+          <button type="button" className="menu__ajuda" onClick={() => setAjuda(true)}>
+            Atalhos <kbd>?</kbd>
+          </button>
+        </div>
       </nav>
       <div className="menu__fundo nao-imprimir" aria-hidden="true" onClick={() => setMenuAberto(false)} />
 
@@ -220,6 +226,7 @@ export function Layout() {
         <Outlet />
       </main>
       {turistinha && pode("ia:usar") && <PainelTuristinha aoFechar={() => setTuristinha(false)} />}
+      {pode("ia:usar") && <TuristinhaFlutuante aberto={turistinha} aoAlternar={() => setTuristinha((v) => !v)} />}
 
       <Modal aberto={ajuda} titulo="Atalhos do teclado" aoFechar={() => setAjuda(false)}>
         <dl className="atalhos">

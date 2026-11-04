@@ -92,6 +92,13 @@
       "when": 1793785548095,
       "tag": "0012_conciliacao_baixa",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793833312438,
+      "tag": "0013_foto_perfil",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ import { authenticator } from "otplib";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
-import { perfis, sessoes, unidades, usuarios } from "../db/schema.js";
+import { perfis, sessoes, unidades, usuarios, usuariosFotos } from "../db/schema.js";
 import { conferirSenha, gerarHashSenha, obterHashFalso, validarPoliticaSenha } from "../seguranca/senha.js";
 import { criarSessao, ErroHttp, nomeCookie, pendencia } from "../seguranca/sessao.js";
 import { sha256 } from "../seguranca/cripto.js";
@@ -99,8 +99,13 @@ export async function rotasAuth(app: FastifyInstance, { db, config, cofre }: Con
   app.get("/api/auth/eu", async (req) => {
     const u = req.usuario;
     if (!u) throw new ErroHttp(401, "NAO_AUTENTICADO", "Faça login para continuar.");
+    const [foto] = await db.select({ em: usuariosFotos.atualizadaEm }).from(usuariosFotos).where(eq(usuariosFotos.usuarioId, u.id));
     return {
-      usuario: { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, perfilNome: u.perfilNome, totpAtivo: u.totpAtivo, todasUnidades: u.todasUnidades },
+      usuario: {
+        id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, perfilNome: u.perfilNome, totpAtivo: u.totpAtivo, todasUnidades: u.todasUnidades,
+        /** Versão da foto (muda a URL quando a foto é trocada); null = sem foto. */
+        fotoVersao: foto ? foto.em.getTime() : null,
+      },
       pendencia: pendencia(u, config),
       permissoes: u.permissoes,
       /** Administrador concede qualquer perfil/praça; os demais só o que já têm (regra anti-escalonamento). */
@@ -108,6 +113,41 @@ export async function rotasAuth(app: FastifyInstance, { db, config, cofre }: Con
       unidades: (await db.select({ id: unidades.id, codigo: unidades.codigo, nome: unidades.nome }).from(unidades).where(eq(unidades.ativa, true)).orderBy(unidades.nome))
         .filter((x) => u.todasUnidades || u.unidadeIds.includes(x.id)),
     };
+  });
+
+  // ---------- Foto de perfil (só a do próprio usuário) ----------
+  app.get("/api/auth/foto", async (req, reply) => {
+    const u = req.usuario;
+    if (!u) throw new ErroHttp(401, "NAO_AUTENTICADO", "Faça login para continuar.");
+    const [f] = await db.select().from(usuariosFotos).where(eq(usuariosFotos.usuarioId, u.id));
+    if (!f) throw new ErroHttp(404, "SEM_FOTO", "Sem foto de perfil.");
+    return reply.header("content-type", f.tipo).header("cache-control", "private, max-age=86400").send(Buffer.from(f.dados, "base64"));
+  });
+
+  app.put("/api/auth/foto", { bodyLimit: 400_000 }, async (req) => {
+    const u = req.usuario;
+    if (!u) throw new ErroHttp(401, "NAO_AUTENTICADO", "Faça login para continuar.");
+    const { imagem } = z.object({ imagem: z.string().max(300_000) }).parse(req.body);
+    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(imagem);
+    if (!m) throw new ErroHttp(400, "FOTO_INVALIDA", "Envie uma imagem JPG, PNG ou WebP.");
+    const bytes = Buffer.from(m[2]!, "base64");
+    // Confere o conteúdo pela assinatura do arquivo (não só pelo tipo declarado).
+    const ok = (m[1] === "image/jpeg" && bytes[0] === 0xff && bytes[1] === 0xd8)
+      || (m[1] === "image/png" && bytes.subarray(0, 4).toString("hex") === "89504e47")
+      || (m[1] === "image/webp" && bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP");
+    if (!ok || bytes.length > 200_000) throw new ErroHttp(400, "FOTO_INVALIDA", "Imagem inválida ou grande demais (máx. 200 KB).");
+    const valores = { tipo: m[1]!, dados: bytes.toString("base64"), atualizadaEm: new Date() };
+    await db.insert(usuariosFotos).values({ usuarioId: u.id, ...valores }).onConflictDoUpdate({ target: usuariosFotos.usuarioId, set: valores });
+    await auditar(db, req, "FOTO_PERFIL_ALTERADA", { tipo: "usuario", id: u.id });
+    return { fotoVersao: valores.atualizadaEm.getTime() };
+  });
+
+  app.delete("/api/auth/foto", async (req) => {
+    const u = req.usuario;
+    if (!u) throw new ErroHttp(401, "NAO_AUTENTICADO", "Faça login para continuar.");
+    await db.delete(usuariosFotos).where(eq(usuariosFotos.usuarioId, u.id));
+    await auditar(db, req, "FOTO_PERFIL_REMOVIDA", { tipo: "usuario", id: u.id });
+    return { ok: true };
   });
 
   app.post("/api/auth/senha", { config: { rateLimit: { max: config.LIMITE_LOGIN_POR_MINUTO, timeWindow: "1 minute" } } }, async (req) => {

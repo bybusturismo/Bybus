@@ -30,6 +30,7 @@ import { Financeiro } from "./paginas/financeiro/Financeiro";
 import { Lancamentos } from "./paginas/financeiro/Lancamentos";
 import { Resumo } from "./paginas/financeiro/Resumo";
 import { Login } from "./paginas/Login";
+import { Configuracoes } from "./paginas/Configuracoes";
 import { TelaPendencia } from "./paginas/Pendencias";
 import { Embarque } from "./paginas/saida/Embarque";
 import { ListaPassageiros } from "./paginas/saida/ListaPassageiros";
@@ -335,6 +336,7 @@ export function Rotas() {
           }
         />
         <Route path="conta" element={<Conta />} />
+        <Route path="configuracoes" element={<Configuracoes />} />
         <Route
           path="*"
           element={

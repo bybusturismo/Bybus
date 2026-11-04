@@ -84,7 +84,7 @@ export interface Unidade extends UnidadeResumo {
 }
 
 export interface RespostaEu {
-  usuario: Usuario & { totpAtivo: boolean; perfilNome: string; todasUnidades: boolean };
+  usuario: Usuario & { totpAtivo: boolean; perfilNome: string; todasUnidades: boolean; fotoVersao?: number | null };
   pendencia: Pendencia;
   permissoes: Permissao[];
   unidades: UnidadeResumo[];
