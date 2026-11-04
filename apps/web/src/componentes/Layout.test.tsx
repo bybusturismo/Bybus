@@ -22,10 +22,29 @@ describe("Menu por permissão", () => {
     const todas = itensPermitidos(() => true);
     expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
       "Saídas", "Conferência de embarque", "Escala de guias", "Fechamento e mensagens", "Importar reservas", "Integrações",
-      "Passeios e pontos", "Guias e equipe", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta",
+      "Passeios e pontos", "Guias e equipe",
+      "Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes", "Biblioteca",
+      "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta",
     ]);
     // Módulos planejados só aparecem para quem administra usuários.
     expect(itensPermitidos((p) => p !== "usuarios:gerenciar").some((i) => i.planejado)).toBe(false);
+  });
+});
+
+describe("Marketing e Biblioteca no menu", () => {
+  it("só aparecem com as permissões certas", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("MKT", ["marketing:ver"]) });
+    expect(rotulosMenu()).toEqual(["Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes", "Minha conta"]);
+  });
+
+  it("biblioteca:ver mostra só a Biblioteca", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("LEITOR", ["biblioteca:ver"]) });
+    expect(rotulosMenu()).toEqual(["Biblioteca", "Minha conta"]);
+  });
+
+  it("os itens planejados de marketing viraram telas reais", () => {
+    const planejados = itensPermitidos(() => true).filter((i) => i.planejado).map((i) => i.para);
+    expect(planejados.some((p) => /avaliacoes|origem-clientes|campanhas|afiliados/.test(p))).toBe(false);
   });
 });
 

@@ -163,6 +163,13 @@ describe("calendário de conteúdo", () => {
     expect((await gestor.req("POST", "/api/marketing/conteudos", { titulo: "Resp inexistente", rede: "BLOG", responsavelId: "00000000-0000-4000-8000-000000000000", unidadeId: flnId })).statusCode).toBe(400);
     expect((await gestor.req("DELETE", `/api/marketing/conteudos/${id}`)).statusCode).toBe(200);
   });
+
+  it("lista só quem pode ser responsável", async () => {
+    const lista = (await leitor.req("GET", "/api/marketing/responsaveis")).json() as Array<{ nome: string }>;
+    const nomes = lista.map((x) => x.nome);
+    expect(nomes).toContain("Usuário MKT_GESTOR");
+    expect(nomes).not.toContain("Usuário MKT_LEITOR");
+  });
 });
 
 describe("avaliações", () => {

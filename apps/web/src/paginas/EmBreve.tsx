@@ -24,13 +24,6 @@ export const MODULOS_PLANEJADOS: Record<string, ModuloPlanejado> = {
     objetivo: "Cadastro único de quem já viajou, com origem (país, estado, cidade) e histórico de passeios.",
     funcoes: ["Busca por nome, documento ou telefone", "Histórico de reservas e canais", "Consentimento de mensagens (LGPD)", "Exclusão/anonimização a pedido do titular"],
   },
-  afiliados: {
-    titulo: "Afiliados",
-    area: "Cadastros",
-    objetivo: "Hotéis, pousadas e parceiros que vendem os passeios, com QR code e comissão.",
-    funcoes: ["Lista de afiliados da Paytour", "Vendas e comissão por afiliado", "QR code de divulgação"],
-    depende: "Regras de comissão a confirmar com o dono.",
-  },
   empresas: {
     titulo: "Empresas parceiras",
     area: "Cadastros",
@@ -60,25 +53,6 @@ export const MODULOS_PLANEJADOS: Record<string, ModuloPlanejado> = {
     area: "Administrativo",
     objetivo: "Ônibus, trenzinho e van: documentos, manutenção e quilometragem.",
     funcoes: ["Documentos com alerta de vencimento", "Manutenção preventiva por km/tempo", "Abastecimento e custo por veículo", "Checklist do motorista"],
-  },
-  avaliacoes: {
-    titulo: "Avaliações",
-    area: "Marketing",
-    objetivo: "Pedir avaliação depois do passeio, com destaque para o Tripadvisor.",
-    funcoes: ["Mensagem pós-passeio pelo WhatsApp", "Nota interna de satisfação (coluna “Pesquisa” da lista)", "Acompanhamento das notas por guia e por mês"],
-    depende: "Provedor de WhatsApp.",
-  },
-  "origem-clientes": {
-    titulo: "Origem dos clientes",
-    area: "Marketing",
-    objetivo: "De onde vêm os passageiros (país, estado, cidade) e por qual canal compram.",
-    funcoes: ["Painel por país/estado e por canal", "Comparação por mês e temporada"],
-  },
-  campanhas: {
-    titulo: "Campanhas",
-    area: "Marketing",
-    objetivo: "Acompanhar campanhas (ex.: Google Ads com a Turis Tráfego) e cupons.",
-    funcoes: ["Vendas por campanha e cupom", "Custo × retorno"],
   },
 };
 

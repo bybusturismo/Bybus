@@ -10,7 +10,7 @@ import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
 import {
   afiliados, avaliacaoNotas, avaliacaoPedidos, campanhaResultados, campanhas, conteudos, marketingConfig,
-  passageiros, passeios, pessoas, reservas, saidas, usuarios,
+  passageiros, passeios, perfis, pessoas, reservas, saidas, usuarios,
 } from "../db/schema.js";
 import { filtroUnidade, garantirReserva, podeUnidade } from "../seguranca/escopo.js";
 import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
@@ -246,6 +246,11 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     const [u] = await db.select({ ativo: usuarios.ativo }).from(usuarios).where(eq(usuarios.id, id));
     if (!u?.ativo) throw new ErroHttp(400, "RESPONSAVEL_INVALIDO", "Responsável inexistente ou inativo.");
   }
+
+  /** Colegas que podem ser responsáveis por um conteúdo: usuários ativos que gerenciam o marketing (e administradores). */
+  app.get("/api/marketing/responsaveis", ver, async () =>
+    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).innerJoin(perfis, eq(perfis.id, usuarios.perfilId))
+      .where(and(eq(usuarios.ativo, true), or(eq(perfis.codigo, "ADMIN"), sql`'marketing:gerenciar' = any(${perfis.permissoes})`))).orderBy(asc(usuarios.nome)));
 
   app.get("/api/marketing/conteudos", ver, async (req) => {
     const q = z.object({ de: dataIso.optional(), ate: dataIso.optional(), status: z.enum(STATUS_CONTEUDO).optional(), rede: z.enum(REDES_CONTEUDO).optional() }).parse(req.query);

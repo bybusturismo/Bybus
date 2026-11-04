@@ -7,7 +7,7 @@ import { Icone, type NomeIcone } from "./Icone";
 import { Modal } from "./Modal";
 import { BotaoTema } from "./Tema";
 
-export const AREAS = ["Passeios", "Cadastros", "Administrativo", "Marketing", "Configurações"] as const;
+export const AREAS = ["Passeios", "Cadastros", "Administrativo", "Marketing", "Biblioteca", "Configurações"] as const;
 export type Area = (typeof AREAS)[number];
 
 export interface ItemMenu {
@@ -33,15 +33,18 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/passeios", rotulo: "Passeios e pontos", icone: "bilhete", area: "Cadastros", permissao: "produtos:gerenciar", atalho: "p" },
   { para: "/equipe", rotulo: "Guias e equipe", icone: "cracha", area: "Cadastros", permissao: "pessoas:ver", atalho: "e" },
   { para: "/em-breve/passageiros", rotulo: "Passageiros e clientes", icone: "pessoas", area: "Cadastros", planejado: true },
-  { para: "/em-breve/afiliados", rotulo: "Afiliados", icone: "estrela", area: "Cadastros", planejado: true },
   { para: "/em-breve/empresas", rotulo: "Empresas parceiras", icone: "predio", area: "Cadastros", planejado: true },
   { para: "/em-breve/contas-a-pagar", rotulo: "Contas a pagar", icone: "dinheiro", area: "Administrativo", planejado: true },
   { para: "/em-breve/contas-a-receber", rotulo: "Contas a receber", icone: "dinheiro", area: "Administrativo", planejado: true },
   { para: "/em-breve/cartoes", rotulo: "Cartões de crédito", icone: "cartao", area: "Administrativo", planejado: true },
   { para: "/em-breve/frota", rotulo: "Frota e manutenção", icone: "onibus", area: "Administrativo", planejado: true },
-  { para: "/em-breve/avaliacoes", rotulo: "Avaliações", icone: "estrela", area: "Marketing", planejado: true },
-  { para: "/em-breve/origem-clientes", rotulo: "Origem dos clientes", icone: "grafico", area: "Marketing", planejado: true },
-  { para: "/em-breve/campanhas", rotulo: "Campanhas", icone: "megafone", area: "Marketing", planejado: true },
+  { para: "/marketing/canais", rotulo: "Vendas por canal", icone: "grafico", area: "Marketing", permissao: "marketing:ver", atalho: "v" },
+  { para: "/marketing/origem", rotulo: "Origem dos clientes", icone: "mapa", area: "Marketing", permissao: "marketing:ver", atalho: "o" },
+  { para: "/marketing/campanhas", rotulo: "Campanhas", icone: "megafone", area: "Marketing", permissao: "marketing:ver", atalho: "j" },
+  { para: "/marketing/conteudo", rotulo: "Calendário de conteúdo", icone: "calendario", area: "Marketing", permissao: "marketing:ver", atalho: "t" },
+  { para: "/marketing/avaliacoes", rotulo: "Avaliações", icone: "estrela", area: "Marketing", permissao: "marketing:ver", atalho: "z" },
+  { para: "/marketing/afiliados", rotulo: "Afiliados e QR codes", icone: "pessoas", area: "Marketing", permissao: "marketing:ver", atalho: "h" },
+  { para: "/biblioteca", rotulo: "Biblioteca", icone: "lista", area: "Biblioteca", permissao: "biblioteca:ver", atalho: "b" },
   { para: "/pracas", rotulo: "Praças", icone: "pino", area: "Configurações", permissao: "unidades:gerenciar", atalho: "r" },
   { para: "/usuarios", rotulo: "Usuários", icone: "usuarios", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "u" },
   { para: "/perfis", rotulo: "Perfis de acesso", icone: "escudo", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "f" },
