@@ -8,6 +8,13 @@ import {
   montarManifesto, normalizarDocumento, textoConfirmacao, textoListaGrupo, type Canal, type Categoria, type ReservaImportada, type TipoDocumento,
 } from "@bybus/core";
 
+import { NAO, type Ctx } from "./comum";
+import { rotearBiblioteca } from "./bibliotecaDemo";
+import { rotearFinanceiro } from "./financeiroDemo";
+import { rotearFrota } from "./frotaDemo";
+import { rotearIa } from "./iaDemo";
+import { rotearMarketing } from "./marketingDemo";
+
 /** Catálogo de permissões (espelha apps/api/src/seguranca/permissoes.ts). */
 const CATALOGO: Record<string, string> = {
   "usuarios:gerenciar": "Gerenciar usuários e perfis de acesso",
@@ -26,16 +33,27 @@ const CATALOGO: Record<string, string> = {
   "manifesto:documentos": "Ver documentos completos (CPF/passaporte)",
   "manifesto:contatos": "Ver telefones e e-mails dos clientes",
   "embarque:registrar": "Registrar embarque (embarcou, atrasado, não veio)",
+  "frota:ver": "Consultar frota: veículos, documentos, manutenção, abastecimento e painel",
+  "frota:gerenciar": "Cadastrar veículos, documentos, planos, ordens de manutenção, abastecimentos e km",
+  "frota:checklist": "Preencher o checklist diário do veículo (motorista)",
+  "marketing:ver": "Ver os painéis de marketing (canais, origem dos clientes, campanhas, avaliações, afiliados)",
+  "marketing:gerenciar": "Gerenciar campanhas, calendário de conteúdo, avaliações e afiliados",
+  "biblioteca:ver": "Ler as páginas da Biblioteca (manuais e procedimentos)",
+  "biblioteca:editar": "Criar e editar páginas da Biblioteca, inclusive as restritas",
+  "ia:usar": "Conversar com o assistente de IA (Turistinha)",
+  "ia:gestores": "Ver os gestores de IA, rodar a avaliação e aprovar ou descartar ações sugeridas",
+  "financeiro:ver": "Ver o financeiro (contas a pagar e a receber, extratos, DRE)",
+  "financeiro:gerenciar": "Lançar, baixar, importar extratos e conciliar no financeiro",
 };
 const TODAS = Object.keys(CATALOGO);
-const SENSIVEIS = ["usuarios:gerenciar", "unidades:gerenciar", "manifesto:documentos", "pessoas:gerenciar", "auditoria:ver"];
+const SENSIVEIS = ["usuarios:gerenciar", "unidades:gerenciar", "manifesto:documentos", "pessoas:gerenciar", "auditoria:ver", "ia:gestores", "financeiro:ver", "financeiro:gerenciar"];
 interface PerfilDemo { id: string; codigo: string; nome: string; descricao: string | null; permissoes: string[]; sistema: boolean; criadoEm: string }
 const perfis: PerfilDemo[] = [
   { codigo: "ADMIN", nome: "Administrador", descricao: "Acesso total, inclusive usuários, perfis e praças.", permissoes: TODAS },
-  { codigo: "SUPERVISOR", nome: "Supervisor / líder", descricao: "Decide saídas, vê documentos completos, gerencia equipe e pontos.", permissoes: ["auditoria:ver", "pessoas:gerenciar", "pessoas:ver", "pontos:gerenciar", "saidas:gerenciar", "saidas:decidir", "escala:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:documentos", "manifesto:contatos", "embarque:registrar"] },
-  { codigo: "ATENDENTE", nome: "Atendente / vendedor", descricao: "Monta listas, lança e importa reservas.", permissoes: ["pessoas:ver", "saidas:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:contatos"] },
-  { codigo: "GUIA", nome: "Guia de turismo", descricao: "Vê a lista e registra o embarque.", permissoes: ["manifesto:ver", "manifesto:contatos", "embarque:registrar"] },
-  { codigo: "MOTORISTA", nome: "Motorista", descricao: "Vê a lista (sem contatos).", permissoes: ["manifesto:ver"] },
+  { codigo: "SUPERVISOR", nome: "Supervisor / líder", descricao: "Decide saídas, vê documentos completos, gerencia equipe e pontos.", permissoes: ["auditoria:ver", "pessoas:gerenciar", "pessoas:ver", "pontos:gerenciar", "saidas:gerenciar", "saidas:decidir", "escala:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:documentos", "manifesto:contatos", "embarque:registrar", "frota:ver", "frota:gerenciar", "marketing:ver", "biblioteca:ver", "ia:usar"] },
+  { codigo: "ATENDENTE", nome: "Atendente / vendedor", descricao: "Monta listas, lança e importa reservas.", permissoes: ["pessoas:ver", "saidas:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:contatos", "marketing:ver", "biblioteca:ver", "ia:usar"] },
+  { codigo: "GUIA", nome: "Guia de turismo", descricao: "Vê a lista e registra o embarque.", permissoes: ["manifesto:ver", "manifesto:contatos", "embarque:registrar", "biblioteca:ver"] },
+  { codigo: "MOTORISTA", nome: "Motorista", descricao: "Vê a lista (sem contatos).", permissoes: ["manifesto:ver", "frota:checklist", "biblioteca:ver"] },
 ].map((p) => ({ ...p, id: `perfil-${p.codigo.toLowerCase()}`, sistema: true, criadoEm: new Date().toISOString() }));
 const perfilDe = (codigo: string) => perfis.find((p) => p.codigo === codigo)!;
 const permissoesDe = (codigo: string) => (codigo === "ADMIN" ? TODAS : perfilDe(codigo)?.permissoes ?? []);
@@ -266,6 +284,9 @@ function importar(itens: ReservaImportada[], confirmar: boolean) {
 }
 const publicoUsuario = (u: Usuario) => { const { senha: _s, ...r } = u; return { ...r, perfilNome: perfilDe(u.perfil)?.nome ?? u.perfil }; };
 const alcance = (u: Usuario) => ehAdmin() || u.id === sessao!.id || (u.perfil !== "ADMIN" && contido(permissoesDe(u.perfil), permissoesDe(sessao!.perfil)) && (!u.todasUnidades || sessao!.todasUnidades) && u.unidadeIds.every(podeUnidade));
+
+// ---------- Módulos novos (financeiro, frota, marketing, biblioteca, IA): ver os arquivos *Demo.ts ----------
+const ctxModulos: Ctx = { exigir, erro: (status, codigo, msg) => new Erro(status, codigo, msg), id, auditar, dataMais, agoraIso };
 
 // ---------- Rotas ----------
 type Corpo = Record<string, any>;
@@ -669,6 +690,10 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   }
 
   if (metodo === "GET" && caminho === "/api/auditoria") { exigir("auditoria:ver"); return auditoria.slice(0, Number(q.get("limite") ?? 200)); }
+  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa]) {
+    const resposta = rotear(ctxModulos, metodo, caminho, q, c);
+    if (resposta !== NAO) return resposta;
+  }
   throw new Erro(404, "NAO_ENCONTRADO", "Função não disponível na demonstração.");
 }
 
