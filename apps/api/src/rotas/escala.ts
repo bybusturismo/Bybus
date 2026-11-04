@@ -68,6 +68,8 @@ export async function rotasEscala(app: FastifyInstance, { db, config }: Contexto
       dias: z.array(z.object({ data: dataIso, guiaId: uuid.nullable(), motoristaId: uuid.nullable() })).max(31),
     }).parse(req.body);
     const unidadeId = await garantirPasseio(db, req.usuario!, corpo.passeioId);
+    const [antes] = await db.select({ motoristaPadraoId: passeios.motoristaPadraoId }).from(passeios).where(eq(passeios.id, corpo.passeioId));
+    const mudouPadrao = corpo.motoristaPadraoId !== undefined && (corpo.motoristaPadraoId ?? null) !== (antes?.motoristaPadraoId ?? null);
     const validos = new Set(diasDoMes(corpo.mes));
     if (corpo.dias.some((d) => !validos.has(d.data))) throw new ErroHttp(400, "DATA_FORA_DO_MES", "Há dias fora do mês informado.");
     for (const d of corpo.dias) {
@@ -108,7 +110,13 @@ export async function rotasEscala(app: FastifyInstance, { db, config }: Contexto
         await tx.update(escalas).set({ publicada: true }).where(and(eq(escalas.passeioId, corpo.passeioId), inArray(escalas.data, [...validos])));
       }
     });
-    for (const d of corpo.dias) await aplicarEscalaNaSaida(db, corpo.passeioId, d.data, true);
+    // Só os dias que mudaram sobrescrevem a saída; os demais apenas preenchem o que estiver vazio
+    // (não desfaz um ajuste feito direto na saída).
+    for (const d of corpo.dias) {
+      const e = existentes.find((x) => x.data === d.data);
+      const mudou = !e || e.guiaId !== d.guiaId || e.motoristaId !== d.motoristaId || mudouPadrao;
+      await aplicarEscalaNaSaida(db, corpo.passeioId, d.data, mudou);
+    }
     await auditar(db, req, corpo.publicar ? "ESCALA_PUBLICADA" : "ESCALA_SALVA", { tipo: "passeio", id: corpo.passeioId }, { mes: corpo.mes, dias: corpo.dias.length });
     return { ok: true };
   });

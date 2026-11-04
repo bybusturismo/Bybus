@@ -36,8 +36,9 @@ export async function aplicarEscalaNaSaida(db: Db, passeioId: string, data: stri
   if (!s || s.status === "REALIZADA" || s.status === "CANCELADA") return;
   const eq_ = await equipeDoDia(db, passeioId, data);
   const mudar: Partial<typeof saidas.$inferInsert> = {};
-  if (eq_.guiaId && (sobrescrever || !s.guiaId)) Object.assign(mudar, { guiaId: eq_.guiaId, guia: eq_.guia });
-  if (eq_.motoristaId && (sobrescrever || !s.motoristaId)) Object.assign(mudar, { motoristaId: eq_.motoristaId, motorista: eq_.motorista });
+  // Com sobrescrever, a escala manda também quando ficou sem ninguém (troca que tirou o guia ou o motorista).
+  if (sobrescrever ? eq_.guiaId !== s.guiaId : eq_.guiaId && !s.guiaId) Object.assign(mudar, { guiaId: eq_.guiaId, guia: eq_.guia });
+  if (sobrescrever ? eq_.motoristaId !== s.motoristaId : eq_.motoristaId && !s.motoristaId) Object.assign(mudar, { motoristaId: eq_.motoristaId, motorista: eq_.motorista });
   if (eq_.veiculo && !s.veiculo && !(await motivosIndisponibilidade(db, eq_.veiculo, data))?.length) mudar.veiculo = eq_.veiculo;
   if (Object.keys(mudar).length) await db.update(saidas).set(mudar).where(eq(saidas.id, s.id));
 }

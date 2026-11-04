@@ -146,6 +146,8 @@ export async function rotasEmbarque(app: FastifyInstance, { db, config }: Contex
     const [ponto] = await db.select({ ehTransfer: pontosEmbarque.ehTransfer }).from(pontosEmbarque).where(and(eq(pontosEmbarque.id, pontoId), eq(pontosEmbarque.passeioId, r.saida.passeioId)));
     if (!ponto) throw new ErroHttp(400, "PONTO_INVALIDO", "Ponto de embarque não pertence a este passeio.");
     await db.update(reservas).set({ pontoEmbarqueId: pontoId, pediuTransfer: ponto.ehTransfer, conferencia: "CONFERIDA", conferidaPor: req.usuario!.id, conferidaEm: new Date(), atualizadoEm: new Date() }).where(eq(reservas.id, id));
+    // Ponto corrigido vale para todos: tira o ponto individual dos passageiros (senão a lista agrupa pelo antigo).
+    if (pontoId !== r.reserva.pontoEmbarqueId) await db.update(passageiros).set({ pontoEmbarqueId: null }).where(eq(passageiros.reservaId, id));
     await auditar(db, req, "RESERVA_CONFERIDA", { tipo: "reserva", id }, { pontoAlterado: pontoId !== r.reserva.pontoEmbarqueId });
     return { ok: true };
   });

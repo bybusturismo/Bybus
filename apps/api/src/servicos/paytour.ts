@@ -3,6 +3,7 @@ import { auditar } from "../auditoria.js";
 import { deveAnonimizar, type Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
 import type { Cofre } from "../seguranca/cripto.js";
+import { ErroHttp } from "../seguranca/sessao.js";
 import { gravarEstadoIntegracao, lerEstadoIntegracao } from "./estadoIntegracao.js";
 import { importarReservas, USUARIO_INTEGRACAO, type Acao, type ItemPrevia } from "./importacao.js";
 
@@ -57,7 +58,8 @@ export function dataHoraPaytour(d: Date): string {
 const CHAVE = "paytour";
 /** Margem de segurança: relê os últimos minutos (a importação é idempotente, então não duplica). */
 const MARGEM_MS = 10 * 60_000;
-const MAX_PAGINAS = 50;
+const MAX_PAGINAS = 200;
+let sincronizando = false;
 
 interface PaginaPedidos {
   info?: { total?: number; pagina?: number; total_paginas?: number };
@@ -92,9 +94,13 @@ export async function sincronizarPaytour(
       : new Date(agora.getTime() - config.PAYTOUR_DIAS_INICIAIS * 86_400_000);
   const de = dataHoraPaytour(inicio);
   const ate = dataHoraPaytour(agora);
+  // Uma sincronização por vez (agendada e manual disputariam as mesmas reservas e o cursor).
+  if (sincronizando) throw new ErroHttp(409, "SINCRONIZACAO_EM_ANDAMENTO", "Já há uma sincronização com a Paytour em andamento. Tente de novo em instantes.");
+  sincronizando = true;
 
   try {
     const pedidos: PedidoPaytour[] = [];
+    let completo = false;
     for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
       const r = await cliente.get<PaginaPedidos>("/pedidos", {
         page: pagina, perPage: 100, includeItems: 1, includeObs: 1, includeLogsStatus: 0,
@@ -103,7 +109,10 @@ export async function sincronizarPaytour(
         updatedAtMin: de, updatedAtMax: ate,
       });
       pedidos.push(...(r.itens ?? []));
-      if (!r.itens?.length || pagina >= (r.info?.total_paginas ?? 1)) break;
+      if (!r.itens?.length || pagina >= (r.info?.total_paginas ?? 1)) {
+        completo = true;
+        break;
+      }
     }
 
     const afiliados = await carregarAfiliados(cliente);
@@ -112,13 +121,18 @@ export async function sincronizarPaytour(
       ? await importarReservas(db, cofre, reservas, { confirmar: true, origem: "PAYTOUR_API", usuario: USUARIO_INTEGRACAO, anonimizar: deveAnonimizar(config) })
       : { previa: [], resumo: { CRIAR: 0, ATUALIZAR: 0, CANCELAR: 0, IGNORAR: 0 } };
 
-    const resultado = { de, ate, pedidos: pedidos.length, resumo };
-    await gravarEstado(db, { cursor: agora.toISOString(), ultimoResultado: resultado, ultimoErro: null });
+    const resultado = { de, ate, pedidos: pedidos.length, resumo, completo };
+    // Janela maior que o limite de páginas: o cursor não avança (a próxima rodada relê a janela; a importação é idempotente).
+    await gravarEstado(db, completo
+      ? { cursor: agora.toISOString(), ultimoResultado: resultado, ultimoErro: null }
+      : { cursor: estado?.cursor ?? null, ultimoResultado: resultado, ultimoErro: `Mais de ${MAX_PAGINAS * 100} pedidos na janela: sincronização parcial, o cursor não avançou.` });
     await auditar(db, null, "SINCRONIZACAO_PAYTOUR", { tipo: "importacao" }, resultado);
     return { ...resultado, previa };
   } catch (e) {
     await gravarEstado(db, { cursor: estado?.cursor ?? null, ultimoResultado: estado?.ultimoResultado ?? null, ultimoErro: e instanceof Error ? e.message : String(e) });
     throw e;
+  } finally {
+    sincronizando = false;
   }
 }
 
