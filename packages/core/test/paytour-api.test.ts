@@ -89,3 +89,8 @@ it("formato antigo do formulário (objeto com chaves com hífen) e campo de emba
   expect(r!.pontoEmbarqueTexto).toBe("embarque as 18h30 no ponto de taxi do villa romana shopping");
   expect(r!.avisos).toEqual([]);
 });
+
+it("pedido \"reprovado\" (pagamento recusado) não entra na lista", () => {
+  const [r] = pedidoPaytourParaReservas({ id: 10, status: "reprovado", itens: [{ id: 1, nome_produto: "X", produto_disponibilidade_data: "2026-11-20" }] });
+  expect(r!.cancelada).toBe(true);
+});

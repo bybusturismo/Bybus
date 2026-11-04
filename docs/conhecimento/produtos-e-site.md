@@ -86,7 +86,8 @@ Outros produtos sabidos por documentos internos: **Nascer do Sol** (2021) e **Br
 ## Produtos ativos na Paytour (API, pedidos de out–nov/2026)
 - **CITY TOUR TODA ILHA (Saída do centro)** — o principal; horário único ("O dia todo"); faixas: Adulto, Criança, Sênior e PNE.
 - **City Tour Toda Ilha – HORÁRIO ESPECIAL ANO NOVO**.
-- **City Tour – Passeio Bruxólico** — noturno ("Noite", 18h; embarque 18h30 no ponto de táxi do Villa Romana Shopping); faixa "Preço único".
-- **OKTOBERTOUR** — saída de manhã (9h–12h) e à tarde (14h–17h).
+- **City Tour – Passeio Bruxólico** (encerrado; 30–31/10/2026) — noturno ("Noite", 18h; embarque 18h30 no ponto de táxi do Villa Romana Shopping); faixa "Preço único".
+- **OKTOBERTOUR** (encerrado; out/2026) — **em Blumenau**: saída de manhã (9h–12h; embarques 9h Ginásio Galegão, ao lado da Vila Germânica, e 9h10 Hotel Caiuá) e à tarde (14h–17h; 14h Galegão e 14h10 Hotel Himmelblau).
 - Formulário de passageiro na Paytour: nome completo, documento (RG/CPF/Passaporte) e ponto de embarque (lista com horário + local, ex.: "8h - No ponto de táxi do Villa Romana Shopping…"). Embarques com transfer (Ingleses 6h40, Cachoeira 6h50, Canasvieiras 7h, Jurerê 7h10) "possuem custo adicional".
-- A confirmar: pontos de embarque e regras (mínimo, capacidade) do Bruxólico e do Oktobertour para cadastrá-los no sistema.
+- Bruxólico e Oktobertour cadastrados no sistema como passeios **inativos**, só para o histórico (capacidade e mínimos a confirmar).
+- Também aparecem na Paytour: "City Tour Toda Ilha – PROMOÇÃO ESPECIAL PARA MORADORES DA GRANDE FLORIANÓPOLIS" (jul/2026, faixa "VALOR PROMOCIONAL MORADOR").

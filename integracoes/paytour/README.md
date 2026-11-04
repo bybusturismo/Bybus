@@ -26,8 +26,10 @@ Conferir e forçar: `GET /api/integracoes/paytour` (situação) e `POST /api/int
 ## Validado com dados reais (03/11/2026, prévia sem gravar)
 265 pedidos dos últimos 30 dias → 573 passageiros; status "aprovado"/"cancelado"; 1 item = 1 pessoa; formulário com `nome_completo`, `documento_rg_cpf_passaporte` e `ponto_de_embarque` (tipo "hospedagem"); horário em `produto_disponibilidade_hora_de`; todos os 12 pontos casaram com a tabela oficial; 33 espelhos de Viator reconhecidos. Bruxólico e Oktobertour ficam ignorados até serem cadastrados como passeios.
 
+## Sincronização real (04/11/2026, banco temporário de desenvolvimento, autorizada)
+793 pedidos (120 dias) → 602 reservas gravadas; status vistos: aprovado, cancelado e **reprovado** (pagamento recusado, tratado como cancelado); formulários em dois formatos (antigo: objeto com chaves "nome-completo", "selecione-seu-embarque"; novo: lista com `nome_completo`, `ponto_de_embarque`); passeio de ponto único recebe quem não informou o ponto.
+
 ## A confirmar com dados reais
-- Outros status além de aprovado/cancelado (4 pedidos vieram com status diferente).
 - Fuso dos filtros `updatedAtMin/Max` (assumido: Brasília).
 - Webhooks (`/webhooks`, seção não lida — link do site bloqueado neste ambiente): avisos imediatos de venda/cancelamento; a Paytour espera HTTP 2xx e tenta de novo em 30 s, 5, 10 e 20 min.
 

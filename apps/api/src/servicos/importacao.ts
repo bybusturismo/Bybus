@@ -83,9 +83,10 @@ export async function importarReservas(
       }
 
       const pontos = await tx.select().from(pontosEmbarque).where(and(eq(pontosEmbarque.passeioId, passeio.id), eq(pontosEmbarque.ativo, true)));
-      const ponto = casarPonto(item.pontoEmbarqueTexto, pontos);
+      // Passeio com um único ponto (ex.: Bruxólico): quem não informou ou informou algo ilegível embarca nele.
+      const ponto = casarPonto(item.pontoEmbarqueTexto, pontos) ?? (pontos.length === 1 ? pontos[0]! : null);
       if (item.pontoEmbarqueTexto && !ponto) avisos.push(`Ponto de embarque "${item.pontoEmbarqueTexto}" não reconhecido — definir manualmente.`);
-      if (!item.pontoEmbarqueTexto) avisos.push("Sem ponto de embarque — contatar o cliente no dia anterior.");
+      if (!item.pontoEmbarqueTexto && !ponto) avisos.push("Sem ponto de embarque — contatar o cliente no dia anterior.");
 
       const [existente] = await tx.select().from(reservas).where(and(eq(reservas.canal, item.canal), eq(reservas.codigoExterno, item.codigoExterno)));
       if (existente) {

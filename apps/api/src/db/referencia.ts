@@ -32,22 +32,29 @@ export async function semearReferencia(db: Db) {
 
 /**
  * Passeios que já acabaram, cadastrados inativos só para o histórico de vendas importado da Paytour.
- * [A CONFIRMAR] capacidade e mínimos (usados os do City Tour); pontos do Oktobertour.
+ * Pontos e horários tirados das opções de embarque dos pedidos na Paytour.
+ * [A CONFIRMAR] capacidade e mínimos (usados os do City Tour); se havia outros pontos no Oktobertour.
  */
 const ENCERRADOS = [
-  { codigo: "BRUXOLICO", nome: "City Tour – Passeio Bruxólico", padraoProduto: "brux[oó]lico", pontos: [{ ordem: 10, horario: "18:30", nome: "Villa Romana Shopping", endereco: "Ponto de táxi — Rua Santa Mônica", ehTransfer: false }] },
-  { codigo: "OKTOBERTOUR_MANHA", nome: "Oktobertour – Saída de manhã", padraoProduto: "oktobertour.*manh", pontos: [] },
-  { codigo: "OKTOBERTOUR_TARDE", nome: "Oktobertour – Saída à tarde", padraoProduto: "oktobertour.*tarde", pontos: [] },
+  { codigo: "BRUXOLICO", praca: "FLN", cidade: "Florianópolis", nome: "City Tour – Passeio Bruxólico", padraoProduto: "brux[oó]lico", pontos: [{ ordem: 10, horario: "18:30", nome: "Villa Romana Shopping", endereco: "Ponto de táxi — Rua Santa Mônica", ehTransfer: false }] },
+  { codigo: "OKTOBERTOUR_MANHA", praca: "BNU", cidade: "Blumenau", nome: "Oktobertour – Saída de manhã", padraoProduto: "oktobertour.*manh", pontos: [
+    { ordem: 10, horario: "09:00", nome: "Ginásio Galegão", endereco: "Ginásio de Esportes Sebastião Cruz — Rua Humberto de Campos, 550, Velha (ao lado da Vila Germânica)", ehTransfer: false },
+    { ordem: 20, horario: "09:10", nome: "Hotel Caiuá", endereco: "Rua 7 de Setembro, 1685 — Centro", ehTransfer: false },
+  ] },
+  { codigo: "OKTOBERTOUR_TARDE", praca: "BNU", cidade: "Blumenau", nome: "Oktobertour – Saída à tarde", padraoProduto: "oktobertour.*tarde", pontos: [
+    { ordem: 10, horario: "14:00", nome: "Ginásio Galegão", endereco: "Ginásio de Esportes Sebastião Cruz — Rua Humberto de Campos, 550, Velha (ao lado da Vila Germânica)", ehTransfer: false },
+    { ordem: 20, horario: "14:10", nome: "Hotel Himmelblau", endereco: "Próximo da Pousada XV", ehTransfer: false },
+  ] },
 ] as const;
 
 async function semearPasseiosEncerrados(db: Db) {
-  const [fln] = await db.select({ id: unidades.id }).from(unidades).where(eq(unidades.codigo, "FLN"));
-  if (!fln) return;
   for (const e of ENCERRADOS) {
+    const [praca] = await db.select({ id: unidades.id }).from(unidades).where(eq(unidades.codigo, e.praca));
+    if (!praca) continue;
     let [p] = await db.select().from(passeios).where(eq(passeios.codigo, e.codigo));
     if (!p) {
       [p] = await db.insert(passeios).values({
-        unidadeId: fln.id, linha: "CITY_TOUR", codigo: e.codigo, nome: e.nome, cidade: "Florianópolis",
+        unidadeId: praca.id, linha: "CITY_TOUR", codigo: e.codigo, nome: e.nome, cidade: e.cidade,
         capacidadePadrao: 73, minimoConfirmacao: 12, minimoSupervisor: 10, padraoProduto: e.padraoProduto, ativo: false,
       }).returning();
     }

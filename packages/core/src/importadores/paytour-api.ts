@@ -50,8 +50,8 @@ const texto = (v: unknown): string | null => {
 };
 const normalizar = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-/** Status que significam pedido desfeito. [A CONFIRMAR] a documentação só mostra "aprovado". */
-const STATUS_CANCELADO = /cancel|estorn|reembols|recusad|expirad|chargeback|devolvid/;
+/** Status que significam pedido desfeito. Vistos na Paytour da By Bus: aprovado, cancelado, reprovado (pagamento recusado). */
+const STATUS_CANCELADO = /cancel|estorn|reembols|recusad|reprovad|expirad|chargeback|devolvid/;
 const STATUS_CONFIRMADO = /aprovad|pago|confirmad|conclu/;
 
 type CampoFormulario = { chave: string; label: string; tipo: string; valor: string };
@@ -81,7 +81,7 @@ const PADRAO_DOCUMENTO = /cpf|documento|passaporte|\brg\b|identidade|dni/;
 /** Em ordem de prioridade: o campo de embarque vale mais que o de hotel/estada do cliente. */
 const PADROES_PONTO = [/embarque/, /ponto|encontro|pick ?up/, /hospedagem|local/];
 /** Resposta de "ciente" num campo cujo nome já é o local (ex.: chave "embarque_as_18h30_no_ponto_de_taxi_do_villa_romana_shopping"). */
-const RESPOSTA_CIENTE = /^(sim|ok|yes|s|x|true|ciente|confirmo|de acordo|concordo)$/i;
+const RESPOSTA_CIENTE = /^(sim|ok|yes|s|x|1|true|ciente|confirmo|de acordo|concordo)$/i;
 
 function pontoDoFormulario(campos: CampoFormulario[]): string | null {
   for (const padrao of PADROES_PONTO) {
