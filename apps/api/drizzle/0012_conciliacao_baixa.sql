@@ -1,0 +1,1 @@
+ALTER TABLE "fin_extrato_linhas" ADD COLUMN "baixa_da_conciliacao" boolean DEFAULT false NOT NULL;

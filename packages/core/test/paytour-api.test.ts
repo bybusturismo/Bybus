@@ -53,7 +53,7 @@ describe("pedidoPaytourParaReservas", () => {
         { id: 2, nome_produto: "Passeio de Escuna", produto_disponibilidade_data: "2026-11-12" },
       ],
     });
-    expect(rs.map((r) => r.codigoExterno)).toEqual(["PAYTOUR-9-2026-11-11-1", "PAYTOUR-9-2026-11-12-2"]);
+    expect(rs.map((r) => r.codigoExterno)).toEqual(["PAYTOUR-9-2026-11-11-city-tour-toda-ilha", "PAYTOUR-9-2026-11-12-passeio-de-escuna"]);
     expect(rs.every((r) => r.cancelada)).toBe(true);
     expect(rs[0]).toMatchObject({ canal: "VIATOR" });
     expect(rs[0]!.passageiros[0]).toMatchObject({ nome: "Fulano Fictício", documento: null });
