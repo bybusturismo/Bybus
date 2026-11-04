@@ -66,3 +66,7 @@ Bókun (grupo Tripadvisor, US$ 49/mês + 1–1,5%), Rezdy, Checkfront, FareHarbo
 - **Tripadvisor/Viator:** cópias manuais com o e-mail de retransmissão do Tripadvisor no cadastro do cliente e/ou afiliado "TripAdvisor interno".
 - **Decolar:** 3 pedidos (e-mail da Decolar no cadastro) — cópias manuais; as confirmações originais chegam em contatofbyb@.
 - Últimos 120 dias, reservas confirmadas: Paytour 465 (976 passageiros), Viator 123 (234), Civitatis 14 (29), Decolar 0.
+
+## Decolar — formato do e-mail (visto em 04/11/2026)
+- Enviado a contatofbyb@gmail.com pelo sistema **PAM** da Decolar/Despegar: "Informamos que foi gerada uma nova reserva." Campos: titular, telefone, passageiros (Adultos | Crianças | Infantes), Service id, data da reserva, **Código de reserva PAM**, **ID Compra Decolar**, lugar de compra (ex.: Chile), canal (ex.: Despegar), produto ("Descubra Floripa a bordo do Floripa by Bus Tour: Toda ilha"), temporada e **data de excursão**. Sem horário nem ponto de embarque.
+- A confirmar: remetente exato, assunto e formato do e-mail de cancelamento.

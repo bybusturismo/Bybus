@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { lerEmailBokun, type ReservaImportada } from "@bybus/core";
+import { ehEmailDecolar, lerEmailBokun, lerEmailDecolar, type ReservaImportada } from "@bybus/core";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
@@ -12,14 +12,17 @@ import { importarReservas, USUARIO_INTEGRACAO } from "../servicos/importacao.js"
 
 export type ResultadoEmail = "IMPORTADO" | "SEM_LEITOR" | "NAO_RECONHECIDO";
 
-/** Escolhe o leitor pelo remetente/assunto. Decolar ainda não tem leitor (falta um e-mail de exemplo). */
+/** Escolhe o leitor pelo remetente/assunto/conteúdo. "SEM_LEITOR" fica para canais futuros (o robô reenvia depois). */
 export function lerEmailReserva(m: { remetente: string; assunto: string; corpo: string }): { resultado: ResultadoEmail; reserva?: ReservaImportada; canal?: string } {
   const de = m.remetente.toLowerCase();
   if (de.includes("bokun.io") || /^(new|cancelled|updated) booking/i.test(m.assunto)) {
     const r = lerEmailBokun(m.assunto, m.corpo);
     return r ? { resultado: "IMPORTADO", reserva: r, canal: "BOKUN" } : { resultado: "NAO_RECONHECIDO", canal: "BOKUN" };
   }
-  if (de.includes("decolar") || de.includes("despegar")) return { resultado: "SEM_LEITOR", canal: "DECOLAR" };
+  if (de.includes("decolar") || de.includes("despegar") || ehEmailDecolar(m.assunto, m.corpo)) {
+    const r = lerEmailDecolar(m.assunto, m.corpo);
+    return r ? { resultado: "IMPORTADO", reserva: r, canal: "DECOLAR" } : { resultado: "NAO_RECONHECIDO", canal: "DECOLAR" };
+  }
   return { resultado: "NAO_RECONHECIDO" };
 }
 

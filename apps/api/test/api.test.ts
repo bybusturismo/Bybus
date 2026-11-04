@@ -529,19 +529,20 @@ describe("entrada automática de e-mails de reserva (robô do Gmail)", () => {
     }
   });
 
-  it("importa Bókun/Viator anonimizado, não duplica e separa Decolar (sem leitor ainda)", async () => {
+  it("importa Bókun/Viator e Decolar anonimizados e não duplica", async () => {
     const comToken = await subirApp({ INTEGRACAO_EMAIL_TOKEN: TOKEN });
     try {
       const msgs = [
         { id: "m1", remetente: "Bókun <no-reply@bokun.io>", assunto: "New booking: Sun 25.Oct '26 @ 08:00", corpo: corpoBokun },
-        { id: "m2", remetente: "reservas@decolar.com", assunto: "Confirmação de reserva", corpo: "texto" },
+        // Formato real da Decolar (PAM), com dados FICTÍCIOS.
+        { id: "m2", remetente: "Decolar <reservas@decolar.com>", assunto: "Nova reserva", corpo: "Informamos que foi gerada uma nova reserva.\nTitular da reserva: Pessoa Ficticia Decolar (Contatar passageiro *)\nPassageiros: Adultos: 2 | Crianças: 0 | Infantes: 0\nCódigo de reserva PAM: 8700001\nID Compra Decolar: 13600000001\nProduto comprado: Descubra Floripa a bordo do Floripa by Bus Tour: Toda ilha\nData de excursão: 25/10/2026" },
         { id: "m3", remetente: "promo@loja.com", assunto: "Oferta", corpo: "texto" },
       ];
       const r = await enviar(comToken.app, TOKEN, msgs);
       expect(r.statusCode).toBe(200);
-      expect(r.json().resumo).toMatchObject({ mensagens: 3, CRIAR: 1, semLeitor: 1, naoReconhecidas: 1 });
-      expect(r.json().mensagens.map((m: { resultado: string }) => m.resultado)).toEqual(["IMPORTADO", "SEM_LEITOR", "NAO_RECONHECIDO"]);
-      expect(JSON.stringify(r.json())).not.toContain("Ficticio, Cliente");
+      expect(r.json().resumo).toMatchObject({ mensagens: 3, CRIAR: 2, semLeitor: 0, naoReconhecidas: 1 });
+      expect(r.json().mensagens.map((m: { resultado: string; canal: string | null }) => `${m.resultado}:${m.canal}`)).toEqual(["IMPORTADO:BOKUN", "IMPORTADO:DECOLAR", "NAO_RECONHECIDO:null"]);
+      expect(JSON.stringify(r.json())).not.toMatch(/Ficticio, Cliente|Ficticia Decolar/);
       // Reenviar o mesmo e-mail não cria outra reserva.
       expect((await enviar(comToken.app, TOKEN, msgs.slice(0, 1))).json().resumo).toMatchObject({ ATUALIZAR: 1 });
       const adm = new Cliente(comToken.app);

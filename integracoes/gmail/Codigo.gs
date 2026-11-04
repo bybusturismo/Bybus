@@ -9,7 +9,8 @@
  */
 
 const ROTULO_ENVIADO = "bybus/enviado";
-const BUSCA = "(from:bokun.io OR from:decolar.com OR from:despegar.com) newer_than:30d -label:" + ROTULO_ENVIADO.replace("/", "-");
+// Decolar: o remetente exato está a confirmar, então também vale o texto fixo do e-mail ("ID Compra Decolar").
+const BUSCA = '(from:bokun.io OR from:decolar.com OR from:despegar.com OR "ID Compra Decolar") newer_than:30d -label:' + ROTULO_ENVIADO.replace("/", "-");
 const LOTE = 20;
 
 function config_() {

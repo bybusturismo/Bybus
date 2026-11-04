@@ -127,7 +127,7 @@ function CartaoEmails() {
               <span className="etiqueta etiqueta--sucesso">Pronto</span> Tripadvisor/Viator — reserva nova, alterada e cancelada. A Viator não informa o ponto de embarque: a reserva entra no bloco “a definir”.
             </li>
             <li>
-              <span className="etiqueta etiqueta--atencao">Aguardando</span> Decolar — falta um e-mail de exemplo para criar o leitor. Até lá, os e-mails ficam guardados e entram depois.
+              <span className="etiqueta etiqueta--sucesso">Pronto</span> Decolar — nova reserva (titular, quantidade por faixa, data e códigos PAM/Decolar). Também sem ponto de embarque; cancelamento a confirmar.
             </li>
           </ul>
           {!s.configurada && <Aviso tipo="info">Para ligar: no servidor, a variável INTEGRACAO_EMAIL_TOKEN; em cada caixa do Gmail, o robô do arquivo integracoes/gmail (passo a passo no README).</Aviso>}

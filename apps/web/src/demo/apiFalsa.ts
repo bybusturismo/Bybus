@@ -401,7 +401,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   }
   if (metodo === "GET" && caminho === "/api/integracoes/emails") {
     exigir("importacoes:executar");
-    return { configurada: true, ultimaExecucaoEm: demoIntegracao.emailsEm, ultimoResultado: { mensagens: 3, CRIAR: 2, ATUALIZAR: 1, CANCELAR: 0, IGNORAR: 0, semLeitor: 1, naoReconhecidas: 0 } };
+    return { configurada: true, ultimaExecucaoEm: demoIntegracao.emailsEm, ultimoResultado: { mensagens: 3, CRIAR: 2, ATUALIZAR: 1, CANCELAR: 0, IGNORAR: 0, semLeitor: 0, naoReconhecidas: 0 } };
   }
   if (metodo === "POST" && caminho === "/api/importacoes/bokun-email") {
     exigir("importacoes:executar");

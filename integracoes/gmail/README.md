@@ -5,12 +5,12 @@ Lê as confirmações de reserva que chegam por e-mail e coloca cada passageiro 
 | Caixa | O que chega | Leitor no sistema |
 |---|---|---|
 | admbybus@gmail.com | Bókun "New/Cancelled booking" (Tripadvisor/Viator) | pronto |
-| contatofbyb@gmail.com | Decolar (e Tripadvisor) | Decolar: falta um e-mail de exemplo para criar o leitor |
+| contatofbyb@gmail.com | Decolar ("Informamos que foi gerada uma nova reserva", sistema PAM) | pronto (cancelamento a confirmar) |
 
 **Por que Apps Script e não "login com Google" no sistema:** o acesso de leitura ao Gmail por app externo exige verificação de segurança paga do Google (escopo restrito), e em modo de teste a autorização vence a cada 7 dias. O Apps Script roda dentro da própria conta, de graça, e só envia ao sistema os e-mails de reserva.
 
 ## O que o robô envia
-Só e-mails de `bokun.io`, `decolar.com` e `despegar.com` dos últimos 30 dias, ainda sem o rótulo `bybus/enviado`. Depois de processar, aplica esse rótulo. E-mails da Decolar ficam sem rótulo até existir o leitor (aí são processados automaticamente).
+Só e-mails de `bokun.io`, `decolar.com`, `despegar.com` ou com o texto "ID Compra Decolar", dos últimos 30 dias, ainda sem o rótulo `bybus/enviado`. Depois de processar, aplica esse rótulo.
 
 ## Instalação (uma vez por caixa; ~5 minutos)
 Pré-requisito: o sistema publicado em um endereço `https://` com a variável `INTEGRACAO_EMAIL_TOKEN` configurada (segredo de 32+ caracteres; gere com `openssl rand -base64 36`).
