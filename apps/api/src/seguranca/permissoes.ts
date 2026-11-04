@@ -19,6 +19,9 @@ export const CATALOGO_PERMISSOES = {
   "manifesto:documentos": "Ver documentos completos (CPF/passaporte)",
   "manifesto:contatos": "Ver telefones e e-mails dos clientes",
   "embarque:registrar": "Registrar embarque (embarcou, atrasado, não veio)",
+  "frota:ver": "Consultar frota: veículos, documentos, manutenção, abastecimento e painel",
+  "frota:gerenciar": "Cadastrar veículos, documentos, planos, ordens de manutenção, abastecimentos e km",
+  "frota:checklist": "Preencher o checklist diário do veículo (motorista)",
 } as const;
 
 export type Permissao = keyof typeof CATALOGO_PERMISSOES;

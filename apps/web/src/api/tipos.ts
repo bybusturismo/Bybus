@@ -24,6 +24,9 @@ export const PERMISSOES = [
   "manifesto:documentos",
   "manifesto:contatos",
   "embarque:registrar",
+  "frota:ver",
+  "frota:gerenciar",
+  "frota:checklist",
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 
