@@ -126,7 +126,7 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
   // ---------- Saídas ----------
   app.get("/api/saidas", ver, async (req) => {
     const q = z.object({ de: dataIso, ate: dataIso, passeioId: uuid.optional(), unidadeId: uuid.optional() })
-      .refine((x) => x.de <= x.ate && Date.parse(x.ate) - Date.parse(x.de) <= 366 * 86_400_000, "Período inválido (até 1 ano).")
+      .refine((x) => x.de <= x.ate, "A data inicial deve ser anterior à final.")
       .parse(req.query);
     const filtros = [gte(saidas.data, q.de), lte(saidas.data, q.ate)];
     if (q.passeioId) filtros.push(eq(saidas.passeioId, q.passeioId));
