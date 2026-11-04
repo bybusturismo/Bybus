@@ -1,10 +1,10 @@
-import { and, asc, eq, sql } from "drizzle-orm";
-import type { FastifyInstance } from "fastify";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { TIPOS_DOCUMENTO } from "@bybus/core";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
-import { PAPEIS_PESSOA, pessoas } from "../db/schema.js";
+import { PAPEIS_PESSOA, pessoas, usuarios, usuariosUnidades } from "../db/schema.js";
 import { filtroUnidade, garantirUnidadeAtiva, podeUnidade } from "../seguranca/escopo.js";
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
@@ -29,6 +29,8 @@ const esquema = z.object({
   diariaCentavos: z.number().int().min(0).max(10_000_00).nullish(),
   observacoes: z.string().max(2000).nullish(),
   ativo: z.boolean().default(true),
+  /** Usuário de acesso ligado a esta pessoa (motorista que transmite o rastreio pelo celular). */
+  usuarioId: uuid.nullish(),
 });
 
 /**
@@ -62,6 +64,32 @@ export async function rotasPessoas(app: FastifyInstance, { db, config, cofre }: 
     return lista.map((p) => publico(p, gerencia && (p.unidadeId ? podeUnidade(u, p.unidadeId) : u.todasUnidades)));
   });
 
+  /** Usuários ativos das praças de quem edita e ainda sem pessoa ligada (para ligar o motorista ao seu acesso). */
+  app.get("/api/pessoas/usuarios-disponiveis", gerenciar, async (req) => {
+    const u = req.usuario!;
+    const lista = await db.select({ id: usuarios.id, nome: usuarios.nome, email: usuarios.email, todasUnidades: usuarios.todasUnidades }).from(usuarios)
+      .leftJoin(pessoas, eq(pessoas.usuarioId, usuarios.id)).where(and(eq(usuarios.ativo, true), isNull(pessoas.id))).orderBy(asc(usuarios.nome));
+    const visiveis = [];
+    for (const x of lista) if (await usuarioNoEscopo(u, x.id, x.todasUnidades)) visiveis.push({ id: x.id, nome: x.nome, email: x.email });
+    return visiveis;
+  });
+
+  /** Quem liga só pode ligar usuários das próprias praças (quem acessa todas as praças liga qualquer um). */
+  async function usuarioNoEscopo(ator: NonNullable<FastifyRequest["usuario"]>, usuarioId: string, todasUnidades: boolean) {
+    if (ator.todasUnidades) return true;
+    if (todasUnidades) return false;
+    const das = await db.select({ id: usuariosUnidades.unidadeId }).from(usuariosUnidades).where(eq(usuariosUnidades.usuarioId, usuarioId));
+    return das.some((x) => ator.unidadeIds.includes(x.id));
+  }
+
+  /** Valida a ligação pessoa → usuário: usuário existe, ativo, no escopo de quem edita e ainda livre. */
+  async function validarUsuarioLigado(ator: NonNullable<FastifyRequest["usuario"]>, usuarioId: string, pessoaId: string | null) {
+    const [x] = await db.select({ id: usuarios.id, todasUnidades: usuarios.todasUnidades, ativo: usuarios.ativo }).from(usuarios).where(eq(usuarios.id, usuarioId));
+    if (!x || !x.ativo || !(await usuarioNoEscopo(ator, usuarioId, x.todasUnidades))) throw new ErroHttp(400, "USUARIO_INVALIDO", "Usuário não encontrado ou fora das suas praças.");
+    const [outra] = await db.select({ id: pessoas.id }).from(pessoas).where(eq(pessoas.usuarioId, usuarioId));
+    if (outra && outra.id !== pessoaId) throw new ErroHttp(409, "USUARIO_JA_LIGADO", "Este usuário já está ligado a outra pessoa.");
+  }
+
   app.get("/api/pessoas/:id", gerenciar, async (req) => {
     const { id } = z.object({ id: uuid }).parse(req.params);
     const [p] = await db.select().from(pessoas).where(eq(pessoas.id, id));
@@ -75,6 +103,7 @@ export async function rotasPessoas(app: FastifyInstance, { db, config, cofre }: 
       throw new ErroHttp(403, "SEM_PERMISSAO", "Você só pode cadastrar pessoas das suas praças.");
     }
     if (corpo.unidadeId) await garantirUnidadeAtiva(db, corpo.unidadeId);
+    if (corpo.usuarioId) await validarUsuarioLigado(req.usuario!, corpo.usuarioId, null);
     const { documento, documentoTipo, email, ...resto } = corpo;
     const [p] = await db.insert(pessoas).values({
       ...resto, email: email || null, papeis: [...new Set(corpo.papeis)], ...camposDocumentoPessoa(documentoTipo, documento),
@@ -95,13 +124,14 @@ export async function rotasPessoas(app: FastifyInstance, { db, config, cofre }: 
     if (corpo.documentoTipo !== undefined && corpo.documento === undefined) {
       throw new ErroHttp(400, "DOCUMENTO_INCOMPLETO", "Ao mudar o tipo de documento, informe também o número (ou null para remover).");
     }
+    if (corpo.usuarioId) await validarUsuarioLigado(u, corpo.usuarioId, id);
     const { documento, documentoTipo, email, ...resto } = corpo;
     const mudancas: Partial<typeof pessoas.$inferInsert> = { ...resto };
     if (email !== undefined) mudancas.email = email || null;
     if (corpo.papeis) mudancas.papeis = [...new Set(corpo.papeis)];
     if (documento !== undefined) Object.assign(mudancas, camposDocumentoPessoa(documentoTipo ?? (atual.documentoTipo as never), documento));
     const [p] = await db.update(pessoas).set(mudancas).where(eq(pessoas.id, id)).returning();
-    await auditar(db, req, "PESSOA_ALTERADA", { tipo: "pessoa", id }, { campos: Object.keys(corpo) });
+    await auditar(db, req, "PESSOA_ALTERADA", { tipo: "pessoa", id }, "usuarioId" in corpo ? { campos: Object.keys(corpo), usuarioAntes: atual.usuarioId, usuarioDepois: p!.usuarioId } : { campos: Object.keys(corpo) });
     return publico(p!, true);
   });
 

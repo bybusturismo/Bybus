@@ -91,6 +91,47 @@ describe("coordenadas dos pontos", () => {
   });
 });
 
+describe("ligação da pessoa ao usuário (motorista)", () => {
+  it("liga o motorista ao seu acesso, uma pessoa por usuário, dentro do escopo de praça, com auditoria", async () => {
+    const admin = await logado("admin@bybus.test");
+    const { atendente, bc, fln } = await comDb(async (db) => {
+      const [a] = await db.select().from(usuarios).where(eq(usuarios.email, "atendente@bybus.test"));
+      const { unidades } = await import("../src/db/schema.js");
+      const todas = await db.select().from(unidades);
+      return { atendente: a!, bc: todas.find((x) => x.codigo === "BC")!.id, fln: todas.find((x) => x.codigo === "FLN")!.id };
+    });
+    const criar = async (nome: string, unidadeId: string, usuarioId?: string) =>
+      admin.req("POST", "/api/pessoas", { nome, papeis: ["MOTORISTA"], unidadeId, ...(usuarioId ? { usuarioId } : {}) });
+    const disponiveis = async (c: Cliente) => ((await c.req("GET", "/api/pessoas/usuarios-disponiveis")).json() as Array<{ id: string; email: string }>).map((x) => x.email);
+
+    expect(await disponiveis(admin)).toContain("atendente@bybus.test");
+    expect(await disponiveis(admin)).not.toContain("motorista@bybus.test"); // já ligado a uma pessoa
+    const r = await criar("Motorista Fictício Ligado", fln, atendente.id);
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().usuarioId).toBe(atendente.id);
+    expect(await disponiveis(admin)).not.toContain("atendente@bybus.test");
+    // Já ligado a outra pessoa: 409.
+    expect((await criar("Outro Motorista Fictício", fln, atendente.id)).statusCode).toBe(409);
+    // Usuário inexistente: 400.
+    expect((await criar("Motorista Sem Usuário", fln, "00000000-0000-4000-8000-000000000000")).statusCode).toBe(400);
+    // Supervisor de BC não liga usuário de Florianópolis (fora do escopo), mas liga um de BC.
+    const supBc = await logado("supervisor.bc@bybus.test");
+    const nova = await supBc.req("POST", "/api/pessoas", { nome: "Motorista BC Fictício", papeis: ["MOTORISTA"], unidadeId: bc });
+    expect(nova.statusCode, nova.body).toBe(200);
+    expect(await disponiveis(supBc)).not.toContain("atendente@bybus.test");
+    const fora = await supBc.req("PATCH", `/api/pessoas/${nova.json().id}`, { usuarioId: atendente.id });
+    expect([400, 409]).toContain(fora.statusCode);
+    // Desligar (null) e a auditoria guarda antes/depois.
+    const desligar = await admin.req("PATCH", `/api/pessoas/${r.json().id}`, { usuarioId: null });
+    expect(desligar.json().usuarioId).toBeNull();
+    const trilha = await comDb((db) => db.select().from(auditoria).where(eq(auditoria.acao, "PESSOA_ALTERADA")));
+    expect(trilha.some((a) => (a.dados as { usuarioAntes?: string })?.usuarioAntes === atendente.id)).toBe(true);
+    // Sem pessoas:gerenciar não lista usuários.
+    const guia = await logado("guia@bybus.test");
+    expect((await guia.req("GET", "/api/pessoas/usuarios-disponiveis")).statusCode).toBe(403);
+  });
+});
+
 describe("motorista", () => {
   it("só quem tem a permissão acessa; cada motorista vê só as saídas de hoje em que está escalado", async () => {
     const sup = await logado("supervisor@bybus.test");
