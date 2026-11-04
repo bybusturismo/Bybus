@@ -59,11 +59,19 @@ export function EtiquetaPlano({ situacao }: { situacao: SituacaoPlano }) {
   return <span className="etiqueta etiqueta--sucesso">Em dia</span>;
 }
 
-/** Texto digitado ("12,5") → número; NaN se inválido, null se vazio. */
-export function numeroDeTexto(texto: string): number | null {
-  const t = texto.trim().replace(/\./g, "").replace(",", ".");
+/**
+ * Texto digitado → número; NaN se inválido (a tela mostra erro, nunca multiplica em silêncio); null se vazio.
+ * Inteiro (km, dias, ano): "." é separador de milhar ("1.500" = 1500); vírgula é inválida.
+ * Decimal (litros): com vírgula, "." é milhar e "," decimal ("1.234,5"); sem vírgula, um único "." com 1–3
+ * dígitos no fim é decimal ("45.5" = 45,5, como no teclado do celular); vários "." só valem como milhar.
+ */
+export function numeroDeTexto(texto: string, decimal = false): number | null {
+  const t = texto.trim();
   if (!t) return null;
-  return /^\d+(\.\d+)?$/.test(t) ? Number(t) : Number.NaN;
+  if (!decimal) return /^\d+$|^\d{1,3}(\.\d{3})+$/.test(t) ? Number(t.replace(/\./g, "")) : Number.NaN;
+  if (t.includes(",")) return /^(\d+|\d{1,3}(\.\d{3})+),\d+$/.test(t) ? Number(t.replace(/\./g, "").replace(",", ".")) : Number.NaN;
+  if (/^\d+(\.\d{1,3})?$/.test(t)) return Number(t);
+  return /^\d{1,3}(\.\d{3})+$/.test(t) ? Number(t.replace(/\./g, "")) : Number.NaN;
 }
 
 export function formatarKm(km: number | null | undefined): string {

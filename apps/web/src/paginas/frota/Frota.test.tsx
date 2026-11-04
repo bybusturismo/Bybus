@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { corpoEnviado, FLN, renderizar, sessaoFicticia, simularApi } from "../../teste/ajuda";
 import { AbastecimentoPagina } from "./Abastecimento";
+import { numeroDeTexto } from "./comum";
 import { ChecklistPagina } from "./Checklist";
 import { DocumentosPagina } from "./Documentos";
 import { PainelFrotaPagina } from "./Painel";
@@ -151,5 +152,39 @@ describe("Checklist do motorista", () => {
     expect(screen.queryByRole("tab", { name: "Histórico" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Itens/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Veículos" })).not.toBeInTheDocument();
+  });
+});
+
+describe("numeroDeTexto", () => {
+  it("litros: ponto do celular é decimal, vírgula é decimal, milhar só com vírgula ou grupos de 3", () => {
+    expect(numeroDeTexto("45.5", true)).toBe(45.5);
+    expect(numeroDeTexto("45,5", true)).toBe(45.5);
+    expect(numeroDeTexto("1.234,5", true)).toBe(1234.5);
+    expect(numeroDeTexto("1.234.567", true)).toBe(1234567);
+    expect(numeroDeTexto("100", true)).toBe(100);
+    expect(numeroDeTexto("4.5.5", true)).toBeNaN();
+    expect(numeroDeTexto("45,5,5", true)).toBeNaN();
+    expect(numeroDeTexto("abc", true)).toBeNaN();
+    expect(numeroDeTexto("  ", true)).toBeNull();
+  });
+  it("inteiros: ponto é milhar e decimal é erro", () => {
+    expect(numeroDeTexto("1.500")).toBe(1500);
+    expect(numeroDeTexto("120000")).toBe(120000);
+    expect(numeroDeTexto("12,5")).toBeNaN();
+    expect(numeroDeTexto("12.5")).toBeNaN();
+  });
+});
+
+describe("Abastecimento: litros digitados com ponto", () => {
+  it("45.5 litros vai como 45,5 e não como 455", async () => {
+    const api = simularApi({ "GET /api/frota/veiculos": [veiculo()], "GET /api/frota/abastecimentos": { itens: [], resumo: [] }, "POST /api/frota/abastecimentos": { id: "a1", alerta: null } });
+    renderizar(<AbastecimentoPagina />, { sessao: gerenciar });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: /Novo abastecimento/ }));
+    await u.type(screen.getByLabelText("Km do hodômetro"), "121000");
+    await u.type(screen.getByLabelText("Litros"), "45.5");
+    await u.type(screen.getByLabelText(/Valor total/), "300,00");
+    await u.click(screen.getByRole("button", { name: "Salvar" }));
+    expect(corpoEnviado(api, "POST", "/api/frota/abastecimentos")).toMatchObject({ km: 121000, litros: 45.5, valorCentavos: 30000 });
   });
 });
