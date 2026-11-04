@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
-  alertaConsumo, consumoPorAbastecimento, ITENS_CHECKLIST_PADRAO, motivosBloqueio, situacaoPlano,
+  alertaConsumo, consumoPorAbastecimento, ITENS_CHECKLIST_PADRAO, motivosBloqueio, normalizarPlaca, situacaoPlano,
   type FonteKm, type SituacaoPlano,
 } from "@bybus/core";
 import type { Db } from "../db/cliente.js";
@@ -62,8 +62,10 @@ export async function registrarLeituraKm(
     return { registrada: false, kmAtual: v.kmAtual };
   }
   await db.insert(veiculosKm).values({ veiculoId: p.veiculoId, data: p.data, km: p.km, fonte: p.fonte, criadoPor: p.usuarioId ?? null });
-  if (p.km > v.kmAtual) await db.update(veiculos).set({ kmAtual: p.km, atualizadoEm: new Date() }).where(eq(veiculos.id, p.veiculoId));
-  return { registrada: true, kmAtual: Math.max(p.km, v.kmAtual) };
+  // Atômico: leituras concorrentes nunca baixam o km (o maior vence).
+  const [atual] = await db.update(veiculos).set({ kmAtual: sql`greatest(${veiculos.kmAtual}, ${p.km})`, atualizadoEm: new Date() })
+    .where(eq(veiculos.id, p.veiculoId)).returning({ kmAtual: veiculos.kmAtual });
+  return { registrada: true, kmAtual: atual?.kmAtual ?? p.km };
 }
 
 /** Veículo volta a ATIVO quando não resta ordem aberta que o imobilize (só se estava em manutenção). */
@@ -99,9 +101,20 @@ export function calcularAbastecimentos(lista: Abastecimento[]): AbastecimentoCal
 
 /** Cria os itens padrão do checklist na primeira vez (a equipe edita depois). */
 export async function garantirItensChecklist(db: Db) {
-  const [existe] = await db.select({ id: checklistItens.id }).from(checklistItens).limit(1);
-  if (existe) return;
-  await db.insert(checklistItens).values(ITENS_CHECKLIST_PADRAO.map((i, n) => ({ ...i, ordem: (n + 1) * 10 })));
+  // Trava na transação: duas primeiras chamadas simultâneas não inserem os itens duas vezes.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('bybus.checklist_itens'))`);
+    const [existe] = await tx.select({ id: checklistItens.id }).from(checklistItens).limit(1);
+    if (existe) return;
+    await tx.insert(checklistItens).values(ITENS_CHECKLIST_PADRAO.map((i, n) => ({ ...i, ordem: (n + 1) * 10 })));
+  });
+}
+
+/** Motivos que impedem usar a placa na data (lista vazia = liberado). Placa fora da frota: `null` (frota ainda incompleta, não bloqueia). */
+export async function motivosIndisponibilidade(db: Db, placa: string, data: string): Promise<string[] | null> {
+  const [v] = await db.select().from(veiculos).where(eq(veiculos.placa, normalizarPlaca(placa)));
+  if (!v) return null;
+  return (await situacaoOperacional(db, [v], data)).get(v.id)!.motivos;
 }
 
 export const itensAtivos = (db: Db) => db.select().from(checklistItens).where(eq(checklistItens.ativo, true)).orderBy(asc(checklistItens.ordem), asc(checklistItens.descricao));

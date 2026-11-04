@@ -16,7 +16,7 @@ import { podeUnidade } from "../seguranca/escopo.js";
 import { pode, type Permissao } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
 import {
-  calcularAbastecimentos, calcularPlano, garantirItensChecklist, hojeSp, itensAtivos, reavaliarSituacao,
+  calcularAbastecimentos, calcularPlano, garantirItensChecklist, hojeSp, itensAtivos, motivosIndisponibilidade, reavaliarSituacao,
   registrarLeituraKm, situacaoOperacional,
 } from "../servicos/frota.js";
 
@@ -116,8 +116,8 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
     const { placa } = z.object({ placa: z.string().max(20) }).parse(req.params);
     const [v] = await db.select().from(veiculos).where(eq(veiculos.placa, normalizarPlaca(placa)));
     if (!v || !podeUnidade(req.usuario!, v.unidadeId)) throw naoEncontrado("Veículo");
-    const s = (await situacaoOperacional(db, [v], hojeSp())).get(v.id)!;
-    return { placa: v.placa, disponivel: s.disponivel, motivosBloqueio: s.motivos };
+    const motivos = (await motivosIndisponibilidade(db, v.placa, hojeSp()))!;
+    return { placa: v.placa, disponivel: motivos.length === 0, motivosBloqueio: motivos };
   });
 
   app.get("/api/frota/veiculos/:id", ver, async (req) => {
