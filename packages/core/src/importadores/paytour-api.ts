@@ -22,6 +22,12 @@ export interface PedidoPaytour {
   /** Ex.: "civitatis" nos pedidos que a Civitatis manda pela integração nativa (metodo_pagamento "integracao_parceiro"). */
   tipo_pagamento?: string | null;
   metodo_pagamento?: string | null;
+  metodo_pagamento_externo?: string | null;
+  pagamento_pendente?: string | number | null;
+  pagamento_pendente_pago_em?: string | null;
+  cliente_uf?: string | null;
+  cliente_pais?: string | null;
+  cliente_estrangeiro?: string | number | null;
   observacao?: string | null;
   data_hora_atualizacao?: string | null;
   itens?: ItemPedidoPaytour[] | null;
@@ -110,6 +116,37 @@ function canalPorMarcas(p: PedidoPaytour): ReservaImportada["canal"] | null {
   return null;
 }
 
+/**
+ * Pagamento pelo método da Paytour (vistos nos pedidos da By Bus: pagamento_no_dia, cielo, zoop_pix,
+ * pagamento_externo, cortesia, integracao_parceiro). [A CONFIRMAR] se "pagamento_externo" é sempre pago antes do passeio.
+ */
+export function pagamentoPaytour(p: PedidoPaytour, canal: ReservaImportada["canal"]): Pick<ReservaImportada, "pagamento" | "formaPagamento"> {
+  const metodo = (texto(p.metodo_pagamento) ?? "").toLowerCase();
+  const externo = (texto(p.metodo_pagamento_externo) ?? "").toLowerCase();
+  const pendente = String(p.pagamento_pendente ?? "") === "1" && !texto(p.pagamento_pendente_pago_em);
+  if (canal === "VIATOR") return { pagamento: "PAGO", formaPagamento: "Pago na Viator" };
+  if (canal === "DECOLAR") return { pagamento: "PAGO", formaPagamento: "Pago na Decolar" };
+  if (canal === "CIVITATIS") return { pagamento: "PAGO", formaPagamento: "Pago na Civitatis" };
+  if (metodo === "cortesia") return { pagamento: "CORTESIA", formaPagamento: "Cortesia" };
+  if (metodo === "pagamento_no_dia") return { pagamento: "A_PAGAR", formaPagamento: externo === "dinheiro" ? "Pagar no dia (dinheiro)" : "Pagar no dia" };
+  if (pendente) return { pagamento: "A_PAGAR", formaPagamento: "Saldo a pagar" };
+  const formas: Record<string, string> = { cielo: "Cartão", zoop_pix: "Pix", pix: "Pix", integracao_parceiro: "Pago no parceiro" };
+  if (formas[metodo]) return { pagamento: "PAGO", formaPagamento: formas[metodo] };
+  if (metodo === "pagamento_externo") {
+    const ext: Record<string, string> = { cartao_credito: "Cartão (fora do site)", dinheiro: "Dinheiro (fora do site)", outros: "Outros (fora do site)" };
+    return { pagamento: "PAGO", formaPagamento: ext[externo] ?? "Pago fora do site" };
+  }
+  return { pagamento: null, formaPagamento: null };
+}
+
+/** Origem do cliente: país (estrangeiro) ou UF (Brasil). */
+function origemPaytour(p: PedidoPaytour): string | null {
+  const pais = texto(p.cliente_pais)?.toUpperCase() ?? null;
+  const estrangeiro = String(p.cliente_estrangeiro ?? "0") === "1" || (pais !== null && !["BRA", "BR", "BRASIL"].includes(pais));
+  if (estrangeiro) return pais;
+  return texto(p.cliente_uf)?.toUpperCase() ?? null;
+}
+
 /** "08:00", "08:00 até 10:00", "8h" → "08:00" */
 function horarioInicial(t: string | null): string | null {
   const m = t ? /(\d{1,2})[:h](\d{2})?/.exec(t) : null;
@@ -178,8 +215,11 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
     // Civitatis entra pela integração nativa da Paytour (é a venda original, não uma cópia manual).
     if (origemOta && !ehIntegracaoCivitatis(pedido)) avisos.push(`Reserva espelho de ${origemOta} lançada na Paytour.`);
 
+    const canal = origemOta ?? "PAYTOUR";
     return [{
-      canal: origemOta ?? "PAYTOUR",
+      ...pagamentoPaytour(pedido, canal),
+      origemCliente: origemPaytour(pedido),
+      canal,
       codigoExterno: chaves.length > 1 ? `PAYTOUR-${id}-${data}-${n + 1}` : `PAYTOUR-${id}`,
       referencias: [...new Set([...extrairReferenciasOta(obs), ...doGrupo.map((i) => texto(i.voucher_code)).filter((v): v is string => !!v)])],
       data,

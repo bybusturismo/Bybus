@@ -10,3 +10,4 @@ export * from "./importadores/paytour-csv.js";
 export * from "./importadores/anonimizar.js";
 export * from "./importadores/paytour-api.js";
 export * from "./importadores/decolar-email.js";
+export * from "./sugestao-ponto.js";

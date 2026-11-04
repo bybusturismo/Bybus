@@ -19,6 +19,12 @@ export interface ReservaImportada {
   pontoEmbarqueTexto: string | null;
   cancelada: boolean;
   observacoes: string | null;
+  /** PAGO, A_PAGAR (paga no embarque) ou CORTESIA, quando o canal informa. */
+  pagamento?: "PAGO" | "A_PAGAR" | "CORTESIA" | null;
+  /** Forma legível (ex.: "Pix", "Pago na Viator"). */
+  formaPagamento?: string | null;
+  /** UF ou país do cliente (coluna "Estado" da lista). */
+  origemCliente?: string | null;
   passageiros: Array<{
     nome: string;
     categoria: Categoria;

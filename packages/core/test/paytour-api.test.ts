@@ -105,3 +105,13 @@ it("canal pelos rastros do pedido: Civitatis (integração nativa), Tripadvisor 
   const [dec] = pedidoPaytourParaReservas({ id: 13, status: "aprovado", cliente_email: "cliente@reservas.decolar.exemplo", itens: [item] });
   expect(dec!.canal).toBe("DECOLAR");
 });
+
+it("pagamento e origem pelo pedido da Paytour", () => {
+  const item = { id: 1, nome_produto: "City Tour Toda Ilha", produto_disponibilidade_data: "2026-11-20" };
+  const r = (extra: Record<string, unknown>) => pedidoPaytourParaReservas({ id: 20, status: "aprovado", itens: [item], ...extra } as never)[0]!;
+  expect(r({ metodo_pagamento: "pagamento_no_dia", metodo_pagamento_externo: "dinheiro", cliente_uf: "rs" })).toMatchObject({ pagamento: "A_PAGAR", formaPagamento: "Pagar no dia (dinheiro)", origemCliente: "RS" });
+  expect(r({ metodo_pagamento: "zoop_pix", cliente_pais: "ARG", cliente_estrangeiro: "1" })).toMatchObject({ pagamento: "PAGO", formaPagamento: "Pix", origemCliente: "ARG" });
+  expect(r({ metodo_pagamento: "cortesia" })).toMatchObject({ pagamento: "CORTESIA" });
+  expect(r({ metodo_pagamento: "cielo", pagamento_pendente: "1" })).toMatchObject({ pagamento: "A_PAGAR", formaPagamento: "Saldo a pagar" });
+  expect(r({ metodo_pagamento: "cielo", cliente_email: "x@expmessaging.tripadvisor.com" })).toMatchObject({ canal: "VIATOR", pagamento: "PAGO", formaPagamento: "Pago na Viator" });
+});

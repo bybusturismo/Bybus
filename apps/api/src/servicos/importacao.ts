@@ -120,6 +120,9 @@ export async function importarReservas(
           contatoEmail: existente!.contatoEmail ?? item.contatoEmail,
           pontoEmbarqueId: existente!.pontoEmbarqueId ?? ponto?.id ?? null,
           referencias: [...new Set([...existente!.referencias, ...item.referencias])],
+          // Pagamento pode mudar no canal (ex.: "pagar no dia" quitado); só sobrescreve quando o canal informa.
+          ...(item.pagamento !== undefined && item.pagamento !== null ? { pagamento: item.pagamento, formaPagamento: item.formaPagamento ?? null } : {}),
+          origemCliente: existente!.origemCliente ?? item.origemCliente ?? null,
           status: "CONFIRMADA",
           atualizadoEm: new Date(),
         }).where(eq(reservas.id, existente!.id));
@@ -143,6 +146,9 @@ export async function importarReservas(
         pontoEmbarqueId: ponto?.id ?? null,
         observacoes: item.observacoes,
         origem: opcoes.origem,
+        pagamento: item.pagamento ?? null,
+        formaPagamento: item.formaPagamento ?? null,
+        origemCliente: item.origemCliente ?? null,
       }).returning();
       if (item.passageiros.length) {
         await tx.insert(passageiros).values(

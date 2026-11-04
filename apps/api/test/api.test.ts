@@ -689,3 +689,42 @@ describe("escala mensal de guias e motoristas", () => {
     expect((await c.req("PUT", "/api/escala", { passeioId: toda.id, mes: "2026-12", dias: [] })).statusCode).toBe(403);
   });
 });
+
+describe("link de embarque do passageiro e conferência", () => {
+  it("passageiro escolhe o ponto pelo link; equipe confere; link inválido não revela nada", async () => {
+    const c = await logado("admin@bybus.test");
+    // Saída futura com reserva confirmada (o link vence no fim do dia do passeio).
+    const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    let saida: { id: string; data: string } | undefined;
+    let r: { id: string } | undefined;
+    for (const s of (await primeiraSaida(c)).filter((x) => x.data >= hoje)) {
+      r = (await c.req("GET", `/api/saidas/${s.id}/reservas`)).json().find((x: { status: string }) => x.status === "CONFIRMADA");
+      if (r) { saida = s; break; }
+    }
+    expect(r).toBeTruthy();
+    const link = (await c.req("POST", `/api/reservas/${r!.id}/link-embarque`)).json();
+    expect(link.caminho).toMatch(/^\/embarque\/[A-Za-z0-9_-]{30,}$/);
+    const token = link.caminho.split("/").pop();
+
+    const anon = new Cliente(app);
+    const info = (await anon.req("GET", `/api/publico/embarque/${token}`)).json();
+    expect(info.pontos.length).toBeGreaterThan(5);
+    expect(JSON.stringify(info)).not.toMatch(/documento|telefone|email/i);
+    const sug = (await anon.req("POST", `/api/publico/embarque/${token}/sugestao`, { hospedagem: "Mercure Convention" })).json();
+    const villa = info.pontos.find((p: { nome: string }) => p.nome === "Villa Romana Shopping");
+    expect(sug.sugestoes[0].pontoId).toBe(villa.id);
+    expect((await anon.req("POST", `/api/publico/embarque/${token}`, { pontoId: villa.id, hospedagem: "Mercure Convention" })).statusCode).toBe(200);
+
+    const fila = (await c.req("GET", `/api/conferencia?de=${saida!.data}&ate=${saida!.data}`)).json();
+    const item = fila.find((x: { id: string }) => x.id === r!.id);
+    expect(item).toMatchObject({ conferencia: "PENDENTE", hospedagemInformada: "Mercure Convention", ponto: { nome: "Villa Romana Shopping" } });
+    expect((await c.req("POST", `/api/reservas/${r!.id}/conferir`, {})).statusCode).toBe(200);
+    const conferidas = (await c.req("GET", `/api/conferencia?de=${saida!.data}&ate=${saida!.data}&situacao=CONFERIDA`)).json();
+    expect(conferidas.some((x: { id: string; conferidaPor: string }) => x.id === r!.id && !!x.conferidaPor)).toBe(true);
+
+    // Regenerar invalida o link anterior; token inventado dá 404 sem detalhes.
+    await c.req("POST", `/api/reservas/${r!.id}/link-embarque`);
+    expect((await anon.req("GET", `/api/publico/embarque/${token}`)).statusCode).toBe(404);
+    expect((await anon.req("GET", "/api/publico/embarque/tokeninventadotokeninventado")).statusCode).toBe(404);
+  });
+});

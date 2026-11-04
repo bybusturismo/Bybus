@@ -83,6 +83,9 @@ export function lerEmailDecolar(assunto: string, corpo: string): ReservaImportad
 
   return {
     canal: "DECOLAR",
+    pagamento: "PAGO",
+    formaPagamento: "Pago na Decolar",
+    origemCliente: c.get("lugar de compra") ?? null,
     codigoExterno: `DEC-${idCompra || pam}`,
     referencias: [idCompra && `DEC-${idCompra}`, pam && `PAM-${pam}`].filter((r): r is string => !!r),
     data: dia,

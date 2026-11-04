@@ -89,6 +89,9 @@ export function lerEmailBokun(assunto: string, corpo: string): ReservaImportada 
 
   return {
     canal,
+    // Reserva de OTA chega paga no canal.
+    pagamento: "PAGO",
+    formaPagamento: canal === "VIATOR" ? "Pago na Viator" : "Pago no canal",
     codigoExterno: ref,
     referencias,
     data: quando.data,
