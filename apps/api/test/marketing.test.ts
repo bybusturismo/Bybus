@@ -193,6 +193,12 @@ describe("avaliações", () => {
     expect(g1.criados).toBe(2);
     expect(g1.envio).toBe("NAO_ENVIADO");
     expect((await gestor.req("POST", "/api/marketing/avaliacoes/pedidos/gerar", periodo)).json().criados).toBe(0);
+    // Regressão: sem corpo e sem datas usa os últimos 7 dias até ontem (não dá 400); janela explícita > 31 dias é recusada.
+    const semCorpo = await gestor.req("POST", "/api/marketing/avaliacoes/pedidos/gerar");
+    expect(semCorpo.statusCode).toBe(200);
+    expect(semCorpo.json().periodo).toEqual({ de: dias(-7), ate: dias(-1) });
+    expect((await gestor.req("POST", "/api/marketing/avaliacoes/pedidos/gerar", {})).statusCode).toBe(200);
+    expect((await gestor.req("POST", "/api/marketing/avaliacoes/pedidos/gerar", { de: dias(-60), ate: dias(-1) })).statusCode).toBe(400);
 
     const pedidos = (await gestor.req("GET", `/api/marketing/avaliacoes/pedidos?de=${periodo.de}&ate=${periodo.ate}`)).json() as Array<{ id: string; status: string; texto: string; reservaId: string }>;
     expect(pedidos.map((p) => p.status).sort()).toEqual(["PENDENTE", "SEM_TELEFONE"]);
