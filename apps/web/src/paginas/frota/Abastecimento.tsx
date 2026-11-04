@@ -27,11 +27,11 @@ function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: Veiculo[
   const atual = veiculos.find((v) => v.id === veiculoId);
   async function enviar() {
     const k = numeroDeTexto(km);
-    const l = numeroDeTexto(litros);
+    const l = numeroDeTexto(litros, true);
     const v = centavosDeTexto(valor);
     if (!veiculoId) throw new Error("Escolha o veículo.");
     if (k == null || Number.isNaN(k)) throw new Error("Informe o km do hodômetro.");
-    if (l == null || Number.isNaN(l) || l <= 0) throw new Error("Informe os litros abastecidos.");
+    if (l == null || Number.isNaN(l) || l <= 0) throw new Error("Informe os litros abastecidos (ex.: 45,5).");
     if (v == null || Number.isNaN(v)) throw new Error("Informe o valor total em reais (ex.: 1.234,56).");
     const salvo = await api.post<Abastecimento>("/api/frota/abastecimentos", { veiculoId, data, km: k, litros: l, valorCentavos: v, posto: posto.trim() || null, tanqueCheio: cheio });
     await aoSalvo(salvo);
