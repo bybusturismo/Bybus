@@ -98,3 +98,12 @@ describe("Turistinha (assistente de IA)", () => {
     expect(screen.queryByRole("complementary", { name: "Assistente Turistinha" })).not.toBeInTheDocument();
   });
 });
+
+describe("Item ativo do menu", () => {
+  it("acende só o item mais específico", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("FIN", ["financeiro:ver"]), rota: "/financeiro/extrato" });
+    const menu = screen.getByRole("navigation", { name: "Menu principal" });
+    expect(within(menu).getByRole("link", { name: /Extrato e conciliação/ })).toHaveAttribute("aria-current", "page");
+    expect(within(menu).getByRole("link", { name: /Resumo financeiro/ })).not.toHaveAttribute("aria-current");
+  });
+});

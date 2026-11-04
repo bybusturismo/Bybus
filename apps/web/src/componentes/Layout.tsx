@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { Permissao } from "../api/tipos";
 import { useSessao } from "../sessao/Sessao";
 import logoHorizontal from "../marca/bybus-horizontal.png";
@@ -132,6 +132,8 @@ export function Layout() {
 
   const areas = AREAS.map((a) => ({ area: a, itens: itens.filter((i) => i.area === a) })).filter((g) => g.itens.length > 0);
   const poucosItens = itens.length <= 4;
+  // Item ativo = o de caminho mais específico que casa com a URL (ex.: /financeiro/extrato não acende "Resumo financeiro").
+  const ativo = itens.filter((i) => local.pathname === i.para || local.pathname.startsWith(`${i.para}/`)).sort((a, b) => b.para.length - a.para.length)[0]?.para;
 
   return (
     <div className={`app${menuAberto ? " app--menu-aberto" : ""}${turistinha && pode("ia:usar") ? " app--turistinha" : ""}`}>
@@ -193,11 +195,11 @@ export function Layout() {
               <ul id={idLista} hidden={!aberta}>
                 {doGrupo.map((i) => (
                   <li key={i.para}>
-                    <NavLink to={i.para} className={({ isActive }) => `menu__item${isActive ? " menu__item--ativo" : ""}${i.planejado ? " menu__item--planejado" : ""}`}>
+                    <Link to={i.para} aria-current={ativo === i.para ? "page" : undefined} className={`menu__item${ativo === i.para ? " menu__item--ativo" : ""}${i.planejado ? " menu__item--planejado" : ""}`}>
                       <Icone nome={i.icone} tamanho={18} />
                       <span>{i.rotulo}</span>
                       {i.planejado && <span className="menu__breve">em breve</span>}
-                    </NavLink>
+                    </Link>
                   </li>
                 ))}
               </ul>
