@@ -11,3 +11,7 @@ export * from "./importadores/anonimizar.js";
 export * from "./importadores/paytour-api.js";
 export * from "./importadores/decolar-email.js";
 export * from "./sugestao-ponto.js";
+export * from "./ia/gestores.js";
+export * from "./ia/custo.js";
+export * from "./ia/agenda.js";
+export * from "./ia/lgpd.js";
