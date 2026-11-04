@@ -7,9 +7,9 @@ export interface Periodo {
   ate: string;
 }
 
-/** Período do painel (padrão: últimos 90 dias até hoje). */
-export function usePeriodo(dias = 90) {
-  const [periodo, setPeriodo] = useState<Periodo>(() => ({ de: somarDias(hojeIso(), -(dias - 1)), ate: hojeIso() }));
+/** Período do painel (padrão: últimos 90 dias e os próximos 60, pois reserva de passeio futuro também é venda). */
+export function usePeriodo(dias = 90, adiante = 60) {
+  const [periodo, setPeriodo] = useState<Periodo>(() => ({ de: somarDias(hojeIso(), -(dias - 1)), ate: somarDias(hojeIso(), adiante) }));
   return [periodo, setPeriodo] as const;
 }
 

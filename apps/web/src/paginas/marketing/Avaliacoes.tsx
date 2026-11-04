@@ -94,7 +94,7 @@ export function Avaliacoes() {
   const { praca, pode } = useSessao();
   const notificar = useNotificar();
   const podeGerenciar = pode("marketing:gerenciar");
-  const [periodo, setPeriodo] = usePeriodo(30);
+  const [periodo, setPeriodo] = usePeriodo(30, 0);
   const consulta = qs({ de: periodo.de, ate: periodo.ate, unidadeId: praca });
   const resumo = useCarregar((s) => api.get<Resumo>(`/api/marketing/avaliacoes/resumo${consulta}`, s), [consulta]);
   const pedidos = useCarregar((s) => api.get<Pedido[]>(`/api/marketing/avaliacoes/pedidos${consulta}`, s), [consulta]);

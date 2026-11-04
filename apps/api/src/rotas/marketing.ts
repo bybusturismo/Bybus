@@ -40,8 +40,9 @@ function dataBr(iso: string): string {
 }
 
 const periodo = z.object({ de: dataIso.optional(), ate: dataIso.optional(), unidadeId: uuid.optional() }).transform((q) => {
-  const ate = q.ate ?? hoje();
-  return { de: q.de ?? somarDias(ate, -89), ate, unidadeId: q.unidadeId };
+  // Padrão: 90 dias para trás e 60 para a frente (reserva de passeio futuro também é venda).
+  const ate = q.ate ?? somarDias(hoje(), 60);
+  return { de: q.de ?? somarDias(hoje(), -89), ate, unidadeId: q.unidadeId };
 }).refine((p) => p.de <= p.ate, "A data inicial deve ser anterior à final.").refine((p) => (Date.parse(p.ate) - Date.parse(p.de)) / 86400_000 <= 800, "Período longo demais (máximo de 800 dias).");
 
 /** Itens "de todas as praças" (unidade nula) são vistos por todos; os de uma praça só por quem tem acesso a ela. */
