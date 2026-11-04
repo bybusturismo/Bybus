@@ -4,10 +4,12 @@ import type { Permissao } from "../api/tipos";
 import { useSessao } from "../sessao/Sessao";
 import logoHorizontal from "../marca/bybus-horizontal.png";
 import { Icone, type NomeIcone } from "./Icone";
+import { Mascote } from "./Mascote";
 import { Modal } from "./Modal";
+import { PainelTuristinha } from "./PainelTuristinha";
 import { BotaoTema } from "./Tema";
 
-export const AREAS = ["Passeios", "Cadastros", "Administrativo", "Marketing", "Configurações"] as const;
+export const AREAS = ["Passeios", "Cadastros", "Administrativo", "Marketing", "Gestão", "Configurações"] as const;
 export type Area = (typeof AREAS)[number];
 
 export interface ItemMenu {
@@ -42,6 +44,7 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/em-breve/avaliacoes", rotulo: "Avaliações", icone: "estrela", area: "Marketing", planejado: true },
   { para: "/em-breve/origem-clientes", rotulo: "Origem dos clientes", icone: "grafico", area: "Marketing", planejado: true },
   { para: "/em-breve/campanhas", rotulo: "Campanhas", icone: "megafone", area: "Marketing", planejado: true },
+  { para: "/gestores", rotulo: "Gestores de IA", icone: "faisca", area: "Gestão", permissao: "ia:gestores", atalho: "d" },
   { para: "/pracas", rotulo: "Praças", icone: "pino", area: "Configurações", permissao: "unidades:gerenciar", atalho: "r" },
   { para: "/usuarios", rotulo: "Usuários", icone: "usuarios", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "u" },
   { para: "/perfis", rotulo: "Perfis de acesso", icone: "escudo", area: "Configurações", permissao: "usuarios:gerenciar", atalho: "f" },
@@ -78,6 +81,7 @@ export function Layout() {
   const itens = itensPermitidos(pode);
   const [ajuda, setAjuda] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [turistinha, setTuristinha] = useState(false);
   const [fechadas, setFechadas] = useState<Area[]>(lerFechadas);
   const prefixo = useRef<number>(0);
 
@@ -123,7 +127,7 @@ export function Layout() {
   const poucosItens = itens.length <= 4;
 
   return (
-    <div className={`app${menuAberto ? " app--menu-aberto" : ""}`}>
+    <div className={`app${menuAberto ? " app--menu-aberto" : ""}${turistinha && pode("ia:usar") ? " app--turistinha" : ""}`}>
       <a className="pular-conteudo" href="#conteudo">
         Pular para o conteúdo
       </a>
@@ -153,6 +157,12 @@ export function Layout() {
             <span className="topo__nome-usuario">{usuario?.nome}</span>
             <span className="topo__perfil">{usuario?.perfilNome ?? usuario?.perfil ?? ""}</span>
           </span>
+          {pode("ia:usar") && (
+            <button type="button" className={`botao botao--fantasma botao--topo botao--turistinha${turistinha ? " botao--turistinha-ativo" : ""}`} aria-expanded={turistinha} aria-controls="painel-turistinha" onClick={() => setTuristinha((v) => !v)}>
+              <Mascote tamanho={22} titulo="" />
+              <span>Turistinha</span>
+            </button>
+          )}
           <BotaoTema />
           <button type="button" className="botao botao--fantasma botao--topo" onClick={() => void sair()} aria-label="Sair">
             <Icone nome="sair" />
@@ -196,6 +206,7 @@ export function Layout() {
       <main id="conteudo" className="conteudo" tabIndex={-1}>
         <Outlet />
       </main>
+      {turistinha && pode("ia:usar") && <PainelTuristinha aoFechar={() => setTuristinha(false)} />}
 
       <Modal aberto={ajuda} titulo="Atalhos do teclado" aoFechar={() => setAjuda(false)}>
         <dl className="atalhos">

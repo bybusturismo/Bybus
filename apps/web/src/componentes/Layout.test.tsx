@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { BC, FLN, renderizar, sessaoFicticia } from "../teste/ajuda";
+import { BC, FLN, renderizar, sessaoFicticia, simularApi } from "../teste/ajuda";
 import { itensPermitidos, Layout } from "./Layout";
 
 const rotulosMenu = () => within(screen.getByRole("navigation", { name: "Menu principal" })).getAllByRole("link").map((l) => l.textContent);
@@ -22,7 +22,7 @@ describe("Menu por permissão", () => {
     const todas = itensPermitidos(() => true);
     expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
       "Saídas", "Conferência de embarque", "Escala de guias", "Fechamento e mensagens", "Importar reservas", "Integrações",
-      "Passeios e pontos", "Guias e equipe", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta",
+      "Passeios e pontos", "Guias e equipe", "Gestores de IA", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Minha conta",
     ]);
     // Módulos planejados só aparecem para quem administra usuários.
     expect(itensPermitidos((p) => p !== "usuarios:gerenciar").some((i) => i.planejado)).toBe(false);
@@ -42,5 +42,26 @@ describe("Seletor de praça", () => {
     expect(within(seletor).getAllByRole("option").map((o) => o.textContent)).toEqual(["Todas as praças", "Balneário Camboriú", "Florianópolis"]);
     await userEvent.setup().selectOptions(seletor, BC.id);
     expect(escolher).toHaveBeenCalledWith(BC.id);
+  });
+});
+
+describe("Turistinha (assistente de IA)", () => {
+  it("o botão no topo só aparece com ia:usar e abre o painel ao lado do conteúdo", async () => {
+    simularApi({ "GET /api/ia/estado": { ligada: true, assistente: true, gestores: false } });
+    const { unmount } = renderizar(<Layout />, { sessao: sessaoFicticia("GUIA", ["manifesto:ver"]) });
+    expect(screen.queryByRole("button", { name: /Turistinha/ })).not.toBeInTheDocument();
+    unmount();
+
+    renderizar(<Layout />, { sessao: sessaoFicticia("ATENDENTE", ["manifesto:ver", "ia:usar"]) });
+    const botao = screen.getByRole("button", { name: /Turistinha/ });
+    expect(botao).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("complementary", { name: "Assistente Turistinha" })).not.toBeInTheDocument();
+    await userEvent.setup().click(botao);
+    const painel = await screen.findByRole("complementary", { name: "Assistente Turistinha" });
+    // Não é flutuante: está no mesmo contêiner do layout, depois do conteúdo principal.
+    expect(painel.parentElement).toBe(screen.getByRole("main").parentElement);
+    expect(botao).toHaveAttribute("aria-expanded", "true");
+    await userEvent.setup().click(within(painel).getByRole("button", { name: "Fechar o Turistinha" }));
+    expect(screen.queryByRole("complementary", { name: "Assistente Turistinha" })).not.toBeInTheDocument();
   });
 });

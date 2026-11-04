@@ -9,6 +9,7 @@ import { Layout } from "./componentes/Layout";
 import { ProvedorNotificacoes } from "./componentes/Notificacoes";
 import { Auditoria } from "./paginas/Auditoria";
 import { Conta } from "./paginas/Conta";
+import { Gestores } from "./paginas/Gestores";
 import { Importar } from "./paginas/importar/Importar";
 import { Integracoes } from "./paginas/Integracoes";
 import { EmBreve } from "./paginas/EmBreve";
@@ -120,6 +121,14 @@ export function Rotas() {
           element={
             <Exige permissao="produtos:gerenciar">
               <Passeios />
+            </Exige>
+          }
+        />
+        <Route
+          path="gestores"
+          element={
+            <Exige permissao="ia:gestores">
+              <Gestores />
             </Exige>
           }
         />

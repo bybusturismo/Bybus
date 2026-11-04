@@ -1,4 +1,4 @@
-import type { AcaoImportacao, Canal, Categoria, LinhaNegocio, NivelAlerta, PapelPessoa, Permissao, StatusEmbarque, StatusReserva, StatusSaida, TipoDocumento } from "../api/tipos";
+import type { AcaoImportacao, IdGestor, Canal, Categoria, LinhaNegocio, NivelAlerta, PapelPessoa, Permissao, StatusEmbarque, StatusReserva, StatusSaida, TipoDocumento } from "../api/tipos";
 
 /** Linhas de negócio (ADR 0005). */
 export const ROTULO_LINHA: Record<LinhaNegocio, string> = {
@@ -22,6 +22,7 @@ export const AREAS_PERMISSAO: Array<{ area: string; prefixos: string[] }> = [
   { area: "Produtos e pontos", prefixos: ["produtos", "pontos"] },
   { area: "Saídas e reservas", prefixos: ["saidas", "reservas", "importacoes"] },
   { area: "Lista de passageiros e embarque", prefixos: ["manifesto", "embarque"] },
+  { area: "Inteligência artificial", prefixos: ["ia"] },
 ];
 
 export function areaDaPermissao(p: Permissao | string): string {
@@ -122,4 +123,16 @@ export const ROTULO_ACAO_AUDITORIA: Record<string, string> = {
   PESSOA_CRIADA: "Cadastrou pessoa da equipe",
   PESSOA_ALTERADA: "Alterou pessoa da equipe",
   RESERVAS_VISUALIZADAS: "Viu reservas",
+};
+
+/** Os 8 gestores de IA (espelha packages/core/src/ia/gestores.ts). */
+export const ROTULO_GESTOR: Record<IdGestor, string> = {
+  comercial: "Comercial",
+  logistico: "Logístico",
+  frotas: "Frotas",
+  administrativo: "Administrativo (financeiro)",
+  marketing: "Marketing",
+  juridico: "Jurídico",
+  rh: "RH",
+  tecnologia: "Tecnologia",
 };
