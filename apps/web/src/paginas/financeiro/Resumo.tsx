@@ -94,6 +94,12 @@ export function Resumo() {
                         <th scope="row">Resultado do mês <span className="texto-fraco">(margem {formatarMargem(d.dre.margemPontosBase)})</span></th>
                         <td className={`fin-valor ${sinal(d.dre.resultadoCentavos)}`}>{formatarMoeda(d.dre.resultadoCentavos)}</td>
                       </tr>
+                      {d.dre.foraDoResultado.map((g) => (
+                        <tr key={g.grupo} className="fin-sub">
+                          <td>Fora do resultado: {g.grupo}{g.entradasCentavos > 0 && ` (entradas ${formatarMoeda(g.entradasCentavos)})`}</td>
+                          <td className="fin-valor">{formatarMoeda(g.saidasCentavos)}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -125,22 +131,70 @@ export function Resumo() {
             )}
           </section>
 
-          <section className="cartao" aria-labelledby="titulo-saldos">
-            <h2 id="titulo-saldos">Saldos das contas</h2>
-            {d.saldos.length === 0 ? <p className="texto-fraco">Nenhuma conta cadastrada. <Link to="/financeiro/contas">Cadastrar contas</Link></p> : (
-              <ul className="fin-lista">
-                {d.saldos.map((s) => (
-                  <li key={s.contaId}>
-                    {s.nome} <span className={`fin-valor ${sinal(s.saldoCentavos)}`}>{formatarMoeda(s.saldoCentavos)}</span>
-                    {s.tipo === "CARTAO" && <span className="texto-fraco"> (fatura em aberto, sinal negativo)</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <QuadroSaldos saldos={d.saldos} total={d.saldoCaixaCentavos} />
+          <ResumoDoMes d={d} />
         </>
       )}
     </>
+  );
+}
+
+const ROTULO_TIPO_SALDO: Array<[string, string]> = [["CORRENTE", "Bancos"], ["CAIXA", "Caixa em dinheiro (quiosque)"], ["APLICACAO", "Aplicação"]];
+
+/** Saldos por tipo de conta: bancos, caixa em dinheiro, aplicação e o total disponível (os cartões ficam à parte). */
+function QuadroSaldos({ saldos, total }: { saldos: RespostaResumo["saldos"]; total: number }) {
+  if (saldos.length === 0) return <section className="cartao" aria-labelledby="titulo-saldos"><h2 id="titulo-saldos">Saldos das contas</h2><p className="texto-fraco">Nenhuma conta cadastrada. <Link to="/financeiro/contas">Cadastrar contas</Link></p></section>;
+  const cartoes = saldos.filter((s) => s.tipo === "CARTAO");
+  return (
+    <section className="cartao" aria-labelledby="titulo-saldos">
+      <h2 id="titulo-saldos">Saldos das contas</h2>
+      <div className="fin-grade">
+        {ROTULO_TIPO_SALDO.map(([tipo, rotulo]) => {
+          const lista = saldos.filter((s) => s.tipo === tipo);
+          if (lista.length === 0) return null;
+          return (
+            <div key={tipo}>
+              <h3>{rotulo}</h3>
+              <ul className="fin-lista">{lista.map((s) => <li key={s.contaId}><span>{s.nome}</span><span className={`fin-valor ${sinal(s.saldoCentavos)}`}>{formatarMoeda(s.saldoCentavos)}</span></li>)}</ul>
+            </div>
+          );
+        })}
+      </div>
+      <p className="fin-total" style={{ padding: "var(--esp-2)" }}>Total disponível (bancos + caixa + aplicação): <strong className={`fin-valor ${sinal(total)}`}>{formatarMoeda(total)}</strong></p>
+      {cartoes.length > 0 && <p className="texto-fraco">Cartões (fatura em aberto, sinal negativo): {cartoes.map((c) => `${c.nome} ${formatarMoeda(c.saldoCentavos)}`).join("; ")}. Veja o saldo dia a dia em <Link to="/financeiro/caixa">Caixa e saldos</Link>.</p>}
+    </section>
+  );
+}
+
+const ORDEM_PLANILHA = ["Taxas", "Frota", "Fixo", "Tributos", "Posto", "Administrativo", "RH"];
+
+/** Resumo do mês no formato do topo da planilha: receita por conta, despesas por grupo e RESULTADO (recalculado pelo sistema). */
+function ResumoDoMes({ d }: { d: RespostaResumo }) {
+  const grupo = (nome: string) => d.dre.grupos.find((g) => g.grupo === nome)?.totalCentavos ?? 0;
+  const outros = d.dre.grupos.filter((g) => !["Receita", ...ORDEM_PLANILHA].includes(g.grupo));
+  const emprestimos = d.dre.foraDoResultado.find((g) => g.grupo.startsWith("Empréstimos"));
+  const linha = (rotulo: string, v: number, negativo = false) => <tr key={rotulo}><th scope="row">{rotulo}</th><td className={`fin-valor ${negativo ? "fin-valor--saida" : sinal(v)}`}>{negativo && v > 0 ? "−" : ""}{formatarMoeda(v)}</td></tr>;
+  return (
+    <section className="cartao" aria-labelledby="titulo-planilha">
+      <h2 id="titulo-planilha">Resumo do mês, como na planilha — {nomeMes(d.mes)}</h2>
+      <p className="texto-fraco">Calculado pelo sistema a partir dos lançamentos (competência do mês); pessoal e empréstimos ficam fora do resultado operacional.</p>
+      <div className="tabela-rolagem">
+        <table className="tabela tabela--compacta">
+          <tbody>
+            {d.receitaPorConta.map((c) => linha(`Receita — ${c.nome}`, c.totalCentavos))}
+            {linha("Receita (todos os lançamentos do mês)", grupo("Receita"))}
+            {ORDEM_PLANILHA.slice(0, 4).map((g) => linha(g, grupo(g), true))}
+            {linha("Pessoal (fora do resultado)", d.dre.pessoalCentavos, true)}
+            {ORDEM_PLANILHA.slice(4).map((g) => linha(g, grupo(g), true))}
+            {outros.map((g) => linha(g.grupo, g.totalCentavos))}
+            {emprestimos && linha("Empréstimos: entradas (fora do resultado)", emprestimos.entradasCentavos)}
+            {emprestimos && linha("Empréstimos: parcelas pagas (fora do resultado)", emprestimos.saidasCentavos, true)}
+            <tr className="fin-total"><th scope="row">RESULTADO</th><td className={`fin-valor ${sinal(d.dre.resultadoCentavos)}`}>{formatarMoeda(d.dre.resultadoCentavos)}</td></tr>
+            <tr className="fin-total"><th scope="row">Resultado após despesas pessoais</th><td className={`fin-valor ${sinal(d.dre.resultadoAposPessoalCentavos)}`}>{formatarMoeda(d.dre.resultadoAposPessoalCentavos)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

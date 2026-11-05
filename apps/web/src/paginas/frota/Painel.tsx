@@ -116,7 +116,7 @@ export function PainelFrotaPagina() {
               <div className="tabela-rolagem">
                 <table className="tabela">
                   <thead>
-                    <tr><th>Veículo</th><th className="frota-numero">Manutenção</th><th className="frota-numero">Combustível</th><th className="frota-numero">Total</th><th className="frota-numero">Km rodados</th><th className="frota-numero">Custo por km</th></tr>
+                    <tr><th>Veículo</th><th className="frota-numero">Manutenção</th><th className="frota-numero">Combustível</th><th className="frota-numero" title="Lançamentos do financeiro (grupos Frota e Posto) com a placa do veículo">Financeiro</th><th className="frota-numero">Total</th><th className="frota-numero">Km rodados</th><th className="frota-numero">Custo por km</th></tr>
                   </thead>
                   <tbody>
                     {p.custos.map((c) => (
@@ -124,6 +124,7 @@ export function PainelFrotaPagina() {
                         <td>{rotuloVeiculo(c)}</td>
                         <td className="frota-numero">{formatarMoeda(c.manutencaoCentavos)}</td>
                         <td className="frota-numero">{formatarMoeda(c.combustivelCentavos)}</td>
+                        <td className="frota-numero">{formatarMoeda(c.financeiroCentavos ?? 0)}</td>
                         <td className="frota-numero"><strong>{formatarMoeda(c.totalCentavos)}</strong></td>
                         <td className="frota-numero">{formatarKm(c.kmRodados || null)}</td>
                         <td className="frota-numero">{c.custoPorKmCentavos == null ? "—" : formatarMoeda(c.custoPorKmCentavos)}</td>
@@ -135,7 +136,8 @@ export function PainelFrotaPagina() {
                       <th>Total da frota</th>
                       <th className="frota-numero">{formatarMoeda(p.totais.manutencaoCentavos)}</th>
                       <th className="frota-numero">{formatarMoeda(p.totais.combustivelCentavos)}</th>
-                      <th className="frota-numero">{formatarMoeda(p.totais.manutencaoCentavos + p.totais.combustivelCentavos)}</th>
+                      <th className="frota-numero">{formatarMoeda(p.totais.financeiroCentavos ?? 0)}</th>
+                      <th className="frota-numero">{formatarMoeda(p.totais.manutencaoCentavos + p.totais.combustivelCentavos + (p.totais.financeiroCentavos ?? 0))}</th>
                       <th colSpan={2} className="frota-numero">{p.totais.mediaKml != null && `Média ${p.totais.mediaKml.toLocaleString("pt-BR")} km/l`}</th>
                     </tr>
                   </tfoot>

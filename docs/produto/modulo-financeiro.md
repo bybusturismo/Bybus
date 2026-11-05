@@ -16,16 +16,61 @@ Referência de ideias: APP TOMA (contas a pagar/receber, conciliação, cartão 
 - **Regras:** criar/editar valida categoria, tipo (compatível com a categoria; regra sem tipo vale pelo tipo da categoria) e praça; regra geral (sem praça) só é criada/editada por quem vê todas as praças.
 - **Resumo:** a pagar/receber do mês (por vencimento), vencidas, saldo das contas, fluxo de caixa semanal (4 semanas atrás, 8 à frente; realizado pela data da baixa, previsto pelo vencimento, vencidas na semana atual, saldo projetado) e **DRE gerencial** por competência (por grupo/categoria, juros/multas/descontos à parte, resultado e margem em pontos-base inteiros) e por praça × linha.
 
+## Planilha de controle financeiro (importador, 05/11/2026)
+Estrutura da planilha "DESP FIXA" da empresa (só a estrutura; **nenhum dado real** vai para o repositório, os testes ou as demonstrações).
+
+**O que o sistema entende**
+- Uma aba por vez, exportada em **CSV** (o .xlsx não é lido: nenhum pacote novo foi adicionado; no Google Sheets, *Arquivo › Fazer download › Valores separados por vírgula*). O cabeçalho é achado pelos nomes das colunas (MÊS, CONTA, DATA, GRUPO, CAT, FORNECEDOR, DESCRIÇÃO, valores, OBS), em qualquer linha (4 ou 14, por exemplo). O resumo do topo e os saldos da planilha têm fórmulas erradas e **não são importados**: o sistema recalcula tudo.
+- **Dois layouts**, detectados pelo cabeçalho: *novo* (A PAGAR, SICREDI, UNILOS, QUIOSQUE, CARTÃO; saídas negativas em cada conta) e *antigo* (A PAGAR, SAÍDA SIC e ENTR SIC positivos, CARTÃO, UNILOS; o Sicredi vira entrada − saída). Coluna de conta: DIN = caixa em dinheiro (um só caixa, o do quiosque), AGE = agenda (ignorada, sem lançamento).
+- **Dicionário de sinônimos editável** (tabela `fin_sinonimos`, tela *Contas e categorias*): grupos (FOTA→FROTA, RECEIRA→RECEITA, PESS→PESSOAL, TAXA→TAXAS, IMPOSTO/TRIBUTOS→IMPOSTOS, RH - BC→RH…) e categorias no formato `GRUPO|CATEGORIA` (`*` vale para qualquer grupo; `GRUPO|*` é o padrão do grupo). Semeado uma vez; o que a pessoa editar ou apagar não volta. Reservas por palavra: TRANSF/TRANF/TRANS ENTRE, APLICA/RESGATE e EMPRESTIMO/EPRESTIMO/CAPITAL DE GIRO.
+- **Plano de categorias** espelha os grupos da planilha: Receita, Outras receitas, Taxas, Frota, Posto, Fixo, Tributos, RH, Administrativo; mais os grupos à parte abaixo. POSTO BC tem categoria própria de combustível.
+
+**O que fica fora da operação (DRE)**
+- Transferências entre contas, aplicações e resgates (movimento com a conta *Aplicação*, tipo investimento): linhas de extrato pareadas, nunca receita nem despesa.
+- **Empréstimos** tomados e pagos: grupo "Empréstimos (fora do resultado)" (entrada = passivo; parcela = amortização + juros). Juros, IOF e tarifas continuam como despesa financeira (Taxas). A divisão da parcela entre amortização e juros é manual, pelo lançamento.
+- **Devoluções e estornos**: grupo próprio que abate a receita ou a despesa de origem (devolução paga reduz receita; recebida reduz despesa). Linha com sinal contrário ao da categoria vai para a contrapartida certa.
+- **Pessoal** ("Pessoal (despesas pessoais pagas pela empresa)"): fora do resultado operacional e mostrado à parte; o resultado "após despesas pessoais" também é calculado. A prévia avisa quando uma linha cita CPF (cartão, consórcio ou conta de pessoa física); nada é reclassificado sozinho.
+- **Revenda de terceiros** (ex.: ingressos): ver abaixo.
+
+**Prévia (nada é gravado) e confirmação**
+- Mostra layout, contagens, contas que serão criadas (Sicredi, Unilos, Quiosque, Cartão, Aplicação, sem números de conta), entradas e saídas por conta, saldos de abertura e amostra.
+- **Conferência de qualidade**, sempre com contagem e linhas: data vazia ou inválida (ex.: "03/06" sem ano, "31/082026": a linha fica de fora), mês da coluna A diferente da data, ano fora do período, grupo vazio (a classificar), grafias diferentes, **possíveis duplicadas** (mesma data + favorecido + conta + valor: só "verificar", nada é descartado; diárias e contratos mensais iguais são legítimos), A PAGAR ≠ valor pago (a diferença vira **desconto ou juros** na baixa), lançamentos futuros só em A PAGAR (viram contas a pagar previstas, em aberto) e valor só em A PAGAR sem conta.
+- **Não reconhecidos**: lista cada combinação grupo|categoria desconhecida; mapeie para uma categoria, para transferência ou ignore, atualize a prévia e (opcional) lembre no dicionário.
+- A confirmação grava tudo numa transação: lançamentos baixados na conta da coluna preenchida (data = data da linha), A PAGAR sem conta = conta a pagar em aberto, transferências pareadas e saldos iniciais. **Idempotente**: cada linha tem uma chave estável (coluna + data + valor + grupo + categoria + favorecido + descrição + ordem de ocorrência); reimportar a mesma aba não duplica. Linha com erro de valor bloqueia a confirmação.
+- **OBS com CPF/CNPJ, e-mail ou telefone** nunca vai para a descrição: vira dado do favorecido (`fin_fornecedores`, contato **cifrado**), lido só por quem tem `financeiro:ver` (`GET /api/financeiro/fornecedores/:id`), e jamais em log, auditoria ou resposta de prévia. A auditoria guarda só contagens.
+- A placa do veículo achada na descrição (grupos Frota e Posto) vai para o campo veículo.
+
+**Saldos**
+- A linha "AAA SALDO" da **primeira** aba importada vira o saldo inicial da conta (na data da linha, ou do primeiro lançamento). Nas abas seguintes o sistema **compara** com o saldo que ele mesmo calculou no início daquela data e mostra a **divergência a conferir**, sem sobrescrever.
+- Resumo financeiro: quadro de saldos (bancos, caixa em dinheiro, aplicação, total disponível; cartões à parte) e "Resumo do mês, como na planilha" (receita por conta, despesas por grupo, RESULTADO e resultado após pessoal). A aba **Caixa e saldos** mostra o saldo dia a dia de qualquer conta (até 120 dias).
+- Saldo = saldo inicial + movimento do extrato (inclusive transferências) + lançamentos baixados sem linha e fora do período de extrato importado (regra descrita acima).
+
+**Caixa em dinheiro (quiosque)**: uma só conta de tipo CAIXA (coluna QUIOSQUE/DIN). O *fechamento do dia* é simples: saldo inicial, entradas, saídas, saldo contado e diferença (um por conta e dia; tabela `fin_fechamentos_caixa`). Depois de fechado, baixas e reaberturas naquela data no caixa ficam bloqueadas (a importação da planilha não passa por essa trava).
+
+**Revenda de terceiros** (aba *Revenda*, tabela `fin_revendas`): a venda (valor recebido do cliente), o repasse ao fornecedor e a comissão do vendedor viram lançamentos em aberto (categorias "Revenda de terceiros" e "Comissões de pessoal"). Na DRE só a **margem** (venda − repasse) entra como receita própria, na linha "Revenda de terceiros (margem)"; a comissão aparece em RH. **Tratamento contábil a confirmar com o contador.**
+
+**Ligação com a Frota**: no painel da frota, o custo por veículo soma também os lançamentos do financeiro dos grupos Frota e Posto com a placa do veículo (coluna "Financeiro", competência do mês), só para quem vê o financeiro. Atenção: se a mesma despesa estiver na ordem de manutenção ou no abastecimento **e** no financeiro, ela conta duas vezes (a confirmar a regra entre os módulos).
+
+### Passo a passo para o dono importar a planilha real (no servidor, em produção)
+Os dados reais entram **só em produção**; o desenvolvimento e os testes usam planilhas fictícias.
+1. Entre com um usuário com `financeiro:gerenciar` (MFA ativo). Em *Contas e categorias*, clique em **Criar contas padrão** (Sicredi, Unilos, Quiosque, Cartão, Aplicação) para a praça; confira os dias de fechamento e vencimento do cartão.
+2. Na planilha, exporte **uma aba por vez** como CSV, **começando pela mais antiga** (a primeira define os saldos iniciais). O .xlsx ainda não é lido.
+3. Em *Financeiro › Importar planilha*, escolha a praça e o arquivo. Confira a prévia: layout, contas, saldos de abertura e a conferência de qualidade (corrija na planilha o que for data inválida ou duplicidade de verdade e exporte de novo).
+4. Mapeie o que não foi reconhecido (categoria, transferência ou ignorar) e marque *Lembrar no dicionário*. Clique em *Atualizar prévia* até a lista de não reconhecidos zerar (ou aceite ignorar essas linhas).
+5. Confirme. Repita para as abas seguintes; o aviso de **divergência de saldo** mostra se o saldo de abertura da aba bate com o calculado (não sobrescreve nada).
+6. Se importar a mesma aba de novo (por correção), nada duplica: só entram as linhas novas.
+7. Confira o **Resumo financeiro** do mês e compare com o resumo da planilha, lembrando que as fórmulas dela têm erros conhecidos.
+
 ## Permissões e escopo
 - `financeiro:ver` e `financeiro:gerenciar`, ambas **sensíveis** (exigem MFA). `gerenciar` também permite consultar na API; na tela o menu usa `financeiro:ver`, então dê as duas ao perfil que lança.
 - Escopo por praça: quem não vê todas as praças só enxerga contas, lançamentos e extratos das suas; registros "da empresa toda" (sem praça) só aparecem para quem vê todas. Praça obrigatória para quem não é de todas.
 - Toda gravação gera auditoria (`FIN_*`), sem dado pessoal.
 
 ## Telas (`apps/web/src/paginas/financeiro/`)
-Abas Resumo (`/financeiro`), A pagar, A receber, Extrato e conciliação, Cartões, Contas e categorias. No menu Administrativo, os itens planejados Contas a pagar/receber/Cartões viraram itens reais (e atalho `g d` para o resumo).
+Abas Resumo (`/financeiro`), A pagar, A receber, Extrato e conciliação, Cartões, Caixa e saldos, Revenda, Importar planilha, Contas e categorias (com o dicionário de sinônimos). No menu Administrativo, os itens planejados Contas a pagar/receber/Cartões viraram itens reais (e atalho `g d` para o resumo).
 
 ## Banco e API
-Tabelas em `apps/api/src/db/esquemas/financeiro.ts`: `fin_contas`, `fin_categorias`, `fin_lancamentos`, `fin_extratos`, `fin_extrato_linhas`, `fin_recusas`, `fin_regras`. Dinheiro em `bigint` (centavos). Migração **não commitada** (gerada na junção). Rotas `/api/financeiro/*` em `rotas/financeiro.ts` e `rotas/financeiro-extrato.ts`; regras puras em `packages/core/src/financeiro/`.
+Tabelas em `apps/api/src/db/esquemas/financeiro.ts`: `fin_contas`, `fin_categorias`, `fin_lancamentos`, `fin_extratos`, `fin_extrato_linhas`, `fin_recusas`, `fin_regras`, `fin_fornecedores`, `fin_sinonimos`, `fin_fechamentos_caixa`, `fin_revendas` (e as colunas `fornecedor_id` e `chave_importacao` em `fin_lancamentos`). Dinheiro em `bigint` (centavos). Migração **não commitada** (gerada na junção). Rotas `/api/financeiro/*` em `rotas/financeiro.ts` e `rotas/financeiro-extrato.ts`; regras puras em `packages/core/src/financeiro/`.
 Observação técnica: para gerar a migração, `drizzle-kit` não resolve imports `.js` entre arquivos de esquema (o arquivo `esquemas/financeiro.ts` importa `../schema.js` e o `schema.ts` o reexporta); basta gerar com os sufixos `.js` removidos temporariamente nesses dois imports.
 
 ## Decisões
@@ -35,7 +80,7 @@ Observação técnica: para gerar a migração, `drizzle-kit` não resolve impor
 - Vencimento da fatura é sempre posterior ao fechamento (se o dia cair igual ou antes, passa ao mês seguinte).
 
 ## Pendências e a confirmar
-- Fechamento de caixa diário do balcão (caixa/quiosque) e reservas de abastecimento/diária — próxima etapa.
+- Reservas de abastecimento e diária do caixa do quiosque; leitura direta de .xlsx (hoje só CSV); tela de consulta de favorecidos (a API existe); amortização × juros da parcela de empréstimo; ligação automática da comissão do vendedor à venda importada; conciliar custo de frota lançado no financeiro com ordens e abastecimentos do módulo de frota.
 - Conciliação de recebíveis por canal (Paytour, OTAs: bruto, comissão, líquido, previsto × efetivo) e integração com vendas.
 - Contratos B2B recorrentes com reajuste (Oceanic, publicidade).
 - Fiscal: NFS-e, ISS, guias, Reforma Tributária (CBS/IBS) e exportação para o contador.

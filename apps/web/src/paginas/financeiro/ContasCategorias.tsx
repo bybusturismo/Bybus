@@ -7,6 +7,7 @@ import { nomePraca, useSessao } from "../../sessao/Sessao";
 import { useCarregar } from "../../util/useCarregar";
 import { useCategorias, useContas } from "./dados";
 import { TIPOS_CONTA, type CategoriaFin, type ContaFin, type RegraFin, type TipoConta } from "./tipos";
+import { Sinonimos } from "./Sinonimos";
 import { ROTULO_TIPO_CONTA } from "./util";
 import { centavosDeTexto, formatarMoeda, textoDeCentavos } from "../../util/formato";
 
@@ -138,6 +139,17 @@ export function ContasCategorias() {
   const cats = categorias.dados ?? [];
   const nomeCat = (id: string) => cats.find((c) => c.id === id)?.nome ?? "—";
 
+  async function criarPadrao() {
+    setErro(null);
+    try {
+      const r = await api.post<{ criadas: string[] }>("/api/financeiro/contas/padrao", { unidadeId: usuario?.todasUnidades ? (praca || null) : (praca || unidades[0]?.id) });
+      notificar(r.criadas.length ? `Contas criadas: ${r.criadas.join(", ")}.` : "As contas padrão já existem.");
+      await contas.recarregar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    }
+  }
+
   async function alternarCategoria(c: CategoriaFin) {
     setErro(null);
     try {
@@ -183,6 +195,7 @@ export function ContasCategorias() {
         {podeEditar && (
           <div className="barra-acoes">
             <button type="button" className="botao botao--primario" onClick={() => setEditando("nova")}>Nova conta</button>
+            <button type="button" className="botao botao--secundario" onClick={() => void criarPadrao()}>Criar contas padrão</button>
             <button type="button" className="botao botao--secundario" onClick={() => setNovaCategoria(true)}>Nova categoria</button>
           </div>
         )}
@@ -250,6 +263,8 @@ export function ContasCategorias() {
           </ul>
         ) : <p className="texto-fraco">Nenhuma regra cadastrada.</p>}
       </section>
+
+      <Sinonimos />
 
       <Modal aberto={editando !== null} titulo={editando === "nova" ? "Nova conta" : "Editar conta"} aoFechar={() => setEditando(null)} largura="larga">
         {editando !== null && <FormConta conta={editando === "nova" ? null : editando} contas={contas.dados ?? []} aoSalvar={async () => { setEditando(null); notificar("Conta salva."); await contas.recarregar(); }} aoCancelar={() => setEditando(null)} />}

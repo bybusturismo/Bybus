@@ -134,6 +134,13 @@
       "when": 1793879550079,
       "tag": "0018_transfer",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793880297797,
+      "tag": "0019_financeiro_planilha",
+      "breakpoints": true
     }
   ]
 }

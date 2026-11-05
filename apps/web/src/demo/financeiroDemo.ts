@@ -1,9 +1,9 @@
 /** Financeiro da demonstração: contas, lançamentos do mês, extratos com sugestões e cartão. Tudo fictício, em centavos. */
 import {
-  PLANO_CATEGORIAS, calcularBaixa, faturaDaData, montarDre, montarFluxoSemanal, sugerirCategoria, sugerirCorrespondencias,
+  PLANO_CATEGORIAS, SINONIMOS_PADRAO, calcularBaixa, classificar, faturaDaData, lerPlanilhaFinanceira, montarDicionario, montarDre, montarFluxoSemanal, sugerirCategoria, sugerirCorrespondencias,
   type LancamentoCandidato, type LancamentoRelatorio, type RegraCategoria,
 } from "@bybus/core";
-import { NAO, UN_BC, UN_FLN, achar, aplicar, fimDoMes, semAcento, somarDias, type Rotear } from "./comum";
+import { NAO, UN_BC, UN_FLN, achar, aplicar, fimDoMes, semAcento, somarDias, type Corpo, type Ctx, type Rotear } from "./comum";
 
 type Tipo = "PAGAR" | "RECEBER";
 interface Conta { id: string; unidadeId: string | null; nome: string; tipo: string; banco: string | null; finalConta: string | null; saldoInicialCentavos: number; saldoInicialEm: string | null; diaFechamento: number | null; diaVencimento: number | null; contaPagamentoId: string | null; ativa: boolean; saldoCentavos: number }
@@ -12,7 +12,7 @@ interface Regra { id: string; texto: string; tipo: "RECEITA" | "DESPESA" | null;
 interface Lanc {
   id: string; tipo: Tipo; descricao: string; contraparte: string | null; categoriaId: string; contaId: string | null; unidadeId: string | null; linha: string | null; veiculo: string | null; canal: string | null; forma: string | null;
   valorCentavos: number; competencia: string; vencimento: string; situacao: "ABERTO" | "REALIZADO"; pagoEm: string | null; valorPagoCentavos: number | null; jurosCentavos: number; multaCentavos: number; descontoCentavos: number;
-  grupoId: string | null; parcelaNumero: number | null; parcelaTotal: number | null; recorrente: boolean; observacao: string | null; origem: "MANUAL" | "EXTRATO";
+  grupoId: string | null; parcelaNumero: number | null; parcelaTotal: number | null; recorrente: boolean; observacao: string | null; origem: "MANUAL" | "EXTRATO" | "PLANILHA";
 }
 interface Linha { id: string; contaId: string; data: string; valorCentavos: number; descricao: string; documento: string | null; status: "PENDENTE" | "CONCILIADO" | "TRANSFERENCIA" | "IGNORADO"; lancamentoId: string | null; parLinhaId: string | null; manual: boolean; observacao: string | null }
 
@@ -25,6 +25,10 @@ const regras: Regra[] = [];
 const lancs: Lanc[] = [];
 const linhas: Linha[] = [];
 const recusas = new Set<string>();
+const sinonimos: Array<{ id: string; tipo: string; texto: string; alvo: string }> = SINONIMOS_PADRAO.map((x, i) => ({ id: `sn-${i}`, tipo: x.tipo, texto: x.texto, alvo: x.alvo }));
+const fechamentos: Array<{ contaId: string; data: string; saldoInicialCentavos: number; entradasCentavos: number; saidasCentavos: number; saldoCalculadoCentavos: number; saldoContadoCentavos: number; diferencaCentavos: number; observacao: string | null; fechadoEm: string }> = [];
+const revendas: Array<{ id: string; descricao: string; fornecedor: string | null; vendedor: string | null; dataVenda: string; valorVendaCentavos: number; valorRepasseCentavos: number; comissaoCentavos: number }> = [];
+const COLUNA_CONTA: Record<string, string> = { SICREDI: "co-fln", UNILOS: "co-bc", QUIOSQUE: "co-caixa", CARTAO: "co-cartao" };
 
 const cat = (codigo: string) => `cat-${codigo}`;
 
@@ -40,6 +44,8 @@ function semear(dataMais: (n: number) => string) {
   contas.push(
     { id: "co-fln", unidadeId: UN_FLN, nome: "Conta corrente Floripa (fictícia)", tipo: "CORRENTE", banco: "Banco Exemplo", finalConta: "0001", saldoInicialCentavos: 3_000_000, saldoInicialEm: dia(1), diaFechamento: null, diaVencimento: null, contaPagamentoId: null, ativa: true, saldoCentavos: 4_835_000 },
     { id: "co-bc", unidadeId: UN_BC, nome: "Conta corrente Balneário Camboriú (fictícia)", tipo: "CORRENTE", banco: "Banco Exemplo", finalConta: "0002", saldoInicialCentavos: 1_500_000, saldoInicialEm: dia(1), diaFechamento: null, diaVencimento: null, contaPagamentoId: null, ativa: true, saldoCentavos: 2_212_050 },
+    { id: "co-caixa", unidadeId: UN_FLN, nome: "Caixa do quiosque (fictício)", tipo: "CAIXA", banco: null, finalConta: null, saldoInicialCentavos: 30_000, saldoInicialEm: dia(1), diaFechamento: null, diaVencimento: null, contaPagamentoId: null, ativa: true, saldoCentavos: 87_000 },
+    { id: "co-aplic", unidadeId: UN_FLN, nome: "Aplicação (fictícia)", tipo: "APLICACAO", banco: "Banco Exemplo", finalConta: null, saldoInicialCentavos: 2_000_000, saldoInicialEm: dia(1), diaFechamento: null, diaVencimento: null, contaPagamentoId: null, ativa: true, saldoCentavos: 2_000_000 },
     { id: "co-cartao", unidadeId: null, nome: "Cartão corporativo (fictício)", tipo: "CARTAO", banco: "Banco Exemplo", finalConta: "7788", saldoInicialCentavos: 0, saldoInicialEm: null, diaFechamento: 25, diaVencimento: 5, contaPagamentoId: "co-fln", ativa: true, saldoCentavos: -1_134_500 },
   );
   for (const [texto, codigo, tipo] of [["POSTO", "DESP_COMBUSTIVEL", "DESPESA"], ["TARIFA", "DESP_TAXAS", "DESPESA"], ["ESTACIONAMENTO", "DESP_PEDAGIO", "DESPESA"], ["GOOGLE", "DESP_MARKETING", "DESPESA"], ["PAYTOUR", "REC_SITE_PAYTOUR", "RECEITA"]] as const) {
@@ -90,6 +96,74 @@ function semear(dataMais: (n: number) => string) {
 }
 
 // ---------- derivações ----------
+const lancBase = (): Omit<Lanc, "id" | "tipo" | "descricao" | "categoriaId" | "valorCentavos" | "competencia" | "vencimento" | "unidadeId"> => ({
+  contraparte: null, contaId: null, linha: null, veiculo: null, canal: null, forma: null, situacao: "ABERTO", pagoEm: null, valorPagoCentavos: null, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0,
+  grupoId: null, parcelaNumero: null, parcelaTotal: null, recorrente: false, observacao: null, origem: "MANUAL",
+});
+function receitaPorConta(doMes: Lanc[]) {
+  const por = new Map<string, number>();
+  for (const l of doMes) if (l.tipo === "RECEBER" && l.situacao === "REALIZADO") por.set(l.contaId ?? "", (por.get(l.contaId ?? "") ?? 0) + (l.valorPagoCentavos ?? 0));
+  return [...por].map(([id, total]) => ({ contaId: id || null, nome: nomeConta(id || null) ?? "Sem conta", totalCentavos: total }));
+}
+
+/** Importação de planilha na demonstração: lê o conteúdo enviado (use a planilha de exemplo fictícia) com as mesmas regras do sistema. */
+function importarPlanilha(ctx: Ctx, c: Corpo) {
+  const dic = montarDicionario(sinonimos.map((x) => ({ tipo: x.tipo as "GRUPO" | "CATEGORIA", texto: x.texto, alvo: x.alvo })));
+  let lida;
+  try { lida = lerPlanilhaFinanceira(String(c.conteudo ?? "")); } catch (e) { throw ctx.erro(400, "PLANILHA_INVALIDA", (e as Error).message); }
+  const mapa = (c.mapeamentos ?? {}) as Record<string, string>;
+  const novos: Array<{ tipo: Tipo; aberto: boolean; descricao: string; categoriaId: string; categoria: string; valor: number; data: string; coluna: string; fornecedor: string }> = [];
+  const naoRec = new Map<string, { chave: string; grupo: string; categoria: string; qtd: number; totalCentavos: number }>();
+  const saldos: Array<{ coluna: string; rotulo: string; valorCentavos: number; data: string; aplicar: boolean; motivo: string | null; calculadoCentavos: null; divergenciaCentavos: null }> = [];
+  let transf = 0;
+  let ignoradas = lida.ignoradas.length;
+  const datas = lida.linhas.filter((l) => l.data).map((l) => l.data!).sort();
+  for (const l of lida.linhas) {
+    if (l.saldo) {
+      for (const [coluna, v] of Object.entries(l.valores)) if (coluna !== "APAGAR") saldos.push({ coluna, rotulo: coluna, valorCentavos: v!, data: l.data ?? datas[0] ?? "", aplicar: true, motivo: null, calculadoCentavos: null, divergenciaCentavos: null });
+      continue;
+    }
+    const cls = classificar(l.grupo, l.categoria, dic);
+    let alvo = cls.alvo;
+    if (!alvo) {
+      const m = mapa[cls.chave];
+      if (m === "IGNORAR") alvo = "@IGNORAR"; else if (m === "TRANSFERENCIA") alvo = "@TRANSFERENCIA"; else if (m) alvo = categorias.find((k) => k.id === m)?.codigo ?? null;
+    }
+    if (!alvo) {
+      const x = naoRec.get(cls.chave) ?? { chave: cls.chave, grupo: l.grupo, categoria: l.categoria, qtd: 0, totalCentavos: 0 };
+      x.qtd += 1;
+      x.totalCentavos += Object.values(l.valores).reduce((s, v) => s + Math.abs(v ?? 0), 0);
+      naoRec.set(cls.chave, x);
+      continue;
+    }
+    if (alvo === "@IGNORAR") { ignoradas += 1; continue; }
+    if (alvo.startsWith("@")) { transf += 1; continue; }
+    const k = categorias.find((x) => x.codigo === alvo)!;
+    for (const [coluna, v] of Object.entries(l.valores) as Array<[string, number]>) {
+      const aberto = coluna === "APAGAR";
+      novos.push({ tipo: aberto || v < 0 ? "PAGAR" : "RECEBER", aberto, descricao: l.descricao || k.nome, categoriaId: k.id, categoria: k.nome, valor: Math.abs(v), data: l.data!, coluna, fornecedor: l.fornecedor });
+    }
+  }
+  const porConta = ["APAGAR", "SICREDI", "UNILOS", "QUIOSQUE", "CARTAO"].map((coluna) => {
+    const itens = novos.filter((x) => x.coluna === coluna);
+    return { coluna, rotulo: coluna === "APAGAR" ? "A pagar (em aberto)" : coluna, conta: COLUNA_CONTA[coluna] ? nomeConta(COLUNA_CONTA[coluna]!) : null, criar: false, qtd: itens.length, entradasCentavos: itens.filter((x) => x.tipo === "RECEBER").reduce((s, x) => s + x.valor, 0), saidasCentavos: itens.filter((x) => x.tipo === "PAGAR").reduce((s, x) => s + x.valor, 0) };
+  }).filter((x) => x.qtd > 0);
+  const resumo = {
+    previa: !c.confirmar, layout: lida.layout, cabecalhoLinha: lida.cabecalhoLinha, lidos: novos.length + transf, novos: { lancamentos: novos.length, transferencias: transf }, jaExistentes: 0,
+    abertos: novos.filter((x) => x.aberto).length, realizados: novos.filter((x) => !x.aberto).length, transferencias: transf, contasACriar: [], porConta, saldos, naoReconhecidos: [...naoRec.values()],
+    qualidade: { dataInvalida: { total: lida.datasInvalidas.length, linhas: lida.datasInvalidas }, mesDiferente: { total: 0, linhas: [] }, anoFora: { total: 0, linhas: [] }, grupoVazio: { total: 0, linhas: [] }, grafias: [], duplicadas: { total: 0, grupos: [] }, pessoaFisica: { total: 0, linhas: [] }, previstas: 0, apagarSemConta: novos.filter((x) => x.aberto).length, apagarDiferente: 0 },
+    avisos: ["Demonstração: use a planilha de exemplo fictícia. O resumo do topo não é importado."], ignoradas, erros: lida.erros, totalErros: lida.erros.length,
+    amostra: novos.slice(0, 10).map((x) => ({ data: x.data, tipo: x.tipo, aberto: x.aberto, descricao: x.descricao, categoria: x.categoria, fornecedor: x.fornecedor || null, valorCentavos: x.valor, conta: x.aberto ? null : nomeConta(COLUNA_CONTA[x.coluna] ?? null) })),
+  };
+  if (!c.confirmar) return resumo;
+  for (const x of novos) {
+    const l: Lanc = { ...lancBase(), id: ctx.id("la"), tipo: x.tipo, descricao: x.descricao, categoriaId: x.categoriaId, valorCentavos: x.valor, competencia: x.data, vencimento: x.data, unidadeId: c.unidadeId ?? UN_FLN, contraparte: x.fornecedor || null, origem: "PLANILHA" };
+    if (!x.aberto) Object.assign(l, { situacao: "REALIZADO", pagoEm: x.data, valorPagoCentavos: x.valor, contaId: COLUNA_CONTA[x.coluna] ?? null });
+    lancs.push(l);
+  }
+  ctx.auditar("FIN_PLANILHA_IMPORTADA", "fin_planilha", undefined, { lancamentos: novos.length });
+  return { ...resumo, previa: false, resultado: { lancamentos: novos.length, transferencias: transf, jaExistentes: 0, contasCriadas: [], saldosAplicados: 0, fornecedores: 0, sinonimosSalvos: 0 } };
+}
 const nomeCat = (id: string) => categorias.find((c) => c.id === id)?.nome ?? "";
 const nomeConta = (id: string | null) => contas.find((c) => c.id === id)?.nome ?? null;
 const pendentesDe = (contaId: string) => linhas.filter((l) => l.contaId === contaId && l.status === "PENDENTE").length;
@@ -240,8 +314,71 @@ export const rotearFinanceiro: Rotear = (ctx, metodo, caminho, q, c) => {
     return {
       hoje, mes, aPagar: bloco("PAGAR"), aReceber: bloco("RECEBER"), vencidas: { pagar: venc("PAGAR"), receber: venc("RECEBER") },
       saldos: ativas.map((x) => ({ contaId: x.id, nome: x.nome, tipo: x.tipo, saldoCentavos: x.saldoCentavos })), saldoCaixaCentavos: saldoCaixa,
-      fluxo, dre, linhasPendentes: ativas.reduce((s, x) => s + pendentesDe(x.id), 0),
+      fluxo, dre, receitaPorConta: receitaPorConta(nosso.filter((l) => l.competencia >= ini && l.competencia <= fim)), linhasPendentes: ativas.reduce((s, x) => s + pendentesDe(x.id), 0),
     };
+  }
+
+  // Planilha de controle (prévia e confirmação com a planilha fictícia enviada), sinônimos, caixa, saldos e revenda
+  if (metodo === "POST" && caminho === "/api/financeiro/planilha/importar") { gerir(); return importarPlanilha(ctx, c); }
+  if (metodo === "POST" && caminho === "/api/financeiro/contas/padrao") { gerir(); return { criadas: [] }; }
+  if (metodo === "GET" && caminho === "/api/financeiro/sinonimos") {
+    ver();
+    return sinonimos.map((x) => ({ ...x, alvoNome: x.tipo === "GRUPO" ? x.alvo : x.alvo.startsWith("@") ? x.alvo.slice(1).toLowerCase() : categorias.find((k) => k.codigo === x.alvo)?.nome ?? x.alvo }));
+  }
+  if (metodo === "POST" && caminho === "/api/financeiro/sinonimos") {
+    gerir();
+    const x = { id: ctx.id("sn"), tipo: c.tipo, texto: semAcento(c.texto).toUpperCase(), alvo: c.alvo };
+    sinonimos.push(x);
+    return x;
+  }
+  if (r(/^\/api\/financeiro\/sinonimos\/([^/]+)$/)) {
+    gerir();
+    const x = achar(sinonimos, m![1]!, ctx, "Sinônimo");
+    if (metodo === "DELETE") { sinonimos.splice(sinonimos.indexOf(x), 1); return { ok: true }; }
+    return aplicar(x, c, ["alvo"]);
+  }
+  if (metodo === "GET" && r(/^\/api\/financeiro\/contas\/([^/]+)\/saldo-diario$/)) {
+    ver();
+    const conta = achar(contas, m![1]!, ctx, "Conta");
+    const ate = q.get("ate") ?? hoje;
+    const de = q.get("de") ?? somarDias(ate, -29);
+    const dias = [];
+    for (let d = de; d <= ate; d = somarDias(d, 1)) dias.push({ data: d, entradasCentavos: 0, saidasCentavos: 0, saldoFinalCentavos: conta.saldoCentavos });
+    return { conta: { id: conta.id, nome: conta.nome, tipo: conta.tipo }, saldoInicialCentavos: conta.saldoCentavos, dias };
+  }
+  if (metodo === "GET" && caminho === "/api/financeiro/caixa/dia") {
+    ver();
+    const conta = achar(contas, q.get("contaId") ?? "", ctx, "Conta");
+    const data = q.get("data") ?? hoje;
+    const f = fechamentos.find((x) => x.contaId === conta.id && x.data === data) ?? null;
+    return {
+      conta: { id: conta.id, nome: conta.nome }, data, saldoInicialCentavos: conta.saldoCentavos, entradasCentavos: 0, saidasCentavos: 0, saldoCalculadoCentavos: conta.saldoCentavos, fechamento: f, lancamentos: [],
+      recentes: fechamentos.filter((x) => x.contaId === conta.id).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 10),
+    };
+  }
+  if (metodo === "POST" && caminho === "/api/financeiro/caixa/fechar") {
+    gerir();
+    const conta = achar(contas, c.contaId, ctx, "Conta");
+    if (fechamentos.some((x) => x.contaId === conta.id && x.data === c.data)) throw ctx.erro(409, "CAIXA_JA_FECHADO", "Este dia do caixa já foi fechado.");
+    const f = { contaId: conta.id, data: c.data, saldoInicialCentavos: conta.saldoCentavos, entradasCentavos: 0, saidasCentavos: 0, saldoCalculadoCentavos: conta.saldoCentavos, saldoContadoCentavos: c.saldoContadoCentavos, diferencaCentavos: c.saldoContadoCentavos - conta.saldoCentavos, observacao: c.observacao ?? null, fechadoEm: ctx.agoraIso() };
+    fechamentos.push(f);
+    ctx.auditar("FIN_CAIXA_FECHADO", "fin_conta", conta.id);
+    return f;
+  }
+  if (metodo === "GET" && caminho === "/api/financeiro/revendas") {
+    ver();
+    return { aviso: "Tratamento contábil da revenda (só a margem como receita) a confirmar com o contador.", itens: revendas.map((x) => ({ ...x, margemCentavos: x.valorVendaCentavos - x.valorRepasseCentavos })) };
+  }
+  if (metodo === "POST" && caminho === "/api/financeiro/revendas") {
+    gerir();
+    const x = { id: ctx.id("rv"), descricao: c.descricao, fornecedor: c.fornecedor ?? null, vendedor: c.vendedor ?? null, dataVenda: c.dataVenda, valorVendaCentavos: c.valorVendaCentavos, valorRepasseCentavos: c.valorRepasseCentavos, comissaoCentavos: c.comissaoCentavos ?? 0 };
+    revendas.push(x);
+    const u = c.unidadeId ?? null;
+    const mk = (tipo: Tipo, desc: string, codigo: string, valor: number, venc: string) => lancs.push({ ...lancBase(), id: ctx.id("la"), tipo, descricao: desc, categoriaId: cat(codigo), valorCentavos: valor, competencia: c.dataVenda, vencimento: venc, unidadeId: u });
+    mk("RECEBER", `Revenda: ${x.descricao}`, "REC_REVENDA", x.valorVendaCentavos, x.dataVenda);
+    if (x.valorRepasseCentavos > 0) mk("PAGAR", `Repasse: ${x.descricao}`, "DESP_REVENDA_REPASSE", x.valorRepasseCentavos, c.vencimentoRepasse);
+    if (x.comissaoCentavos > 0) mk("PAGAR", `Comissão: ${x.descricao}`, "DESP_COMISSAO_RH", x.comissaoCentavos, c.vencimentoRepasse);
+    return { ...x, margemCentavos: x.valorVendaCentavos - x.valorRepasseCentavos };
   }
 
   // Cartões e faturas

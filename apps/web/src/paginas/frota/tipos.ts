@@ -174,8 +174,8 @@ export interface PainelFrota {
   manutencoes: Array<RotuloVeiculo & { planoId: string; nome: string; critico: boolean; situacao: SituacaoPlano; kmRestante: number | null; diasRestantes: number | null }>;
   ordensAbertas: number;
   checklist: { pendentesHoje: RotuloVeiculo[]; reprovadosHoje: number };
-  custos: Array<RotuloVeiculo & { manutencaoCentavos: number; combustivelCentavos: number; totalCentavos: number; kmRodados: number; custoPorKmCentavos: number | null }>;
-  totais: { manutencaoCentavos: number; combustivelCentavos: number; litros: number; mediaKml: number | null };
+  custos: Array<RotuloVeiculo & { manutencaoCentavos: number; combustivelCentavos: number; financeiroCentavos?: number; totalCentavos: number; kmRodados: number; custoPorKmCentavos: number | null }>;
+  totais: { manutencaoCentavos: number; combustivelCentavos: number; financeiroCentavos?: number; litros: number; mediaKml: number | null };
   alertasConsumo: Array<RotuloVeiculo & { abastecimentoId: string; data: string; kml: number | null; alerta: "ALTO" | "BAIXO" }>;
 }
 

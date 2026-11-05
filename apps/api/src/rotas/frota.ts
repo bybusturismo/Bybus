@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql, type SQL } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
   diasEntre, normalizarPlaca, placaValida, resumirChecklist, situacaoVencimento,
@@ -9,7 +9,7 @@ import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
 import type { Db } from "../db/cliente.js";
 import {
-  checklistItens, unidades, usuarios, veiculos, veiculosAbastecimentos, veiculosChecklists, veiculosDocumentos,
+  checklistItens, finCategorias, finLancamentos, unidades, usuarios, veiculos, veiculosAbastecimentos, veiculosChecklists, veiculosDocumentos,
   veiculosKm, veiculosOrdens, veiculosPlanos,
 } from "../db/schema.js";
 import { podeUnidade } from "../seguranca/escopo.js";
@@ -524,6 +524,14 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
       db.select({ veiculoId: veiculosKm.veiculoId, data: veiculosKm.data, km: veiculosKm.km }).from(veiculosKm).where(and(inArray(veiculosKm.veiculoId, ids), lte(veiculosKm.data, fim))),
       db.select({ veiculoId: veiculosChecklists.veiculoId, aprovado: veiculosChecklists.aprovado }).from(veiculosChecklists).where(and(inArray(veiculosChecklists.veiculoId, ids), eq(veiculosChecklists.data, hoje))),
     ]) : [[], [], [], []];
+    // Custos lançados no financeiro (grupos Frota e Posto) com a placa do veículo: só para quem pode ver o financeiro.
+    const placaChave = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const verFinanceiro = pode(req.usuario!, "financeiro:ver") || pode(req.usuario!, "financeiro:gerenciar");
+    const lancFin = verFinanceiro && ids.length
+      ? await db.select({ veiculo: finLancamentos.veiculo, valor: sql<number>`coalesce(${finLancamentos.valorPagoCentavos}, ${finLancamentos.valorCentavos})`.mapWith(Number) })
+        .from(finLancamentos).innerJoin(finCategorias, eq(finCategorias.id, finLancamentos.categoriaId))
+        .where(and(eq(finLancamentos.tipo, "PAGAR"), inArray(finCategorias.grupo, ["Frota", "Posto"]), isNotNull(finLancamentos.veiculo), gte(finLancamentos.competencia, inicio), lte(finLancamentos.competencia, fim)))
+      : [];
     const calcAbast = calcularAbastecimentos(abast);
     const abastMes = calcAbast.filter((a) => a.data >= inicio && a.data <= fim);
 
@@ -536,8 +544,9 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
       const noMes = meusKm.filter((k) => k.data >= inicio).map((k) => k.km);
       const iniKm = antes.length ? Math.max(...antes) : noMes.length ? Math.min(...noMes) : null;
       const kmRodados = fimKm != null && iniKm != null && fimKm > iniKm ? fimKm - iniKm : 0;
-      const total = manutencao + combustivel;
-      return { ...rotulo(v.id), manutencaoCentavos: manutencao, combustivelCentavos: combustivel, totalCentavos: total, kmRodados, custoPorKmCentavos: kmRodados > 0 ? Math.round(total / kmRodados) : null };
+      const financeiro = lancFin.filter((x) => x.veiculo && placaChave(x.veiculo) === placaChave(v.placa)).reduce((s, x) => s + x.valor, 0);
+      const total = manutencao + combustivel + financeiro;
+      return { ...rotulo(v.id), manutencaoCentavos: manutencao, combustivelCentavos: combustivel, financeiroCentavos: financeiro, totalCentavos: total, kmRodados, custoPorKmCentavos: kmRodados > 0 ? Math.round(total / kmRodados) : null };
     }).filter((c) => c.totalCentavos > 0 || c.kmRodados > 0);
 
     const litrosMes = abastMes.reduce((s, a) => s + a.litros, 0);
@@ -563,6 +572,7 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
       totais: {
         manutencaoCentavos: custos.reduce((s, c) => s + c.manutencaoCentavos, 0),
         combustivelCentavos: custos.reduce((s, c) => s + c.combustivelCentavos, 0),
+        financeiroCentavos: custos.reduce((s, c) => s + c.financeiroCentavos, 0),
         litros: Math.round(litrosMes * 100) / 100,
         mediaKml: kmls.length ? Math.round((kmls.reduce((s, x) => s + x, 0) / kmls.length) * 100) / 100 : null,
       },

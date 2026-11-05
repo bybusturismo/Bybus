@@ -42,6 +42,25 @@ export const finCategorias = pgTable("fin_categorias", {
   criadoEm: agora(),
 });
 
+/** Favorecidos. CPF/CNPJ, e-mail e telefone ficam cifrados em `contatoCifrado` e só saem para quem tem financeiro:ver. */
+export const finFornecedores = pgTable("fin_fornecedores", {
+  id: uuid().primaryKey().defaultRandom(),
+  nome: text().notNull(),
+  nomeNormalizado: text().notNull().unique(),
+  contatoCifrado: text(),
+  criadoEm: agora(),
+});
+
+/** Dicionário de sinônimos da planilha (variações e erros de digitação → grupo/categoria certos). Editável. */
+export const finSinonimos = pgTable("fin_sinonimos", {
+  id: uuid().primaryKey().defaultRandom(),
+  /** GRUPO ou CATEGORIA. */
+  tipo: text().notNull(),
+  texto: text().notNull(),
+  alvo: text().notNull(),
+  criadoEm: agora(),
+}, (t) => [uniqueIndex("fin_sinonimos_uq").on(t.tipo, t.texto)]);
+
 /**
  * Contas a pagar e a receber (uma tabela, `tipo` PAGAR|RECEBER). Centro de custo = praça × linha de negócio × veículo.
  * Valores em centavos. Situação ABERTO ou REALIZADO (baixado, com juros/multa/desconto).
@@ -77,8 +96,12 @@ export const finLancamentos = pgTable("fin_lancamentos", {
   parcelaTotal: integer(),
   recorrente: boolean().notNull().default(false),
   observacao: text(),
-  /** MANUAL (digitado) ou EXTRATO (criado a partir de uma linha de extrato/fatura). */
+  /** MANUAL (digitado), EXTRATO (criado de uma linha de extrato/fatura) ou PLANILHA (importado da planilha de controle). */
   origem: text().notNull().default("MANUAL"),
+  /** Favorecido (fornecedor), com os dados de contato guardados cifrados à parte. */
+  fornecedorId: uuid().references(() => finFornecedores.id),
+  /** Identificador estável da linha da planilha: reimportar a mesma aba não duplica. */
+  chaveImportacao: text(),
   criadoPor: uuid().references(() => usuarios.id),
   criadoEm: agora(),
   atualizadoEm: agora(),
@@ -87,6 +110,7 @@ export const finLancamentos = pgTable("fin_lancamentos", {
   index("fin_lanc_unidade_idx").on(t.unidadeId),
   index("fin_lanc_grupo_idx").on(t.grupoId),
   index("fin_lanc_competencia_idx").on(t.competencia),
+  uniqueIndex("fin_lanc_chave_importacao_uq").on(t.chaveImportacao).where(sql`chave_importacao is not null`),
 ]);
 
 /** Arquivos de extrato/fatura importados. */
@@ -154,3 +178,40 @@ export const finRegras = pgTable("fin_regras", {
   ativa: boolean().notNull().default(true),
   criadoEm: agora(),
 });
+
+/** Fechamento diário do caixa em dinheiro (quiosque): saldo inicial, entradas, saídas, saldo contado e diferença. Um por conta e dia. */
+export const finFechamentosCaixa = pgTable("fin_fechamentos_caixa", {
+  id: uuid().primaryKey().defaultRandom(),
+  contaId: uuid().notNull().references(() => finContas.id),
+  data: date().notNull(),
+  saldoInicialCentavos: centavos().notNull(),
+  entradasCentavos: centavos().notNull(),
+  saidasCentavos: centavos().notNull(),
+  saldoCalculadoCentavos: centavos().notNull(),
+  saldoContadoCentavos: centavos().notNull(),
+  diferencaCentavos: centavos().notNull(),
+  observacao: text(),
+  fechadoPor: uuid().references(() => usuarios.id),
+  fechadoEm: agora(),
+}, (t) => [uniqueIndex("fin_fechamentos_caixa_uq").on(t.contaId, t.data)]);
+
+/**
+ * Revenda de serviços de terceiros (ex.: ingressos): venda (valor recebido do cliente), repasse ao fornecedor e comissão do vendedor,
+ * cada um como lançamento. Na DRE só a margem (venda − repasse) entra como receita própria (tratamento contábil a confirmar).
+ */
+export const finRevendas = pgTable("fin_revendas", {
+  id: uuid().primaryKey().defaultRandom(),
+  descricao: text().notNull(),
+  fornecedor: text(),
+  unidadeId: uuid().references(() => unidades.id),
+  dataVenda: date().notNull(),
+  valorVendaCentavos: centavos().notNull(),
+  valorRepasseCentavos: centavos().notNull(),
+  comissaoCentavos: centavos().notNull().default(0),
+  vendedor: text(),
+  vendaLancamentoId: uuid().references(() => finLancamentos.id),
+  repasseLancamentoId: uuid().references(() => finLancamentos.id),
+  comissaoLancamentoId: uuid().references(() => finLancamentos.id),
+  criadoPor: uuid().references(() => usuarios.id),
+  criadoEm: agora(),
+}, (t) => [index("fin_revendas_data_idx").on(t.dataVenda)]);
