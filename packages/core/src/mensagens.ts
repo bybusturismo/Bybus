@@ -54,10 +54,19 @@ export function textoListaGrupo(
 }
 
 /** Mensagem de confirmação ao titular (véspera, após o fechamento). [A CONFIRMAR] texto oficial com o dono. */
-export function textoConfirmacao(d: { primeiroNome: string; passeio: string; data: string; ponto: { horario: string; nome: string; endereco: string | null } | null; linkEmbarque: string | null }): string {
+export function textoConfirmacao(d: {
+  primeiroNome: string; passeio: string; data: string; ponto: { horario: string; nome: string; endereco: string | null } | null; linkEmbarque: string | null;
+  /** Quem vem de transfer: horário de busca confirmado no fechamento das 21h, local e taxa a pagar ao motorista. */
+  transfer?: { horario: string | null; local: string | null; taxaACobrarCentavos: number } | null;
+}): string {
   const ola = d.primeiroNome ? `Olá, ${d.primeiroNome}!` : "Olá!";
   const linhas = [`${ola} Seu passeio *${d.passeio}* é amanhã, ${semanaBr(d.data)} (${dataBr(d.data)}).`];
-  if (d.ponto) {
+  if (d.transfer) {
+    linhas.push(d.transfer.horario
+      ? `Transfer: vamos buscar você${d.transfer.local ? ` em ${d.transfer.local}` : ""} às *${d.transfer.horario}* (horário confirmado). Esteja pronto(a) na portaria alguns minutos antes.`
+      : `Transfer: confirmaremos o horário de busca${d.transfer.local ? ` em ${d.transfer.local}` : ""} em breve.`);
+    if (d.transfer.taxaACobrarCentavos > 0) linhas.push(`Taxa do transfer: R$ ${(d.transfer.taxaACobrarCentavos / 100).toFixed(2).replace(".", ",")}, paga ao motorista (PIX ou dinheiro).`);
+  } else if (d.ponto) {
     linhas.push(`Embarque: *${d.ponto.horario}* — ${d.ponto.nome}${d.ponto.endereco ? ` (${d.ponto.endereco})` : ""}.`);
     linhas.push("Chegue alguns minutos antes: não há tolerância para atrasos.");
   } else {

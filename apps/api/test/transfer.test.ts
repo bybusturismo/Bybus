@@ -74,8 +74,8 @@ describe("configuração do passeio", () => {
     const r = await sup.req("GET", `/api/passeios/${ids.passeio}/transfer`);
     expect(r.statusCode, r.body).toBe(200);
     const j = r.json();
-    expect(j.bairros.map((b: { nome: string }) => b.nome)).toEqual(["Santinho", "Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]);
-    expect(j.bairros.map((b: { ordemBusca: number }) => b.ordemBusca)).toEqual([1, 2, 3, 4, 5]);
+    expect(j.bairros.map((b: { nome: string }) => b.nome)).toEqual(["Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]); // bairros-base do dono (05/11); Santinho fica dentro de Ingleses
+    expect(j.bairros.map((b: { ordemBusca: number }) => b.ordemBusca)).toEqual([1, 2, 3, 4]);
     expect(j.config).toMatchObject({ taxaAConfirmar: true, taxaPorPassageiroCentavos: 4000, pontoEncontroId: ids.pontoVilla });
     expect(j.bairros[0]).not.toHaveProperty("taxaCentavos"); // taxa única, não por bairro
   });
@@ -116,9 +116,9 @@ describe("montagem do transfer do dia", () => {
     const r = await sup.req("POST", "/api/transfer/montar", { saidaId: ids.saida });
     expect(r.statusCode, r.body).toBe(200);
     const j = r.json() as Dto;
-    expect(j.reservas.map((x) => x.titular)).toEqual(["Marta Santinho Fictícia", "Ana Ingleses Fictícia", "Caio Cachoeira Fictício", "Rui Canasvieiras Fictício", "Paulo Jurere Fictício"]);
-    expect(j.reservas.map((x) => x.bairro)).toEqual(["Santinho", "Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]);
-    // Ingleses tem a mesma referência (06:40) de Santinho, mas vem depois: a van chega 5 min após a parada anterior.
+    expect(j.reservas.map((x) => x.titular)).toEqual(["Ana Ingleses Fictícia", "Marta Santinho Fictícia", "Caio Cachoeira Fictício", "Rui Canasvieiras Fictício", "Paulo Jurere Fictício"]);
+    expect(j.reservas.map((x) => x.bairro)).toEqual(["Ingleses", "Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]);
+    // Duas buscas em Ingleses (base 06:40): a segunda 5 min depois; os bairros seguintes nunca voltam no tempo.
     expect(j.reservas.map((x) => x.horario)).toEqual(["06:40", "06:45", "06:50", "07:00", "07:10"]);
     expect(j.reservas.map((x) => x.ordem)).toEqual([0, 1, 2, 3, 4]);
     // colo não paga: Marta (adulto + colo) = 1 assento
@@ -168,9 +168,9 @@ describe("ordem e edição", () => {
     // Subir um (Canasvieiras antes de Cachoeira) e voltar ao automático.
     const cana = j.reservas.find((x) => x.bairro === "Canasvieiras")!;
     j = (await sup.req("POST", `/api/transfer/reservas/${cana.id}/mover`, { posicao: 2 })).json() as Dto;
-    expect(j.reservas.map((x) => x.bairro)).toEqual(["Santinho", "Ingleses", "Canasvieiras", "Cachoeira do Bom Jesus", "Jurerê"]);
+    expect(j.reservas.map((x) => x.bairro)).toEqual(["Ingleses", "Ingleses", "Canasvieiras", "Cachoeira do Bom Jesus", "Jurerê"]);
     const rec = await sup.req("POST", `/api/transfer/dias/${j.dia!.id}/recalcular-ordem`);
-    expect((rec.json() as Dto).reservas.map((x) => x.bairro)).toEqual(["Santinho", "Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]);
+    expect((rec.json() as Dto).reservas.map((x) => x.bairro)).toEqual(["Ingleses", "Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]);
     expect((await comDb((db) => db.select().from(auditoria).where(eq(auditoria.acao, "TRANSFER_ORDEM_ALTERADA")))).length).toBeGreaterThanOrEqual(3);
   });
 
@@ -184,7 +184,7 @@ describe("ordem e edição", () => {
     let n = (await sup.req("POST", `/api/transfer/dias/${j.dia!.id}/recalcular-ordem`)).json() as Dto;
     expect(n.reservas.find((x) => x.id === ana.id)).toMatchObject({ horario: "06:42", endereco: "Pousada Ingleses Fictícia — portão azul" });
     n = (await sup.req("PATCH", `/api/transfer/reservas/${ana.id}`, { horarioBusca: null })).json() as Dto;
-    expect(n.reservas.find((x) => x.id === ana.id)!.horario).toBe("06:45"); // volta ao automático: depois da parada de Santinho (06:40)
+    expect(n.reservas.find((x) => x.id === ana.id)!.horario).toBe("06:40"); // volta ao automático: primeira busca de Ingleses
   });
 });
 
@@ -419,6 +419,6 @@ describe("privacidade", () => {
     const texto = JSON.stringify(trilha.map((a) => a.dados));
     expect(texto).not.toMatch(/Hotel|Pousada|Fictíci|\+55|90000-/);
     const bairros = await comDb((db) => db.select().from(transferBairros).where(eq(transferBairros.passeioId, ids.passeio)));
-    expect(bairros).toHaveLength(5);
+    expect(bairros).toHaveLength(4);
   });
 });

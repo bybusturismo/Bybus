@@ -45,3 +45,8 @@ UPDATE "perfis" SET "permissoes" = array_append("permissoes", 'transfer:operar')
 UPDATE "perfis" SET "permissoes" = array_append("permissoes", 'transfer:gerenciar') WHERE "codigo" = 'SUPERVISOR' AND NOT ('transfer:gerenciar' = ANY("permissoes"));
 ```
 (ADMIN recebe tudo pelo código.)
+
+## Atualização (05/11/2026) — bairros e confirmação das 21h
+- Bairros-base do dono, em ordem de busca: **Ingleses 06:40 → Cachoeira do Bom Jesus 06:50 → Canasvieiras 07:00 → Jurerê 07:10**. Santinho deixou de ser bairro próprio (hotéis do Santinho entram em Ingleses).
+- Os horários são base. O horário de cada busca é calculado pela ordem (nunca volta no tempo; +5 min entre paradas) e pode ser ajustado à mão até o fechamento.
+- No **fechamento das 21h**, a confirmação de cada titular com transfer leva o horário de busca confirmado, o hotel e, se ainda não pagou, a taxa a pagar ao motorista (PIX ou dinheiro). Quem já pagou ou tem a taxa incluída no passeio não recebe a cobrança.

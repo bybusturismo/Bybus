@@ -106,4 +106,4 @@ Outros produtos sabidos por documentos internos: **Nascer do Sol** (2021) e **Br
 - **Taxa:** por passageiro, **valor único** para todos os bairros (valor exato a confirmar; histórico R$ 35–45) — dono, 05/11/2026.
 - **Ponto de encontro da van com o ônibus:** Villa Romana Shopping — dono, 05/11/2026.
 - **Quem faz:** a **van da empresa**, com um **motorista fixo** do transfer (cadastrar em Guias e equipe) — dono, 05/11/2026. Lugares da van: a confirmar.
-- Ordem completa dos bairros: o dono vai enviar.
+- **Bairros e horários-base (dono, 05/11/2026), nesta ordem de busca:** Ingleses a partir das 6h40 → Cachoeira do Bom Jesus 6h50 → Canasvieiras 7h → Jurerê 7h10 (Santinho fica dentro de Ingleses). São uma **base**: o horário real depende da quantidade de pessoas e dos hotéis e é **confirmado até as 21h da véspera** (fechamento da lista), quando cada cliente recebe o horário de busca.

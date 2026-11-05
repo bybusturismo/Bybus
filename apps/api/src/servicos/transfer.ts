@@ -259,20 +259,27 @@ async function opcoesDoTransfer(db: Db, unidadeId: string) {
 }
 
 /** Quem vem de transfer e onde todos encontram o ônibus, para a lista de passageiros (texto, tela e impressão). Sem gravar nada. */
-export async function transferNaLista(db: Db, saidaId: string): Promise<{ lista: TransferNaLista; porReserva: Record<string, { bairro: string | null }> } | null> {
+export async function transferNaLista(db: Db, saidaId: string): Promise<{ lista: TransferNaLista; porReserva: Record<string, { bairro: string | null; horario: string | null; local: string | null; taxaACobrarCentavos: number }> } | null> {
   const dto = await carregarTransfer(db, saidaId, { verContatos: false, comOpcoes: false });
   if (!dto?.habilitado) return null;
   const [s] = await db.select({ passeioId: saidas.passeioId }).from(saidas).where(eq(saidas.id, saidaId));
   const bairros = (await bairrosDoPasseio(db, s!.passeioId)).map(paraCore);
   const elegiveis = await reservasElegiveis(db, saidaId);
   if (!elegiveis.length) return null;
-  const porReserva = new Map<string, { bairro: string | null }>();
+  const porReserva = new Map<string, { bairro: string | null; horario: string | null; local: string | null; taxaACobrarCentavos: number }>();
   for (const { reserva } of elegiveis) {
     const noDia = dto.reservas.find((r) => r.reservaId === reserva.id);
     const bairro = noDia ? noDia.bairro : escolherBairro(bairros, { pontoEmbarqueId: reserva.pontoEmbarqueId, hospedagem: reserva.hospedagemInformada })?.nome ?? null;
-    porReserva.set(reserva.id, { bairro });
+    porReserva.set(reserva.id, {
+      bairro,
+      horario: noDia?.horario ?? null,
+      local: noDia?.endereco ?? reserva.hospedagemInformada ?? bairro,
+      // Taxa a cobrar na hora só quando ainda não foi paga nem está incluída no passeio.
+      taxaACobrarCentavos: noDia && noDia.taxaSituacao === "A_RECEBER" && noDia.taxaForma !== "INCLUIDO_NO_PASSEIO" ? noDia.taxaCentavos : 0,
+    });
   }
-  return { lista: { encontro: dto.encontro ? { nome: dto.encontro.nome, horario: dto.encontro.horario } : null, porReserva }, porReserva: Object.fromEntries(porReserva) };
+  const lista = { encontro: dto.encontro ? { nome: dto.encontro.nome, horario: dto.encontro.horario } : null, porReserva: new Map([...porReserva].map(([k, v]) => [k, { bairro: v.bairro }])) };
+  return { lista, porReserva: Object.fromEntries(porReserva) };
 }
 
 /** Texto da lista do transfer (WhatsApp do motorista). Telefones só com `contatos`. */
@@ -312,10 +319,9 @@ export async function semearTransferPadrao(db: Db, passeioId: string) {
   const pontos = await db.select().from(pontosEmbarque).where(and(eq(pontosEmbarque.passeioId, passeioId), eq(pontosEmbarque.ehTransfer, true)));
   if (!pontos.length) return;
   const ponto = (trecho: string) => pontos.find((p) => p.nome.toLowerCase().includes(trecho))?.id ?? null;
-  // Ordem informada pelo dono em 04/11/2026 (do mais longe do centro para o mais perto); a ordem completa e os horários de
-  // Santinho são [A CONFIRMAR]. Horários dos demais: opções de embarque da Paytour (Ingleses 6h40, Cachoeira 6h50, Canasvieiras 7h, Jurerê 7h10).
+  // Bairros e horários-base confirmados pelo dono em 05/11/2026 (do mais longe do centro para o mais perto). São uma base:
+  // o horário real de cada busca depende da quantidade de pessoas e dos hotéis e é confirmado no fechamento das 21h da véspera.
   const padrao = [
-    { nome: "Santinho", ponto: "ingleses", horario: "06:40", aConfirmar: true },
     { nome: "Ingleses", ponto: "ingleses", horario: "06:40", aConfirmar: false },
     { nome: "Cachoeira do Bom Jesus", ponto: "cachoeira", horario: "06:50", aConfirmar: false },
     { nome: "Canasvieiras", ponto: "canasvieiras", horario: "07:00", aConfirmar: false },

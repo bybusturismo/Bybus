@@ -79,7 +79,7 @@ export async function fecharLista(db: Db, cofre: Cofre, config: Config, saidaId:
     const link = !p && config.URL_PUBLICA ? `${config.URL_PUBLICA.replace(/\/$/, "")}${(await gerarLinkEmbarque(db, r.id)).caminho}` : null;
     await enfileirarMensagem(db, config, {
       tipo: "CONFIRMACAO", reservaId: r.id, saidaId, destino: r.contatoTelefone,
-      texto: textoConfirmacao({ primeiroNome: r.contatoNome.split(/[\s,]+/).filter(Boolean)[0] ?? "", passeio: passeio.nome, data: saida.data, ponto: p, linkEmbarque: link }),
+      texto: textoConfirmacao({ primeiroNome: r.contatoNome.split(/[\s,]+/).filter(Boolean)[0] ?? "", passeio: passeio.nome, data: saida.data, ponto: p, linkEmbarque: link, transfer: viaTransfer?.porReserva[r.id] ?? null }),
     });
   }
   return { versao, texto, resumo };

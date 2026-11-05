@@ -1,5 +1,5 @@
 /**
- * Transfer da demonstração: o transfer FICTÍCIO de amanhã (8 reservas em Santinho, Ingleses, Cachoeira, Canasvieiras e Jurerê,
+ * Transfer da demonstração: o transfer FICTÍCIO de amanhã (8 reservas em Ingleses (com Santinho), Cachoeira, Canasvieiras e Jurerê,
  * hotéis fictícios, taxas a receber e já recebidas). Usa as mesmas regras do sistema (@bybus/core). Nada sai de verdade.
  */
 import { calcularHorariosBusca, calcularTaxa, moverItem, ordenarBusca, textoListaTransfer, totaisTaxa, type FormaTaxa, type SituacaoBusca, type SituacaoTaxa } from "@bybus/core";
@@ -37,11 +37,11 @@ const NOVOS = [
 
 export function criarTransferDemo(d: DepsTransferDemo) {
   const bairros: Bairro[] = [
-    { id: "tb-1", nome: "Santinho", ordemBusca: 1, horarioReferencia: "06:40", horarioAConfirmar: true, pontoEmbarqueId: null, ativo: true },
-    { id: "tb-2", nome: "Ingleses", ordemBusca: 2, horarioReferencia: "06:40", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
-    { id: "tb-3", nome: "Cachoeira do Bom Jesus", ordemBusca: 3, horarioReferencia: "06:50", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
-    { id: "tb-4", nome: "Canasvieiras", ordemBusca: 4, horarioReferencia: "07:00", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
-    { id: "tb-5", nome: "Jurerê", ordemBusca: 5, horarioReferencia: "07:10", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
+    // Bairros e horários-base do dono (05/11/2026); Santinho fica dentro de Ingleses.
+    { id: "tb-2", nome: "Ingleses", ordemBusca: 1, horarioReferencia: "06:40", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
+    { id: "tb-3", nome: "Cachoeira do Bom Jesus", ordemBusca: 2, horarioReferencia: "06:50", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
+    { id: "tb-4", nome: "Canasvieiras", ordemBusca: 3, horarioReferencia: "07:00", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
+    { id: "tb-5", nome: "Jurerê", ordemBusca: 4, horarioReferencia: "07:10", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
   ];
   const config = { taxaPorPassageiroCentavos: 4000, taxaAConfirmar: true, intervaloMinutos: 5, pontoEncontroId: null as string | null, chegadaPrevista: null as string | null, motoristaPadraoId: "pe-davi" as string | null, veiculoPadraoId: null as string | null, veiculoPadraoTexto: "Van fictícia ZZZ0Z00" as string | null, lugaresPadrao: 15 as number | null };
   const dia = { id: "tdia-1", saidaId: "", veiculoTexto: config.veiculoPadraoTexto, motoristaId: config.motoristaPadraoId, lugares: config.lugaresPadrao, pontoEncontroId: null as string | null, chegadaPrevista: null as string | null, observacoes: null as string | null };
@@ -60,11 +60,7 @@ export function criarTransferDemo(d: DepsTransferDemo) {
     const pontos = d.pontos();
     const pontosTransfer = pontos.filter((p) => p.ehTransfer);
     const villa = pontos.find((p) => /villa romana/i.test(p.nome));
-    bairros[0]!.pontoEmbarqueId = pontosTransfer[0]?.id ?? null; // Santinho e Ingleses dividem o ponto da Paytour
-    bairros[1]!.pontoEmbarqueId = pontosTransfer[0]?.id ?? null;
-    bairros[2]!.pontoEmbarqueId = pontosTransfer[1]?.id ?? null;
-    bairros[3]!.pontoEmbarqueId = pontosTransfer[2]?.id ?? null;
-    bairros[4]!.pontoEmbarqueId = pontosTransfer[3]?.id ?? null;
+    bairros.forEach((b, i) => { b.pontoEmbarqueId = pontosTransfer[i]?.id ?? null; });
     config.pontoEncontroId = villa?.id ?? null;
     dia.pontoEncontroId = config.pontoEncontroId;
     const amanha = d.saidaDe(d.passeio.id, diaData());
