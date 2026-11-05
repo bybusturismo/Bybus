@@ -9,6 +9,7 @@ import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { textoListaGrupo } from "@bybus/core";
 import { agoraSp, enviarMensagem, fecharLista, situacaoFechamento } from "../servicos/fechamento.js";
 import { carregarManifesto } from "../servicos/manifesto.js";
+import { transferNaLista } from "../servicos/transfer.js";
 import { envioReal } from "../servicos/whatsapp.js";
 
 const uuid = z.string().uuid();
@@ -44,7 +45,7 @@ export async function rotasFechamento(app: FastifyInstance, { db, config, cofre 
     await garantirSaida(db, req.usuario!, id);
     const { saida, passeio, manifesto } = await carregarManifesto(db, cofre, id, { documentosCompletos: false, mostrarContatos: false });
     const rs = await db.select({ id: reservas.id, pagamento: reservas.pagamento, origemCliente: reservas.origemCliente }).from(reservas).where(eq(reservas.saidaId, id));
-    return { texto: textoListaGrupo(manifesto, { passeio: passeio.nome, data: saida.data, guia: saida.guia, motorista: saida.motorista, veiculo: saida.veiculo, versao: Math.max(1, saida.listaVersao) }, new Map(rs.map((r) => [r.id, r]))) };
+    return { texto: textoListaGrupo(manifesto, { passeio: passeio.nome, data: saida.data, guia: saida.guia, motorista: saida.motorista, veiculo: saida.veiculo, versao: Math.max(1, saida.listaVersao) }, new Map(rs.map((r) => [r.id, r])), (await transferNaLista(db, id))?.lista) };
   });
 
   /** Central de mensagens de uma saída (o texto só para quem vê contatos). */

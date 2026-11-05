@@ -33,6 +33,8 @@ export const CATALOGO_PERMISSOES = {
   "financeiro:gerenciar": "Lançar, baixar, importar extratos e conciliar no financeiro",
   "whatsapp:ver": "Ver as conversas de WhatsApp com os clientes (telefones e textos)",
   "whatsapp:responder": "Responder e iniciar conversas de WhatsApp pela tela",
+  "transfer:gerenciar": "Montar e ajustar o transfer do dia (ordem de busca, horários, van, motorista, taxa) e configurar os bairros",
+  "transfer:operar": "Operar o transfer pelo celular (motorista): marcar buscado/não apareceu e registrar a taxa recebida",
 } as const;
 
 export type Permissao = keyof typeof CATALOGO_PERMISSOES;

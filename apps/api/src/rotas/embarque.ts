@@ -9,6 +9,7 @@ import { filtroUnidade, garantirReserva } from "../seguranca/escopo.js";
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { gerarLinkEmbarque, hashToken } from "../servicos/linkEmbarque.js";
+import { atualizarTransferDaReserva } from "../servicos/transfer.js";
 
 const uuid = z.string().uuid();
 const dataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -72,6 +73,7 @@ export async function rotasEmbarque(app: FastifyInstance, { db, config }: Contex
     }).where(eq(reservas.id, reserva.id));
     await db.update(passageiros).set({ pontoEmbarqueId: null }).where(eq(passageiros.reservaId, reserva.id));
     await auditar(db, req, "EMBARQUE_INFORMADO_PELO_CLIENTE", { tipo: "reserva", id: reserva.id }, { transfer: ponto.ehTransfer });
+    await atualizarTransferDaReserva(db, null, reserva.id);
     return { ok: true, aposFechamento: !!saida.listaFechadaEm, ponto: { nome: ponto.nome, horario: ponto.horario, endereco: ponto.endereco } };
   });
 
@@ -149,6 +151,7 @@ export async function rotasEmbarque(app: FastifyInstance, { db, config }: Contex
     // Ponto corrigido vale para todos: tira o ponto individual dos passageiros (senão a lista agrupa pelo antigo).
     if (pontoId !== r.reserva.pontoEmbarqueId) await db.update(passageiros).set({ pontoEmbarqueId: null }).where(eq(passageiros.reservaId, id));
     await auditar(db, req, "RESERVA_CONFERIDA", { tipo: "reserva", id }, { pontoAlterado: pontoId !== r.reserva.pontoEmbarqueId });
+    await atualizarTransferDaReserva(db, req, id);
     return { ok: true };
   });
 }

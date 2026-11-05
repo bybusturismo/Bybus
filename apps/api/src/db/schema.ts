@@ -298,3 +298,4 @@ export * from "./esquemas/ia.js";
 export * from "./esquemas/financeiro.js";
 export * from "./esquemas/rastreio.js";
 export * from "./esquemas/whatsapp.js";
+export * from "./esquemas/transfer.js";

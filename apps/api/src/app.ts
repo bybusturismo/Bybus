@@ -15,6 +15,7 @@ import { agendarFechamento } from "./servicos/fechamento.js";
 import { rotasFinanceiro } from "./rotas/financeiro.js";
 import { rotasRastreio } from "./rotas/rastreio.js";
 import { rotasWhatsapp } from "./rotas/whatsapp.js";
+import { rotasTransfer } from "./rotas/transfer.js";
 import { agendarPaytour } from "./servicos/paytour.js";
 import { rotasManifesto } from "./rotas/manifesto.js";
 import { rotasOperacao } from "./rotas/operacao.js";
@@ -116,6 +117,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasFinanceiro(app, ctx);
   await rotasRastreio(app, ctx);
   await rotasWhatsapp(app, ctx);
+  await rotasTransfer(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);
