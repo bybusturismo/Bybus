@@ -97,3 +97,10 @@ Outros produtos sabidos por documentos internos: **Nascer do Sol** (2021) e **Br
 - Colunas: **Nº, Nome, Documento, TP, Estado, PG, Embarque, Telefone, Pesquisa**.
 - **72 linhas**: 1–57 (andar de cima) e **58–72 "PISO BAIXO"** (ônibus de dois andares); as linhas 20 e 24 têm uma marca "•" no modelo.
 - A confirmar: significado exato de **TP** (tipo: adulto/criança/sênior?), **Estado** (UF/país de origem?), **PG** (pago × pagar no embarque?), **Pesquisa** (pesquisa de satisfação?) e da marca "•" nas linhas 20 e 24.
+
+## Transfer do Norte da ilha (explicado pelo dono em 04/11/2026)
+- Feito por **van/carro separado**, que busca os passageiros e leva até o ônibus do city tour (ponto de encontro).
+- Os "pontos" de transfer da Paytour (Ingleses 6h40, Cachoeira 6h50, Canasvieiras 7h, Jurerê 7h10) são **bairros**: dão a noção do horário por bairro, mas a busca é **na porta do hotel**.
+- **Ordem de busca:** do mais longe do centro para o mais perto, começando pelo norte — ex.: Santinho → Ingleses → Cachoeira do Bom Jesus → Canasvieiras → Jurerê → … (ordem completa dos bairros a confirmar).
+- **Cobrança:** hoje a taxa (R$ 35–45) é paga **à parte, direto ao motorista**, por PIX ou dinheiro; a empresa está em **transição para cobrar junto com o passeio** (na compra).
+- Quem é o motorista/veículo do transfer, quantos lugares e onde é o ponto de encontro com o ônibus: a confirmar.
