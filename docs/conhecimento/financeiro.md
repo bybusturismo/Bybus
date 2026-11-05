@@ -17,3 +17,9 @@
 - Conciliação automática: venda → comissão do canal → valor líquido → data prevista × data recebida.
 - Contratos B2B recorrentes (Oceanic, publicidade) com faturamento mensal e reajuste.
 - Exportação para a contabilidade; emissão de NFS-e pelo Emissor Nacional.
+
+## Planilha de controle financeiro "DESP FIXA BY BUS" (estrutura, auditada em 05/11/2026)
+- Abas por mês (AGO2026, SET2026, OUT2026) e uma aba anual "jan a out". Contas: Sicredi, Unilos, dinheiro do quiosque (caixa) e cartões.
+- Dois layouts: até setembro `A PAGAR | SAIDA SIC | ENTR SIC | CARTÃO | UNILOS`; em outubro `A PAGAR | SICREDI | UNILOS | QUIOSQUE | CARTÃO` (saídas negativas). As fórmulas do resumo não foram atualizadas para o layout novo (a própria planilha anota "mudar as formulas").
+- Achados da auditoria (detalhe em conversa com o dono, só agregados): resumo com colunas trocadas, RH-BC fora do RH, combustível somado em FROTA e em POSTO, RESULTADO sem a receita da Unilos; transferências, aplicações/resgates e empréstimos misturados com receita/despesa; despesas pessoais junto das da empresa; abril e maio sem receitas lançadas na aba anual; outubro colado na aba anual sem grupo; datas inválidas e lançamentos futuros (previsões) misturados.
+- **Revenda de serviços de terceiros:** a By Bus revende, por exemplo, **ingressos do Beto Carrero** (comissão de vendedor em "COMISSÃO BETO CARREIRO"). Tratamento contábil (receita = só a margem/comissão) a confirmar com o contador.
