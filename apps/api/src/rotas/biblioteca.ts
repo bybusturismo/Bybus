@@ -239,9 +239,13 @@ export async function rotasBiblioteca(app: FastifyInstance, { db, config }: Cont
     return { p, ids: mesmas.map((m) => m.id) };
   }
 
-  app.post("/api/biblioteca/lixeira/:id/restaurar", editarGeral, async (req) => {
+  // Desfazer: quem excluiu (edita o pai da página) ou quem edita a Biblioteca.
+  app.post("/api/biblioteca/lixeira/:id/restaurar", ver, async (req) => {
     const { id } = z.object({ id: uuid }).parse(req.params);
     const { p, ids } = await lixoDe(id);
+    const base = await carregar();
+    if (p.paiId && base.paginas.some((x) => x.id === p.paiId)) exigirEditar(base, req.usuario!, p.paiId);
+    else if (!editorGeral(req.usuario!)) throw new ErroHttp(403, "SEM_PERMISSAO", "Só quem edita a Biblioteca restaura esta página.");
     // Se a página de cima também está na lixeira (de outra exclusão), volta para a raiz.
     let paiId = p.paiId;
     if (paiId) {
