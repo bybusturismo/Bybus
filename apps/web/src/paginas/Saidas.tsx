@@ -97,6 +97,8 @@ export function Saidas() {
   const notificar = useNotificar();
   const navegar = useNavigate();
   const [params, setParams] = useSearchParams();
+  // Vindo de "+ Nova reserva" (Visão Geral): escolher o passeio e a data; a reserva abre no formulário da saída.
+  const novaReserva = params.get("acao") === "nova-reserva";
   const hoje = hojeIso();
   const inicio = /^\d{4}-\d{2}-\d{2}$/.test(params.get("de") ?? "") ? params.get("de")! : hoje;
   // Período livre (pedido do dono, 04/11): "de" e "até" na URL; padrão 14 dias; no máximo 1 ano.
@@ -277,7 +279,7 @@ export function Saidas() {
                         {s.passeio}
                         {mostrarPraca && <span className="texto-fraco"> · {siglaPraca(s.unidadeId)}</span>}
                       </span>
-                      <Link to={`/saidas/${s.id}`} className="saida__link">
+                      <Link to={`/saidas/${s.id}${novaReserva ? "/reservas?nova=1" : ""}`} className="saida__link">
                         {formatarDataExtenso(data)}
                       </Link>
                       <div className="saida__equipe">
@@ -326,7 +328,7 @@ export function Saidas() {
                         </span>
                       </div>
                     </div>
-                    <Link to={`/saidas/${s.id}`} className="botao botao--secundario botao--pequeno saida__acao" aria-label={`Abrir lista de passageiros de ${formatarData(data)} — ${s.passeio}`}>
+                    <Link to={`/saidas/${s.id}${novaReserva ? "/reservas?nova=1" : ""}`} className="botao botao--secundario botao--pequeno saida__acao" aria-label={`Abrir lista de passageiros de ${formatarData(data)} — ${s.passeio}`}>
                       Lista de passageiros →
                     </Link>
                   </li>

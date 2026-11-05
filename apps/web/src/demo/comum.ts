@@ -5,6 +5,10 @@ export type Corpo = Record<string, any>;
 
 export interface Ctx {
   exigir(permissao?: string): void;
+  /** O usuário logado tem a permissão? */
+  pode(permissao: string): boolean;
+  /** Praças do usuário (null = todas). */
+  escopo(): string[] | null;
   erro(status: number, codigo: string, mensagem: string): Error;
   id(prefixo: string): string;
   auditar(acao: string, entidade?: string, entidadeId?: string, dados?: Record<string, unknown>): void;

@@ -11,7 +11,7 @@ import { MenuTopo } from "./MenuTopo";
 import { TuristinhaFlutuante } from "./TuristinhaFlutuante";
 import { BotaoTema } from "./Tema";
 
-export const AREAS = ["Passeios", "Cadastros", "Administrativo", "Marketing", "Biblioteca", "Gestão", "Configurações"] as const;
+export const AREAS = ["Passeios", "Reservas", "Cadastros", "Administrativo", "Marketing", "Biblioteca", "Gestão", "Configurações"] as const;
 export type Area = (typeof AREAS)[number];
 
 export interface ItemMenu {
@@ -28,6 +28,7 @@ export interface ItemMenu {
 
 export const ITENS_MENU: ItemMenu[] = [
   { para: "/saidas", rotulo: "Saídas", icone: "onibus", area: "Passeios", permissao: "manifesto:ver", atalho: "s" },
+  { para: "/reservas", rotulo: "Listagem de reservas", icone: "lista", area: "Reservas", permissao: "manifesto:ver", atalho: "x" },
   { para: "/conferencia", rotulo: "Conferência de embarque", icone: "check", area: "Passeios", permissao: "reservas:editar", atalho: "k" },
   { para: "/escala", rotulo: "Escala de guias", icone: "calendario", area: "Passeios", permissao: "pessoas:ver", atalho: "l" },
   { para: "/fechamento", rotulo: "Fechamento e mensagens", icone: "mensagem", area: "Passeios", permissao: "saidas:decidir", atalho: "m" },

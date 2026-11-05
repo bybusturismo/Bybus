@@ -15,6 +15,7 @@ import { rotearFrota } from "./frotaDemo";
 import { rotearIa } from "./iaDemo";
 import { rotearMarketing } from "./marketingDemo";
 import { rotearRastreio } from "./rastreioDemo";
+import { resumoDeVendas, rotearVisaoGeral, valorDemoDaReserva } from "./visaoGeralDemo";
 
 /** Catálogo de permissões (espelha apps/api/src/seguranca/permissoes.ts). */
 const CATALOGO: Record<string, string> = {
@@ -94,6 +95,7 @@ interface PasseioDemo { id: string; codigo: string; nome: string; cidade: string
 const passeio: PasseioDemo = { id: "toda-ilha", codigo: "TODA_ILHA", nome: "City Tour Toda Ilha", cidade: "Florianópolis", unidadeId: "un-fln", linha: "CITY_TOUR", capacidadePadrao: 73, minimoConfirmacao: 12, minimoSupervisor: 10, ativo: true };
 const passeios: PasseioDemo[] = [
   passeio,
+  { id: "bruxolico", codigo: "BRUXOLICO", nome: "City Tour – Passeio Bruxólico (fictício)", cidade: "Florianópolis", unidadeId: "un-fln", linha: "CITY_TOUR", capacidadePadrao: 46, minimoConfirmacao: 8, minimoSupervisor: 6, ativo: true },
   { id: "bc-tour", codigo: "BC_CITY_TOUR", nome: "City Tour Balneário Camboriú (fictício)", cidade: "Balneário Camboriú", unidadeId: "un-bc", linha: "CITY_TOUR", capacidadePadrao: 46, minimoConfirmacao: 10, minimoSupervisor: 8, ativo: true },
   { id: "bc-fret", codigo: "BC_FRETAMENTO", nome: "Fretamento para eventos (fictício)", cidade: "Balneário Camboriú", unidadeId: "un-bc", linha: "FRETAMENTO", capacidadePadrao: 46, minimoConfirmacao: 0, minimoSupervisor: 0, ativo: true },
 ];
@@ -109,6 +111,8 @@ const pessoas: Pessoa[] = [
   { ...pessoaBase, id: "pe-fred", nome: "Motorista Fictício Fred", papeis: ["MOTORISTA", "COLABORADOR"], unidadeId: "un-bc", cnhCategoria: "E", cnhValidade: dataMais(25) },
 ];
 const saidas: Saida[] = [];
+/** Valor informado à mão na reserva (centavos). */
+const valoresManuais = new Map<string, number>();
 const conferenciaDemo = new Map<string, { em: string; por: string }>();
 const fechamentoDemo = new Map<string, { em: string; versao: number }>();
 const mensagensDemo: Array<{ id: string; tipo: string; status: string; provedor: string; erro: string | null; criadoEm: string; enviadaEm: string | null; titular: string; destino: string | null; texto: string; saidaId: string; reservaId: string }> = [];
@@ -288,7 +292,7 @@ const publicoUsuario = (u: Usuario) => { const { senha: _s, ...r } = u; return {
 const alcance = (u: Usuario) => ehAdmin() || u.id === sessao!.id || (u.perfil !== "ADMIN" && contido(permissoesDe(u.perfil), permissoesDe(sessao!.perfil)) && (!u.todasUnidades || sessao!.todasUnidades) && u.unidadeIds.every(podeUnidade));
 
 // ---------- Módulos novos (financeiro, frota, marketing, biblioteca, IA): ver os arquivos *Demo.ts ----------
-const ctxModulos: Ctx = { exigir, erro: (status, codigo, msg) => new Erro(status, codigo, msg), id, auditar, dataMais, agoraIso };
+const ctxModulos: Ctx = { exigir, pode, escopo: () => (sessao?.todasUnidades ? null : sessao?.unidadeIds ?? []), erro: (status, codigo, msg) => new Erro(status, codigo, msg), id, auditar, dataMais, agoraIso };
 
 // ---------- Rotas ----------
 type Corpo = Record<string, any>;
@@ -411,9 +415,70 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
       if (!Array.isArray(c.passageiros) || c.passageiros.length === 0) throw new Erro(400, "DADOS_INVALIDOS", "Inclua ao menos um passageiro.");
       const nova: Reserva = { id: id("r"), saidaId: s.id, canal: c.canal, canalOrigem: c.canal, codigoExterno: c.codigoExterno || null, referencias: [], contatoNome: c.contatoNome, contatoTelefone: c.contatoTelefone || null, contatoEmail: c.contatoEmail || null, pontoEmbarqueId: c.pontoEmbarqueId ?? null, status: "CONFIRMADA", observacoes: c.observacoes ?? null, origem: "MANUAL", criadoEm: agoraIso(), atualizadoEm: agoraIso() };
       reservas.push(nova);
+      if (typeof c.valorCentavos === "number") { exigir("financeiro:ver"); valoresManuais.set(nova.id, c.valorCentavos); }
       for (const p of c.passageiros as Corpo[]) { const n: Pax = { id: id("p"), reservaId: nova.id, nome: p.nome ?? "", categoria: p.categoria, documentoTipo: null, documento: null, documentoPais: p.documentoPais ?? null, pontoEmbarqueId: p.pontoEmbarqueId ?? null, embarque: "PENDENTE", seq: seq++ }; definirDoc(n, p.documentoTipo, p.documento); pax.push(n); }
       auditar("RESERVA_CRIADA", "reserva", nova.id, { canal: nova.canal, passageiros: c.passageiros.length }); return nova;
     }
+  }
+  if (metodo === "GET" && caminho === "/api/visao-geral/resumo") {
+    exigir("manifesto:ver");
+    const hoje = dataMais(0);
+    const un = q.get("unidadeId");
+    if (un && !podeUnidade(un)) throw new Erro(404, "NAO_ENCONTRADO", "Praça não encontrada.");
+    const dosUsuario = (sa: Saida) => podeUnidade(unidadeDaSaida(sa)) && (!un || unidadeDaSaida(sa) === un);
+    const futuras = saidas.filter((sa) => dosUsuario(sa) && sa.data >= hoje && sa.status !== "CANCELADA");
+    const rs = reservas.filter((x) => x.status === "CONFIRMADA" && futuras.some((sa) => sa.id === x.saidaId));
+    const hojeSaidas = saidas.filter((sa) => dosUsuario(sa) && sa.data === hoje && sa.status !== "CANCELADA").map((sa) => {
+      const ps = pax.filter((p) => reservas.some((x) => x.id === p.reservaId && x.saidaId === sa.id && x.status === "CONFIRMADA") && p.categoria !== "COLO");
+      return { id: sa.id, passeio: passeioDe(sa.passeioId).nome, status: sa.status, capacidade: sa.capacidade, vendidos: ps.length, ocupacao: Math.round((ps.length / sa.capacidade) * 1000) / 10, veiculo: sa.veiculo, guia: sa.guia, motorista: sa.motorista, checkinsPendentes: ps.filter((p) => p.embarque === "PENDENTE").length };
+    });
+    const v = resumoDeVendas(hoje, sessao!.todasUnidades ? null : sessao!.unidadeIds, un, pode("financeiro:ver"));
+    return {
+      hoje, ...v,
+      pendencias: { aConferir: rs.filter((x) => !conferenciaDemo.has(x.id)).length, semPonto: rs.filter((x) => !x.pontoEmbarqueId).length, aPagarNoEmbarque: rs.filter((x) => extrasDemo(x).pagamento === "A_PAGAR").length, formularioPendente: rs.filter((x) => x.canal === "PAYTOUR" && x.id.length % 3 === 0).length },
+      saidasHoje: hojeSaidas,
+      whatsapp: { disponivel: false, naoLidas: null },
+      ota: { naoIntegradas: ["GetYourGuide"] },
+    };
+  }
+  if (metodo === "GET" && caminho === "/api/reservas") {
+    exigir("manifesto:ver");
+    const hoje = dataMais(0);
+    const pend = q.get("pendencia");
+    const de = q.get("de") ?? hoje;
+    const ate = q.get("ate") ?? dataMais(30);
+    const un = q.get("unidadeId");
+    if (un && !podeUnidade(un)) throw new Erro(404, "NAO_ENCONTRADO", "Praça não encontrada.");
+    const busca = normalizar(q.get("busca") ?? "");
+    const lista = reservas.flatMap((x) => {
+      const sa = saidas.find((y) => y.id === x.saidaId)!;
+      if (!podeUnidade(unidadeDaSaida(sa)) || (un && unidadeDaSaida(sa) !== un) || sa.data < de || sa.data > ate) return [];
+      if (q.get("passeioId") && sa.passeioId !== q.get("passeioId")) return [];
+      if (q.get("canal") && (x.canalOrigem ?? x.canal) !== q.get("canal")) return [];
+      if (q.get("situacao") && x.status !== q.get("situacao")) return [];
+      const conferida = conferenciaDemo.has(x.id);
+      if (q.get("conferencia") && (q.get("conferencia") === "CONFERIDA") !== conferida) return [];
+      const extras = extrasDemo(x);
+      const formPend = x.canal === "PAYTOUR" && x.id.length % 3 === 0;
+      if (pend) {
+        if (x.status !== "CONFIRMADA" || sa.status === "CANCELADA" || sa.data < hoje) return [];
+        if (pend === "a_conferir" && conferida) return [];
+        if (pend === "sem_ponto" && x.pontoEmbarqueId) return [];
+        if (pend === "a_pagar" && extras.pagamento !== "A_PAGAR") return [];
+        if (pend === "formulario" && !formPend) return [];
+      }
+      const ps = pax.filter((p) => p.reservaId === x.id);
+      if (busca && !normalizar(`${x.contatoNome} ${x.codigoExterno ?? ""} ${ps.map((p) => p.nome).join(" ")}`).includes(busca)) return [];
+      const ponto = pontos.find((p) => p.id === x.pontoEmbarqueId);
+      return [{
+        id: x.id, saidaId: sa.id, data: sa.data, passeio: passeioDe(sa.passeioId).nome, passeioId: sa.passeioId, canal: x.canalOrigem ?? x.canal, codigoExterno: x.codigoExterno,
+        contatoNome: x.contatoNome, passageiros: ps.length, status: x.status, conferencia: conferida ? "CONFERIDA" : "PENDENTE", pagamento: extras.pagamento, formaPagamento: extras.formaPagamento,
+        pontoEmbarque: ponto?.nome ?? null, formularioPendente: formPend, compraEm: new Date(Date.parse(`${sa.data}T15:00:00Z`) - (3 + (x.id.length % 20)) * 86400_000).toISOString(),
+        ...(pode("financeiro:ver") ? { valorCentavos: x.canal === "DECOLAR" ? null : valoresManuais.get(x.id) ?? valorDemoDaReserva(x.id, ps.length) } : {}),
+      }];
+    }).sort((a, b) => a.data.localeCompare(b.data) || a.contatoNome.localeCompare(b.contatoNome, "pt-BR"));
+    const limite = Number(q.get("limite") ?? 50), pagina = Math.max(1, Number(q.get("pagina") ?? 1));
+    return { periodo: { de, ate }, total: lista.length, pagina, limite, reservas: lista.slice((pagina - 1) * limite, pagina * limite) };
   }
   if (metodo === "PATCH" && r(/^\/api\/reservas\/([^/]+)$/)) {
     exigir("reservas:editar");
@@ -708,7 +773,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   }
 
   if (metodo === "GET" && caminho === "/api/auditoria") { exigir("auditoria:ver"); return auditoria.slice(0, Number(q.get("limite") ?? 200)); }
-  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio]) {
+  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, rotearVisaoGeral]) {
     const resposta = rotear(ctxModulos, metodo, caminho, q, c);
     if (resposta !== NAO) return resposta;
   }
