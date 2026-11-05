@@ -47,7 +47,7 @@ describe("Perfis de acesso", () => {
     await u.click(await screen.findByRole("button", { name: "Novo perfil" }));
     const dialogo = screen.getByRole("dialog", { name: "Novo perfil" });
     expect(within(dialogo).getAllByRole("group").map((g) => g.querySelector("legend")?.textContent)).toEqual([
-      "Administração", "Equipe e escala", "Produtos e pontos", "Saídas e reservas", "Lista de passageiros e embarque", "Frota e manutenção", "Rastreamento", "Marketing", "Biblioteca", "Inteligência artificial", "Financeiro", "WhatsApp",
+      "Administração", "Equipe e escala", "Produtos e pontos", "Saídas e reservas", "Lista de passageiros e embarque", "Frota e manutenção", "Rastreamento", "Marketing", "Biblioteca", "Inteligência artificial", "Financeiro", "WhatsApp", "Transfer",
     ]);
     await u.type(within(dialogo).getByLabelText("Código"), "escala bc");
     expect(within(dialogo).getByLabelText("Código")).toHaveValue("ESCALA_BC");

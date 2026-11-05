@@ -103,4 +103,5 @@ Outros produtos sabidos por documentos internos: **Nascer do Sol** (2021) e **Br
 - Os "pontos" de transfer da Paytour (Ingleses 6h40, Cachoeira 6h50, Canasvieiras 7h, Jurerê 7h10) são **bairros**: dão a noção do horário por bairro, mas a busca é **na porta do hotel**.
 - **Ordem de busca:** do mais longe do centro para o mais perto, começando pelo norte — ex.: Santinho → Ingleses → Cachoeira do Bom Jesus → Canasvieiras → Jurerê → … (ordem completa dos bairros a confirmar).
 - **Cobrança:** hoje a taxa (R$ 35–45) é paga **à parte, direto ao motorista**, por PIX ou dinheiro; a empresa está em **transição para cobrar junto com o passeio** (na compra).
-- Quem é o motorista/veículo do transfer, quantos lugares e onde é o ponto de encontro com o ônibus: a confirmar.
+- Respostas do dono (05/11/2026): a taxa é **por passageiro e única** (mesmo valor em todos os bairros; valor a confirmar entre R$ 35 e 45); o **ponto de encontro** com o ônibus é o **Villa Romana Shopping**; o transfer é feito pela **van da empresa** com **motorista fixo**; a ordem completa dos bairros o dono envia depois. Módulo: `docs/produto/modulo-transfer.md`.
+- Lugares da van: a confirmar.
