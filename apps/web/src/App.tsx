@@ -41,6 +41,8 @@ import { ListaPassageiros } from "./paginas/saida/ListaPassageiros";
 import { Reservas } from "./paginas/saida/Reservas";
 import { SaidaLayout } from "./paginas/saida/SaidaLayout";
 import { Saidas } from "./paginas/Saidas";
+import { VisaoGeral } from "./paginas/visao-geral/VisaoGeral";
+import { ListaDeReservas } from "./paginas/visao-geral/ListaReservas";
 import { Usuarios } from "./paginas/Usuarios";
 import { Equipe } from "./paginas/Equipe";
 import { Passeios } from "./paginas/Passeios";
@@ -70,7 +72,9 @@ function Inicio() {
   const { pode } = useSessao();
   // Motorista (transmite o rastreio ou só faz o checklist) cai direto na tela dele, no celular.
   const soMotorista = !pode("saidas:decidir") && (pode("rastreio:transmitir") || (!pode("manifesto:ver") && pode("frota:checklist")));
-  return <Navigate to={soMotorista ? "/motorista" : pode("manifesto:ver") ? "/saidas" : "/conta"} replace />;
+  if (soMotorista) return <Navigate to="/motorista" replace />;
+  // Quem vê a lista de passageiros entra na Visão Geral; os blocos mostram só o que o perfil pode ver.
+  return pode("manifesto:ver") ? <VisaoGeral /> : <Navigate to="/conta" replace />;
 }
 
 export function Rotas() {
@@ -90,6 +94,14 @@ export function Rotas() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Inicio />} />
+        <Route
+          path="reservas"
+          element={
+            <Exige permissao="manifesto:ver">
+              <ListaDeReservas />
+            </Exige>
+          }
+        />
         <Route
           path="saidas"
           element={

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { vendas } from "./esquemas/vendas.js";
 import { CANAIS, CATEGORIAS, STATUS_EMBARQUE, STATUS_RESERVA, TIPOS_DOCUMENTO } from "@bybus/core";
 
 /** Linhas de negócio da empresa (ADR 0005). */
@@ -197,6 +198,12 @@ export const reservas = pgTable("reservas", {
   formaPagamento: text(),
   /** Origem do cliente (UF ou país), para a coluna "Estado" da lista. */
   origemCliente: text(),
+  /** Pedido de venda que gerou a reserva (nulo em reserva manual sem pedido). */
+  vendaId: uuid().references(() => vendas.id, { onDelete: "set null" }),
+  /** Parte da reserva no valor do pedido, em centavos (BRL); nulo = valor não informado. */
+  valorCentavos: integer(),
+  /** Parte da reserva no desconto do pedido, em centavos. */
+  descontoCentavos: integer().notNull().default(0),
   /** Conferência humana do embarque: PENDENTE ou CONFERIDA. */
   conferencia: text().notNull().default("PENDENTE"),
   conferidaPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
@@ -213,6 +220,7 @@ export const reservas = pgTable("reservas", {
 }, (t) => [
   uniqueIndex("reservas_canal_codigo_uq").on(t.canal, t.codigoExterno),
   index("reservas_saida_idx").on(t.saidaId),
+  index("reservas_venda_idx").on(t.vendaId),
 ]);
 
 export const passageiros = pgTable("passageiros", {
@@ -298,3 +306,4 @@ export * from "./esquemas/ia.js";
 export * from "./esquemas/financeiro.js";
 export * from "./esquemas/rastreio.js";
 export * from "./esquemas/whatsapp.js";
+export * from "./esquemas/vendas.js";

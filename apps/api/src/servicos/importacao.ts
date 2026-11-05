@@ -1,7 +1,7 @@
 import { and, eq, like, or, sql } from "drizzle-orm";
-import { anonimizarReserva, type ReservaImportada } from "@bybus/core";
+import { anonimizarReserva, type ReservaImportada, type VendaImportada } from "@bybus/core";
 import type { Db } from "../db/cliente.js";
-import { passageiros, passeios, pontosEmbarque, reservas, saidas } from "../db/schema.js";
+import { passageiros, passeios, pontosEmbarque, reservas, saidas, vendas } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
 import { camposDocumento } from "./passageiro.js";
 import { aplicarEscalaNaSaida } from "./escala.js";
@@ -78,6 +78,7 @@ export async function importarReservas(
   // Inclui passeios inativos (encerrados): o histórico de vendas também precisa entrar.
   const todosPasseios = (await db.select().from(passeios)).filter((p) => podeUnidade(opcoes.usuario, p.unidadeId));
   const previa: ItemPrevia[] = [];
+  const vendasGravadas = new Map<string, string>();
 
   const executar = async (tx: Db) => {
     for (const [indice, item] of itens.entries()) {
@@ -150,6 +151,9 @@ export async function importarReservas(
           // Pagamento pode mudar no canal (ex.: "pagar no dia" quitado); só sobrescreve quando o canal informa.
           ...(item.pagamento !== undefined && item.pagamento !== null ? { pagamento: item.pagamento, formaPagamento: item.formaPagamento ?? null } : {}),
           origemCliente: existente!.origemCliente ?? item.origemCliente ?? null,
+          // Valores: a cada sincronização o canal é a fonte (preenche também as reservas antigas, sem duplicar).
+          ...(item.venda ? { vendaId: await gravarVenda(tx, item.venda, vendasGravadas) } : {}),
+          ...(item.valorCentavos != null ? { valorCentavos: item.valorCentavos, descontoCentavos: item.descontoCentavos ?? 0 } : {}),
           status: "CONFIRMADA",
           atualizadoEm: new Date(),
         }).where(eq(reservas.id, existente!.id));
@@ -172,6 +176,9 @@ export async function importarReservas(
         pagamento: item.pagamento ?? null,
         formaPagamento: item.formaPagamento ?? null,
         origemCliente: item.origemCliente ?? null,
+        vendaId: item.venda ? await gravarVenda(tx, item.venda, vendasGravadas) : null,
+        valorCentavos: item.valorCentavos ?? null,
+        descontoCentavos: item.descontoCentavos ?? 0,
       }).returning();
       if (item.passageiros.length) {
         await tx.insert(passageiros).values(
@@ -187,6 +194,23 @@ export async function importarReservas(
   const resumo: Record<Acao, number> = { CRIAR: 0, ATUALIZAR: 0, CANCELAR: 0, IGNORAR: 0 };
   previa.forEach((p) => resumo[p.acao]++);
   return { previa, resumo };
+}
+
+/** Grava (ou atualiza) o pedido de venda e devolve o id. Reimportar o mesmo pedido só atualiza: idempotente. */
+async function gravarVenda(tx: Db, v: VendaImportada, cache: Map<string, string>): Promise<string> {
+  const guardado = cache.get(v.pedidoCodigo);
+  if (guardado) return guardado;
+  const valores = {
+    fonte: v.fonte, canalVenda: v.canalVenda, valorCentavos: v.valorCentavos, subtotalCentavos: v.subtotalCentavos, descontoCentavos: v.descontoCentavos,
+    cupomExternoId: v.cupomExternoId, metodoPagamento: v.metodoPagamento, metodoPagamentoExterno: v.metodoPagamentoExterno, tipoPagamento: v.tipoPagamento,
+    parcelas: v.parcelas, dataHoraCompra: v.dataHoraCompra ? new Date(v.dataHoraCompra) : null, operadorId: v.operadorId, afiliadoId: v.afiliadoId,
+    afiliadoComissaoCentavos: v.afiliadoComissaoCentavos, parceiroId: v.parceiroId, parceiroComissaoCentavos: v.parceiroComissaoCentavos,
+    pagamentoPendenteCentavos: v.pagamentoPendenteCentavos, utmSource: v.utmSource, utmMedium: v.utmMedium, utmCampaign: v.utmCampaign, clienteCidade: v.clienteCidade,
+  };
+  const [linha] = await tx.insert(vendas).values({ pedidoCodigo: v.pedidoCodigo, ...valores })
+    .onConflictDoUpdate({ target: vendas.pedidoCodigo, set: { ...valores, atualizadoEm: new Date() } }).returning({ id: vendas.id });
+  cache.set(v.pedidoCodigo, linha!.id);
+  return linha!.id;
 }
 
 async function obterSaida(tx: Db, passeio: { id: string; capacidadePadrao: number }, data: string) {

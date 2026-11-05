@@ -2,6 +2,7 @@ import { canalPorDocumentoFicticio, somenteDigitos } from "../documento.js";
 import { extrairReferenciasOta } from "../dedupe.js";
 import { categoriaPorRotulo, type ReservaImportada } from "./comum.js";
 import { MAX_PASSAGEIROS_POR_RESERVA } from "./bokun-email.js";
+import { canalVendaPaytour, dataHoraBrasiliaParaUtc, ratearCentavos, reaisParaCentavos, type VendaImportada } from "../vendas/vendas.js";
 import { canalPorAfiliado, tipoDocumentoPorValor } from "./paytour-csv.js";
 
 /**
@@ -28,6 +29,22 @@ export interface PedidoPaytour {
   cliente_uf?: string | null;
   cliente_pais?: string | null;
   cliente_estrangeiro?: string | number | null;
+  /** Valores do pedido, em reais como texto ("170.00"). */
+  valor?: string | number | null;
+  desconto?: string | number | null;
+  cupom_id?: string | number | null;
+  parcelas_pagamento?: string | number | null;
+  data_hora_pedido?: string | null;
+  operador_id?: string | number | null;
+  afiliado_comissao?: string | number | null;
+  parceiro_id?: string | number | null;
+  parceiro_comissao?: string | number | null;
+  pagamento_pendente_valor?: string | number | null;
+  cliente_cidade?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  pagamento_detalhes?: { subtotal?: string | number | null } | null;
   observacao?: string | null;
   data_hora_atualizacao?: string | null;
   itens?: ItemPedidoPaytour[] | null;
@@ -37,6 +54,9 @@ export interface PedidoPaytour {
 export interface ItemPedidoPaytour {
   id: string | number;
   produto_tipo?: string | null;
+  /** Valor da linha do item, em reais. [A CONFIRMAR] se é o total da linha ou o unitário (usado só como peso do rateio). */
+  valor?: string | number | null;
+  opcionais?: Array<{ valor?: string | number | null; desconto_cupom?: string | number | null }> | null;
   quantidade?: string | number | null;
   nome_produto?: string | null;
   nome_utilizador?: string | null;
@@ -183,6 +203,20 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
   }
 
   const chaves = [...grupos.keys()].sort();
+
+  // Valores: o pedido traz um total; ele é rateado entre as reservas (uma por data+passeio) pelo valor dos itens
+  // (item + opcionais) e, sem valores nos itens, pela quantidade de pessoas. Só entram no rateio os grupos com data válida.
+  const chavesValidas = chaves.filter((c) => /^\d{4}-\d{2}-\d{2}$/.test(c.split("|")[0]!));
+  const somaItens = (is: ItemPedidoPaytour[]) => is.reduce((t, i) => t + (reaisParaCentavos(i.valor) ?? 0) + (i.opcionais ?? []).reduce((o, x) => o + (reaisParaCentavos(x.valor) ?? 0), 0), 0);
+  const pessoasDe = (is: ItemPedidoPaytour[]) => is.reduce((t, i) => t + Math.max(1, Number.parseInt(String(i.quantidade ?? "1"), 10) || 1), 0);
+  const pesosValor = chavesValidas.map((c) => somaItens(grupos.get(c)!));
+  const pesos = pesosValor.some((p) => p > 0) ? pesosValor : chavesValidas.map((c) => pessoasDe(grupos.get(c)!));
+  const valorPedido = reaisParaCentavos(pedido.valor) ?? (pesosValor.some((p) => p > 0) ? pesosValor.reduce((t, p) => t + p, 0) : null);
+  const descontoPedido = Math.max(0, reaisParaCentavos(pedido.desconto) ?? 0);
+  const partesValor = valorPedido === null ? null : ratearCentavos(valorPedido, pesos);
+  const partesDesconto = ratearCentavos(descontoPedido, pesos);
+  const pendente = String(pedido.pagamento_pendente ?? "") === "1" && !texto(pedido.pagamento_pendente_pago_em);
+
   return chaves.flatMap((chave) => {
     const doGrupo = grupos.get(chave)!;
     const [data, produto] = chave.split("|") as [string, string];
@@ -220,7 +254,35 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
     if (origemOta && !ehIntegracaoCivitatis(pedido)) avisos.push(`Reserva espelho de ${origemOta} lançada na Paytour.`);
 
     const canal = origemOta ?? "PAYTOUR";
+    const posicao = chavesValidas.indexOf(chave);
+    const venda: VendaImportada | null = valorPedido === null ? null : {
+      pedidoCodigo: `PAYTOUR-${id}`,
+      fonte: "PAYTOUR_API",
+      canalVenda: canalVendaPaytour({ canalReserva: canal, afiliadoId: pedido.afiliado_id, parceiroId: pedido.parceiro_id, operadorId: pedido.operador_id, metodoPagamento: pedido.metodo_pagamento, metodoPagamentoExterno: pedido.metodo_pagamento_externo }),
+      valorCentavos: valorPedido,
+      subtotalCentavos: reaisParaCentavos(pedido.pagamento_detalhes?.subtotal) ?? valorPedido + descontoPedido,
+      descontoCentavos: descontoPedido,
+      cupomExternoId: texto(pedido.cupom_id),
+      metodoPagamento: texto(pedido.metodo_pagamento),
+      metodoPagamentoExterno: texto(pedido.metodo_pagamento_externo),
+      tipoPagamento: texto(pedido.tipo_pagamento),
+      parcelas: Number.parseInt(String(pedido.parcelas_pagamento ?? ""), 10) || null,
+      dataHoraCompra: dataHoraBrasiliaParaUtc(texto(pedido.data_hora_pedido)),
+      operadorId: texto(pedido.operador_id),
+      afiliadoId: texto(pedido.afiliado_id),
+      afiliadoComissaoCentavos: reaisParaCentavos(texto(pedido.afiliado_comissao)),
+      parceiroId: texto(pedido.parceiro_id),
+      parceiroComissaoCentavos: reaisParaCentavos(texto(pedido.parceiro_comissao)),
+      pagamentoPendenteCentavos: pendente ? Math.max(0, reaisParaCentavos(texto(pedido.pagamento_pendente_valor)) ?? 0) : 0,
+      utmSource: texto(pedido.utm_source),
+      utmMedium: texto(pedido.utm_medium),
+      utmCampaign: texto(pedido.utm_campaign),
+      clienteCidade: texto(pedido.cliente_cidade),
+    };
     return [{
+      valorCentavos: partesValor && posicao >= 0 ? partesValor[posicao]! : null,
+      descontoCentavos: posicao >= 0 ? partesDesconto[posicao]! : 0,
+      venda,
       ...pagamentoPaytour(pedido, canal),
       origemCliente: origemPaytour(pedido),
       canal,

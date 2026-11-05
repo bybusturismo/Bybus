@@ -29,3 +29,4 @@ export * from "./financeiro/cartao.js";
 export * from "./rastreio/previsao.js";
 export * from "./biblioteca/html.js";
 export * from "./biblioteca/acesso.js";
+export * from "./vendas/vendas.js";

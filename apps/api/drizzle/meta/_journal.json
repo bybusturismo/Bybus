@@ -120,6 +120,13 @@
       "when": 1793878415108,
       "tag": "0016_biblioteca_toma",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793878673031,
+      "tag": "0017_valores_vendas",
+      "breakpoints": true
     }
   ]
 }

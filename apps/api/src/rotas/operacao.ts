@@ -24,6 +24,12 @@ const esquemaPassageiro = z.object({
   pontoEmbarqueId: uuid.nullish(),
 });
 
+/** Valor da reserva em centavos (inteiro, BRL). Máximo de R$ 1.000.000,00 por reserva. */
+const valorReserva = z.number({ invalid_type_error: "Valor em centavos (número inteiro)." }).int("Valor em centavos (número inteiro).").min(0, "O valor não pode ser negativo.").max(100_000_000, "Valor acima do limite de R$ 1.000.000,00.");
+function exigirPermissaoValor(u: Parameters<typeof pode>[0]) {
+  if (!pode(u, "financeiro:ver")) throw new ErroHttp(403, "SEM_PERMISSAO", "Informar o valor da reserva exige permissão de ver o financeiro.");
+}
+
 const { padraoProduto: _p, ...passeiosColunas } = {
   id: passeios.id, codigo: passeios.codigo, nome: passeios.nome, cidade: passeios.cidade, unidadeId: passeios.unidadeId, linha: passeios.linha,
   capacidadePadrao: passeios.capacidadePadrao, minimoConfirmacao: passeios.minimoConfirmacao, minimoSupervisor: passeios.minimoSupervisor,
@@ -213,8 +219,10 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     await auditar(db, req, "RESERVAS_VISUALIZADAS", { tipo: "saida", id });
     const lista = await db.select().from(reservas).where(eq(reservas.saidaId, id)).orderBy(asc(reservas.contatoNome));
     const pax = lista.length ? await db.select().from(passageiros).where(inArray(passageiros.reservaId, lista.map((r) => r.id))).orderBy(asc(passageiros.seq)) : [];
-    return lista.map((r) => ({
+    const verValores = pode(req.usuario!, "financeiro:ver");
+    return lista.map(({ valorCentavos, descontoCentavos, vendaId: _v, ...r }) => ({
       ...r,
+      ...(verValores ? { valorCentavos, descontoCentavos } : {}),
       contatoTelefone: verContatos ? r.contatoTelefone : null,
       contatoEmail: verContatos ? r.contatoEmail : null,
       passageiros: pax.filter((p) => p.reservaId === r.id).map(({ documentoCifrado: _c, ...p }) => ({ ...p, documento: documentoMascarado(p.documentoFinal) })),
@@ -231,8 +239,10 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       contatoEmail: z.string().trim().email().max(200).nullish().or(z.literal("")),
       pontoEmbarqueId: uuid.nullish(),
       observacoes: z.string().max(2000).nullish(),
+      valorCentavos: valorReserva.nullish(),
       passageiros: z.array(esquemaPassageiro).min(1).max(80),
     }).parse(req.body);
+    if (corpo.valorCentavos != null) exigirPermissaoValor(req.usuario!);
     await garantirSaida(db, req.usuario!, id);
     await validarPontoDaSaida(id, corpo.pontoEmbarqueId);
     for (const p of corpo.passageiros) await validarPontoDaSaida(id, p.pontoEmbarqueId);
@@ -240,7 +250,7 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       const [r] = await tx.insert(reservas).values({
         saidaId: id, canal: corpo.canal, canalOrigem: corpo.canal, codigoExterno: corpo.codigoExterno || null,
         contatoNome: corpo.contatoNome, contatoTelefone: corpo.contatoTelefone || null, contatoEmail: corpo.contatoEmail || null,
-        pontoEmbarqueId: corpo.pontoEmbarqueId ?? null, observacoes: corpo.observacoes ?? null,
+        pontoEmbarqueId: corpo.pontoEmbarqueId ?? null, observacoes: corpo.observacoes ?? null, valorCentavos: corpo.valorCentavos ?? null,
       }).returning();
       await tx.insert(passageiros).values(corpo.passageiros.map((p) => ({
         reservaId: r!.id, nome: p.nome, categoria: p.categoria, documentoPais: p.documentoPais ?? null,
@@ -251,8 +261,9 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       if ((e as { code?: string }).code === "23505") throw new ErroHttp(409, "RESERVA_EXISTE", "Já existe reserva com este canal e código.");
       throw e;
     });
-    await auditar(db, req, "RESERVA_CRIADA", { tipo: "reserva", id: resultado.id }, { canal: corpo.canal, passageiros: corpo.passageiros.length });
-    return resultado;
+    await auditar(db, req, "RESERVA_CRIADA", { tipo: "reserva", id: resultado.id }, { canal: corpo.canal, passageiros: corpo.passageiros.length, ...(corpo.valorCentavos != null ? { valorCentavos: corpo.valorCentavos } : {}) });
+    const { vendaId: _vid, ...publico } = resultado;
+    return publico;
   });
 
   app.patch("/api/reservas/:id", editar, async (req) => {
@@ -265,7 +276,9 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       observacoes: z.string().max(2000).nullish(),
       status: z.enum(["CONFIRMADA", "CANCELADA"]).optional(),
       saidaId: uuid.optional(),
+      valorCentavos: valorReserva.nullish(),
     }).parse(req.body);
+    if (corpo.valorCentavos !== undefined) exigirPermissaoValor(req.usuario!);
     const saidaAtual = await garantirReserva(db, req.usuario!, id);
     if (corpo.saidaId && corpo.saidaId !== saidaAtual) {
       const destino = await garantirSaida(db, req.usuario!, corpo.saidaId);
@@ -282,12 +295,14 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       const pax = await db.select({ id: passageiros.id, ponto: passageiros.pontoEmbarqueId }).from(passageiros).where(eq(passageiros.reservaId, id));
       for (const p of pax) if (p.ponto && !validos.includes(p.ponto)) await db.update(passageiros).set({ pontoEmbarqueId: null }).where(eq(passageiros.id, p.id));
     }
+    const [antesValor] = corpo.valorCentavos !== undefined ? await db.select({ v: reservas.valorCentavos }).from(reservas).where(eq(reservas.id, id)) : [];
     const { contatoEmail, ...resto } = corpo;
     // Só altera o e-mail quando o campo vier na requisição ("" ou null limpam).
     const [r] = await db.update(reservas).set({ ...resto, ...(contatoEmail !== undefined ? { contatoEmail: contatoEmail || null } : {}), atualizadoEm: new Date() }).where(eq(reservas.id, id)).returning();
     if (!r) throw new ErroHttp(404, "NAO_ENCONTRADO", "Reserva não encontrada.");
-    await auditar(db, req, corpo.status === "CANCELADA" ? "RESERVA_CANCELADA" : "RESERVA_ALTERADA", { tipo: "reserva", id }, { campos: Object.keys(corpo), status: corpo.status }); // sem dados pessoais na auditoria
-    return r;
+    await auditar(db, req, corpo.status === "CANCELADA" ? "RESERVA_CANCELADA" : "RESERVA_ALTERADA", { tipo: "reserva", id }, { campos: Object.keys(corpo), status: corpo.status, ...(corpo.valorCentavos !== undefined ? { valorAntes: antesValor?.v ?? null, valorDepois: corpo.valorCentavos ?? null } : {}) }); // sem dados pessoais na auditoria
+    const { vendaId: _vid, valorCentavos: vc, descontoCentavos: dc, ...publico } = r;
+    return pode(req.usuario!, "financeiro:ver") ? { ...publico, valorCentavos: vc, descontoCentavos: dc } : publico;
   });
 
   // ---------- Passageiros ----------

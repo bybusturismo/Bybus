@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, mensagemDeErro } from "../../api/cliente";
 import { CANAIS, type Canal, type PassageiroReserva, type PontoEmbarque, type Reserva } from "../../api/tipos";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
@@ -6,6 +7,7 @@ import { Icone } from "../../componentes/Icone";
 import { Confirmar, Modal } from "../../componentes/Modal";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { useSessao } from "../../sessao/Sessao";
+import { centavosDeTexto } from "../../util/formato";
 import { ROTULO_CANAL, ROTULO_CATEGORIA, ROTULO_DOCUMENTO, ROTULO_EMBARQUE, ROTULO_STATUS_RESERVA } from "../../util/rotulos";
 import { useCarregar } from "../../util/useCarregar";
 import { CamposPassageiro, corpoPassageiro, errosPassageiro, novoPassageiro, type PassageiroRascunho } from "./CamposPassageiro";
@@ -40,6 +42,8 @@ export function FormNovaReserva({ saidaId, pontos, aoSalvar, aoCancelar }: { sai
   const [email, setEmail] = useState("");
   const [ponto, setPonto] = useState("");
   const [obs, setObs] = useState("");
+  const [valor, setValor] = useState("");
+  const { pode } = useSessao();
   const [pax, setPax] = useState<PassageiroRascunho[]>(() => [novoPassageiro()]);
   const [mostrarErros, setMostrarErros] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -48,6 +52,9 @@ export function FormNovaReserva({ saidaId, pontos, aoSalvar, aoCancelar }: { sai
   const errosGerais: string[] = [];
   if (titular.trim().length < 2) errosGerais.push("Informe o nome do titular (mínimo 2 letras).");
   if (!emailValido(email)) errosGerais.push("E-mail do titular inválido.");
+  const lido = valor.trim() ? centavosDeTexto(valor) : null;
+  const valorCentavos = lido !== null && Number.isFinite(lido) && lido >= 0 ? lido : null;
+  if (valor.trim() && valorCentavos === null) errosGerais.push("Valor inválido (ex.: 120,00).");
   if (pax.length === 0) errosGerais.push("Inclua pelo menos um passageiro.");
   const temErroPax = pax.some((p) => Object.keys(errosPassageiro(p)).length > 0);
 
@@ -69,6 +76,7 @@ export function FormNovaReserva({ saidaId, pontos, aoSalvar, aoCancelar }: { sai
         contatoEmail: email.trim() || null,
         pontoEmbarqueId: ponto || null,
         observacoes: obs.trim() || null,
+        ...(valorCentavos !== null ? { valorCentavos } : {}),
         passageiros: pax.map(corpoPassageiro),
       });
       notificar(`Reserva de ${titular.trim()} incluída (${pax.length} passageiro${pax.length > 1 ? "s" : ""}).`);
@@ -131,6 +139,12 @@ export function FormNovaReserva({ saidaId, pontos, aoSalvar, aoCancelar }: { sai
           <label htmlFor="nr-ponto">Ponto de embarque</label>
           <SelectPonto id="nr-ponto" valor={ponto} aoMudar={setPonto} pontos={pontos} rotuloVazio="A definir (contatar o cliente)" />
         </div>
+        {pode("financeiro:ver") && (
+          <div className="campo">
+            <label htmlFor="nr-valor">Valor da reserva (R$, opcional)</label>
+            <input id="nr-valor" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
+          </div>
+        )}
         <div className="campo campo--largo">
           <label htmlFor="nr-obs">Observações</label>
           <textarea id="nr-obs" rows={2} maxLength={2000} value={obs} onChange={(e) => setObs(e.target.value)} />
@@ -344,7 +358,8 @@ export function Reservas() {
   const notificar = useNotificar();
   const podeEditar = pode("reservas:editar");
   const verContatos = pode("manifesto:contatos");
-  const [dialogo, setDialogo] = useState<Dialogo | null>(null);
+  const [params] = useSearchParams();
+  const [dialogo, setDialogo] = useState<Dialogo | null>(() => (params.get("nova") === "1" && pode("reservas:editar") ? { tipo: "nova" } : null));
   const [busca, setBusca] = useState("");
   const [verCanceladas, setVerCanceladas] = useState(false);
   const [ocupado, setOcupado] = useState(false);
