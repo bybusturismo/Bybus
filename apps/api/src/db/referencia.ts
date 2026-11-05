@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { PONTOS_TODA_ILHA } from "@bybus/core";
 import type { Db } from "./cliente.js";
 import { passeios, pontosEmbarque, unidades } from "./schema.js";
+import { semearTransferPadrao } from "../servicos/transfer.js";
 
 /** Dados de referência (passeio e pontos oficiais) — seguros para qualquer ambiente. */
 export async function semearReferencia(db: Db) {
@@ -26,6 +27,7 @@ export async function semearReferencia(db: Db) {
     const [existe] = await db.select({ id: pontosEmbarque.id }).from(pontosEmbarque).where(and(eq(pontosEmbarque.passeioId, passeio!.id), eq(pontosEmbarque.ordem, p.ordem)));
     if (!existe) await db.insert(pontosEmbarque).values({ ...p, passeioId: passeio!.id });
   }
+  await semearTransferPadrao(db, passeio!.id);
   await semearPasseiosEncerrados(db);
   return passeio!;
 }

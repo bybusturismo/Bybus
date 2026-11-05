@@ -6,6 +6,7 @@ import type { Contexto } from "../app.js";
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { carregarManifesto, manifestoCsv } from "../servicos/manifesto.js";
+import { transferNaLista } from "../servicos/transfer.js";
 
 export async function rotasManifesto(app: FastifyInstance, { db, config, cofre }: Contexto) {
   const parametros = async (req: FastifyRequest) => {
@@ -23,7 +24,9 @@ export async function rotasManifesto(app: FastifyInstance, { db, config, cofre }
     const { id, opcoes } = await parametros(req);
     const resultado = await carregarManifesto(db, cofre, id, opcoes);
     await auditar(db, req, opcoes.documentosCompletos ? "MANIFESTO_DOCUMENTOS_COMPLETOS" : "MANIFESTO_VISUALIZADO", { tipo: "saida", id });
-    return resultado;
+    // Quem vem de transfer e onde todos encontram o ônibus (a lista não duplica passageiro: só marca).
+    const t = await transferNaLista(db, id);
+    return { ...resultado, transfer: t ? { encontro: t.lista.encontro, reservas: t.porReserva } : null };
   });
 
   app.get("/api/saidas/:id/manifesto.csv", { preHandler: exigir(config, "manifesto:ver") }, async (req, reply) => {

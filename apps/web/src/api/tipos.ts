@@ -38,6 +38,8 @@ export const PERMISSOES = [
   "financeiro:gerenciar",
   "whatsapp:ver",
   "whatsapp:responder",
+  "transfer:gerenciar",
+  "transfer:operar",
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 
@@ -259,6 +261,8 @@ export interface RespostaManifesto {
   saida: Saida;
   passeio: Passeio;
   manifesto: Manifesto;
+  /** Quem vem de transfer (reservaId → bairro) e onde todos encontram o ônibus; nulo se não há transfer. */
+  transfer?: { encontro: { nome: string | null; horario: string | null } | null; reservas: Record<string, { bairro: string | null }> } | null;
 }
 
 export interface PassageiroReserva {

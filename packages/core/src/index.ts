@@ -30,3 +30,4 @@ export * from "./rastreio/previsao.js";
 export * from "./biblioteca/html.js";
 export * from "./biblioteca/acesso.js";
 export * from "./vendas/vendas.js";
+export * from "./transfer/transfer.js";

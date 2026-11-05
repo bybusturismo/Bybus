@@ -15,6 +15,7 @@ import { rotearFrota } from "./frotaDemo";
 import { rotearIa } from "./iaDemo";
 import { rotearMarketing } from "./marketingDemo";
 import { rotearRastreio } from "./rastreioDemo";
+import { criarTransferDemo } from "./transferDemo";
 import { criarWhatsappDemo } from "./whatsappDemo";
 import { resumoDeVendas, rotearVisaoGeral, valorDemoDaReserva } from "./visaoGeralDemo";
 
@@ -50,16 +51,18 @@ const CATALOGO: Record<string, string> = {
   "financeiro:gerenciar": "Lançar, baixar, importar extratos e conciliar no financeiro",
   "whatsapp:ver": "Ver as conversas de WhatsApp com os clientes (telefones e textos)",
   "whatsapp:responder": "Responder e iniciar conversas de WhatsApp pela tela",
+  "transfer:gerenciar": "Montar e ajustar o transfer do dia (ordem de busca, horários, van, motorista, taxa) e configurar os bairros",
+  "transfer:operar": "Operar o transfer pelo celular (motorista): marcar buscado/não apareceu e registrar a taxa recebida",
 };
 const TODAS = Object.keys(CATALOGO);
 const SENSIVEIS = ["usuarios:gerenciar", "unidades:gerenciar", "manifesto:documentos", "pessoas:gerenciar", "auditoria:ver", "ia:gestores", "financeiro:ver", "financeiro:gerenciar"];
 interface PerfilDemo { id: string; codigo: string; nome: string; descricao: string | null; permissoes: string[]; sistema: boolean; criadoEm: string }
 const perfis: PerfilDemo[] = [
   { codigo: "ADMIN", nome: "Administrador", descricao: "Acesso total, inclusive usuários, perfis e praças.", permissoes: TODAS },
-  { codigo: "SUPERVISOR", nome: "Supervisor / líder", descricao: "Decide saídas, vê documentos completos, gerencia equipe e pontos.", permissoes: ["auditoria:ver", "pessoas:gerenciar", "pessoas:ver", "pontos:gerenciar", "saidas:gerenciar", "saidas:decidir", "escala:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:documentos", "manifesto:contatos", "embarque:registrar", "frota:ver", "frota:gerenciar", "marketing:ver", "biblioteca:ver", "ia:usar", "whatsapp:ver", "whatsapp:responder"] },
+  { codigo: "SUPERVISOR", nome: "Supervisor / líder", descricao: "Decide saídas, vê documentos completos, gerencia equipe e pontos.", permissoes: ["auditoria:ver", "pessoas:gerenciar", "pessoas:ver", "pontos:gerenciar", "saidas:gerenciar", "saidas:decidir", "escala:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:documentos", "manifesto:contatos", "embarque:registrar", "frota:ver", "frota:gerenciar", "marketing:ver", "biblioteca:ver", "ia:usar", "whatsapp:ver", "whatsapp:responder", "transfer:gerenciar"] },
   { codigo: "ATENDENTE", nome: "Atendente / vendedor", descricao: "Monta listas, lança e importa reservas.", permissoes: ["pessoas:ver", "saidas:gerenciar", "reservas:editar", "importacoes:executar", "manifesto:ver", "manifesto:contatos", "marketing:ver", "biblioteca:ver", "ia:usar", "whatsapp:ver", "whatsapp:responder"] },
   { codigo: "GUIA", nome: "Guia de turismo", descricao: "Vê a lista e registra o embarque.", permissoes: ["manifesto:ver", "manifesto:contatos", "embarque:registrar", "biblioteca:ver"] },
-  { codigo: "MOTORISTA", nome: "Motorista", descricao: "Vê a lista (sem contatos).", permissoes: ["manifesto:ver", "frota:checklist", "rastreio:transmitir", "biblioteca:ver"] },
+  { codigo: "MOTORISTA", nome: "Motorista", descricao: "Vê a lista (sem contatos).", permissoes: ["manifesto:ver", "frota:checklist", "rastreio:transmitir", "biblioteca:ver", "transfer:operar"] },
 ].map((p) => ({ ...p, id: `perfil-${p.codigo.toLowerCase()}`, sistema: true, criadoEm: new Date().toISOString() }));
 const perfilDe = (codigo: string) => perfis.find((p) => p.codigo === codigo)!;
 const permissoesDe = (codigo: string) => (codigo === "ADMIN" ? TODAS : perfilDe(codigo)?.permissoes ?? []);
@@ -296,6 +299,8 @@ const alcance = (u: Usuario) => ehAdmin() || u.id === sessao!.id || (u.perfil !=
 
 // ---------- Módulos novos (financeiro, frota, marketing, biblioteca, IA): ver os arquivos *Demo.ts ----------
 const ctxModulos: Ctx = { exigir, pode, escopo: () => (sessao?.todasUnidades ? null : sessao?.unidadeIds ?? []), erro: (status, codigo, msg) => new Erro(status, codigo, msg), id, auditar, dataMais, agoraIso };
+/** Quem vem de transfer, para o texto da lista (mesmo formato da API). */
+const textoTransfer = (saidaId: string) => { const t = transferDemo.viaTransfer(saidaId); return t ? { encontro: t.encontro, porReserva: new Map(Object.entries(t.reservas)) } : undefined; };
 const whatsappDemo = criarWhatsappDemo({
   podeUnidade: (unidadeId) => podeUnidade(unidadeId),
   usuarioNome: () => sessao?.nome ?? "Atendente Demo",
@@ -303,6 +308,26 @@ const whatsappDemo = criarWhatsappDemo({
   saida: (saidaId) => { const s = saidas.find((x) => x.id === saidaId); const p = s && passeios.find((x) => x.id === s.passeioId); return s && p ? { data: s.data, passeio: p.nome, unidadeId: p.unidadeId } : undefined; },
   passageiros: (reservaId) => pax.filter((x) => x.reservaId === reservaId).length,
 });
+const transferDemo = criarTransferDemo({
+  passeio: { id: passeio.id, nome: passeio.nome, unidadeId: passeio.unidadeId },
+  podeUnidade: (unidadeId) => podeUnidade(unidadeId),
+  pode: (perm) => pode(perm),
+  // O motorista da demonstração (login motorista@bybus.test) é o motorista fixo do transfer.
+  pessoaDoUsuario: () => (sessao?.email === "motorista@bybus.test" ? "pe-davi" : null),
+  usuarioNome: () => sessao?.nome ?? "Motorista Demo",
+  saidaDe: (passeioId, data) => saidas.find((s) => s.passeioId === passeioId && s.data === data),
+  reservas: () => reservas,
+  paxDe: (reservaId) => pax.filter((p) => p.reservaId === reservaId),
+  pontos: () => pontos.map((p) => ({ id: p.id, nome: p.nome, horario: p.horario, ehTransfer: p.ehTransfer })),
+  criarReserva: (saidaId, n) => {
+    const r: Reserva = { id: id("r"), saidaId, canal: "PAYTOUR", canalOrigem: "PAYTOUR", codigoExterno: `PAYTOUR-DEMO-T${seq}`, referencias: [], contatoNome: n.titular, contatoTelefone: n.telefone, contatoEmail: null, pontoEmbarqueId: n.pontoId || null, status: "CONFIRMADA", observacoes: null, origem: "FICTICIO", criadoEm: agoraIso(), atualizadoEm: agoraIso() };
+    reservas.push(r);
+    n.categorias.forEach((categoria, k) => pax.push({ id: id("p"), reservaId: r.id, nome: k === 0 ? n.titular : `${n.titular.split(" ")[0]} (acompanhante ${k})`, categoria: categoria as Categoria, documentoTipo: null, documento: null, documentoPais: null, pontoEmbarqueId: null, embarque: "PENDENTE", seq: seq++ }));
+    return r.id;
+  },
+  motoristas: () => pessoas.filter((p) => p.papeis.includes("MOTORISTA") && p.ativo && podeUnidade(p.unidadeId)).map((p) => ({ id: p.id, nome: p.nome })),
+});
+transferDemo.iniciar(); // cria já as reservas fictícias do transfer de amanhã (antes de qualquer lista ser aberta)
 whatsappDemo.preparar(); // troca já os telefones das reservas ligadas às conversas (antes de qualquer mensagem da fila)
 
 // ---------- Rotas ----------
@@ -407,7 +432,8 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     const completos = q.get("documentos") === "completos";
     if (completos && !pode("manifesto:documentos")) throw new Erro(403, "SEM_PERMISSAO", "Seu perfil não pode ver documentos completos.");
     auditar(completos ? "MANIFESTO_DOCUMENTOS_COMPLETOS" : "MANIFESTO_VISUALIZADO", "saida", m![1]);
-    return manifesto(m![1]!, completos);
+    const resultado = manifesto(m![1]!, completos);
+    return { ...resultado, transfer: transferDemo.viaTransfer(m![1]!) };
   }
   if (r(/^\/api\/saidas\/([^/]+)\/reservas$/)) {
     exigir();
@@ -629,7 +655,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   if (r(/^\/api\/saidas\/([^/]+)\/(fechar|texto-lista)$/)) {
     const { saida: s, passeio: ps, manifesto: man } = manifesto(m![1]!, false);
     const extras = new Map(reservas.filter((x) => x.saidaId === s.id).map((x) => [x.id, extrasDemo(x)]));
-    if (metodo === "GET") { exigir("manifesto:ver"); return { texto: textoListaGrupo(man, { passeio: ps.nome, data: s.data, guia: s.guia, motorista: s.motorista, veiculo: s.veiculo, versao: Math.max(1, fechamentoDemo.get(s.id)?.versao ?? 1) }, extras) }; }
+    if (metodo === "GET") { exigir("manifesto:ver"); return { texto: textoListaGrupo(man, { passeio: ps.nome, data: s.data, guia: s.guia, motorista: s.motorista, veiculo: s.veiculo, versao: Math.max(1, fechamentoDemo.get(s.id)?.versao ?? 1) }, extras, textoTransfer(s.id)) }; }
     exigir("saidas:decidir");
     const versao = (fechamentoDemo.get(s.id)?.versao ?? 0) + 1;
     fechamentoDemo.set(s.id, { em: agoraIso(), versao });
@@ -642,7 +668,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
       if (res.contatoTelefone) whatsappDemo.registrarFila({ telefone: res.contatoTelefone, texto: textoMsg, tipo: "CONFIRMACAO" }); // também aparece na conversa
     }
     auditar("LISTA_FECHADA", "saida", s.id);
-    return { versao, texto: textoListaGrupo(man, { passeio: ps.nome, data: s.data, guia: s.guia, motorista: s.motorista, veiculo: s.veiculo, versao }, extras), resumo: {} };
+    return { versao, texto: textoListaGrupo(man, { passeio: ps.nome, data: s.data, guia: s.guia, motorista: s.motorista, veiculo: s.veiculo, versao }, extras, textoTransfer(s.id)), resumo: {} };
   }
   if (metodo === "GET" && caminho === "/api/mensagens") {
     exigir("saidas:decidir");
@@ -785,7 +811,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   }
 
   if (metodo === "GET" && caminho === "/api/auditoria") { exigir("auditoria:ver"); return auditoria.slice(0, Number(q.get("limite") ?? 200)); }
-  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, whatsappDemo.rotear, rotearVisaoGeral]) {
+  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, whatsappDemo.rotear, rotearVisaoGeral, transferDemo.rotear]) {
     const resposta = rotear(ctxModulos, metodo, caminho, q, c);
     if (resposta !== NAO) return resposta;
   }

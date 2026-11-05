@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
-import type { Alerta, BlocoManifesto, Pessoa, Saida, StatusSaida } from "../../api/tipos";
+import type { Alerta, BlocoManifesto, Pessoa, RespostaManifesto, Saida, StatusSaida } from "../../api/tipos";
 import { Aviso, Vazio } from "../../componentes/Estados";
 import { Icone } from "../../componentes/Icone";
 import { Confirmar, Modal } from "../../componentes/Modal";
@@ -48,7 +48,7 @@ function tituloBloco(b: BlocoManifesto): string {
   return b.ponto ? `${b.ponto.horario} — ${b.ponto.nome}` : "A DEFINIR — sem ponto de embarque";
 }
 
-export function BlocoPassageiros({ bloco, filtro }: { bloco: BlocoManifesto; filtro: string }) {
+export function BlocoPassageiros({ bloco, filtro, transfer }: { bloco: BlocoManifesto; filtro: string; transfer?: RespostaManifesto["transfer"] }) {
   const f = normalizarBusca(filtro.trim());
   const visiveis = bloco.linhas.filter(
     (l) => !f || normalizarBusca(l.passageiro.nome).includes(f) || normalizarBusca(l.contatoNome).includes(f) || normalizarBusca(l.codigoExterno).includes(f) || String(l.numero) === f,
@@ -61,6 +61,11 @@ export function BlocoPassageiros({ bloco, filtro }: { bloco: BlocoManifesto; fil
           {tituloBloco(bloco)}
         </h2>
         {bloco.ponto?.endereco && <p className="bloco__endereco">{bloco.ponto.endereco}</p>}
+        {transfer && bloco.ponto?.ehTransfer && (
+          <p className="bloco__endereco bloco__transfer">
+            Via transfer (van busca no hotel): embarcam todos no ponto de encontro {transfer.encontro?.nome ? <strong>{transfer.encontro.nome}{transfer.encontro.horario ? ` às ${transfer.encontro.horario}` : ""}</strong> : "(a confirmar)"}.
+          </p>
+        )}
         {!bloco.ponto && <p className="bloco__endereco">Contatar o cliente (WhatsApp ou painel da OTA) para definir o ponto.</p>}
         <span className="bloco__contagem">{bloco.linhas.length} pax</span>
       </header>
@@ -103,7 +108,10 @@ export function BlocoPassageiros({ bloco, filtro }: { bloco: BlocoManifesto; fil
                       <span className="texto-fraco">—</span>
                     )}
                   </td>
-                  <td>{l.contatoNome}</td>
+                  <td>
+                    {l.contatoNome}
+                    {transfer?.reservas[l.reservaId] && <span className="etiqueta etiqueta--info etiqueta--transfer" title="Van busca no hotel e leva ao ponto de encontro"> via transfer{transfer.reservas[l.reservaId]!.bairro ? ` · ${transfer.reservas[l.reservaId]!.bairro}` : ""}</span>}
+                  </td>
                   <td>{ROTULO_CANAL[l.canal]}</td>
                   <td className="mono">{l.codigoExterno ?? "—"}</td>
                   <td>
@@ -479,7 +487,7 @@ export function ListaPassageiros() {
       {manifesto.blocos.length === 0 ? (
         <Vazio titulo="Nenhum passageiro confirmado nesta saída.">Inclua reservas na aba “Reservas” ou importe da Bókun/Paytour.</Vazio>
       ) : (
-        manifesto.blocos.map((b) => <BlocoPassageiros key={b.ponto?.id ?? "a-definir"} bloco={b} filtro={filtro} />)
+        manifesto.blocos.map((b) => <BlocoPassageiros key={b.ponto?.id ?? "a-definir"} bloco={b} filtro={filtro} transfer={dados.transfer} />)
       )}
 
       <footer className="rodape-impressao so-impressao">

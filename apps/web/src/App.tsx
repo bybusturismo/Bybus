@@ -21,6 +21,8 @@ import { EmbarquePublico } from "./paginas/EmbarquePublico";
 import { RastreioPublico } from "./paginas/RastreioPublico";
 import { Motorista } from "./paginas/rastreio/Motorista";
 import { Rastreamento } from "./paginas/rastreio/Rastreamento";
+import { Transfer } from "./paginas/transfer/Transfer";
+import { MotoristaTransfer } from "./paginas/transfer/MotoristaTransfer";
 import { AbastecimentoPagina } from "./paginas/frota/Abastecimento";
 import { ChecklistPagina } from "./paginas/frota/Checklist";
 import { DocumentosPagina } from "./paginas/frota/Documentos";
@@ -71,6 +73,8 @@ function ExigeUma({ permissoes, children }: { permissoes: Permissao[]; children:
 function Inicio() {
   const { pode } = useSessao();
   // Motorista (transmite o rastreio ou só faz o checklist) cai direto na tela dele, no celular.
+  // Motorista só do transfer (sem rastreio) cai na lista do transfer dele.
+  if (!pode("saidas:decidir") && pode("transfer:operar") && !pode("rastreio:transmitir")) return <Navigate to="/transfer/motorista" replace />;
   const soMotorista = !pode("saidas:decidir") && (pode("rastreio:transmitir") || (!pode("manifesto:ver") && pode("frota:checklist")));
   if (soMotorista) return <Navigate to="/motorista" replace />;
   // Quem vê a lista de passageiros entra na Visão Geral; os blocos mostram só o que o perfil pode ver.
@@ -136,6 +140,22 @@ export function Rotas() {
             <ExigeUma permissoes={["rastreio:transmitir", "frota:checklist"]}>
               <Motorista />
             </ExigeUma>
+          }
+        />
+        <Route
+          path="transfer"
+          element={
+            <Exige permissao="manifesto:ver">
+              <Transfer />
+            </Exige>
+          }
+        />
+        <Route
+          path="transfer/motorista"
+          element={
+            <Exige permissao="transfer:operar">
+              <MotoristaTransfer />
+            </Exige>
           }
         />
         <Route

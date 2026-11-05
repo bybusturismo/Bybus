@@ -10,6 +10,7 @@ import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { camposDocumento, documentoMascarado } from "../servicos/passageiro.js";
 import { aplicarEscalaNaSaida } from "../servicos/escala.js";
+import { atualizarTransferDaReserva, sincronizarTransfer } from "../servicos/transfer.js";
 
 const uuid = z.string().uuid();
 const dataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data no formato AAAA-MM-DD");
@@ -44,6 +45,13 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       .innerJoin(saidas, eq(saidas.passeioId, pontosEmbarque.passeioId))
       .where(and(eq(pontosEmbarque.id, pontoId), eq(saidas.id, saidaId)));
     if (!ok) throw new ErroHttp(400, "PONTO_INVALIDO", "Ponto de embarque não pertence a este passeio.");
+  }
+
+  /** Quem escolhe um ponto de transfer passa a ser de transfer (e deixa de ser ao escolher outro ponto). */
+  async function ehPontoTransfer(pontoId: string | null | undefined) {
+    if (!pontoId) return false;
+    const [p] = await db.select({ ehTransfer: pontosEmbarque.ehTransfer }).from(pontosEmbarque).where(eq(pontosEmbarque.id, pontoId));
+    return !!p?.ehTransfer;
   }
 
   /** Guia/motorista precisa existir, estar ativo, ter o papel e ser da mesma praça (ou sem praça). */
@@ -250,7 +258,7 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       const [r] = await tx.insert(reservas).values({
         saidaId: id, canal: corpo.canal, canalOrigem: corpo.canal, codigoExterno: corpo.codigoExterno || null,
         contatoNome: corpo.contatoNome, contatoTelefone: corpo.contatoTelefone || null, contatoEmail: corpo.contatoEmail || null,
-        pontoEmbarqueId: corpo.pontoEmbarqueId ?? null, observacoes: corpo.observacoes ?? null, valorCentavos: corpo.valorCentavos ?? null,
+        pontoEmbarqueId: corpo.pontoEmbarqueId ?? null, pediuTransfer: await ehPontoTransfer(corpo.pontoEmbarqueId), observacoes: corpo.observacoes ?? null, valorCentavos: corpo.valorCentavos ?? null,
       }).returning();
       await tx.insert(passageiros).values(corpo.passageiros.map((p) => ({
         reservaId: r!.id, nome: p.nome, categoria: p.categoria, documentoPais: p.documentoPais ?? null,
@@ -262,6 +270,7 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
       throw e;
     });
     await auditar(db, req, "RESERVA_CRIADA", { tipo: "reserva", id: resultado.id }, { canal: corpo.canal, passageiros: corpo.passageiros.length, ...(corpo.valorCentavos != null ? { valorCentavos: corpo.valorCentavos } : {}) });
+    await atualizarTransferDaReserva(db, req, resultado.id);
     const { vendaId: _vid, ...publico } = resultado;
     return publico;
   });
@@ -298,9 +307,11 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     const [antesValor] = corpo.valorCentavos !== undefined ? await db.select({ v: reservas.valorCentavos }).from(reservas).where(eq(reservas.id, id)) : [];
     const { contatoEmail, ...resto } = corpo;
     // Só altera o e-mail quando o campo vier na requisição ("" ou null limpam).
-    const [r] = await db.update(reservas).set({ ...resto, ...(contatoEmail !== undefined ? { contatoEmail: contatoEmail || null } : {}), atualizadoEm: new Date() }).where(eq(reservas.id, id)).returning();
+    const [r] = await db.update(reservas).set({ ...resto, ...(corpo.pontoEmbarqueId !== undefined ? { pediuTransfer: await ehPontoTransfer(corpo.pontoEmbarqueId) } : {}), ...(contatoEmail !== undefined ? { contatoEmail: contatoEmail || null } : {}), atualizadoEm: new Date() }).where(eq(reservas.id, id)).returning();
     if (!r) throw new ErroHttp(404, "NAO_ENCONTRADO", "Reserva não encontrada.");
     await auditar(db, req, corpo.status === "CANCELADA" ? "RESERVA_CANCELADA" : "RESERVA_ALTERADA", { tipo: "reserva", id }, { campos: Object.keys(corpo), status: corpo.status, ...(corpo.valorCentavos !== undefined ? { valorAntes: antesValor?.v ?? null, valorDepois: corpo.valorCentavos ?? null } : {}) }); // sem dados pessoais na auditoria
+    if (mudouSaida) await sincronizarTransfer(db, saidaAtual, false); // sai do transfer da saída antiga
+    await atualizarTransferDaReserva(db, req, id);
     const { vendaId: _vid, valorCentavos: vc, descontoCentavos: dc, ...publico } = r;
     return pode(req.usuario!, "financeiro:ver") ? { ...publico, valorCentavos: vc, descontoCentavos: dc } : publico;
   });
@@ -313,6 +324,7 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     await validarPontoDaSaida(saidaId, p.pontoEmbarqueId);
     const [novo] = await db.insert(passageiros).values({ reservaId: id, nome: p.nome, categoria: p.categoria, documentoPais: p.documentoPais ?? null, pontoEmbarqueId: p.pontoEmbarqueId ?? null, ...camposDocumento(cofre, p.documentoTipo, p.documento) }).returning({ id: passageiros.id });
     await auditar(db, req, "PASSAGEIRO_INCLUIDO", { tipo: "passageiro", id: novo!.id });
+    await atualizarTransferDaReserva(db, req, id);
     return novo;
   });
 
@@ -336,15 +348,19 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     const [atualizado] = await db.update(passageiros).set(mudancas).where(eq(passageiros.id, id)).returning({ id: passageiros.id });
     if (!atualizado) throw new ErroHttp(404, "NAO_ENCONTRADO", "Passageiro não encontrado.");
     await auditar(db, req, "PASSAGEIRO_ALTERADO", { tipo: "passageiro", id }, { campos: Object.keys(mudancas).filter((k) => !k.startsWith("documento")) .concat(p.documento !== undefined ? ["documento"] : []) });
+    const [dono] = await db.select({ reservaId: passageiros.reservaId }).from(passageiros).where(eq(passageiros.id, id));
+    if (dono) await atualizarTransferDaReserva(db, req, dono.reservaId); // categoria (colo) muda a taxa
     return atualizado;
   });
 
   app.delete("/api/passageiros/:id", editar, async (req) => {
     const { id } = z.object({ id: uuid }).parse(req.params);
     await garantirPassageiro(db, req.usuario!, id);
+    const [dono] = await db.select({ reservaId: passageiros.reservaId }).from(passageiros).where(eq(passageiros.id, id));
     const [removido] = await db.delete(passageiros).where(eq(passageiros.id, id)).returning({ id: passageiros.id });
     if (!removido) throw new ErroHttp(404, "NAO_ENCONTRADO", "Passageiro não encontrado.");
     await auditar(db, req, "PASSAGEIRO_REMOVIDO", { tipo: "passageiro", id });
+    if (dono) await atualizarTransferDaReserva(db, req, dono.reservaId);
     return { ok: true };
   });
 

@@ -127,6 +127,13 @@
       "when": 1793878673031,
       "tag": "0017_valores_vendas",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793879550079,
+      "tag": "0018_transfer",
+      "breakpoints": true
     }
   ]
 }

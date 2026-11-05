@@ -1,0 +1,40 @@
+/* Transfer: layout denso (letras compactas) e tela do motorista no celular. */
+.transfer { font-size: 0.86rem; }
+.etiqueta--transfer { margin-left: 4px; white-space: nowrap; }
+.transfer h1 { font-size: 1.25rem; }
+.transfer__filtros { margin-bottom: 0; padding: var(--esp-2) var(--esp-3); }
+.transfer__quadro dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--esp-2) var(--esp-4); margin: 0 0 var(--esp-3); }
+.transfer__quadro dt { color: var(--cor-texto-fraco); font-size: 0.75rem; }
+.transfer__quadro dd { margin: 0; font-weight: 600; }
+.transfer__quadro, .transfer__vazio, .transfer__config { padding: var(--esp-3) var(--esp-4); margin-bottom: var(--esp-3); }
+.transfer__alertas { list-style: none; margin: var(--esp-2) 0 0; padding: 0; color: var(--cor-atencao, #8a5a00); }
+.transfer__totais { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--esp-2); margin-bottom: var(--esp-3); }
+.transfer__totais > div { background: var(--cor-superficie); border: 1px solid var(--cor-borda); border-radius: var(--raio-lg); padding: var(--esp-2) var(--esp-3); display: flex; flex-direction: column; }
+.transfer__totais span { color: var(--cor-texto-fraco); font-size: 0.75rem; }
+.transfer__totais strong { font-size: 1rem; }
+.transfer__tabela th, .transfer__tabela td { padding: 4px 8px; }
+.transfer__tabela tr[draggable="true"] { cursor: grab; }
+.transfer__arrastando { opacity: 0.5; }
+.transfer__acoes .botao { padding: 2px 8px; }
+.transfer__dica { margin-top: var(--esp-2); }
+.transfer__config h3 { margin: 0 0 var(--esp-2); font-size: 1rem; }
+.campo--caixa { display: inline-flex; align-items: center; gap: var(--esp-2); font-size: 0.8rem; }
+
+/* Motorista (celular): botões grandes, uma coluna. */
+.transfer--motorista { max-width: 560px; margin: 0 auto; font-size: 0.95rem; }
+.transfer__paradas { list-style: none; margin: var(--esp-3) 0 0; padding: 0; display: grid; gap: var(--esp-3); }
+.transfer__parada { border: 1px solid var(--cor-borda); border-left-width: 5px; border-radius: var(--raio-lg); padding: var(--esp-3); background: var(--cor-superficie); }
+.transfer__parada p { margin: var(--esp-1) 0; }
+.transfer__parada--buscado { border-left-color: var(--cor-sucesso, #1b7f4c); opacity: 0.8; }
+.transfer__parada--nao_apareceu { border-left-color: var(--cor-perigo, #b3261e); opacity: 0.8; }
+.transfer__parada-topo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--esp-2); }
+.transfer__hora { font-size: 1.3rem; }
+.transfer__bairro { flex: 1; font-weight: 600; }
+.transfer__hotel { font-size: 1.05rem; }
+.transfer__taxa--receber { font-weight: 700; }
+.transfer__a-receber { font-size: 1.05rem; }
+.transfer__botoes { display: grid; grid-template-columns: 1fr 1fr; gap: var(--esp-2); margin-top: var(--esp-2); }
+.transfer__botao-grande { min-height: 52px; font-size: 1rem; white-space: normal; }
+@media (max-width: 480px) {
+  .transfer__botoes { grid-template-columns: 1fr; }
+}

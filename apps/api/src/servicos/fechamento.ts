@@ -9,6 +9,7 @@ import { carregarManifesto } from "./manifesto.js";
 import { gerarLinkEmbarque } from "./linkEmbarque.js";
 import { enviarWhatsapp, normalizarDestino } from "./whatsapp.js";
 import { registrarSaidaFila } from "./whatsappConversas.js";
+import { mensagemDoMotoristaTransfer, sincronizarTransfer, transferNaLista } from "./transfer.js";
 
 const FUSO = "America/Sao_Paulo";
 /** Hoje e amanhã no fuso de Brasília ("AAAA-MM-DD"), e a hora "HH:MM". */
@@ -41,11 +42,14 @@ export async function enviarMensagem(db: Db, config: Config, id: string) {
  * que ainda não recebeu. Retorna o texto (a supervisão pode copiar se o grupo não estiver configurado).
  */
 export async function fecharLista(db: Db, cofre: Cofre, config: Config, saidaId: string, quem: { usuarioId: string | null; automatico: boolean }) {
+  // O transfer do dia é montado (ou atualizado) junto do fechamento, para a lista já sair com "via transfer".
+  const transferResumo = await sincronizarTransfer(db, saidaId, "se_houver");
   const { saida, passeio, manifesto } = await carregarManifesto(db, cofre, saidaId, { documentosCompletos: false, mostrarContatos: true });
   const versao = saida.listaVersao + 1;
   const ativas = await db.select().from(reservas).where(and(eq(reservas.saidaId, saidaId), eq(reservas.status, "CONFIRMADA")));
   const extras = new Map(ativas.map((r) => [r.id, { pagamento: r.pagamento, origemCliente: r.origemCliente }]));
-  const texto = textoListaGrupo(manifesto, { passeio: passeio.nome, data: saida.data, guia: saida.guia, motorista: saida.motorista, veiculo: saida.veiculo, versao }, extras);
+  const viaTransfer = await transferNaLista(db, saidaId);
+  const texto = textoListaGrupo(manifesto, { passeio: passeio.nome, data: saida.data, guia: saida.guia, motorista: saida.motorista, veiculo: saida.veiculo, versao }, extras, viaTransfer?.lista);
   const resumo = {
     passageiros: manifesto.totais.passageiros, reservas: ativas.length,
     semPonto: manifesto.blocos.find((b) => !b.ponto)?.linhas.length ?? 0,
@@ -59,6 +63,10 @@ export async function fecharLista(db: Db, cofre: Cofre, config: Config, saidaId:
   await auditar(db, null, quem.automatico ? "LISTA_FECHADA_AUTOMATICA" : "LISTA_FECHADA", { tipo: "saida", id: saidaId }, { versao, ...resumo }, quem.usuarioId);
 
   if (config.WHATSAPP_GRUPO_LISTA) await enfileirarMensagem(db, config, { tipo: `LISTA_GRUPO_V${versao}`, reservaId: null, saidaId, destino: config.WHATSAPP_GRUPO_LISTA, texto });
+
+  // Lista do transfer para o motorista da van (sem telefones de passageiros; respeita o modo simulado do WhatsApp).
+  const msgTransfer = transferResumo ? await mensagemDoMotoristaTransfer(db, saidaId) : null;
+  if (msgTransfer) await enfileirarMensagem(db, config, { tipo: `TRANSFER_V${versao}`, reservaId: null, saidaId, destino: msgTransfer.destino, texto: msgTransfer.texto });
 
   const pontos = await db.select().from(pontosEmbarque).where(eq(pontosEmbarque.passeioId, passeio.id));
   // Adendo: quem já recebeu a confirmação não recebe outra (e o link enviado continua valendo).

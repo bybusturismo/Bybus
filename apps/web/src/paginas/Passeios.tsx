@@ -7,6 +7,7 @@ import { Icone } from "../componentes/Icone";
 import { Modal } from "../componentes/Modal";
 import { useNotificar } from "../componentes/Notificacoes";
 import { PontosDoPasseio } from "./PontosDoPasseio";
+import { ConfigTransfer } from "./transfer/ConfigTransfer";
 import { CabecalhoOrdenavel, compararTexto, normalizarBusca, Paginacao, useTabela } from "../componentes/Tabela";
 import { nomePraca, useSessao } from "../sessao/Sessao";
 import { ROTULO_LINHA } from "../util/rotulos";
@@ -297,6 +298,7 @@ export function Passeios() {
       </Modal>
       <Modal aberto={!!pontos} titulo={pontos ? `Pontos de ${pontos.nome}` : "Pontos"} aoFechar={() => setPontos(null)} largura="larga">
         {pontos && <PontosDoPasseio passeio={pontos} />}
+        {pontos && pode("manifesto:ver") && <ConfigTransfer passeio={pontos} />}
       </Modal>
     </div>
   );
