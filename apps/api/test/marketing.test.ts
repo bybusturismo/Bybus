@@ -278,13 +278,16 @@ describe("biblioteca", () => {
   it("leitor não edita; editor cria árvore, move sem criar ciclo e não apaga página com filhas", async () => {
     expect((await leitor.req("POST", "/api/biblioteca/paginas", { titulo: "Nada", paiId: null })).statusCode).toBe(403);
     const biblio = await novoUsuario("BIB_EDITOR", ["biblioteca:ver", "biblioteca:editar"], "bib.editor@bybus.test", [flnId]);
-    const a = (await biblio.req("POST", "/api/biblioteca/paginas", { titulo: "Página A", paiId: null, conteudo: "# A\n\nTexto **forte**" })).json().id;
+    const a = (await biblio.req("POST", "/api/biblioteca/paginas", { titulo: "Página A", paiId: null, conteudo: "# A\n\nTexto **forte**", formato: "markdown" })).json().id;
     const b = (await biblio.req("POST", "/api/biblioteca/paginas", { titulo: "Página B", paiId: a })).json().id;
     const c = (await biblio.req("POST", "/api/biblioteca/paginas", { titulo: "Página C", paiId: b })).json().id;
     expect((await biblio.req("PATCH", `/api/biblioteca/paginas/${a}`, { paiId: c })).json().codigo).toBe("CICLO");
     expect((await biblio.req("PATCH", `/api/biblioteca/paginas/${a}`, { paiId: a })).json().codigo).toBe("CICLO");
-    expect((await biblio.req("DELETE", `/api/biblioteca/paginas/${b}`)).statusCode).toBe(409);
-    expect((await biblio.req("POST", "/api/biblioteca/paginas", { titulo: "Sem pai", paiId: "00000000-0000-4000-8000-000000000000" })).statusCode).toBe(400);
+    // excluir leva a página e as subpáginas para a lixeira (com desfazer)
+    expect((await biblio.req("DELETE", `/api/biblioteca/paginas/${b}`)).json().paginas).toBe(2);
+    expect((await biblio.req("GET", `/api/biblioteca/paginas/${c}`)).statusCode).toBe(404);
+    expect((await biblio.req("POST", `/api/biblioteca/lixeira/${b}/restaurar`)).json().paginas).toBe(2);
+    expect((await biblio.req("POST", "/api/biblioteca/paginas", { titulo: "Sem pai", paiId: "00000000-0000-4000-8000-000000000000" })).statusCode).toBe(404);
     expect((await biblio.req("PATCH", `/api/biblioteca/paginas/${c}`, { paiId: null })).statusCode).toBe(200);
     expect((await biblio.req("DELETE", `/api/biblioteca/paginas/${c}`)).statusCode).toBe(200);
   });

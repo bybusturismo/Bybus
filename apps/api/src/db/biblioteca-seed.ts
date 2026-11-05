@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { PONTOS_TODA_ILHA } from "@bybus/core";
+import { PONTOS_TODA_ILHA, textoDaPagina } from "@bybus/core";
 import type { Db } from "./cliente.js";
 import { bibliotecaPaginas } from "./schema.js";
 
@@ -215,7 +215,7 @@ export async function semearBiblioteca(db: Db): Promise<number> {
       const [pai] = await db.select({ id: bibliotecaPaginas.id }).from(bibliotecaPaginas).where(and(eq(bibliotecaPaginas.chaveSemente, p.paiChave)));
       paiId = pai?.id ?? null;
     }
-    const r = await db.insert(bibliotecaPaginas).values({ chaveSemente: p.chave, paiId, titulo: p.titulo, conteudo: p.conteudo, ordem: p.ordem, acesso: "EQUIPE" }).onConflictDoNothing().returning({ id: bibliotecaPaginas.id });
+    const r = await db.insert(bibliotecaPaginas).values({ chaveSemente: p.chave, paiId, titulo: p.titulo, conteudo: p.conteudo, textoBusca: textoDaPagina(p.conteudo), ordem: p.ordem, acesso: "EQUIPE" }).onConflictDoNothing().returning({ id: bibliotecaPaginas.id });
     criadas += r.length;
   }
   return criadas;
