@@ -33,6 +33,8 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/saidas", rotulo: "Saídas", icone: "onibus", area: "Operação", permissao: "manifesto:ver", atalho: "s" },
   { para: "/conferencia", rotulo: "Conferência de embarque", icone: "check", area: "Operação", permissao: "reservas:editar", atalho: "k" },
   { para: "/rastreamento", rotulo: "Rastreamento", icone: "mapa", area: "Operação", permissao: "manifesto:ver", atalho: "w" },
+  { para: "/transfer", rotulo: "Transfer", icone: "onibus", area: "Operação", permissao: "manifesto:ver", atalho: "g" },
+  { para: "/transfer/motorista", rotulo: "Meu transfer", icone: "pino", area: "Operação", permissao: "transfer:operar" },
   { para: "/escala", rotulo: "Escala de guias", icone: "calendario", area: "Operação", permissao: "pessoas:ver", atalho: "l" },
   { para: "/motorista", rotulo: "Rastreio do motorista", icone: "pino", area: "Operação", permissao: "rastreio:transmitir", atalho: "y" },
   // Reservas

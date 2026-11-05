@@ -9,19 +9,19 @@ const rotulosMenu = () => within(screen.getByRole("navigation", { name: "Menu pr
 describe("Menu por permissão", () => {
   it("guia vê só Saídas (perfil e sair ficam no menu do usuário)", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("GUIA", ["manifesto:ver", "manifesto:contatos", "embarque:registrar"]) });
-    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Transfer"]);
     expect(screen.getByRole("button", { name: /^Conta de / })).toBeInTheDocument();
   });
 
   it("usa as permissões, não o código do perfil: perfil personalizado com pessoas:ver vê Equipe", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("ESCALA_BC", ["manifesto:ver", "pessoas:ver"]) });
-    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Escala de guias", "Guias e equipe"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Transfer", "Escala de guias", "Guias e equipe"]);
   });
 
   it("admin vê todos os itens", () => {
     const todas = itensPermitidos(() => true);
     expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
-      "Listas de passageiros", "Saídas", "Conferência de embarque", "Rastreamento", "Escala de guias", "Rastreio do motorista",
+      "Listas de passageiros", "Saídas", "Conferência de embarque", "Rastreamento", "Transfer", "Meu transfer", "Escala de guias", "Rastreio do motorista",
       "WhatsApp", "Importar reservas",
       "Passeios e pontos", "Guias e equipe",
       "Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias",
@@ -43,7 +43,12 @@ describe("Rastreamento no menu", () => {
 
   it("o motorista vê o rastreio dele; quem só vê a lista não", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("MOTORISTA", ["manifesto:ver", "rastreio:transmitir"]) });
-    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Rastreio do motorista"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Transfer", "Rastreio do motorista"]);
+  });
+
+  it("o transfer aparece para quem vê a lista; a tela do motorista do transfer só com transfer:operar", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("MOTORISTA", ["manifesto:ver", "transfer:operar"]) });
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Transfer", "Meu transfer"]);
   });
 });
 
