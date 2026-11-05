@@ -1,6 +1,6 @@
 import { somarDiasIso } from "../frota/vencimento.js";
 import { calcularBaixa } from "./dinheiro.js";
-import type { TipoCategoria } from "./plano.js";
+import { GRUPO_PESSOAL, GRUPO_REVENDA, GRUPOS_FORA_DO_RESULTADO, type TipoCategoria } from "./plano.js";
 
 export interface LancamentoRelatorio {
   tipo: "PAGAR" | "RECEBER";
@@ -97,6 +97,12 @@ export interface LinhaPracaLinha {
   despesaCentavos: number;
   resultadoCentavos: number;
 }
+export interface GrupoForaDre {
+  grupo: string;
+  entradasCentavos: number;
+  saidasCentavos: number;
+  categorias: Array<{ categoriaId: string; nome: string; tipo: TipoCategoria; totalCentavos: number }>;
+}
 export interface Dre {
   receitaCentavos: number;
   despesaCentavos: number;
@@ -105,6 +111,12 @@ export interface Dre {
   margemPontosBase: number | null;
   grupos: GrupoDre[];
   porPracaLinha: LinhaPracaLinha[];
+  /** Grupos fora do resultado operacional (despesas pessoais pagas pela empresa; empréstimos), mostrados à parte. */
+  foraDoResultado: GrupoForaDre[];
+  /** Despesas pessoais pagas pela empresa (atalho do grupo em `foraDoResultado`). */
+  pessoal: GrupoDre | null;
+  pessoalCentavos: number;
+  resultadoAposPessoalCentavos: number;
 }
 
 const ENCARGOS = "Juros, multas e descontos";
@@ -125,14 +137,35 @@ export function montarDre(lancamentos: LancamentoRelatorio[], categorias: Readon
     if (!x) matriz.set(k, (x = { unidadeId: l.unidadeId, linha: l.linha, receitaCentavos: 0, despesaCentavos: 0, resultadoCentavos: 0 }));
     return x;
   };
+  const fora = new Map<string, GrupoForaDre>();
+  let revendaRec = 0;
+  let revendaRep = 0;
   for (const l of lancamentos) {
-    porCategoria.set(l.categoriaId, (porCategoria.get(l.categoriaId) ?? 0) + l.valorCentavos);
-    const m = ponto(l);
     let encargo = 0;
     if (l.situacao === "REALIZADO") {
       const pago = l.valorPagoCentavos ?? calcularBaixa({ valorCentavos: l.valorCentavos, jurosCentavos: l.jurosCentavos, multaCentavos: l.multaCentavos, descontoCentavos: l.descontoCentavos });
       encargo = pago - l.valorCentavos;
     }
+    const infoCat = categorias.get(l.categoriaId);
+    if (infoCat && GRUPOS_FORA_DO_RESULTADO.includes(infoCat.grupo)) {
+      // Pessoal e empréstimos: fora do resultado operacional e da matriz praça × linha; aparecem à parte.
+      const g = fora.get(infoCat.grupo) ?? { grupo: infoCat.grupo, entradasCentavos: 0, saidasCentavos: 0, categorias: [] };
+      const v = l.valorCentavos + encargo;
+      if (l.tipo === "RECEBER") g.entradasCentavos += v; else g.saidasCentavos += v;
+      const c = g.categorias.find((x) => x.categoriaId === l.categoriaId);
+      if (c) c.totalCentavos += v; else g.categorias.push({ categoriaId: l.categoriaId, nome: infoCat.nome, tipo: infoCat.tipo, totalCentavos: v });
+      fora.set(infoCat.grupo, g);
+      continue;
+    }
+    if (infoCat?.grupo === GRUPO_REVENDA) {
+      // Revenda de terceiros: só a margem (venda − repasse) vira receita própria.
+      if (l.tipo === "RECEBER") revendaRec += l.valorCentavos; else revendaRep += l.valorCentavos;
+      const m = ponto(l);
+      if (l.tipo === "RECEBER") m.receitaCentavos += l.valorCentavos; else m.receitaCentavos -= l.valorCentavos;
+      continue;
+    }
+    porCategoria.set(l.categoriaId, (porCategoria.get(l.categoriaId) ?? 0) + l.valorCentavos);
+    const m = ponto(l);
     if (l.tipo === "RECEBER") { m.receitaCentavos += l.valorCentavos + encargo; encargosReceita += encargo; }
     else { m.despesaCentavos += l.valorCentavos + encargo; encargosDespesa += encargo; }
   }
@@ -154,10 +187,22 @@ export function montarDre(lancamentos: LancamentoRelatorio[], categorias: Readon
     lista.splice(ultimaReceita + 1, 0, { grupo: ENCARGOS, tipo: "RECEITA", totalCentavos: encargosReceita, categorias: [{ categoriaId: null, nome: "Juros e multas recebidos, menos descontos concedidos", totalCentavos: encargosReceita }] });
   }
   if (encargosDespesa !== 0) lista.push({ grupo: ENCARGOS, tipo: "DESPESA", totalCentavos: encargosDespesa, categorias: [{ categoriaId: null, nome: "Juros e multas pagos, menos descontos obtidos", totalCentavos: encargosDespesa }] });
+  if (revendaRec !== 0 || revendaRep !== 0) {
+    const ultimaReceita = lista.map((g) => g.tipo).lastIndexOf("RECEITA");
+    lista.splice(ultimaReceita + 1, 0, {
+      grupo: "Revenda de terceiros (margem)", tipo: "RECEITA", totalCentavos: revendaRec - revendaRep,
+      categorias: [{ categoriaId: null, nome: "Vendas recebidas dos clientes", totalCentavos: revendaRec }, { categoriaId: null, nome: "(−) Repasses aos fornecedores", totalCentavos: -revendaRep }],
+    });
+  }
   const receita = lista.filter((g) => g.tipo === "RECEITA").reduce((s, g) => s + g.totalCentavos, 0);
   const despesa = lista.filter((g) => g.tipo === "DESPESA").reduce((s, g) => s + g.totalCentavos, 0);
   const porPracaLinha = [...matriz.values()].map((x) => ({ ...x, resultadoCentavos: x.receitaCentavos - x.despesaCentavos }))
     .sort((a, b) => (a.unidadeId ?? "").localeCompare(b.unidadeId ?? "") || (a.linha ?? "").localeCompare(b.linha ?? ""));
+  const pessoalFora = fora.get(GRUPO_PESSOAL);
+  const pessoalTotal = pessoalFora ? pessoalFora.saidasCentavos - pessoalFora.entradasCentavos : 0;
+  const pessoalGrupo: GrupoDre | null = pessoalFora
+    ? { grupo: GRUPO_PESSOAL, tipo: "DESPESA", totalCentavos: pessoalTotal, categorias: pessoalFora.categorias.map((c) => ({ categoriaId: c.categoriaId, nome: c.nome, totalCentavos: c.totalCentavos })) }
+    : null;
   return {
     receitaCentavos: receita,
     despesaCentavos: despesa,
@@ -165,5 +210,9 @@ export function montarDre(lancamentos: LancamentoRelatorio[], categorias: Readon
     margemPontosBase: receita > 0 ? Math.trunc(((receita - despesa) * 10000) / receita) : null,
     grupos: lista,
     porPracaLinha,
+    foraDoResultado: [...fora.values()],
+    pessoal: pessoalGrupo,
+    pessoalCentavos: pessoalTotal,
+    resultadoAposPessoalCentavos: receita - despesa - pessoalTotal,
   };
 }

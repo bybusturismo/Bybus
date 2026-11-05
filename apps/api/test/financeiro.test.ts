@@ -419,7 +419,7 @@ describe("resumo: a pagar/receber, vencidas, fluxo e DRE", () => {
     expect(r.dre.despesaCentavos).toBe(150000);
     expect(r.dre.resultadoCentavos).toBe(51000);
     expect(r.dre.margemPontosBase).toBe(Math.trunc((51000 * 10000) / 201000));
-    expect(r.dre.grupos.map((g: { grupo: string }) => g.grupo)).toEqual(["Receitas operacionais", "Juros, multas e descontos", "Custos operacionais"]);
+    expect(r.dre.grupos.map((g: { grupo: string }) => g.grupo)).toEqual(["Receita", "Juros, multas e descontos", "Frota", "Posto"]);
     expect(r.dre.porPracaLinha).toEqual([{ unidadeId: bc, linha: "FRETAMENTO", receitaCentavos: 201000, despesaCentavos: 150000, resultadoCentavos: 51000 }]);
 
     // usuário de FLN não enxerga os números de BC, nem escolhendo a praça

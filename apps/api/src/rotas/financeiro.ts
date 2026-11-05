@@ -14,11 +14,13 @@ import { finCategorias, finContas, finExtratoLinhas, finLancamentos, finRegras }
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import {
-  conciliadoSql, estaConciliado, filtroPraca, garantirRegra, naoConciliadoSql, validarRegra, filtroPracaEscolhida, garantirConta, garantirLancamento, garantirPlano, hojeSP, saldosDasContas,
+  conciliadoSql, estaConciliado, filtroPraca, garantirCaixaAberto, garantirRegra, naoConciliadoSql, validarRegra, filtroPracaEscolhida, garantirConta, garantirLancamento, garantirPlano, hojeSP, saldosDasContas,
   validarCategoria, validarPracaDoRegistro,
 } from "../servicos/financeiro.js";
 import { centavos, dataIso, mesIso, naoNegativo, uuid, valorPositivo, veiculoOpcional } from "./financeiro-comum.js";
 import { rotasFinanceiroExtrato } from "./financeiro-extrato.js";
+import { rotasFinanceiroCaixa } from "./financeiro-caixa.js";
+import { rotasFinanceiroPlanilha } from "./financeiro-planilha.js";
 
 
 
@@ -329,6 +331,7 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     if (!contaId) throw new ErroHttp(400, "CONTA_OBRIGATORIA", "Informe a conta da baixa.");
     const conta = await garantirConta(db, u, contaId);
     if (!conta.ativa) throw new ErroHttp(400, "CONTA_INATIVA", "Esta conta está desativada.");
+    await garantirCaixaAberto(db, contaId, corpo.pagoEm);
     let pago: number;
     try {
       pago = calcularBaixa({ valorCentavos: atual.valorCentavos, jurosCentavos: corpo.jurosCentavos, multaCentavos: corpo.multaCentavos, descontoCentavos: corpo.descontoCentavos });
@@ -349,6 +352,7 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     const { id } = z.object({ id: uuid }).parse(req.params);
     const atual = await garantirLancamento(db, u, id);
     if (atual.situacao !== "REALIZADO") throw new ErroHttp(409, "NAO_BAIXADO", "Este lançamento não está baixado.");
+    await garantirCaixaAberto(db, atual.contaId, atual.pagoEm);
     if (await estaConciliado(db, id)) throw new ErroHttp(409, "LANCAMENTO_CONCILIADO", "Lançamento conciliado não pode ser reaberto. Desfaça a conciliação antes.");
     await db.update(finLancamentos).set({ situacao: "ABERTO", pagoEm: null, valorPagoCentavos: null, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0, atualizadoEm: new Date() }).where(eq(finLancamentos.id, id));
     await auditar(db, req, "FIN_LANCAMENTO_REABERTO", { tipo: "fin_lancamento", id }, { valorPagoCentavos: atual.valorPagoCentavos });
@@ -440,6 +444,12 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     const mapaCats = new Map<string, CategoriaInfo>(cats.map((c) => [c.id, { nome: c.nome, tipo: c.tipo as CategoriaInfo["tipo"], grupo: c.grupo, ordem: c.ordem }]));
     const paraDre = await db.select(colunasRel).from(finLancamentos).where(and(escopo, gte(finLancamentos.competencia, inicioMes), lte(finLancamentos.competencia, fimMes)));
     const dre = montarDre(paraDre as LancamentoRelatorio[], mapaCats);
+    // Receita realizada por conta (como "RECEITA SIC / RECEITA UNI" no topo da planilha de controle).
+    const receitaPorConta = (await db.select({ contaId: finLancamentos.contaId, nome: finContas.nome, total: sql<number>`coalesce(sum(${finLancamentos.valorPagoCentavos}), 0)`.mapWith(Number) })
+      .from(finLancamentos).leftJoin(finContas, eq(finContas.id, finLancamentos.contaId))
+      .where(and(escopo, eq(finLancamentos.tipo, "RECEBER"), eq(finLancamentos.situacao, "REALIZADO"), gte(finLancamentos.competencia, inicioMes), lte(finLancamentos.competencia, fimMes)))
+      .groupBy(finLancamentos.contaId, finContas.nome).orderBy(asc(finContas.nome)))
+      .map((r) => ({ contaId: r.contaId, nome: r.nome ?? "Sem conta", totalCentavos: r.total }));
 
     const contasVisiveis = contas.map((c) => c.id);
     const [pend] = contasVisiveis.length
@@ -452,7 +462,7 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       vencidas: { pagar: vencida("PAGAR"), receber: vencida("RECEBER") },
       saldos: contas.map((c) => ({ contaId: c.id, nome: c.nome, tipo: c.tipo, saldoCentavos: saldos.get(c.id) ?? 0 })),
       saldoCaixaCentavos: saldoCaixa,
-      fluxo, dre,
+      fluxo, dre, receitaPorConta,
       linhasPendentes: pend?.n ?? 0,
     };
   });
@@ -491,4 +501,6 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
   });
 
   await rotasFinanceiroExtrato(app, ctx, { ver, gerenciar });
+  await rotasFinanceiroPlanilha(app, ctx, { ver, gerenciar });
+  await rotasFinanceiroCaixa(app, ctx, { ver, gerenciar });
 }

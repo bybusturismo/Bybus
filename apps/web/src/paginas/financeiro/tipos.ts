@@ -188,6 +188,84 @@ export interface RespostaResumo {
     margemPontosBase: number | null;
     grupos: GrupoDre[];
     porPracaLinha: Array<{ unidadeId: string | null; linha: LinhaNegocio | null; receitaCentavos: number; despesaCentavos: number; resultadoCentavos: number }>;
+    /** Grupos fora do resultado operacional (despesas pessoais pagas pela empresa; empréstimos). */
+    foraDoResultado: Array<{ grupo: string; entradasCentavos: number; saidasCentavos: number; categorias: Array<{ categoriaId: string; nome: string; tipo: "RECEITA" | "DESPESA"; totalCentavos: number }> }>;
+    pessoalCentavos: number;
+    resultadoAposPessoalCentavos: number;
   };
+  receitaPorConta: Array<{ contaId: string | null; nome: string; totalCentavos: number }>;
   linhasPendentes: number;
+}
+
+/** Importação da planilha de controle financeiro (prévia e resultado). */
+export interface PreviaPlanilha {
+  previa: boolean;
+  layout: "NOVO" | "ANTIGO";
+  cabecalhoLinha: number;
+  lidos: number;
+  novos: { lancamentos: number; transferencias: number };
+  jaExistentes: number;
+  abertos: number;
+  realizados: number;
+  transferencias: number;
+  contasACriar: string[];
+  porConta: Array<{ coluna: string; rotulo: string; conta: string | null; criar: boolean; qtd: number; entradasCentavos: number; saidasCentavos: number }>;
+  saldos: Array<{ coluna: string; rotulo: string; valorCentavos: number; data: string; aplicar: boolean; motivo: string | null; calculadoCentavos: number | null; divergenciaCentavos: number | null }>;
+  naoReconhecidos: Array<{ chave: string; grupo: string; categoria: string; qtd: number; totalCentavos: number }>;
+  qualidade: {
+    dataInvalida: { total: number; linhas: Array<{ linha: number; texto: string }> };
+    mesDiferente: { total: number; linhas: Array<{ linha: number; mes: string; data: string }> };
+    anoFora: { total: number; linhas: Array<{ linha: number; data: string }> };
+    grupoVazio: { total: number; linhas: number[] };
+    grafias: Array<{ canonico: string; variantes: Array<{ texto: string; qtd: number }> }>;
+    duplicadas: { total: number; grupos: Array<{ linhas: number[]; data: string; fornecedor: string; valorCentavos: number }> };
+    pessoaFisica: { total: number; linhas: number[] };
+    previstas: number;
+    apagarSemConta: number;
+    apagarDiferente: number;
+  };
+  avisos: string[];
+  ignoradas: number;
+  erros: Array<{ linha: number; motivo: string }>;
+  totalErros: number;
+  amostra: Array<{ data: string; tipo: TipoLancamento; aberto: boolean; descricao: string; categoria: string; fornecedor: string | null; valorCentavos: number; conta: string | null }>;
+  resultado?: { lancamentos: number; transferencias: number; jaExistentes: number; contasCriadas: string[]; saldosAplicados: number; fornecedores: number; sinonimosSalvos: number };
+}
+
+export interface SinonimoFin {
+  id: string;
+  tipo: "GRUPO" | "CATEGORIA";
+  texto: string;
+  alvo: string;
+  alvoNome: string;
+}
+
+export interface CaixaDia {
+  conta: { id: string; nome: string };
+  data: string;
+  saldoInicialCentavos: number;
+  entradasCentavos: number;
+  saidasCentavos: number;
+  saldoCalculadoCentavos: number;
+  fechamento: { saldoContadoCentavos: number; diferencaCentavos: number; observacao: string | null; fechadoEm: string } | null;
+  lancamentos: Array<{ id: string; tipo: TipoLancamento; descricao: string; valorPagoCentavos: number | null; categoria: string }>;
+  recentes: Array<{ data: string; saldoCalculadoCentavos: number; saldoContadoCentavos: number; diferencaCentavos: number }>;
+}
+
+export interface SaldoDiario {
+  conta: { id: string; nome: string; tipo: TipoConta };
+  saldoInicialCentavos: number;
+  dias: Array<{ data: string; entradasCentavos: number; saidasCentavos: number; saldoFinalCentavos: number }>;
+}
+
+export interface RevendaFin {
+  id: string;
+  descricao: string;
+  fornecedor: string | null;
+  vendedor: string | null;
+  dataVenda: string;
+  valorVendaCentavos: number;
+  valorRepasseCentavos: number;
+  comissaoCentavos: number;
+  margemCentavos: number;
 }

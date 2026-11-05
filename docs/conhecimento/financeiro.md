@@ -17,3 +17,10 @@
 - Conciliação automática: venda → comissão do canal → valor líquido → data prevista × data recebida.
 - Contratos B2B recorrentes (Oceanic, publicidade) com faturamento mensal e reajuste.
 - Exportação para a contabilidade; emissão de NFS-e pelo Emissor Nacional.
+
+## Planilha de controle (estrutura, 05/11/2026)
+- Uma aba por mês (ex.: AGO, SET, OUT) e uma consolidada "jan a out". Cabeçalho na linha 4 (consolidada) ou 14 (meses); acima dele há um resumo por grupo (RECEITA por banco, TAXAS, FROTA, FIXO, TRIBUTOS, PESSOAL, POSTO, ADM, RH, RESULTADO) cujas fórmulas e saldos estão errados desde a troca de layout (colunas trocadas, RH de BC fora do RH, POSTO somado duas vezes, RESULTADO sem a receita de um banco). O sistema não importa o resumo e recalcula tudo.
+- Colunas: MÊS, CONTA (SIC, UNI, DIN = dinheiro do quiosque, AGE = agenda sem valor, "U/S"), DATA, GRUPO, CAT, FORNECEDOR, DESCRIÇÃO, valores, OBS (às vezes com CPF/CNPJ, e-mail ou telefone do favorecido). A linha "AAA SALDO" é o saldo de abertura de cada conta naquela aba.
+- Layout antigo: A PAGAR, SAÍDA SIC (positivo = saída), ENTR SIC, CARTÃO, UNILOS (o sinal dá a direção). Layout novo (a partir de OUT/2026): A PAGAR, SICREDI, UNILOS, QUIOSQUE, CARTÃO, com saídas negativas.
+- Grupos (com erros de digitação): RECEITA, FROTA, RH (e RH - BC), FIXO, ADM, PESSOAL, TAXAS, IMPOSTOS, POSTO, AGENDA, APLICAÇÃO, QUIO. Ficam fora do resultado operacional: transferências entre contas, aplicação e resgate, empréstimos (entrada = passivo; parcela = amortização + juros) e pessoal. Devoluções e estornos abatem a origem. A empresa também revende serviços de terceiros (ex.: ingressos), com a comissão do vendedor lançada no RH.
+- Há **um só caixa em dinheiro**: a "caixinha" é o caixa do quiosque. Os dados reais da planilha entram só em produção.

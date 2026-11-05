@@ -27,7 +27,10 @@ import { DocumentosPagina } from "./paginas/frota/Documentos";
 import { ManutencaoPagina } from "./paginas/frota/Manutencao";
 import { PainelFrotaPagina } from "./paginas/frota/Painel";
 import { VeiculosPagina } from "./paginas/frota/Veiculos";
+import { Caixa } from "./paginas/financeiro/Caixa";
 import { Cartoes } from "./paginas/financeiro/Cartoes";
+import { ImportarPlanilha } from "./paginas/financeiro/ImportarPlanilha";
+import { Revenda } from "./paginas/financeiro/Revenda";
 import { ContasCategorias } from "./paginas/financeiro/ContasCategorias";
 import { Extrato } from "./paginas/financeiro/Extrato";
 import { Financeiro } from "./paginas/financeiro/Financeiro";
@@ -229,6 +232,9 @@ export function Rotas() {
           <Route path="extrato" element={<Extrato />} />
           <Route path="cartoes" element={<Cartoes />} />
           <Route path="contas" element={<ContasCategorias />} />
+          <Route path="caixa" element={<Caixa />} />
+          <Route path="revenda" element={<Revenda />} />
+          <Route path="planilha" element={<ImportarPlanilha />} />
         </Route>
         <Route
           path="em-breve/:modulo"

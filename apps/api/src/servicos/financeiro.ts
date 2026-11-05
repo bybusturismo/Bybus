@@ -1,8 +1,8 @@
-import { PLANO_CATEGORIAS, type TipoCategoria } from "@bybus/core";
+import { PLANO_CATEGORIAS, SINONIMOS_PADRAO, type TipoCategoria } from "@bybus/core";
 import { and, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "../db/cliente.js";
-import { finCategorias, finContas, finExtratoLinhas, finLancamentos, finRegras, unidades } from "../db/schema.js";
+import { finCategorias, finContas, finExtratoLinhas, finFechamentosCaixa, finLancamentos, finRegras, finSinonimos, unidades } from "../db/schema.js";
 import { podeUnidade } from "../seguranca/escopo.js";
 import { ErroHttp, type UsuarioSessao } from "../seguranca/sessao.js";
 
@@ -24,6 +24,13 @@ export function filtroPraca(u: UsuarioSessao, coluna: PgColumn): SQL | undefined
   if (u.todasUnidades) return undefined;
   if (u.unidadeIds.length === 0) return sql`false`;
   return inArray(coluna, u.unidadeIds);
+}
+
+/** Caixa em dinheiro com o dia fechado não aceita baixas nem reaberturas naquela data. */
+export async function garantirCaixaAberto(db: Db, contaId: string | null, data: string | null): Promise<void> {
+  if (!contaId || !data) return;
+  const [f] = await db.select({ id: finFechamentosCaixa.id }).from(finFechamentosCaixa).where(and(eq(finFechamentosCaixa.contaId, contaId), eq(finFechamentosCaixa.data, data)));
+  if (f) throw new ErroHttp(409, "CAIXA_FECHADO", "O caixa deste dia já foi fechado. Não é possível lançar nem alterar movimentos nessa data.");
 }
 
 /** Praça escolhida num filtro: precisa estar no escopo do usuário. */
@@ -73,9 +80,20 @@ export async function estaConciliado(db: Db, lancamentoId: string): Promise<bool
   return !!r;
 }
 
-/** Cria o plano inicial de categorias (idempotente). */
+/**
+ * Cria o plano padrão de categorias e atualiza nome, grupo e ordem das categorias do sistema (idempotente).
+ * Categorias criadas pelo usuário não são tocadas.
+ */
 export async function garantirPlano(db: Db): Promise<void> {
-  await db.insert(finCategorias).values(PLANO_CATEGORIAS.map((c, i) => ({ codigo: c.codigo, nome: c.nome, tipo: c.tipo, grupo: c.grupo, ordem: (i + 1) * 10, sistema: true }))).onConflictDoNothing({ target: finCategorias.codigo });
+  await db.insert(finCategorias).values(PLANO_CATEGORIAS.map((c, i) => ({ codigo: c.codigo, nome: c.nome, tipo: c.tipo, grupo: c.grupo, ordem: (i + 1) * 10, sistema: true })))
+    .onConflictDoUpdate({ target: finCategorias.codigo, set: { nome: sql`excluded.nome`, grupo: sql`excluded.grupo`, ordem: sql`excluded.ordem` }, setWhere: sql`${finCategorias.sistema} = true` });
+}
+
+/** Semeia o dicionário de sinônimos só quando está vazio (assim o que a pessoa editar ou apagar não volta). */
+export async function garantirSinonimos(db: Db): Promise<void> {
+  const [existe] = await db.select({ id: finSinonimos.id }).from(finSinonimos).limit(1);
+  if (existe) return;
+  await db.insert(finSinonimos).values(SINONIMOS_PADRAO.map((s) => ({ tipo: s.tipo, texto: s.texto, alvo: s.alvo }))).onConflictDoNothing();
 }
 
 export async function validarCategoria(db: Db, categoriaId: string, tipo: "PAGAR" | "RECEBER") {
@@ -94,14 +112,15 @@ export async function validarCategoria(db: Db, categoriaId: string, tipo: "PAGAR
  * (ex.: caixa do quiosque, que não tem extrato). Assim, uma baixa manual e a linha do mesmo movimento não contam em dobro,
  * nem antes de conciliar.
  * "Saldo válido em" (saldoInicialEm) é o saldo no INÍCIO daquele dia: movimentos da própria data entram (>=).
+ * `antesDe` calcula o saldo no início de outra data (só movimentos anteriores a ela).
  */
-export async function saldosDasContas(db: Db, contas: Conta[]): Promise<Map<string, number>> {
+export async function saldosDasContas(db: Db, contas: Conta[], antesDe?: string): Promise<Map<string, number>> {
   const saldos = new Map<string, number>(contas.map((c) => [c.id, c.saldoInicialCentavos]));
   if (contas.length === 0) return saldos;
   const ids = contas.map((c) => c.id);
   const linhas = await db.select({ contaId: finExtratoLinhas.contaId, total: sql<number>`coalesce(sum(${finExtratoLinhas.valorCentavos}), 0)`.mapWith(Number) })
     .from(finExtratoLinhas).innerJoin(finContas, eq(finContas.id, finExtratoLinhas.contaId))
-    .where(and(inArray(finExtratoLinhas.contaId, ids), sql`(${finContas.saldoInicialEm} is null or ${finExtratoLinhas.data} >= ${finContas.saldoInicialEm})`))
+    .where(and(inArray(finExtratoLinhas.contaId, ids), sql`(${finContas.saldoInicialEm} is null or ${finExtratoLinhas.data} >= ${finContas.saldoInicialEm})`, antesDe ? sql`${finExtratoLinhas.data} < ${antesDe}` : undefined))
     .groupBy(finExtratoLinhas.contaId);
   for (const l of linhas) saldos.set(l.contaId, (saldos.get(l.contaId) ?? 0) + l.total);
   const avulsos = await db.select({
@@ -113,6 +132,7 @@ export async function saldosDasContas(db: Db, contas: Conta[]): Promise<Map<stri
       naoConciliadoSql,
       sql`not exists (select 1 from fin_extratos e where e.conta_id = ${finLancamentos.contaId} and e.inicio <= ${finLancamentos.pagoEm} and e.fim >= ${finLancamentos.pagoEm})`,
       sql`(${finContas.saldoInicialEm} is null or ${finLancamentos.pagoEm} >= ${finContas.saldoInicialEm})`,
+      antesDe ? sql`${finLancamentos.pagoEm} < ${antesDe}` : undefined,
     ))
     .groupBy(finLancamentos.contaId);
   for (const a of avulsos) if (a.contaId) saldos.set(a.contaId, (saldos.get(a.contaId) ?? 0) + a.total);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  classificar, extrairPlaca, lerPlanilhaFinanceira, montarDicionario, separarObs, SINONIMOS_PADRAO, valorPlanilha, GRUPO_PESSOAL,
   calcularBaixa, centavosParaTexto, faturaDaData, chaveLinha, dataFlexivel, inicioDaSemana, lerCsvExtrato, lerOfx, montarDre, montarFluxoSemanal,
   paraCentavos, parcelar, prepararLinhas, somarMeses, sugerirCategoria, sugerirCorrespondencias,
   type CategoriaInfo, type LancamentoRelatorio,
@@ -284,5 +285,119 @@ describe("regressões da revisão", () => {
         expect(x.vencimento > x.fechamento, `${d} ${fech}/${venc}`).toBe(true);
       }
     }
+  });
+});
+
+describe("planilha de controle financeiro", () => {
+  const csv = [
+    "RESUMO,x,,,,,,,,,,,", "RECEITA SIC,\"R$  1,00\",,,,,,,,,,,",
+    "MÊS,CONTA,DATA,,CAT,FORNECEDOR,DESCRIÇÃO, A PAGAR , SICREDI , UNILOS , QUIOSQUE , CARTÃO ,OBS",
+    "OUT,,,,AAA SALDO,,,,\" R$  10.000,00 \",\" R$  5.000,00 \",,,",
+    "OUT,SIC,05/10/2026,FOTA,MANUTENÇÃO,Oficina X,Revisão,,\" R$  (1.500,00) \",,,,CNPJ 12.345.678/0001-95 a@b.example",
+    "OUT,,10/10/2026,FIXO,CONSORCIO,Consórcio,Parcela,\" R$  (900,00) \",,,,,",
+    ",,,,TOTAL,,,\" R$  - \",\" R$  1.234,56 \",,,,",
+    "OUT,SIC,xx,FROTA,POSTO,P,Y,,\" R$  (10,00) \",,,,",
+    "OUT,SIC,11/10/2026,FROTA,POSTO,P,Y,,\" R$  abc \",,,,",
+  ].join("\n");
+
+  it("localiza o cabeçalho, ignora o resumo do topo e lê negativos entre parênteses e o saldo", () => {
+    const r = lerPlanilhaFinanceira(csv);
+    expect(r.cabecalhoLinha).toBe(3);
+    expect(r.linhas.map((l) => [l.saldo, l.data, l.grupo, l.categoria, l.valores])).toEqual([
+      [true, null, "", "AAA SALDO", { SICREDI: 1000000, UNILOS: 500000 }],
+      [false, "2026-10-05", "FOTA", "MANUTENÇÃO", { SICREDI: -150000 }],
+      [false, "2026-10-10", "FIXO", "CONSORCIO", { APAGAR: -90000 }],
+    ]);
+    expect(r.layout).toBe("NOVO");
+    expect(r.ignoradas.some((i) => /total/i.test(i.motivo))).toBe(true);
+    expect(r.datasInvalidas).toEqual([{ linha: 8, texto: "xx" }]);
+    expect(r.erros).toHaveLength(1);
+    expect(() => lerPlanilhaFinanceira("a,b\n1,2")).toThrow(/Cabeçalho/);
+  });
+
+  it("layout antigo: SAÍDA SIC e ENTR SIC positivos viram o saldo líquido do Sicredi; AGE e totais são ignorados", () => {
+    const antigo = [
+      "x,,,,,,,,,", "MÊS,CONTA,DATA,,CAT,FORNECEDOR,DESCRIÇÃO, A PAGAR , SAIDA SIC , ENTR SIC , CARTÃO , UNILOS ,OBS",
+      "AGO,SIC,05/08/2026,FROTA,MANUTENÇÃO,Oficina,Revisão,,\" R$  1.500,00 \",,,,",
+      "AGO,SIC,06/08/2026,RECEITA,CLIENTE,Cliente,Fretamento,,,\" R$  3.000,00 \",,,",
+      "AGO,UNI,07/08/2026,RH,FOLHA,,Folha,,,,,\" R$  (800,00) \",",
+      "AGO,AGE,08/08/2026,,LEMBRETE,,Ligar,,,,,,",
+      "AGO,SIC,03/06,FROTA,POSTO,P,Y,,\" R$  10,00 \",,,,",
+    ].join("\n");
+    const r = lerPlanilhaFinanceira(antigo);
+    expect(r.layout).toBe("ANTIGO");
+    expect(r.linhas.map((l) => l.valores)).toEqual([{ SICREDI: -150000 }, { SICREDI: 300000 }, { UNILOS: -80000 }]);
+    expect(r.datasInvalidas).toEqual([{ linha: 7, texto: "03/06" }]);
+    expect(r.ignoradas.some((i) => /Agenda/.test(i.motivo))).toBe(false); // AGE sem valor: linha vazia, nem chega a ser lançamento
+  });
+
+  it("valores da planilha", () => {
+    expect(valorPlanilha(" R$  1.234,56 ")).toBe(123456);
+    expect(valorPlanilha("R$  (1.000,00)")).toBe(-100000);
+    expect(valorPlanilha(" R$ - ")).toBeUndefined();
+    expect(valorPlanilha("")).toBeUndefined();
+    expect(valorPlanilha("R$ abc")).toBeNull();
+  });
+
+  it("sinônimos: erros de digitação e variações caem na categoria certa", () => {
+    const d = montarDicionario(SINONIMOS_PADRAO);
+    const alvo = (g: string, c: string) => classificar(g, c, d).alvo;
+    expect(alvo("FOTA", "MANUTENÇÃO")).toBe("DESP_MANUTENCAO");
+    expect(alvo(" FROTA ", "manutencao")).toBe("DESP_MANUTENCAO");
+    expect(alvo("RECEIRA", "CLIENTE - EMITIR NF")).toBe("REC_CLIENTE");
+    expect(alvo("RH - BC", "FOLHA CLT")).toBe("DESP_FOLHA_CLT");
+    expect(alvo("PESS", "DESP DIRETA")).toBe("DESP_PESSOAL");
+    expect(alvo("PESSOAL", "qualquer coisa")).toBe("DESP_PESSOAL");
+    expect(alvo("IMPOSTO", "DAS")).toBe("DESP_IMPOSTOS");
+    expect(alvo("TAXA", "TAXAS")).toBe("DESP_TAXAS");
+    expect(alvo("ADM", "TRANS ENTRE CONTAS")).toBe("@TRANSFERENCIA");
+    expect(alvo("ADM", "DEVOLUÇÃO")).toBe("DESP_DEVOLUCAO");
+    expect(alvo("RECEITA", "DEVOLUÇÃO")).toBe("REC_DEVOLUCAO");
+    expect(alvo("FIXO", "RASTREADOR")).toBe("DESP_RASTREADOR");
+    expect(alvo("QUIO", "DESPESA")).toBe("DESP_QUIOSQUE");
+    expect(alvo("AGENDA", "LEMBRETE")).toBeNull();
+    expect(alvo("ADM", "TRANF ENTRE CONTAS")).toBe("@TRANSFERENCIA");
+    expect(alvo("ADM", "APLICAÇÃO")).toBe("@APLICACAO");
+    expect(alvo("RECEITA", "RESGATE")).toBe("@APLICACAO");
+    expect(alvo("FIXO", "EPRESTIMO")).toBe("DESP_EMPRESTIMO");
+    expect(alvo("ADM", "Capital de Giro")).toBe("DESP_EMPRESTIMO");
+    expect(alvo("RH", "COMISSÃO BETO CARREIRO")).toBe("DESP_COMISSAO_RH");
+    expect(classificar("AGENDA", "LEMBRETE", d).chave).toBe("AGENDA|LEMBRETE");
+  });
+
+  it("OBS: CPF, CNPJ, e-mail e telefone saem do texto", () => {
+    const r = separarObs("PIX CNPJ 12.345.678/0001-95 contato@teste.example fone 48 99999-1234 pago adiantado");
+    expect(r.documentos).toEqual(["12.345.678/0001-95"]);
+    expect(r.emails).toEqual(["contato@teste.example"]);
+    expect(r.telefones).toHaveLength(1);
+    expect(r.texto).toBe("pago adiantado");
+    expect(separarObs("CPF 123.456.789-09").texto).toBe("");
+    expect(separarObs("").documentos).toEqual([]);
+  });
+
+  it("placa do veículo no texto", () => {
+    expect(extrairPlaca("Revisão qjq2a16")).toBe("QJQ2A16");
+    expect(extrairPlaca("Diesel ABC-1234")).toBe("ABC1234");
+    expect(extrairPlaca("sem placa")).toBeNull();
+  });
+
+  it("DRE: despesa pessoal fica fora do resultado operacional e aparece à parte", () => {
+    const cats = new Map([
+      ["r", { nome: "Clientes", tipo: "RECEITA" as const, grupo: "Receita", ordem: 1 }],
+      ["f", { nome: "Manutenção", tipo: "DESPESA" as const, grupo: "Frota", ordem: 2 }],
+      ["p", { nome: "Despesa direta", tipo: "DESPESA" as const, grupo: GRUPO_PESSOAL, ordem: 3 }],
+    ]);
+    const base = { situacao: "ABERTO" as const, valorPagoCentavos: null, jurosCentavos: 0, multaCentavos: 0, descontoCentavos: 0, vencimento: "2026-10-01", pagoEm: null, unidadeId: null, linha: null };
+    const dre = montarDre([
+      { ...base, tipo: "RECEBER", categoriaId: "r", valorCentavos: 100000 },
+      { ...base, tipo: "PAGAR", categoriaId: "f", valorCentavos: 30000 },
+      { ...base, tipo: "PAGAR", categoriaId: "p", valorCentavos: 15000 },
+    ], cats);
+    expect(dre.resultadoCentavos).toBe(70000);
+    expect(dre.despesaCentavos).toBe(30000);
+    expect(dre.grupos.some((g) => g.grupo === GRUPO_PESSOAL)).toBe(false);
+    expect(dre.pessoalCentavos).toBe(15000);
+    expect(dre.pessoal?.categorias).toEqual([{ categoriaId: "p", nome: "Despesa direta", totalCentavos: 15000 }]);
+    expect(dre.resultadoAposPessoalCentavos).toBe(55000);
   });
 });

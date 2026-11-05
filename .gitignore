@@ -13,6 +13,8 @@ dados-reais/
 exports/
 *.xlsx
 *.csv
+# Planilhas FICTÍCIAS de teste (nomes e valores inventados) podem ser versionadas; dados reais nunca.
+!apps/api/test/fixtures/*-ficticio.csv
 # SO / editores
 .DS_Store
 .vscode/

@@ -7,6 +7,9 @@ const ABAS = [
   { para: "/financeiro/receber", rotulo: "A receber" },
   { para: "/financeiro/extrato", rotulo: "Extrato e conciliação" },
   { para: "/financeiro/cartoes", rotulo: "Cartões" },
+  { para: "/financeiro/caixa", rotulo: "Caixa e saldos" },
+  { para: "/financeiro/revenda", rotulo: "Revenda" },
+  { para: "/financeiro/planilha", rotulo: "Importar planilha" },
   { para: "/financeiro/contas", rotulo: "Contas e categorias" },
 ];
 
