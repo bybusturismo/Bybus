@@ -71,15 +71,16 @@ describe("horários de busca", () => {
       { bairroId: "x", horarioBairro: null, horarioManual: null },
       { bairroId: null, horarioBairro: null, horarioManual: null },
     ], 5);
-    expect(r).toEqual(["06:40", "06:45", "06:48", "06:50", null, null]);
+    // Cachoeira (06:50) vem depois da parada manual das 06:48: passa para 06:53 (nunca volta no tempo).
+    expect(r).toEqual(["06:40", "06:45", "06:48", "06:53", null, null]);
   });
-  it("ordem manual muda o horário calculado (o bairro volta a começar no horário dele)", () => {
+  it("ordem manual muda o horário calculado e ele nunca volta no tempo", () => {
     const r = calcularHorariosBusca([
       { bairroId: "a", horarioBairro: "06:40", horarioManual: null },
       { bairroId: "b", horarioBairro: "06:50", horarioManual: null },
       { bairroId: "a", horarioBairro: "06:40", horarioManual: null },
     ], 5);
-    expect(r).toEqual(["06:40", "06:50", "06:40"]);
+    expect(r).toEqual(["06:40", "06:50", "06:55"]);
   });
 });
 
@@ -127,5 +128,17 @@ describe("textos", () => {
     expect(t).toContain("embarcam todos em Villa Romana Shopping às 07:50");
     expect(t.match(/Ana Fictícia/g)).toHaveLength(1);
     expect(textoListaGrupo(m, cabL, new Map())).not.toContain("via transfer");
+  });
+});
+
+describe("horários de busca não voltam no tempo", () => {
+  it("bairro seguinte com horário de referência igual ao anterior passa para depois da última parada", () => {
+    const h = calcularHorariosBusca([
+      { bairroId: "santinho", horarioBairro: "06:40", horarioManual: null },
+      { bairroId: "santinho", horarioBairro: "06:40", horarioManual: null },
+      { bairroId: "ingleses", horarioBairro: "06:40", horarioManual: null },
+      { bairroId: "cachoeira", horarioBairro: "06:50", horarioManual: null },
+    ], 5);
+    expect(h).toEqual(["06:40", "06:45", "06:50", "06:55"]);
   });
 });

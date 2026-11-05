@@ -124,18 +124,30 @@ export interface ItemHorario {
 /**
  * Horário de busca de cada item, na ordem recebida: o primeiro de cada bairro sai no horário do bairro e os seguintes
  * do mesmo bairro somam `intervaloMinutos` cada. Sem horário de bairro: nulo (a confirmar). Horário manual vale como está.
+ * Os horários nunca voltam: se o bairro seguinte tem horário de referência menor que a parada anterior + intervalo,
+ * a busca passa para depois da anterior.
  */
 export function calcularHorariosBusca(itens: ItemHorario[], intervaloMinutos: number): Array<string | null> {
   const resultado: Array<string | null> = [];
   let bairroAtual: string | null | undefined;
   let posicaoNoBairro = 0;
+  let ultimo: number | null = null;
   for (const it of itens) {
     if (it.bairroId !== bairroAtual) {
       bairroAtual = it.bairroId;
       posicaoNoBairro = 0;
     }
-    if (it.horarioManual) resultado.push(it.horarioManual);
-    else resultado.push(it.horarioBairro ? somarMinutos(it.horarioBairro, posicaoNoBairro * intervaloMinutos) : null);
+    if (it.horarioManual) {
+      resultado.push(it.horarioManual);
+      ultimo = minutosDe(it.horarioManual);
+    } else if (it.horarioBairro) {
+      // Nunca volta no tempo: a van só chega à próxima parada depois da anterior (+ intervalo).
+      let h = minutosDe(it.horarioBairro) + posicaoNoBairro * intervaloMinutos;
+      if (ultimo !== null && h < ultimo + intervaloMinutos) h = ultimo + intervaloMinutos;
+      const texto = somarMinutos("00:00", h);
+      resultado.push(texto);
+      ultimo = h;
+    } else resultado.push(null);
     posicaoNoBairro++;
   }
   return resultado;

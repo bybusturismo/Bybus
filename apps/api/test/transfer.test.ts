@@ -118,7 +118,8 @@ describe("montagem do transfer do dia", () => {
     const j = r.json() as Dto;
     expect(j.reservas.map((x) => x.titular)).toEqual(["Marta Santinho Fictícia", "Ana Ingleses Fictícia", "Caio Cachoeira Fictício", "Rui Canasvieiras Fictício", "Paulo Jurere Fictício"]);
     expect(j.reservas.map((x) => x.bairro)).toEqual(["Santinho", "Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]);
-    expect(j.reservas.map((x) => x.horario)).toEqual(["06:40", "06:40", "06:50", "07:00", "07:10"]);
+    // Ingleses tem a mesma referência (06:40) de Santinho, mas vem depois: a van chega 5 min após a parada anterior.
+    expect(j.reservas.map((x) => x.horario)).toEqual(["06:40", "06:45", "06:50", "07:00", "07:10"]);
     expect(j.reservas.map((x) => x.ordem)).toEqual([0, 1, 2, 3, 4]);
     // colo não paga: Marta (adulto + colo) = 1 assento
     expect(j.reservas.map((x) => x.taxaCentavos)).toEqual([4000, 4000, 12000, 4000, 8000]);
@@ -183,7 +184,7 @@ describe("ordem e edição", () => {
     let n = (await sup.req("POST", `/api/transfer/dias/${j.dia!.id}/recalcular-ordem`)).json() as Dto;
     expect(n.reservas.find((x) => x.id === ana.id)).toMatchObject({ horario: "06:42", endereco: "Pousada Ingleses Fictícia — portão azul" });
     n = (await sup.req("PATCH", `/api/transfer/reservas/${ana.id}`, { horarioBusca: null })).json() as Dto;
-    expect(n.reservas.find((x) => x.id === ana.id)!.horario).toBe("06:40"); // primeiro do bairro Ingleses
+    expect(n.reservas.find((x) => x.id === ana.id)!.horario).toBe("06:45"); // volta ao automático: depois da parada de Santinho (06:40)
   });
 });
 
