@@ -11,8 +11,8 @@ const agora = () => timestamp({ withTimezone: true }).notNull().defaultNow();
 export const transferConfig = pgTable("transfer_config", {
   passeioId: uuid().primaryKey().references(() => passeios.id),
   /** Taxa única por passageiro com assento, igual em todos os bairros (centavos). [A CONFIRMAR] entre R$ 35 e R$ 45. */
-  taxaPorPassageiroCentavos: integer().notNull().default(4000),
-  taxaAConfirmar: boolean().notNull().default(true),
+  taxaPorPassageiroCentavos: integer().notNull().default(4500), // R$ 45,00 por passageiro (dono, 05/11/2026)
+  taxaAConfirmar: boolean().notNull().default(false),
   /** Minutos somados a cada parada seguinte dentro do mesmo bairro, no cálculo do horário de busca. */
   intervaloMinutos: integer().notNull().default(5),
   /** Ponto de embarque do passeio onde a van encontra o ônibus (Villa Romana Shopping). */

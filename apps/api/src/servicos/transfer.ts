@@ -15,7 +15,7 @@ type LinhaTr = typeof transferReservas.$inferSelect;
 export async function configDoPasseio(db: Db, passeioId: string): Promise<ConfigTransfer> {
   const [c] = await db.select().from(transferConfig).where(eq(transferConfig.passeioId, passeioId));
   return c ?? {
-    passeioId, taxaPorPassageiroCentavos: 4000, taxaAConfirmar: true, intervaloMinutos: 5, pontoEncontroId: null, chegadaPrevista: null,
+    passeioId, taxaPorPassageiroCentavos: 4500, taxaAConfirmar: false, intervaloMinutos: 5, pontoEncontroId: null, chegadaPrevista: null,
     motoristaPadraoId: null, veiculoPadraoId: null, veiculoPadraoTexto: null, lugaresPadrao: null, atualizadoEm: new Date(),
   };
 }

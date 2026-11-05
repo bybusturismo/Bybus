@@ -43,7 +43,7 @@ export function criarTransferDemo(d: DepsTransferDemo) {
     { id: "tb-4", nome: "Canasvieiras", ordemBusca: 3, horarioReferencia: "07:00", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
     { id: "tb-5", nome: "Jurerê", ordemBusca: 4, horarioReferencia: "07:10", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
   ];
-  const config = { taxaPorPassageiroCentavos: 4000, taxaAConfirmar: true, intervaloMinutos: 5, pontoEncontroId: null as string | null, chegadaPrevista: null as string | null, motoristaPadraoId: "pe-davi" as string | null, veiculoPadraoId: null as string | null, veiculoPadraoTexto: "Van fictícia ZZZ0Z00" as string | null, lugaresPadrao: 15 as number | null };
+  const config = { taxaPorPassageiroCentavos: 4500, taxaAConfirmar: false, intervaloMinutos: 5, pontoEncontroId: null as string | null, chegadaPrevista: null as string | null, motoristaPadraoId: "pe-davi" as string | null, veiculoPadraoId: null as string | null, veiculoPadraoTexto: "Van fictícia ZZZ0Z00" as string | null, lugaresPadrao: 15 as number | null };
   const dia = { id: "tdia-1", saidaId: "", veiculoTexto: config.veiculoPadraoTexto, motoristaId: config.motoristaPadraoId, lugares: config.lugaresPadrao, pontoEncontroId: null as string | null, chegadaPrevista: null as string | null, observacoes: null as string | null };
   let paradas: Parada[] = [];
   let pronto = false;

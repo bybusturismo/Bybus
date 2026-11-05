@@ -76,14 +76,14 @@ describe("configuração do passeio", () => {
     const j = r.json();
     expect(j.bairros.map((b: { nome: string }) => b.nome)).toEqual(["Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]); // bairros-base do dono (05/11); Santinho fica dentro de Ingleses
     expect(j.bairros.map((b: { ordemBusca: number }) => b.ordemBusca)).toEqual([1, 2, 3, 4]);
-    expect(j.config).toMatchObject({ taxaAConfirmar: true, taxaPorPassageiroCentavos: 4000, pontoEncontroId: ids.pontoVilla });
+    expect(j.config).toMatchObject({ taxaAConfirmar: false, taxaPorPassageiroCentavos: 4500, pontoEncontroId: ids.pontoVilla });
     expect(j.bairros[0]).not.toHaveProperty("taxaCentavos"); // taxa única, não por bairro
   });
 
   it("só quem gerencia o transfer altera; valida ponto de encontro, motorista e nomes repetidos; audita antes e depois", async () => {
     const sup = await logado("supervisor@bybus.test");
     const atual = (await sup.req("GET", `/api/passeios/${ids.passeio}/transfer`)).json();
-    const corpo = { config: { ...atual.config, motoristaPadraoId: ids.davi, veiculoPadraoTexto: "Van fictícia ZZZ0Z00", lugaresPadrao: 15, taxaPorPassageiroCentavos: 4000 }, bairros: atual.bairros };
+    const corpo = { config: { ...atual.config, motoristaPadraoId: ids.davi, veiculoPadraoTexto: "Van fictícia ZZZ0Z00", lugaresPadrao: 15, taxaPorPassageiroCentavos: 4500 }, bairros: atual.bairros };
     const atendente = await logado("atendente@bybus.test");
     expect((await atendente.req("PUT", `/api/passeios/${ids.passeio}/transfer`, corpo)).statusCode).toBe(403);
     expect((await sup.req("PUT", `/api/passeios/${ids.passeio}/transfer`, { ...corpo, config: { ...corpo.config, pontoEncontroId: ids.pontoJur } })).statusCode).toBe(400); // bairro não é ponto de encontro
@@ -94,7 +94,7 @@ describe("configuração do passeio", () => {
     expect(ok.statusCode, ok.body).toBe(200);
     const trilha = await comDb((db) => db.select().from(auditoria).where(eq(auditoria.acao, "TRANSFER_CONFIG_ALTERADA")));
     expect(trilha).toHaveLength(1);
-    expect(trilha[0]!.dados).toMatchObject({ antes: { taxaPorPassageiroCentavos: 4000 }, depois: { taxaPorPassageiroCentavos: 4000 } });
+    expect(trilha[0]!.dados).toMatchObject({ antes: { taxaPorPassageiroCentavos: 4500 }, depois: { taxaPorPassageiroCentavos: 4500 } });
   });
 });
 
@@ -122,9 +122,9 @@ describe("montagem do transfer do dia", () => {
     expect(j.reservas.map((x) => x.horario)).toEqual(["06:40", "06:45", "06:50", "07:00", "07:10"]);
     expect(j.reservas.map((x) => x.ordem)).toEqual([0, 1, 2, 3, 4]);
     // colo não paga: Marta (adulto + colo) = 1 assento
-    expect(j.reservas.map((x) => x.taxaCentavos)).toEqual([4000, 4000, 12000, 4000, 8000]);
+    expect(j.reservas.map((x) => x.taxaCentavos)).toEqual([4500, 4500, 13500, 4500, 9000]);
     expect(j.reservas.find((x) => x.titular.startsWith("Marta"))).toMatchObject({ pax: 2, assentos: 1, endereco: "Pousada Santinho Fictícia" });
-    expect(j.totais).toMatchObject({ reservas: 5, pax: 9, assentos: 8, taxa: { total: 32000, aReceber: 32000 } });
+    expect(j.totais).toMatchObject({ reservas: 5, pax: 9, assentos: 8, taxa: { total: 36000, aReceber: 36000 } });
     expect(j.dia).toMatchObject({ motorista: "Motorista Fictício Davi", lugares: 15 });
     expect(j.encontro?.nome).toBe("Villa Romana Shopping");
     expect(j.candidatas).toBe(0);
@@ -201,7 +201,7 @@ describe("cobrança da taxa", () => {
     expect(ok.statusCode, ok.body).toBe(200);
     expect((ok.json() as Dto).reservas.find((x) => x.id === rui.id)!.taxaCentavos).toBe(3500);
     const trilha = await comDb((db) => db.select().from(auditoria).where(eq(auditoria.acao, "TRANSFER_COBRANCA_ALTERADA")));
-    expect(trilha.some((a) => (a.dados as { taxaAntes?: number; taxaDepois?: number })?.taxaAntes === 4000 && (a.dados as { taxaDepois?: number }).taxaDepois === 3500)).toBe(true);
+    expect(trilha.some((a) => (a.dados as { taxaAntes?: number; taxaDepois?: number })?.taxaAntes === 4500 && (a.dados as { taxaDepois?: number }).taxaDepois === 3500)).toBe(true);
     // Valor ajustado à mão não é sobrescrito quando a reserva é recalculada.
     await comDb((db) => db.update(reservas).set({ contatoNome: "Rui Canasvieiras Fictício" }).where(eq(reservas.id, rui.reservaId)));
     const montar = (await sup.req("POST", "/api/transfer/montar", { saidaId: ids.saida })).json() as Dto;
@@ -262,20 +262,20 @@ describe("motorista do transfer (celular)", () => {
     const outro = await logado("outro.motorista@bybus.test");
     const j = await pegar(sup);
     const caio = j.reservas.find((x) => x.titular.startsWith("Caio"))!;
-    expect(caio.taxaCentavos).toBe(12000);
+    expect(caio.taxaCentavos).toBe(13500);
     expect((await outro.req("POST", `/api/transfer/reservas/${caio.id}/recebimento`, { forma: "PIX" })).statusCode).toBe(403);
     expect((await m.req("POST", `/api/transfer/reservas/${caio.id}/recebimento`, { forma: "CARTAO" })).statusCode).toBe(400);
-    expect((await m.req("POST", `/api/transfer/reservas/${caio.id}/recebimento`, { forma: "PIX", valorCentavos: 11999 })).statusCode).toBe(400);
-    const ok = await m.req("POST", `/api/transfer/reservas/${caio.id}/recebimento`, { forma: "PIX", valorCentavos: 12000 });
+    expect((await m.req("POST", `/api/transfer/reservas/${caio.id}/recebimento`, { forma: "PIX", valorCentavos: 13499 })).statusCode).toBe(400);
+    const ok = await m.req("POST", `/api/transfer/reservas/${caio.id}/recebimento`, { forma: "PIX", valorCentavos: 13500 });
     expect(ok.statusCode, ok.body).toBe(200);
     const d = ok.json() as Dto;
     expect(d.reservas.find((x) => x.id === caio.id)).toMatchObject({ taxaSituacao: "RECEBIDO", taxaForma: "PIX", recebidoPor: "Motorista Demo" });
-    expect(d.totais.taxa.recebidoPix).toBe(12000);
+    expect(d.totais.taxa.recebidoPix).toBe(13500);
     expect((await m.req("POST", `/api/transfer/reservas/${caio.id}/recebimento`, { forma: "DINHEIRO" })).statusCode).toBe(409);
     // Em dinheiro, outra reserva.
     const ana = j.reservas.find((x) => x.titular.startsWith("Ana"))!;
     const din = (await m.req("POST", `/api/transfer/reservas/${ana.id}/recebimento`, { forma: "DINHEIRO" })).json() as Dto;
-    expect(din.totais.taxa).toMatchObject({ recebidoPix: 12000, recebidoDinheiro: 4000 });
+    expect(din.totais.taxa).toMatchObject({ recebidoPix: 13500, recebidoDinheiro: 4500 });
     // Estorno só pela gestão.
     expect((await m.req("POST", `/api/transfer/reservas/${ana.id}/estornar`)).statusCode).toBe(403);
     const est = (await sup.req("POST", `/api/transfer/reservas/${ana.id}/estornar`)).json() as Dto;
@@ -283,7 +283,7 @@ describe("motorista do transfer (celular)", () => {
     expect((await sup.req("POST", `/api/transfer/reservas/${ana.id}/estornar`)).statusCode).toBe(409);
     const trilha = await comDb((db) => db.select().from(auditoria).where(like(auditoria.acao, "TRANSFER_TAXA_%")));
     expect(trilha.map((a) => a.acao).sort()).toEqual(["TRANSFER_TAXA_ESTORNADA", "TRANSFER_TAXA_RECEBIDA", "TRANSFER_TAXA_RECEBIDA"]);
-    expect(trilha.find((a) => a.acao === "TRANSFER_TAXA_RECEBIDA")!.dados).toMatchObject({ forma: "PIX", valorCentavos: 12000 });
+    expect(trilha.find((a) => a.acao === "TRANSFER_TAXA_RECEBIDA")!.dados).toMatchObject({ forma: "PIX", valorCentavos: 13500 });
   });
 });
 
@@ -365,13 +365,13 @@ describe("o transfer acompanha mudanças da reserva", () => {
 
   it("passageiro de colo não aumenta a taxa; adulto novo aumenta (taxa automática)", async () => {
     const sup = await logado("supervisor@bybus.test");
-    const rid = ids.r["2"]!; // Marta: adulto + colo = 4000
+    const rid = ids.r["2"]!; // Marta: adulto + colo = 4500
     const antes = (await pegar(sup)).reservas.find((x) => x.reservaId === rid)!;
-    expect(antes.taxaCentavos).toBe(4000);
+    expect(antes.taxaCentavos).toBe(4500);
     await sup.req("POST", `/api/reservas/${rid}/passageiros`, { nome: "Bebê Fictício", categoria: "COLO" });
-    expect((await pegar(sup)).reservas.find((x) => x.reservaId === rid)!.taxaCentavos).toBe(4000);
+    expect((await pegar(sup)).reservas.find((x) => x.reservaId === rid)!.taxaCentavos).toBe(4500);
     await sup.req("POST", `/api/reservas/${rid}/passageiros`, { nome: "Adulto Fictício", categoria: "ADULTO" });
-    expect((await pegar(sup)).reservas.find((x) => x.reservaId === rid)!.taxaCentavos).toBe(8000);
+    expect((await pegar(sup)).reservas.find((x) => x.reservaId === rid)!.taxaCentavos).toBe(9000);
   });
 });
 

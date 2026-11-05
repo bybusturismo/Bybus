@@ -141,6 +141,13 @@
       "when": 1793880297797,
       "tag": "0019_financeiro_planilha",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793896497323,
+      "tag": "0020_taxa_transfer",
+      "breakpoints": true
     }
   ]
 }
