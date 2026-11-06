@@ -8,7 +8,8 @@
 
 /* ---------- Estrutura ---------- */
 .app .conteudo {
-  padding: var(--esp-3) var(--esp-5) var(--esp-6);
+  /* Espaço no fim para o Turistinha flutuante não cobrir a última linha. */
+  padding: var(--esp-3) var(--esp-5) 5.5rem;
 }
 .app .conteudo > * {
   max-width: 1600px;
@@ -402,7 +403,7 @@
 /* ---------- Celular: uma coluna, alvos grandes, sem rolagem horizontal ---------- */
 @media (max-width: 1099px) {
   .app .conteudo {
-    padding: var(--esp-3);
+    padding: var(--esp-3) var(--esp-3) 5.5rem;
   }
   .app .filtros {
     gap: var(--esp-2) var(--esp-3);
@@ -423,8 +424,13 @@
   }
 }
 @media (max-width: 520px) {
+  .app .botao {
+    white-space: normal;
+    text-align: center;
+  }
   .app .pagina__cabecalho .barra-acoes {
     width: 100%;
+    flex-wrap: wrap;
   }
   .app .filtros .campo--linha {
     flex: 1 1 100%;
@@ -651,8 +657,12 @@
     text-align: left;
   }
   .app .tabela--cartoes td.celula-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--esp-1);
     margin-top: var(--esp-2);
     min-width: 0;
+    white-space: normal;
   }
   .app .tabela--cartoes td.celula-acoes .botao {
     min-height: var(--alvo-toque);
