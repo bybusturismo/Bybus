@@ -19,6 +19,9 @@ import { Fechamento } from "./paginas/Fechamento";
 import { Conversas } from "./paginas/Conversas";
 import { EmbarquePublico } from "./paginas/EmbarquePublico";
 import { RastreioPublico } from "./paginas/RastreioPublico";
+import { BioPublica } from "./paginas/publico/BioPublica";
+import { NpsPublico } from "./paginas/publico/NpsPublico";
+import { OrcamentoPublico } from "./paginas/publico/OrcamentoPublico";
 import { Motorista } from "./paginas/rastreio/Motorista";
 import { Rastreamento } from "./paginas/rastreio/Rastreamento";
 import { Transfer } from "./paginas/transfer/Transfer";
@@ -64,6 +67,12 @@ import { Conteudo } from "./paginas/marketing/Conteudo";
 import { Origem } from "./paginas/marketing/Origem";
 import { Instagram } from "./paginas/marketing/Instagram";
 import { BancoMidias } from "./paginas/marketing/BancoMidias";
+import { RetornoCampanhas } from "./paginas/marketing/Retorno";
+import { Mensagens } from "./paginas/marketing/Mensagens";
+import { Nps } from "./paginas/marketing/Nps";
+import { Relatorios } from "./paginas/marketing/Relatorios";
+import { LinkBio } from "./paginas/marketing/LinkBio";
+import { Orcamentos } from "./paginas/orcamentos/Orcamentos";
 import { ProvedorSessao, useSessao } from "./sessao/Sessao";
 
 /** Esconde a tela de quem não tem a permissão (o servidor também recusa). */
@@ -407,7 +416,63 @@ export function Rotas() {
             </Exige>
           }
         />
+        <Route
+          path="retorno"
+          element={
+            <Exige permissao="marketing:ver">
+              <RetornoCampanhas />
+            </Exige>
+          }
+        />
+        <Route
+          path="mensagens"
+          element={
+            <Exige permissao="marketing:ver">
+              <Mensagens />
+            </Exige>
+          }
+        />
+        <Route
+          path="nps"
+          element={
+            <Exige permissao="marketing:ver">
+              <Nps />
+            </Exige>
+          }
+        />
+        <Route
+          path="relatorios"
+          element={
+            <Exige permissao="marketing:ver">
+              <Relatorios />
+            </Exige>
+          }
+        />
+        <Route
+          path="relatorios/:id"
+          element={
+            <Exige permissao="marketing:ver">
+              <Relatorios />
+            </Exige>
+          }
+        />
+        <Route
+          path="bio"
+          element={
+            <Exige permissao="marketing:ver">
+              <LinkBio />
+            </Exige>
+          }
+        />
         </Route>
+        <Route
+          path="orcamentos"
+          element={
+            <Exige permissao="reservas:editar">
+              <Orcamentos />
+            </Exige>
+          }
+        />
         <Route
           path="biblioteca"
           element={
@@ -446,6 +511,12 @@ export function App() {
   // Link de acompanhamento do ônibus (sem login nem sessão).
   const rastreio = /^\/rastreio\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
   if (rastreio) return <RastreioPublico token={rastreio[1]!} />;
+  // Marketing: link na bio, pedido de orçamento de grupos e pesquisa NPS (sem login nem sessão).
+  const caminho = window.location.pathname.replace(/\/$/, "");
+  if (caminho === "/bio") return <BioPublica />;
+  if (caminho === "/orcamento") return <OrcamentoPublico />;
+  const nps = /^\/nps\/([A-Za-z0-9_-]{20,64})$/.exec(caminho);
+  if (nps) return <NpsPublico token={nps[1]!} />;
   return (
     <Roteador future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ProvedorSessao>

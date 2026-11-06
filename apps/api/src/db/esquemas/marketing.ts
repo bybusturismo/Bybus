@@ -87,6 +87,15 @@ export const avaliacaoPedidos = pgTable("avaliacao_pedidos", {
   texto: text().notNull(),
   /** PENDENTE, ENVIADA_MANUAL, SIMULADA, SEM_TELEFONE ou IGNORADA. */
   status: text().notNull().default("PENDENTE"),
+  /** Idioma da mensagem (pt, en ou es), deduzido do país/DDI do cliente e editável. */
+  idioma: text().notNull().default("pt"),
+  /** GOOGLE, TRIPADVISOR, VIATOR (avalia na própria Viator, sem link) ou NENHUM (sem link cadastrado). */
+  canalAvaliacao: text().notNull().default("NENHUM"),
+  link: text(),
+  /** Quando o pedido foi feito (à mão, simulado ou enviado), do lembrete e da avaliação. */
+  pedidoEm: timestamp({ withTimezone: true }),
+  lembreteEm: timestamp({ withTimezone: true }),
+  avaliadoEm: timestamp({ withTimezone: true }),
   criadoEm: agora(),
   atualizadoEm: agora(),
 }, (t) => [index("avaliacao_pedidos_saida_idx").on(t.saidaId)]);

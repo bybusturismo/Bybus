@@ -309,3 +309,4 @@ export * from "./esquemas/whatsapp.js";
 export * from "./esquemas/vendas.js";
 export * from "./esquemas/transfer.js";
 export * from "./esquemas/instagram.js";
+export * from "./esquemas/marketing2.js";

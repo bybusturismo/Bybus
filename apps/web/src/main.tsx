@@ -9,6 +9,7 @@ import "./estilos/telas.css";
 import "./estilos/rastreio.css";
 import "./estilos/padrao.css";
 import "./estilos/impressao.css";
+import "./estilos/marketing2.css";
 import "./estilos/demo.css";
 
 // Modo demonstração: API simulada no navegador (dados fictícios).

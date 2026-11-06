@@ -28,6 +28,8 @@ import { rotasUsuarios } from "./rotas/usuarios.js";
 import { rotasPessoas } from "./rotas/pessoas.js";
 import { rotasFrota } from "./rotas/frota.js";
 import { rotasMarketing } from "./rotas/marketing.js";
+import { rotasMarketingExtras } from "./rotas/marketing-extras.js";
+import { agendarMarketing } from "./servicos/rotinasMarketing.js";
 import { rotasBiblioteca } from "./rotas/biblioteca.js";
 import { rotasIa } from "./rotas/ia.js";
 import { agendarAvaliacaoIa } from "./servicos/ia/agendamento.js";
@@ -44,6 +46,7 @@ export interface Contexto {
 /** Esconde tokens de links públicos na URL registrada no log. */
 export const mascararUrl = (url: string) => url
   .replace(/(\/embarque\/)[A-Za-z0-9_-]+/g, "$1***")
+  .replace(/(\/nps\/)[A-Za-z0-9_-]{20,}/g, "$1***")
   // O token do rastreio tem 20+ caracteres; rotas internas (/api/rastreio/saidas…) não são afetadas.
   .replace(/(\/rastreio\/)[A-Za-z0-9_-]{20,}/g, "$1***")
   .replace(/(\/api\/interno\/whatsapp\/)[A-Za-z0-9_-]+/g, "$1***")
@@ -122,6 +125,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasFechamento(app, ctx);
   await rotasFrota(app, ctx);
   await rotasMarketing(app, ctx);
+  await rotasMarketingExtras(app, ctx);
   await rotasBiblioteca(app, ctx);
   await rotasIa(app, ctx);
   await rotasFinanceiro(app, ctx);
@@ -138,6 +142,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   const pararIa = agendarAvaliacaoIa(db, config, app.log);
   const pararRastreio = agendarLimpezaRastreio(db, config, app.log);
   const pararInstagram = agendarInstagram(db, config, app.log);
+  const pararMarketing = agendarMarketing(db, config, app.log);
 
-  return { app, fechar: async () => { pararPaytour(); pararFechamento(); pararIa(); pararRastreio(); pararInstagram(); await app.close(); await pool.end(); } };
+  return { app, fechar: async () => { pararPaytour(); pararFechamento(); pararIa(); pararRastreio(); pararInstagram(); pararMarketing(); await app.close(); await pool.end(); } };
 }

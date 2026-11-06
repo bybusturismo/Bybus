@@ -80,6 +80,19 @@ function Rank({ itens }: { itens: Array<{ chave: string; nome: string; numeros: 
 }
 const pct = (n: number) => `${n.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 
+/** Avisos do marketing: pedidos de orçamento novos e casos de NPS abertos (só contadores; falha em silêncio). */
+function AvisosMarketing() {
+  const av = useCarregar((s) => api.get<{ orcamentosNovos: number; casosNpsAbertos: number }>("/api/marketing/avisos", s).catch(() => ({ orcamentosNovos: 0, casosNpsAbertos: 0 })), []);
+  const d = av.dados;
+  if (!d || (d.orcamentosNovos === 0 && d.casosNpsAbertos === 0)) return null;
+  return (
+    <div className="aviso aviso--atencao" role="status">
+      {d.orcamentosNovos > 0 && <span><Link to="/orcamentos"><strong>{d.orcamentosNovos}</strong> pedido(s) de orçamento de grupo novo(s)</Link>. </span>}
+      {d.casosNpsAbertos > 0 && <span><Link to="/marketing/nps"><strong>{d.casosNpsAbertos}</strong> caso(s) de NPS baixo para tratar</Link>.</span>}
+    </div>
+  );
+}
+
 export function VisaoGeral() {
   const { pode, praca } = useSessao();
   const verAnalise = pode("marketing:ver") || pode("financeiro:ver");
@@ -137,6 +150,8 @@ export function VisaoGeral() {
           </div>
         </div>
       </div>
+
+      <AvisosMarketing />
 
       <nav className="vg-atalhos" aria-label="Atalhos">
         {atalho("/listas/saidas?acao=nova-reserva", "Nova reserva", "mais", pode("reservas:editar"))}

@@ -15,7 +15,7 @@ export async function garantirOrcamento(db: Db, config: Config, agora = new Date
 }
 
 export interface DadosUso {
-  tipo: "AVALIACAO" | "DEBATE" | "SINTESE" | "ASSISTENTE" | "LEGENDA";
+  tipo: "AVALIACAO" | "DEBATE" | "SINTESE" | "ASSISTENTE" | "LEGENDA" | "RELATORIO";
   usuarioId?: string | null;
   avaliacaoId?: string | null;
   gestor?: string | null;

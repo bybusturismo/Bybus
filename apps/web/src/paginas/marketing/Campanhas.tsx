@@ -15,6 +15,8 @@ interface Campanha {
   cupom: string | null; utmCampanha: string | null; metaReservas: number | null; observacoes: string | null; ativa: boolean;
   resultados: Resultado[];
   totais: { reservas: number; passageiros: number; receitaCentavos: number | null };
+  atribuicao?: { tipo: "AUTOMATICA" | "MANUAL" | "NENHUMA"; pedidos: number };
+  investimentoEfetivoCentavos?: number;
   indicadores: { temAtribuicao: boolean; custoPorReservaCentavos: number | null; custoPorPassageiroCentavos: number | null; retorno: number | null; atingimentoMeta: number | null };
 }
 interface Resposta { atribuicao: { situacao: string; nota: string }; campanhas: Campanha[]; totais: { investimentoCentavos: number; reservasAtribuidas: number } }
@@ -209,7 +211,7 @@ export function Campanhas() {
         </div>
         {podeGerenciar && <button type="button" className="botao botao--primario" onClick={() => setForm({ campanha: null })}><Icone nome="mais" /> Nova campanha</button>}
       </div>
-      {d && <Aviso tipo="atencao" titulo="Atribuição a confirmar">{d.atribuicao.nota}</Aviso>}
+      {d && <Aviso tipo="info" titulo="Atribuição">{d.atribuicao.nota} Veja o detalhe e gere links em “Retorno e links”.</Aviso>}
       {r.carregando && !d ? <Carregando /> : r.erro ? <ErroCarga mensagem={r.erro} tentarDeNovo={r.recarregar} /> : d && d.campanhas.length === 0 ? (
         <Vazio titulo="Nenhuma campanha cadastrada.">{podeGerenciar ? "Crie a primeira campanha para acompanhar investimento e retorno." : undefined}</Vazio>
       ) : d ? (
@@ -226,8 +228,8 @@ export function Campanhas() {
                     <div className="texto-fraco">{ROTULO_MIDIA[c.midia] ?? c.midia} · {c.unidadeId ? nomePraca(unidades, c.unidadeId) : "Todas as praças"}{c.cupom ? ` · cupom ${c.cupom}` : ""}{!c.ativa ? " · inativa" : ""}</div>
                   </td>
                   <td className="sem-quebra">{formatarData(c.inicio)}{c.fim ? ` a ${formatarData(c.fim)}` : " em diante"}</td>
-                  <td className="num">{formatarMoeda(c.investimentoCentavos)}</td>
-                  <td className="num">{c.indicadores.temAtribuicao ? `${formatarNumero(c.totais.reservas)}${c.metaReservas ? ` de ${formatarNumero(c.metaReservas)}` : ""}` : <span className="texto-fraco">sem atribuição</span>}</td>
+                  <td className="num">{formatarMoeda(c.investimentoEfetivoCentavos ?? c.investimentoCentavos)}</td>
+                  <td className="num">{c.indicadores.temAtribuicao ? `${formatarNumero(c.totais.reservas)}${c.metaReservas ? ` de ${formatarNumero(c.metaReservas)}` : ""}` : <span className="texto-fraco">sem atribuição</span>}{c.atribuicao?.tipo === "AUTOMATICA" && <div className="texto-fraco">automática (UTM/cupom)</div>}{c.atribuicao?.tipo === "MANUAL" && <div className="texto-fraco">lançada à mão</div>}</td>
                   <td className="num">{c.indicadores.custoPorReservaCentavos == null ? "—" : formatarMoeda(c.indicadores.custoPorReservaCentavos)}</td>
                   <td className="num">{c.indicadores.retorno == null ? "—" : `${c.indicadores.retorno.toLocaleString("pt-BR")}×`}</td>
                   <td className="sem-quebra">
