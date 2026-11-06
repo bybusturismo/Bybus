@@ -108,7 +108,7 @@ export function VisaoGeral() {
   const faturamento = useCarregar((s) => (verAnalise && verValores ? api.get<Faturamento>(`/api/visao-geral/faturamento${qs({ ...base, passeioId: passeioFat, canal: canalFat })}`, s) : Promise.resolve(null)), [verAnalise, verValores, periodo.de, periodo.ate, praca, passeioFat, canalFat]);
 
   const so = r?.saidasHoje ?? [];
-  const checkinDe = so.length === 1 ? `/saidas/${so[0]!.id}/embarque` : "/saidas";
+  const checkinDe = so.length === 1 ? `/saidas/${so[0]!.id}/embarque` : "/listas/saidas";
   const checkinsPendentes = so.reduce((t, s) => t + s.checkinsPendentes, 0);
   const totalPendencias = r ? r.pendencias.aConferir + r.pendencias.semPonto + r.pendencias.aPagarNoEmbarque + r.pendencias.formularioPendente : 0;
   const variacao = r?.faturamentoMes.valorCentavos != null && r.faturamentoMes.mesAnteriorCentavos
@@ -139,8 +139,8 @@ export function VisaoGeral() {
       </div>
 
       <nav className="vg-atalhos" aria-label="Atalhos">
-        {atalho("/saidas?acao=nova-reserva", "Nova reserva", "mais", pode("reservas:editar"))}
-        {atalho("/saidas", "Disponibilidade", "calendario")}
+        {atalho("/listas/saidas?acao=nova-reserva", "Nova reserva", "mais", pode("reservas:editar"))}
+        {atalho("/listas/saidas", "Disponibilidade", "calendario")}
         {atalho(checkinDe, "Fazer check-in", "check", pode("embarque:registrar"))}
         {atalho("/passeios", "Atividades", "bilhete", pode("produtos:gerenciar"))}
         {atalho("/reservas", "Listagem de reservas", "lista")}
@@ -151,13 +151,14 @@ export function VisaoGeral() {
           <section className="vg-cartoes" aria-label="Indicadores">
             {r.faturamentoMes.valorCentavos !== null ? (
               <div className="vg-cartao">
-                <span className="vg-cartao__rotulo">Faturamento do mês</span>
+                <span className="vg-cartao__rotulo">Vendas do mês · pela data da compra</span>
                 <span className="vg-cartao__valor">{reais(r.faturamentoMes.valorCentavos)}</span>
                 <span className="vg-cartao__detalhe">
                   {formatarNumero(r.faturamentoMes.reservas)} reservas
                   {variacao !== null && <> · <span className={variacao >= 0 ? "vg-variacao--alta" : "vg-variacao--baixa"}>{variacao >= 0 ? "+" : ""}{variacao}%</span> vs. mês anterior até hoje</>}
                   {r.faturamentoMes.semValor > 0 && <> · {r.faturamentoMes.semValor} sem valor</>}
                 </span>
+                {pode("financeiro:ver") && <Link className="vg-cartao__detalhe" to="/financeiro">Ver faturamento no Resumo financeiro</Link>}
               </div>
             ) : (
               <div className="vg-cartao">
@@ -230,14 +231,14 @@ export function VisaoGeral() {
       {verAnalise && (
         <div className="vg-grade">
           {verValores && (
-          <Bloco id="vg-fat" titulo="Faturamento por período" largo filtros={<><SeletorPasseio id="vg-fat-p" passeios={lista} valor={passeioFat} aoMudar={setPasseioFat} /><SeletorCanal id="vg-fat-c" valor={canalFat} aoMudar={setCanalFat} /></>}>
+          <Bloco id="vg-fat" titulo="Vendas por período" largo filtros={<><Link to="/financeiro">Ver faturamento no Resumo financeiro</Link><SeletorPasseio id="vg-fat-p" passeios={lista} valor={passeioFat} aoMudar={setPasseioFat} /><SeletorCanal id="vg-fat-c" valor={canalFat} aoMudar={setCanalFat} /></>}>
             {(
               <Estado r={faturamento} vazio={(d) => !d || d.pontos.length === 0}>
                 {(d) => d && (
                   <>
-                    <p className="vg-nota">Total {reais(d.totalCentavos)} · barras por {d.agrupamento === "mes" ? "mês" : "dia"} da compra, empilhadas por canal.</p>
+                    <p className="vg-nota">Total {reais(d.totalCentavos)} · vendas pela data da compra (não é o faturamento por competência), barras por {d.agrupamento === "mes" ? "mês" : "dia"} e empilhadas por canal.</p>
                     <BarrasEmpilhadas
-                      titulo="Faturamento por período e canal" descricao={`Total de ${reais(d.totalCentavos)} entre ${dataCurta(d.periodo.de)} e ${dataCurta(d.periodo.ate)}.`}
+                      titulo="Vendas por período e canal" descricao={`Total de ${reais(d.totalCentavos)} entre ${dataCurta(d.periodo.de)} e ${dataCurta(d.periodo.ate)}.`}
                       categorias={d.pontos.map((p) => ({ chave: p.chave, rotulo: d.agrupamento === "mes" ? p.chave.slice(5) + "/" + p.chave.slice(2, 4) : dataCurta(p.chave), rotuloLongo: d.agrupamento === "mes" ? p.chave : dataCurta(p.chave), valores: p.porCanal }))}
                       series={CANAIS_GRAFICO.map(serieDoCanal)} formato={reaisCurto}
                     />
@@ -345,10 +346,13 @@ export function VisaoGeral() {
             </Bloco>
           )}
 
-          <Bloco id="vg-ota" titulo="Canais de OTA">
-            <ul className="vg-legenda">
-              {(["VIATOR", "DECOLAR", "CIVITATIS"] as const).map((c) => <li key={c}><span className={`vg-legenda__marca vg-c--${c}`} aria-hidden="true" />{ROTULO_CANAL_GRAFICO[c]}</li>)}
-            </ul>
+          <Bloco id="vg-ota" titulo="Vendas por canal (resumo)" filtros={pode("marketing:ver") ? <Link to="/marketing/canais">Ver vendas por canal no Marketing</Link> : undefined}>
+            {verValores && faturamento.dados && faturamento.dados.totalCentavos > 0 && (
+              <Rank itens={Object.entries(faturamento.dados.totaisPorCanal).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([c, v]) => ({
+                chave: c, nome: ROTULO_CANAL_GRAFICO[c as keyof typeof ROTULO_CANAL_GRAFICO] ?? c, numeros: `${reais(v)} · ${pct(Math.round((v / faturamento.dados!.totalCentavos) * 1000) / 10)}`, percentual: (v / faturamento.dados!.totalCentavos) * 100,
+              }))} />
+            )}
+            <p className="vg-nota">Reserva espelho (ex.: Viator lançada na Paytour) conta no canal de origem, igual em Vendas por canal.</p>
             <p className="vg-oculto-nao-integrado">{(r?.ota.naoIntegradas ?? ["GetYourGuide"]).join(", ")}: não integrado.</p>
           </Bloco>
         </div>

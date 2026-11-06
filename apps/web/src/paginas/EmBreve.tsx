@@ -55,7 +55,7 @@ export function EmBreve() {
           </p>
         )}
         <p className="texto-fraco">
-          O plano completo está no documento “Plano de ação — Fase 2”. <Link to="/saidas">Voltar para Saídas</Link>
+          O plano completo está no documento “Plano de ação — Fase 2”. <Link to="/listas">Voltar para Listas de passageiros</Link>
         </p>
       </section>
     </div>

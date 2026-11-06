@@ -31,10 +31,10 @@ describe("Visão Geral", () => {
     renderizar(<VisaoGeral />, { sessao: sessaoFicticia("ATENDENTE", ["manifesto:ver", "marketing:ver", "reservas:editar"]) });
     expect(await screen.findByText("Reservas do mês")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/R\$\s*\d/);
-    expect(screen.queryByRole("heading", { name: "Faturamento por período" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Vendas por período" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /Comparativo/ })).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Maiores emissores (cidade/UF)" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Nova reserva/ })).toHaveAttribute("href", "/saidas/?acao=nova-reserva".replace("/?", "?"));
+    expect(screen.getByRole("link", { name: /Nova reserva/ })).toHaveAttribute("href", "/listas/saidas?acao=nova-reserva");
   });
 
   it("quem só tem manifesto:ver vê a operação e nenhuma análise de vendas", async () => {
@@ -62,8 +62,8 @@ describe("Visão Geral", () => {
     });
     renderizar(<VisaoGeral />, { sessao: sessaoFicticia("ADMIN", ["manifesto:ver", "marketing:ver", "financeiro:ver"]) });
     expect(await screen.findByText(/R\$\s*1\.234,56/)).toBeInTheDocument();
-    const bloco = (await screen.findByRole("heading", { name: "Faturamento por período" })).closest("section")!;
-    await waitFor(() => expect(within(bloco).getByRole("img", { name: /Faturamento por período e canal/ })).toBeInTheDocument());
+    const bloco = (await screen.findByRole("heading", { name: "Vendas por período" })).closest("section")!;
+    await waitFor(() => expect(within(bloco).getByRole("img", { name: /Vendas por período e canal/ })).toBeInTheDocument());
     expect(within(bloco).getByText("Ver como tabela")).toBeInTheDocument();
   });
 });

@@ -23,7 +23,7 @@ export function Resumo() {
       <div className="pagina__cabecalho">
         <div>
           <h1>Financeiro</h1>
-          <p className="pagina__descricao">Contas do mês, vencidas, fluxo de caixa semanal e resultado por categoria, praça e linha de negócio.</p>
+          <p className="pagina__descricao">Faturamento e resultado por competência, contas do mês, vencidas e fluxo de caixa. Fonte oficial do faturamento; a Visão Geral mostra as vendas pela data da compra.</p>
         </div>
         <div className="fin-meses">
           <button type="button" className="botao botao--secundario" aria-label="Mês anterior" onClick={() => setMes(somarMes(mes, -1))}>←</button>

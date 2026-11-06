@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { BrowserRouter, MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, MemoryRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 // Na demonstração publicada não há endereços próprios: a navegação fica em memória.
 const Roteador = import.meta.env.VITE_DEMO === "1" ? MemoryRouter : BrowserRouter;
@@ -46,6 +46,8 @@ import { ListaPassageiros } from "./paginas/saida/ListaPassageiros";
 import { Reservas } from "./paginas/saida/Reservas";
 import { SaidaLayout } from "./paginas/saida/SaidaLayout";
 import { Saidas } from "./paginas/Saidas";
+import { ListasLayout } from "./paginas/ListasLayout";
+import { MarketingLayout } from "./paginas/marketing/MarketingLayout";
 import { VisaoGeral } from "./paginas/visao-geral/VisaoGeral";
 import { ListaDeReservas } from "./paginas/visao-geral/ListaReservas";
 import { Usuarios } from "./paginas/Usuarios";
@@ -71,6 +73,12 @@ function Exige({ permissao, children }: { permissao: Permissao; children: ReactN
 function ExigeUma({ permissoes, children }: { permissoes: Permissao[]; children: ReactNode }) {
   const { pode } = useSessao();
   return permissoes.some((p) => pode(p)) ? <>{children}</> : <SemAcesso />;
+}
+
+/** Endereço antigo que agora vive numa aba: leva para a aba certa mantendo os parâmetros (?acao=…). */
+function RedirecionaComBusca({ para }: { para: string }) {
+  const { search } = useLocation();
+  return <Navigate to={`${para}${search}`} replace />;
 }
 
 function Inicio() {
@@ -109,14 +117,8 @@ export function Rotas() {
             </Exige>
           }
         />
-        <Route
-          path="saidas"
-          element={
-            <Exige permissao="manifesto:ver">
-              <Saidas />
-            </Exige>
-          }
-        />
+        <Route path="saidas" element={<RedirecionaComBusca para="/listas/saidas" />} />
+        <Route path="conferencia" element={<Navigate to="/listas/conferir" replace />} />
         <Route
           path="saidas/:id"
           element={
@@ -170,21 +172,17 @@ export function Rotas() {
           }
         />
         <Route
-          path="conferencia"
-          element={
-            <Exige permissao="reservas:editar">
-              <Conferencia />
-            </Exige>
-          }
-        />
-        <Route
           path="listas"
           element={
-            <Exige permissao="manifesto:ver">
-              <Fechamento />
-            </Exige>
+            <ExigeUma permissoes={["manifesto:ver", "reservas:editar"]}>
+              <ListasLayout />
+            </ExigeUma>
           }
-        />
+        >
+          <Route index element={<Exige permissao="manifesto:ver"><Fechamento /></Exige>} />
+          <Route path="saidas" element={<Exige permissao="manifesto:ver"><Saidas /></Exige>} />
+          <Route path="conferir" element={<Exige permissao="reservas:editar"><Conferencia /></Exige>} />
+        </Route>
         <Route path="fechamento" element={<Navigate to="/listas" replace />} />
         <Route
           path="whatsapp"
@@ -340,8 +338,10 @@ export function Rotas() {
             </Exige>
           }
         />
+        <Route path="marketing" element={<MarketingLayout />}>
+          <Route index element={<Navigate to="/marketing/canais" replace />} />
         <Route
-          path="marketing/canais"
+          path="canais"
           element={
             <Exige permissao="marketing:ver">
               <Canais />
@@ -349,7 +349,7 @@ export function Rotas() {
           }
         />
         <Route
-          path="marketing/origem"
+          path="origem"
           element={
             <Exige permissao="marketing:ver">
               <Origem />
@@ -357,7 +357,7 @@ export function Rotas() {
           }
         />
         <Route
-          path="marketing/campanhas"
+          path="campanhas"
           element={
             <Exige permissao="marketing:ver">
               <Campanhas />
@@ -365,7 +365,7 @@ export function Rotas() {
           }
         />
         <Route
-          path="marketing/conteudo"
+          path="conteudo"
           element={
             <Exige permissao="marketing:ver">
               <Conteudo />
@@ -373,7 +373,7 @@ export function Rotas() {
           }
         />
         <Route
-          path="marketing/avaliacoes"
+          path="avaliacoes"
           element={
             <Exige permissao="marketing:ver">
               <Avaliacoes />
@@ -381,13 +381,14 @@ export function Rotas() {
           }
         />
         <Route
-          path="marketing/afiliados"
+          path="afiliados"
           element={
             <Exige permissao="marketing:ver">
               <Afiliados />
             </Exige>
           }
         />
+        </Route>
         <Route
           path="biblioteca"
           element={

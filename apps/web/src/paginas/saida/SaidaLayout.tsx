@@ -55,7 +55,7 @@ export function SaidaLayout() {
     <Contexto.Provider value={{ id, carga, dados: carga.dados, documentosCompletos: completos, setDocumentosCompletos: setDocs, atualizarCabecalho }}>
       <div className="pagina pagina--saida">
         <nav className="migalhas nao-imprimir" aria-label="Você está em">
-          <Link to="/saidas">Saídas</Link> <span aria-hidden="true">›</span> <span aria-current="page">{formatarDataExtenso(saida.data)}</span>
+          <Link to="/listas/saidas">Saídas</Link> <span aria-hidden="true">›</span> <span aria-current="page">{formatarDataExtenso(saida.data)}</span>
         </nav>
         <div className="pagina__cabecalho nao-imprimir">
           <div>

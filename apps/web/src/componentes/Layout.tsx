@@ -25,13 +25,26 @@ export interface ItemMenu {
   atalho?: string;
   /** Módulo planejado (tela com o escopo; visível só para administradores). */
   planejado?: boolean;
+  /** Condição extra de exibição (ex.: item de reserva para quem não vê o módulo completo). */
+  /** Caminho que acende o item (módulo com abas em endereços irmãos). */
+  prefixo?: string;
+  quando?: (pode: (p: Permissao) => boolean) => boolean;
 }
+
+/** Atalhos "g + letra" que levam a abas dentro de um módulo (o menu tem um item só por módulo). */
+export const ATALHOS_ABAS: Array<{ atalho: string; para: string; rotulo: string; permissao: Permissao }> = [
+  { atalho: "s", para: "/listas/saidas", rotulo: "Todas as saídas", permissao: "manifesto:ver" },
+  { atalho: "k", para: "/listas/conferir", rotulo: "A conferir (conferência de embarque)", permissao: "reservas:editar" },
+  { atalho: "o", para: "/marketing/origem", rotulo: "Origem dos clientes", permissao: "marketing:ver" },
+  { atalho: "j", para: "/marketing/campanhas", rotulo: "Campanhas", permissao: "marketing:ver" },
+  { atalho: "t", para: "/marketing/conteudo", rotulo: "Calendário de conteúdo", permissao: "marketing:ver" },
+  { atalho: "z", para: "/marketing/avaliacoes", rotulo: "Avaliações", permissao: "marketing:ver" },
+  { atalho: "h", para: "/marketing/afiliados", rotulo: "Afiliados e QR codes", permissao: "marketing:ver" },
+];
 
 export const ITENS_MENU: ItemMenu[] = [
   // Operação do dia
   { para: "/listas", rotulo: "Listas de passageiros", icone: "lista", area: "Operação", permissao: "manifesto:ver", atalho: "m" },
-  { para: "/saidas", rotulo: "Saídas", icone: "onibus", area: "Operação", permissao: "manifesto:ver", atalho: "s" },
-  { para: "/conferencia", rotulo: "Conferência de embarque", icone: "check", area: "Operação", permissao: "reservas:editar", atalho: "k" },
   { para: "/rastreamento", rotulo: "Rastreamento", icone: "mapa", area: "Operação", permissao: "manifesto:ver", atalho: "w" },
   { para: "/transfer", rotulo: "Transfer", icone: "onibus", area: "Operação", permissao: "manifesto:ver", atalho: "g" },
   { para: "/transfer/motorista", rotulo: "Meu transfer", icone: "pino", area: "Operação", permissao: "transfer:operar" },
@@ -47,22 +60,12 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/em-breve/passageiros", rotulo: "Passageiros e clientes", icone: "pessoas", area: "Cadastros", planejado: true },
   { para: "/em-breve/empresas", rotulo: "Empresas parceiras", icone: "predio", area: "Cadastros", planejado: true },
   // Financeiro
-  { para: "/financeiro", rotulo: "Resumo financeiro", icone: "grafico", area: "Financeiro", permissao: "financeiro:ver", atalho: "q" },
-  { para: "/financeiro/pagar", rotulo: "Contas a pagar", icone: "dinheiro", area: "Financeiro", permissao: "financeiro:ver" },
-  { para: "/financeiro/receber", rotulo: "Contas a receber", icone: "dinheiro", area: "Financeiro", permissao: "financeiro:ver" },
-  { para: "/financeiro/extrato", rotulo: "Extrato e conciliação", icone: "importar", area: "Financeiro", permissao: "financeiro:ver" },
-  { para: "/financeiro/cartoes", rotulo: "Cartões de crédito", icone: "cartao", area: "Financeiro", permissao: "financeiro:ver" },
-  { para: "/financeiro/contas", rotulo: "Contas e categorias", icone: "predio", area: "Financeiro", permissao: "financeiro:ver" },
+  { para: "/financeiro", rotulo: "Financeiro", icone: "grafico", area: "Financeiro", permissao: "financeiro:ver", atalho: "q" },
   // Frota
-  { para: "/frota", rotulo: "Frota e manutenção", icone: "onibus", area: "Frota", permissao: "frota:ver" },
-  { para: "/frota/checklist", rotulo: "Checklist do veículo", icone: "check", area: "Frota", permissao: "frota:checklist" },
+  { para: "/frota", rotulo: "Frota", icone: "onibus", area: "Frota", permissao: "frota:ver" },
+  { para: "/frota/checklist", rotulo: "Checklist do veículo", icone: "check", area: "Frota", permissao: "frota:checklist", quando: (pode) => !pode("frota:ver") },
   // Marketing
-  { para: "/marketing/canais", rotulo: "Vendas por canal", icone: "grafico", area: "Marketing", permissao: "marketing:ver", atalho: "v" },
-  { para: "/marketing/origem", rotulo: "Origem dos clientes", icone: "mapa", area: "Marketing", permissao: "marketing:ver", atalho: "o" },
-  { para: "/marketing/campanhas", rotulo: "Campanhas", icone: "megafone", area: "Marketing", permissao: "marketing:ver", atalho: "j" },
-  { para: "/marketing/conteudo", rotulo: "Calendário de conteúdo", icone: "calendario", area: "Marketing", permissao: "marketing:ver", atalho: "t" },
-  { para: "/marketing/avaliacoes", rotulo: "Avaliações", icone: "estrela", area: "Marketing", permissao: "marketing:ver", atalho: "z" },
-  { para: "/marketing/afiliados", rotulo: "Afiliados e QR codes", icone: "pessoas", area: "Marketing", permissao: "marketing:ver", atalho: "h" },
+  { para: "/marketing/canais", rotulo: "Marketing", icone: "megafone", area: "Marketing", permissao: "marketing:ver", atalho: "v", prefixo: "/marketing" },
   // Gestão
   { para: "/gestores", rotulo: "Gestores de IA", icone: "faisca", area: "Gestão", permissao: "ia:gestores", atalho: "d" },
   { para: "/biblioteca", rotulo: "Biblioteca", icone: "lista", area: "Gestão", permissao: "biblioteca:ver", atalho: "b" },
@@ -77,7 +80,7 @@ export const ITENS_MENU: ItemMenu[] = [
 
 /** Itens visíveis para o perfil (apenas conveniência: o servidor sempre confere a permissão). */
 export function itensPermitidos(pode: (p: Permissao) => boolean): ItemMenu[] {
-  return ITENS_MENU.filter((i) => (i.planejado ? pode("usuarios:gerenciar") : !i.permissao || pode(i.permissao)));
+  return ITENS_MENU.filter((i) => (i.planejado ? pode("usuarios:gerenciar") : (!i.permissao || pode(i.permissao)) && (i.quando?.(pode) ?? true)));
 }
 
 const CHAVE_AREAS = "bybus.menu.fechadas";
@@ -134,17 +137,20 @@ export function Layout() {
         return;
       }
       if (Date.now() - prefixo.current < 1200) {
-        const item = itens.find((i) => i.atalho === e.key.toLowerCase());
+        const tecla = e.key.toLowerCase();
+        const item = itens.find((i) => i.atalho === tecla);
+        const aba = ATALHOS_ABAS.find((a) => a.atalho === tecla && pode(a.permissao));
         prefixo.current = 0;
-        if (item) {
+        const destino = item?.para ?? aba?.para;
+        if (destino) {
           e.preventDefault();
-          navegar(item.para);
+          navegar(destino);
         }
       }
     };
     window.addEventListener("keydown", aoTeclar);
     return () => window.removeEventListener("keydown", aoTeclar);
-  }, [itens, navegar]);
+  }, [itens, navegar, pode]);
 
   // "Configurações" saiu do menu lateral (pedido do dono, 04/11): fica num botão discreto no rodapé do menu e no menu do usuário.
   const areas = AREAS.filter((a) => a !== "Configurações").map((a) => ({ area: a, itens: itens.filter((i) => i.area === a) })).filter((g) => g.itens.length > 0);
@@ -152,7 +158,7 @@ export function Layout() {
   const poucosItens = areas.reduce((n, g) => n + g.itens.length, 0) <= 4;
   // Item ativo = o de caminho mais específico que casa com a URL (ex.: /financeiro/extrato não acende "Resumo financeiro").
   const ativo = useMemo(
-    () => itens.filter((i) => matchPath({ path: i.para, end: false }, local.pathname)).sort((a, b) => b.para.length - a.para.length)[0]?.para,
+    () => itens.filter((i) => matchPath({ path: i.prefixo ?? i.para, end: false }, local.pathname)).sort((a, b) => b.para.length - a.para.length)[0]?.para,
     [itens, local.pathname],
   );
   const emConfiguracoes = local.pathname === "/configuracoes" || itens.some((i) => i.area === "Configurações" && i.para === ativo);
@@ -250,6 +256,14 @@ export function Layout() {
                 <kbd>g</kbd> <kbd>{i.atalho}</kbd>
               </dt>
               <dd>Ir para {i.rotulo}</dd>
+            </div>
+          ))}
+          {ATALHOS_ABAS.filter((a) => pode(a.permissao)).map((a) => (
+            <div key={a.para}>
+              <dt>
+                <kbd>g</kbd> <kbd>{a.atalho}</kbd>
+              </dt>
+              <dd>Ir para {a.rotulo}</dd>
             </div>
           ))}
           <div>

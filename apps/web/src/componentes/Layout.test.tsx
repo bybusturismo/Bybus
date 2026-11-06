@@ -7,26 +7,24 @@ import { itensPermitidos, Layout } from "./Layout";
 const rotulosMenu = () => within(screen.getByRole("navigation", { name: "Menu principal" })).getAllByRole("link").map((l) => l.textContent);
 
 describe("Menu por permissão", () => {
-  it("guia vê só Saídas (perfil e sair ficam no menu do usuário)", () => {
+  it("guia vê só o que a permissão libera (perfil e sair ficam no menu do usuário)", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("GUIA", ["manifesto:ver", "manifesto:contatos", "embarque:registrar"]) });
-    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Transfer", "Listagem de reservas"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Rastreamento", "Transfer", "Listagem de reservas"]);
     expect(screen.getByRole("button", { name: /^Conta de / })).toBeInTheDocument();
   });
 
   it("usa as permissões, não o código do perfil: perfil personalizado com pessoas:ver vê Equipe", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("ESCALA_BC", ["manifesto:ver", "pessoas:ver"]) });
-    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Transfer", "Escala de guias", "Listagem de reservas", "Guias e equipe"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Rastreamento", "Transfer", "Escala de guias", "Listagem de reservas", "Guias e equipe"]);
   });
 
   it("admin vê todos os itens", () => {
     const todas = itensPermitidos(() => true);
     expect(todas.filter((i) => !i.planejado).map((i) => i.rotulo)).toEqual([
-      "Listas de passageiros", "Saídas", "Conferência de embarque", "Rastreamento", "Transfer", "Meu transfer", "Escala de guias", "Rastreio do motorista",
+      "Listas de passageiros", "Rastreamento", "Transfer", "Meu transfer", "Escala de guias", "Rastreio do motorista",
       "Listagem de reservas", "WhatsApp", "Importar reservas",
       "Passeios e pontos", "Guias e equipe",
-      "Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias",
-      "Frota e manutenção", "Checklist do veículo",
-      "Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes",
+      "Financeiro", "Frota", "Marketing",
       "Gestores de IA", "Biblioteca",
       "Integrações", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Meu perfil",
     ]);
@@ -43,19 +41,19 @@ describe("Rastreamento no menu", () => {
 
   it("o motorista vê o rastreio dele; quem só vê a lista não", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("MOTORISTA", ["manifesto:ver", "rastreio:transmitir"]) });
-    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Transfer", "Rastreio do motorista", "Listagem de reservas"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Rastreamento", "Transfer", "Rastreio do motorista", "Listagem de reservas"]);
   });
 
   it("o transfer aparece para quem vê a lista; a tela do motorista do transfer só com transfer:operar", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("MOTORISTA", ["manifesto:ver", "transfer:operar"]) });
-    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Saídas", "Rastreamento", "Transfer", "Meu transfer", "Listagem de reservas"]);
+    expect(rotulosMenu()).toEqual(["Listas de passageiros", "Rastreamento", "Transfer", "Meu transfer", "Listagem de reservas"]);
   });
 });
 
 describe("Marketing e Biblioteca no menu", () => {
   it("só aparecem com as permissões certas", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("MKT", ["marketing:ver"]) });
-    expect(rotulosMenu()).toEqual(["Vendas por canal", "Origem dos clientes", "Campanhas", "Calendário de conteúdo", "Avaliações", "Afiliados e QR codes"]);
+    expect(rotulosMenu()).toEqual(["Marketing"]);
   });
 
   it("biblioteca:ver mostra só a Biblioteca", () => {
@@ -72,7 +70,7 @@ describe("Marketing e Biblioteca no menu", () => {
 describe("Menu do financeiro", () => {
   it("só aparece para quem tem financeiro:ver", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("FIN", ["financeiro:ver"]) });
-    expect(rotulosMenu()).toEqual(["Resumo financeiro", "Contas a pagar", "Contas a receber", "Extrato e conciliação", "Cartões de crédito", "Contas e categorias"]);
+    expect(rotulosMenu()).toEqual(["Financeiro"]);
   });
 
   it("não aparece sem a permissão", () => {
@@ -118,19 +116,31 @@ describe("Turistinha (assistente de IA)", () => {
   });
 });
 
-describe("Item ativo do menu", () => {
-  it("acende só o item mais específico", () => {
+describe("Item ativo do menu (um item por módulo)", () => {
+  it("uma aba do financeiro acende o item do módulo", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("FIN", ["financeiro:ver"]), rota: "/financeiro/extrato" });
     const menu = screen.getByRole("navigation", { name: "Menu principal" });
-    expect(within(menu).getByRole("link", { name: /Extrato e conciliação/ })).toHaveAttribute("aria-current", "page");
-    expect(within(menu).getByRole("link", { name: /Resumo financeiro/ })).not.toHaveAttribute("aria-current");
+    expect(within(menu).getByRole("link", { name: /Financeiro/ })).toHaveAttribute("aria-current", "page");
   });
 
-  it("subpágina sem item próprio acende o item pai, sem diferenciar maiúsculas", () => {
+  it("subpágina da frota acende Frota, sem diferenciar maiúsculas, e o checklist avulso não aparece para quem vê a frota", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("FROTA", ["frota:ver", "frota:checklist"]), rota: "/Frota/veiculos/" });
     const menu = screen.getByRole("navigation", { name: "Menu principal" });
-    expect(within(menu).getByRole("link", { name: /Frota e manutenção/ })).toHaveAttribute("aria-current", "page");
-    expect(within(menu).getByRole("link", { name: /Checklist do veículo/ })).not.toHaveAttribute("aria-current");
+    expect(within(menu).getByRole("link", { name: /Frota/ })).toHaveAttribute("aria-current", "page");
+    expect(within(menu).queryByRole("link", { name: /Checklist do veículo/ })).not.toBeInTheDocument();
+  });
+
+  it("quem só faz o checklist continua com o item dele", () => {
+    renderizar(<Layout />, { sessao: sessaoFicticia("MOTORISTA", ["frota:checklist"]) });
+    expect(rotulosMenu()).toEqual(["Checklist do veículo"]);
+  });
+
+  it("outra aba do marketing acende Marketing; Saídas e Conferência acendem Listas de passageiros", () => {
+    const { unmount } = renderizar(<Layout />, { sessao: sessaoFicticia("MKT", ["marketing:ver"]), rota: "/marketing/origem" });
+    expect(within(screen.getByRole("navigation", { name: "Menu principal" })).getByRole("link", { name: /Marketing/ })).toHaveAttribute("aria-current", "page");
+    unmount();
+    renderizar(<Layout />, { sessao: sessaoFicticia("ATENDENTE", ["manifesto:ver", "reservas:editar"]), rota: "/listas/conferir" });
+    expect(within(screen.getByRole("navigation", { name: "Menu principal" })).getByRole("link", { name: /Listas de passageiros/ })).toHaveAttribute("aria-current", "page");
   });
 });
 

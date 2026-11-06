@@ -178,7 +178,7 @@ export function Fechamento() {
                         </button>{" "}
                         <Link className="botao botao--secundario botao--pequeno" to={`/saidas/${x.saidaId}`}>Abrir / imprimir</Link>{" "}
                         <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void verTexto(x.saidaId, x.passeio)}>Texto para o WhatsApp</button>{" "}
-                        {x.naoConferidas > 0 && <><Link className="botao botao--secundario botao--pequeno" to="/conferencia">Conferir pendências</Link>{" "}</>}
+                        {x.naoConferidas > 0 && <><Link className="botao botao--secundario botao--pequeno" to="/listas/conferir">Conferir pendências</Link>{" "}</>}
                         {podeDecidir && (!fechada || x.depoisDoFechamento > 0) && (
                           <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado === x.saidaId}
                             onClick={() => setConfirmar({ saidaId: x.saidaId, passeio: x.passeio, adendo: fechada, titulares: fechada ? x.depoisDoFechamento : x.reservas })}>
