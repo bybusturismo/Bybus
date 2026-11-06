@@ -50,6 +50,42 @@ export const ROTULO_REDE: Record<string, string> = {
 export const ROTULO_STATUS_CONTEUDO: Record<string, string> = { IDEIA: "Ideia", PRODUCAO: "Em produção", AGENDADO: "Agendado", PUBLICADO: "Publicado" };
 export const ROTULO_TIPO_AFILIADO: Record<string, string> = { HOTEL: "Hotel", POUSADA: "Pousada", AGENCIA: "Agência", PARCEIRO: "Parceiro", OUTRO: "Outro" };
 export const ROTULO_STATUS_PEDIDO: Record<string, string> = {
-  PENDENTE: "A enviar", ENVIADA_MANUAL: "Enviada à mão", SIMULADA: "Simulada", SEM_TELEFONE: "Sem telefone", IGNORADA: "Ignorada",
+  PENDENTE: "A enviar", ENVIADA_MANUAL: "Pedido feito à mão", SIMULADA: "Simulada", ENVIADA: "Enviada", LEMBRADA: "Lembrada", AVALIADA: "Avaliada", SEM_TELEFONE: "Sem telefone", IGNORADA: "Ignorada",
 };
+export const ROTULO_IDIOMA: Record<string, string> = { pt: "Português", en: "English", es: "Español" };
+export const ROTULO_CANAL_AVALIACAO: Record<string, string> = { GOOGLE: "Google", TRIPADVISOR: "Tripadvisor", VIATOR: "Viator (na própria Viator)", NENHUM: "Sem link cadastrado" };
+
+/** Linhas de barras horizontais com o valor em texto (o número também está na tela, para leitores de tela). */
+export function BarrasLista({ itens, formato }: { itens: Array<{ rotulo: string; valor: number }>; formato?: (v: number) => string }) {
+  const max = Math.max(1, ...itens.map((i) => Math.abs(i.valor)));
+  return (
+    <ul className="m2-barras">
+      {itens.map((i) => (
+        <li key={i.rotulo}>
+          <span>{i.rotulo}</span>
+          <span className="m2-barras__trilho" aria-hidden="true"><span className={`m2-barras__valor${i.valor < 0 ? " m2-barras__valor--neg" : ""}`} style={{ width: `${Math.max(2, (Math.abs(i.valor) / max) * 100)}%` }} /></span>
+          <span className="num">{formato ? formato(i.valor) : i.valor}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Linha de evolução simples (sem eixos): serve para ver a tendência; os valores exatos ficam na tabela ao lado. */
+export function Evolucao({ pontos, rotulo }: { pontos: number[]; rotulo: string }) {
+  if (pontos.length < 2) return <p className="texto-fraco">Lance ao menos duas semanas para ver a evolução.</p>;
+  const min = Math.min(...pontos), max = Math.max(...pontos), faixa = max - min || 1;
+  const xy = pontos.map((v, i) => [(i / (pontos.length - 1)) * 100, 34 - ((v - min) / faixa) * 30] as const);
+  return (
+    <svg className="m2-spark" viewBox="0 0 100 38" preserveAspectRatio="none" role="img" aria-label={rotulo}>
+      <path d={xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ")} />
+    </svg>
+  );
+}
+
+/** Variação percentual com cor (verde sobe, vermelho cai); nulo = sem base de comparação. */
+export function Variacao({ v }: { v: number | null }) {
+  if (v == null) return <span className="texto-fraco">—</span>;
+  return <span className={v > 0 ? "m2-variacao--alta" : v < 0 ? "m2-variacao--baixa" : undefined}>{v > 0 ? "+" : ""}{v.toLocaleString("pt-BR")}%</span>;
+}
 

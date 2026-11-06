@@ -1,0 +1,71 @@
+/* Marketing 2: telas internas (retorno, relatórios, bio, NPS) e páginas públicas (/bio, /orcamento, /nps). Só tokens de tokens.css. */
+
+/* ---------- Gráficos simples e linhas de proporção ---------- */
+.m2-barras { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.m2-barras li { display: grid; grid-template-columns: minmax(5rem, 9rem) 1fr auto; gap: 0.5rem; align-items: center; font-size: var(--texto-sm); }
+.m2-barras__trilho { height: 0.55rem; background: var(--cor-superficie-2); border-radius: 999px; overflow: hidden; }
+.m2-barras__valor { display: block; height: 100%; background: var(--cor-primaria); border-radius: 999px; min-width: 2px; }
+.m2-barras__valor--neg { background: var(--marca-rosa); }
+.m2-spark { width: 100%; height: 3.5rem; display: block; }
+.m2-spark path { fill: none; stroke: var(--cor-primaria); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.m2-spark circle { fill: var(--cor-primaria); }
+.m2-variacao--alta { color: var(--marca-verde-escuro); font-weight: 600; }
+.m2-variacao--baixa { color: var(--marca-rosa); font-weight: 600; }
+.m2-grade { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); margin-block: 0.75rem; }
+.m2-linha-acoes { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.m2-nps-nota { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.m2-aviso-contador { display: inline-block; min-width: 1.25rem; padding: 0 0.4rem; border-radius: 999px; background: var(--marca-rosa); color: #fff; font-size: 0.75rem; font-weight: 700; text-align: center; margin-left: 0.35rem; }
+
+/* ---------- Relatório (tela e impressão) ---------- */
+.m2-relatorio h2 { margin-top: 1rem; }
+.m2-relatorio__resumo { white-space: pre-line; background: var(--cor-superficie-2); border-radius: 0.5rem; padding: 0.75rem 1rem; }
+@media print {
+  .m2-relatorio { font-size: 10pt; }
+  .m2-relatorio .cartao { break-inside: avoid; box-shadow: none; border: 1px solid #999; }
+  .m2-grade { display: block; }
+  .m2-grade > * { margin-bottom: 8pt; }
+}
+
+/* ---------- Páginas públicas ---------- */
+.pub-bio {
+  --bio-cor: var(--cor-primaria);
+  --bio-fundo: var(--cor-fundo);
+  min-height: 100vh;
+  background: var(--bio-fundo);
+  color: #1b1b1b;
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 1rem 2rem;
+}
+.pub-bio--incorporado { min-height: 0; border-radius: 0.75rem; }
+.pub-bio__miolo { width: min(100%, 26rem); display: grid; gap: 0.75rem; align-content: start; text-align: center; }
+.pub-bio__logo { width: 4.5rem; height: auto; margin-inline: auto; background: #fff; border-radius: 50%; padding: 0.4rem; }
+.pub-bio h1 { font-size: 1.35rem; margin: 0; }
+.pub-bio__sub { margin: 0; color: #444; font-size: 0.95rem; }
+.pub-bio__botao {
+  display: block; padding: 0.9rem 1rem; border-radius: 0.85rem; background: #fff; color: #1b1b1b; border: 2px solid var(--bio-cor);
+  font-weight: 600; text-decoration: none; font-size: 1rem; min-height: 3rem;
+}
+.pub-bio__botao--destaque { background: var(--bio-cor); color: #fff; }
+.pub-bio__botao:focus-visible { outline: 3px solid #1b1b1b; outline-offset: 2px; }
+.pub-bio__cupom { border: 2px dashed var(--bio-cor); border-radius: 0.85rem; padding: 0.75rem; background: #fff; }
+.pub-bio__cupom strong { display: block; font-size: 1.4rem; letter-spacing: 0.08em; }
+.pub-bio__rodape { font-size: 0.75rem; color: #555; margin-top: 0.5rem; }
+
+.pub-isca { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.pub-form .grade-campos { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
+.pub-nps__notas { display: grid; grid-template-columns: repeat(11, 1fr); gap: 0.25rem; margin: 0.5rem 0; padding: 0; border: 0; }
+.pub-nps__notas legend { grid-column: 1 / -1; padding: 0; margin-bottom: 0.35rem; font-weight: 600; }
+.pub-nps__nota { position: relative; }
+.pub-nps__nota input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.pub-nps__nota span {
+  display: grid; place-items: center; min-height: 2.6rem; border-radius: 0.5rem; border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie); font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.pub-nps__nota input:checked + span { background: var(--cor-primaria); color: #fff; border-color: var(--cor-primaria); }
+.pub-nps__nota input:focus-visible + span { outline: 3px solid var(--cor-primaria); outline-offset: 2px; }
+.pub-nps__pontas { display: flex; justify-content: space-between; font-size: var(--texto-sm); color: var(--cor-texto-fraco); }
+@media (max-width: 30rem) {
+  .pub-nps__notas { grid-template-columns: repeat(6, 1fr); }
+  .m2-barras li { grid-template-columns: minmax(4rem, 7rem) 1fr auto; }
+}

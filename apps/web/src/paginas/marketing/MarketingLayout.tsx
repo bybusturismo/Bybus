@@ -7,7 +7,12 @@ const ABAS = [
   { para: "/marketing/campanhas", rotulo: "Campanhas" },
   { para: "/marketing/conteudo", rotulo: "Calendário de conteúdo" },
   { para: "/marketing/avaliacoes", rotulo: "Avaliações" },
+  { para: "/marketing/retorno", rotulo: "Retorno e links" },
   { para: "/marketing/afiliados", rotulo: "Afiliados e QR codes" },
+  { para: "/marketing/mensagens", rotulo: "Mensagens automáticas" },
+  { para: "/marketing/nps", rotulo: "NPS" },
+  { para: "/marketing/relatorios", rotulo: "Relatórios" },
+  { para: "/marketing/bio", rotulo: "Link na bio" },
 ];
 
 /** Moldura do Marketing: abas iguais às do Financeiro e da Frota. */

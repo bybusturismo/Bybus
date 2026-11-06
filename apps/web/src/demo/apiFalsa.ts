@@ -14,6 +14,7 @@ import { rotearFinanceiro } from "./financeiroDemo";
 import { rotearFrota } from "./frotaDemo";
 import { rotearIa } from "./iaDemo";
 import { rotearMarketing } from "./marketingDemo";
+import { rotearMkt2 } from "./mkt2Demo";
 import { rotearRastreio } from "./rastreioDemo";
 import { criarTransferDemo } from "./transferDemo";
 import { criarWhatsappDemo } from "./whatsappDemo";
@@ -811,7 +812,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   }
 
   if (metodo === "GET" && caminho === "/api/auditoria") { exigir("auditoria:ver"); return auditoria.slice(0, Number(q.get("limite") ?? 200)); }
-  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, whatsappDemo.rotear, rotearVisaoGeral, transferDemo.rotear]) {
+  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMkt2, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, whatsappDemo.rotear, rotearVisaoGeral, transferDemo.rotear]) {
     const resposta = rotear(ctxModulos, metodo, caminho, q, c);
     if (resposta !== NAO) return resposta;
   }
