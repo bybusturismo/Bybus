@@ -669,3 +669,70 @@
     white-space: normal;
   }
 }
+
+/* ---------- Filtros na mesma faixa do título (quando cabem) ---------- */
+@media (min-width: 900px) {
+  .app .pagina {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: var(--esp-4);
+  }
+  .app .pagina > * {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .app .pagina > .pagina__cabecalho:has(+ .filtros) {
+    flex: 1 1 360px;
+  }
+  .app .pagina > .pagina__cabecalho + .filtros {
+    flex: 0 1 auto;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    align-self: center;
+    margin-bottom: var(--esp-3);
+  }
+}
+
+/* Filtros: rótulo ao lado do campo (uma linha só), em qualquer barra de filtros. */
+.app .filtros .campo,
+.app .pagina__filtros .campo,
+.app .barra-ferramentas .campo {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: var(--esp-2);
+  margin: 0;
+}
+.app .filtros .campo > label,
+.app .pagina__filtros .campo > label {
+  white-space: nowrap;
+}
+.app .filtros .campo input:not([type="checkbox"]):not([type="radio"]),
+.app .filtros .campo select,
+.app .pagina__filtros .campo input:not([type="checkbox"]):not([type="radio"]),
+.app .pagina__filtros .campo select {
+  width: auto;
+  min-width: 0;
+}
+.app .filtros .campo--busca input,
+.app .pagina__filtros .campo--busca input {
+  width: 16rem;
+  max-width: 100%;
+}
+@media (min-width: 900px) {
+  .app .fin-acoes,
+  .app .frota-acoes {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    gap: 3px;
+  }
+}
+@media (max-width: 1099px) {
+  .app .filtros .campo,
+  .app .pagina__filtros .campo {
+    flex-wrap: wrap;
+  }
+}

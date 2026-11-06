@@ -134,14 +134,7 @@ export function Escala() {
           <h1>Escala de guias</h1>
           <p className="pagina__descricao">Guia de cada dia pela escala do mês; motorista padrão do passeio. Depois de publicada, trocas só com motivo (força maior).</p>
         </div>
-        <div className="barra-acoes">
-          <button type="button" className="botao botao--secundario" onClick={() => setMes(somarMes(mes, -1))} aria-label="Mês anterior">←</button>
-          <span className="escala__mes" aria-live="polite">{nomeMes(mes)}</span>
-          <button type="button" className="botao botao--secundario" onClick={() => setMes(somarMes(mes, 1))} aria-label="Próximo mês">→</button>
-        </div>
-      </div>
-
-      <div className="filtros">
+<div className="pagina__filtros">
         {opcoes.length > 1 && (
           <div className="campo campo--linha">
             <label htmlFor="escala-passeio">Passeio</label>
@@ -160,6 +153,12 @@ export function Escala() {
         <div className="campo campo--linha">
           <label htmlFor="escala-veiculo">Veículo padrão</label>
           <input id="escala-veiculo" value={veiculo} maxLength={40} disabled={!podeEditar} onChange={(ev) => setVeiculo(ev.target.value)} placeholder="Placa" />
+        </div>
+      </div>
+        <div className="barra-acoes">
+          <button type="button" className="botao botao--secundario" onClick={() => setMes(somarMes(mes, -1))} aria-label="Mês anterior">←</button>
+          <span className="escala__mes" aria-live="polite">{nomeMes(mes)}</span>
+          <button type="button" className="botao botao--secundario" onClick={() => setMes(somarMes(mes, 1))} aria-label="Próximo mês">→</button>
         </div>
       </div>
 

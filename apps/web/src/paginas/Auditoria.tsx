@@ -42,11 +42,7 @@ export function Auditoria() {
           <h1>Auditoria</h1>
           <p className="pagina__descricao">Últimas ações registradas no sistema (horário de Brasília).</p>
         </div>
-        <button type="button" className="botao botao--secundario" onClick={() => void carga.recarregar()} disabled={carga.carregando}>
-          Atualizar
-        </button>
-      </div>
-      <div className="filtros">
+<div className="pagina__filtros">
         <div className="campo campo--busca">
           <label htmlFor="aud-busca">Buscar</label>
           <input
@@ -88,6 +84,10 @@ export function Auditoria() {
             ))}
           </select>
         </div>
+      </div>
+        <button type="button" className="botao botao--secundario" onClick={() => void carga.recarregar()} disabled={carga.carregando}>
+          Atualizar
+        </button>
       </div>
 
       {carga.carregando && !carga.dados ? (

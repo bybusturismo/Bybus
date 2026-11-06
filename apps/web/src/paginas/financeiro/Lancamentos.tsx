@@ -323,14 +323,7 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
           <h1>{rotulos.titulo}</h1>
           <p className="pagina__descricao">{rotulos.descricao}</p>
         </div>
-        {podeEditar && (
-          <div className="barra-acoes">
-            <button type="button" className="botao botao--primario" onClick={() => setEdicao("novo")}>{rotulos.novo}</button>
-          </div>
-        )}
-      </div>
-
-      <div className="filtros">
+<div className="pagina__filtros">
         <div className="fin-meses" aria-label="Mês de vencimento">
           <button type="button" className="botao botao--secundario" aria-label="Mês anterior" disabled={situacao === "VENCIDO"} onClick={() => setMes(somarMes(mes, -1))}>←</button>
           <span className="fin-meses__nome" aria-live="polite">{situacao === "VENCIDO" ? "Todos os meses" : nomeMes(mes)}</span>
@@ -349,6 +342,12 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
           <label htmlFor="fil-busca">Buscar</label>
           <input id="fil-busca" type="search" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Descrição ou fornecedor" />
         </div>
+      </div>
+        {podeEditar && (
+          <div className="barra-acoes">
+            <button type="button" className="botao botao--primario" onClick={() => setEdicao("novo")}>{rotulos.novo}</button>
+          </div>
+        )}
       </div>
 
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
