@@ -5,6 +5,9 @@
 ## Informado pelo dono
 7 veículos: **5 ônibus, 1 trenzinho, 1 van**. 3 fixos em Balneário Camboriú, 1 em Florianópolis (Floripa by Bus). Um ônibus também é usado em ações publicitárias.
 
+- **Trenzinho:** sociedade **50% / 50% com a empresa TOMA** (dono, 06/11/2026). Como se dividem receita, custos e quem fatura: a confirmar.
+- Veículos próprios (dono, 06/11/2026): 5 ônibus, 1 van e 1 trenzinho (este em sociedade).
+
 ## Encontrado no Drive
 | Placa | Apelido | Modelo / ano | Lugares | Base / observações |
 |---|---|---|---|---|

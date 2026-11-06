@@ -24,3 +24,10 @@ Regimento Interno dos motoristas (03/2025), Cartilha do Motorista, Cartilha do G
 
 ## Ferramentas em uso
 Paytour (reservas, ~R$ 379–399/mês, Cielo e Zoop) · WhatsApp com BotConversa · Instagram com BlinkChat · Kommo CRM (iniciado, sem uso aparente) · Google Forms "Controle Diário" (caixa, ~2.300 respostas desde 2020) · Planilhas Google/Excel para frota, caixa e comissões · Pipefy/e-mail para escala de guias.
+
+## Fontes de receita (dono, 06/11/2026)
+1. City tour e passeios temáticos próprios (ex.: City Tour Toda Ilha, Passeio Bruxólico).
+2. Fretamento.
+3. Passeios com grupos: escolas, empresas e eventos.
+4. Revenda de serviços de terceiros: ingressos do Beto Carrero, escuna e outros.
+5. Campanhas publicitárias (ao menos um ônibus é usado em ações publicitárias).
