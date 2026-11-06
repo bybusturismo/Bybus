@@ -41,7 +41,8 @@ async function venda(codigo: string, v: Partial<typeof vendas.$inferInsert> & { 
   return x!.id;
 }
 async function reserva(saidaId: string, r: Partial<typeof reservas.$inferInsert> & { contatoNome: string }) {
-  const [x] = await db.insert(reservas).values({ saidaId, canal: "PAYTOUR", origem: "PAYTOUR_API", ...r }).returning();
+  // Horário fixo (12:00 de Brasília) quando o teste não define: sem isso, o resultado mudava conforme a hora em que a suíte roda.
+  const [x] = await db.insert(reservas).values({ saidaId, canal: "PAYTOUR", origem: "PAYTOUR_API", criadoEm: sp(hoje, "12:00"), ...r }).returning();
   return x!.id;
 }
 
