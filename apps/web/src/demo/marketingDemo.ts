@@ -7,7 +7,11 @@ const MODELO_PADRAO = "Olá, {nome}! Como foi o seu passeio no {passeio}? Conte 
 interface Resultado { id: string; mes: string; reservas: number; passageiros: number; receitaCentavos: number | null; fonte: string }
 interface Campanha { id: string; unidadeId: string | null; nome: string; midia: string; inicio: string; fim: string | null; investimentoCentavos: number; cupom: string | null; utmCampanha: string | null; metaReservas: number | null; observacoes: string | null; ativa: boolean; resultados: Resultado[] }
 interface Afiliado { id: string; unidadeId: string | null; nome: string; tipo: string; codigo: string; comissaoPontosBase: number | null; contato: string | null; paytourAfiliadoId: string | null; observacoes: string | null; ativo: boolean }
-interface Conteudo { id: string; unidadeId: string | null; titulo: string; rede: string; status: string; dataPrevista: string | null; legenda: string | null; link: string | null; responsavelId: string | null }
+export interface Conteudo {
+  id: string; unidadeId: string | null; titulo: string; rede: string; status: string; dataPrevista: string | null; legenda: string | null; link: string | null; responsavelId: string | null;
+  /** Aprovação e agendamento no Instagram (ver instagramDemo.ts). */
+  tipoPost?: string | null; agendarEm?: string | null; pubStatus?: string | null; pubSimulado?: boolean; pubErro?: string | null; qtdMidias?: number; aprovadoEm?: string | null;
+}
 interface Pedido { id: string; reservaId: string; status: string; texto: string; data: string; passeio: string; canal: string }
 interface Nota { reservaId: string; nota: number; guia: string; canal: string }
 
@@ -17,7 +21,9 @@ let config = { modeloAvaliacao: MODELO_PADRAO, linkTripadvisor: "https://tripadv
 const responsaveis = [{ id: "rs-1", nome: "Atendente Demo" }, { id: "rs-2", nome: "Supervisora Demo" }];
 const campanhas: Campanha[] = [];
 const afiliados: Afiliado[] = [];
-const conteudos: Conteudo[] = [];
+export const conteudos: Conteudo[] = [];
+/** Preenche os posts do Instagram da demonstração (aprovação, agendamento, publicação) — definido em instagramDemo.ts. */
+export const semearConteudosInstagram: { fn: ((c: Conteudo[], dataMais: (n: number) => string) => void) | null } = { fn: null };
 const pedidos: Pedido[] = [];
 const notas: Nota[] = [];
 
@@ -55,6 +61,7 @@ function semear(dataMais: (n: number) => string) {
     { id: "ct-3", unidadeId: UN_FLN, titulo: "Post: dicas de roupa e protetor para o passeio", rede: "FACEBOOK", status: "IDEIA", dataPrevista: null, legenda: null, link: null, responsavelId: null },
     { id: "ct-4", unidadeId: null, titulo: "Artigo do blog: roteiro de 1 dia em Florianópolis", rede: "BLOG", status: "PUBLICADO", dataPrevista: dataMais(-6), legenda: null, link: "https://blog.exemplo.test/roteiro-1-dia", responsavelId: "rs-1" },
   );
+  semearConteudosInstagram.fn?.(conteudos, dataMais);
   const nomesPasseio = ["City Tour Toda Ilha", "City Tour Balneário Camboriú"];
   (["PENDENTE", "PENDENTE", "ENVIADA_MANUAL", "SEM_TELEFONE"] as const).forEach((status, i) => pedidos.push({
     id: `pd-${i + 1}`, reservaId: `rv-demo-${i + 1}`, status, data: dataMais(-(i + 1)), passeio: nomesPasseio[i % 2]!, canal: ["PAYTOUR", "VIATOR", "PAYTOUR", "CIVITATIS"][i]!,
@@ -158,7 +165,8 @@ export const rotearMarketing: Rotear = (ctx, metodo, caminho, q, c) => {
   }
   if (metodo === "POST" && caminho === "/api/marketing/conteudos") {
     gerir();
-    const x: Conteudo = { id: ctx.id("ct"), unidadeId: c.unidadeId ?? null, titulo: c.titulo, rede: c.rede, status: c.status ?? "IDEIA", dataPrevista: c.dataPrevista ?? null, legenda: c.legenda ?? null, link: c.link ?? null, responsavelId: c.responsavelId ?? null };
+    if (c.status === "APROVADO" || (c.rede === "INSTAGRAM" && (c.status === "AGENDADO" || c.status === "PUBLICADO"))) throw ctx.erro(400, "USE_APROVAR", "Use os botões Aprovar e Agendar.");
+    const x: Conteudo = { id: ctx.id("ct"), unidadeId: c.unidadeId ?? null, titulo: c.titulo, rede: c.rede, status: c.status ?? "IDEIA", dataPrevista: c.dataPrevista ?? null, legenda: c.legenda ?? null, link: c.link ?? null, responsavelId: c.responsavelId ?? null, tipoPost: null, agendarEm: null, pubStatus: null, pubSimulado: false, pubErro: null, qtdMidias: 0, aprovadoEm: null };
     conteudos.push(x);
     return x;
   }
@@ -166,7 +174,12 @@ export const rotearMarketing: Rotear = (ctx, metodo, caminho, q, c) => {
     gerir();
     const x = achar(conteudos, m![1]!, ctx, "Conteúdo");
     if (metodo === "DELETE") { conteudos.splice(conteudos.indexOf(x), 1); return { ok: true }; }
-    if (metodo === "PATCH") return aplicar(x, c, ["unidadeId", "titulo", "rede", "status", "dataPrevista", "legenda", "link", "responsavelId"]);
+    if (metodo === "PATCH") {
+      if ("status" in c && c.status !== x.status && (c.status === "APROVADO" || (x.rede === "INSTAGRAM" && (c.status === "AGENDADO" || c.status === "PUBLICADO")))) throw ctx.erro(400, "USE_AGENDAR", "Use os botões Aprovar e Agendar.");
+      // Mexer na legenda de um post aprovado/agendado desfaz a aprovação (como a API).
+      if ("legenda" in c && c.legenda !== x.legenda && (x.status === "APROVADO" || x.status === "AGENDADO")) Object.assign(x, { status: "EM_APROVACAO", aprovadoEm: null, pubStatus: null, pubErro: null });
+      return aplicar(x, c, ["unidadeId", "titulo", "rede", "dataPrevista", "legenda", "link", "responsavelId", ...("status" in c && ["IDEIA", "PRODUCAO", "EM_APROVACAO", "AGENDADO", "PUBLICADO"].includes(String(c.status)) ? ["status"] : [])]);
+    }
   }
 
   // Afiliados

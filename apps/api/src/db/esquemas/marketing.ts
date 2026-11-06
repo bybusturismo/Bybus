@@ -54,9 +54,29 @@ export const conteudos = pgTable("conteudos", {
   legenda: text(),
   link: text(),
   responsavelId: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  /** Aprovação: só post aprovado por quem gerencia o marketing pode ser agendado/publicado. */
+  aprovadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  aprovadoEm: timestamp({ withTimezone: true }),
+  /** Publicação agendada no Instagram (ver servicos/instagram/publicacao.ts). Tudo nulo = conteúdo sem agendamento. */
+  tipoPost: text(),
+  agendarEm: timestamp({ withTimezone: true }),
+  /** AGENDADO, PUBLICANDO, PUBLICADO ou FALHOU. */
+  pubStatus: text(),
+  /** Publicado só no modo simulado (nada foi ao Instagram). */
+  pubSimulado: boolean().notNull().default(false),
+  /** Motivo da falha (código, nunca texto de cliente). */
+  pubErro: text(),
+  /** Contêiner de mídia já criado na Meta (reaproveitado na nova tentativa, para não duplicar). */
+  pubContainerId: text(),
+  /** Id da publicação no Instagram. */
+  pubIdExterno: text(),
+  pubTentativas: integer().notNull().default(0),
+  pubProximaEm: timestamp({ withTimezone: true }),
+  pubIniciadaEm: timestamp({ withTimezone: true }),
+  pubEm: timestamp({ withTimezone: true }),
   criadoEm: agora(),
   atualizadoEm: agora(),
-}, (t) => [index("conteudos_data_idx").on(t.dataPrevista)]);
+}, (t) => [index("conteudos_data_idx").on(t.dataPrevista), index("conteudos_pub_idx").on(t.pubStatus, t.agendarEm)]);
 
 /** Pedido de avaliação pós-passeio, um por reserva. O envio por WhatsApp é ligado depois (provedor a contratar). */
 export const avaliacaoPedidos = pgTable("avaliacao_pedidos", {

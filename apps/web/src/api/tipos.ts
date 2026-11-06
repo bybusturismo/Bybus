@@ -526,15 +526,23 @@ export interface RespostaAssistente {
 
 // ---------- WhatsApp: central de conversas (apps/api/src/rotas/whatsapp.ts) ----------
 
-export interface WaModo { provedor: "simulado" | "evolution"; envioReal: boolean; simulado: boolean; avisosLigados: boolean; conexao: string | null }
+export interface WaModo { provedor: "simulado" | "evolution"; envioReal: boolean; simulado: boolean; avisosLigados: boolean; conexao: string | null; instagram?: { conectado: boolean; real: boolean; simulado: boolean; avisosLigados: boolean } }
+export type CanalConversa = "WHATSAPP" | "INSTAGRAM";
+export type EtiquetaConversa = "DUVIDA" | "POS_VENDA" | "RECLAMACAO" | "GRUPO" | "ORCAMENTO";
 export interface WaConversaResumo {
-  id: string; telefone: string; nome: string | null; naoLidas: number; ultimaMensagemEm: string | null;
+  id: string; canal: CanalConversa; telefone: string; nome: string | null; naoLidas: number; ultimaMensagemEm: string | null;
+  etiquetas: EtiquetaConversa[]; atendenteId: string | null; atendenteNome: string | null;
   unidadeId: string | null; unidadeCodigo: string | null;
   previa: string | null; previaTipo: string | null; previaDirecao: "ENTRADA" | "SAIDA" | null;
 }
-export interface WaLista { modo: WaModo; naoLidasTotal: number; conversas: WaConversaResumo[] }
+export interface WaLista { modo: WaModo; naoLidasTotal: number; naoLidasPorCanal: Partial<Record<CanalConversa, number>>; minhasConversas: number; conversas: WaConversaResumo[] }
 export interface WaReservaContato { reservaId: string; saidaId: string; data: string; passeio: string; titular: string; canal: string; passageiros: number; proxima: boolean }
-export interface WaConversaDetalhe { id: string; telefone: string; nome: string | null; naoLidas: number; unidadeId: string | null; modo: WaModo; reservas: WaReservaContato[] }
+export interface WaJanela { aberta: boolean; expiraEm: string | null; minutosRestantes: number }
+export interface WaVariaveis { nome: string | null; passeio: string | null; data: string | null; ponto: string | null; horario: string | null }
+export interface WaConversaDetalhe {
+  id: string; canal: CanalConversa; telefone: string; nome: string | null; naoLidas: number; unidadeId: string | null; modo: WaModo; reservas: WaReservaContato[];
+  etiquetas: EtiquetaConversa[]; atendenteId: string | null; janela: WaJanela | null; variaveis: WaVariaveis;
+}
 export interface WaMensagem {
   id: string; direcao: "ENTRADA" | "SAIDA"; texto: string | null; tipo: "TEXTO" | "IMAGEM" | "AUDIO" | "DOCUMENTO" | "OUTRO";
   status: "ENVIADA" | "SIMULADA" | "FALHA" | "RECEBIDA" | "LIDA"; criadoEm: string; automatica: boolean; tipoFila: string | null; enviadaPor: string | null;

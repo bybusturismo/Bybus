@@ -32,3 +32,5 @@ export * from "./biblioteca/acesso.js";
 export * from "./vendas/vendas.js";
 export * from "./transfer/transfer.js";
 export * from "./financeiro/planilha.js";
+export * from "./instagram/instagram.js";
+export * from "./instagram/conversas.js";

@@ -16,7 +16,7 @@ import { EmBreve } from "./paginas/EmBreve";
 import { Escala } from "./paginas/Escala";
 import { Conferencia } from "./paginas/Conferencia";
 import { Fechamento } from "./paginas/Fechamento";
-import { Whatsapp } from "./paginas/Whatsapp";
+import { Conversas } from "./paginas/Conversas";
 import { EmbarquePublico } from "./paginas/EmbarquePublico";
 import { RastreioPublico } from "./paginas/RastreioPublico";
 import { Motorista } from "./paginas/rastreio/Motorista";
@@ -62,6 +62,8 @@ import { Campanhas } from "./paginas/marketing/Campanhas";
 import { Canais } from "./paginas/marketing/Canais";
 import { Conteudo } from "./paginas/marketing/Conteudo";
 import { Origem } from "./paginas/marketing/Origem";
+import { Instagram } from "./paginas/marketing/Instagram";
+import { BancoMidias } from "./paginas/marketing/BancoMidias";
 import { ProvedorSessao, useSessao } from "./sessao/Sessao";
 
 /** Esconde a tela de quem não tem a permissão (o servidor também recusa). */
@@ -185,13 +187,14 @@ export function Rotas() {
         </Route>
         <Route path="fechamento" element={<Navigate to="/listas" replace />} />
         <Route
-          path="whatsapp"
+          path="conversas"
           element={
             <Exige permissao="whatsapp:ver">
-              <Whatsapp />
+              <Conversas />
             </Exige>
           }
         />
+        <Route path="whatsapp" element={<Navigate to="/conversas" replace />} />
         <Route
           path="escala"
           element={
@@ -369,6 +372,22 @@ export function Rotas() {
           element={
             <Exige permissao="marketing:ver">
               <Conteudo />
+            </Exige>
+          }
+        />
+        <Route
+          path="instagram"
+          element={
+            <Exige permissao="marketing:ver">
+              <Instagram />
+            </Exige>
+          }
+        />
+        <Route
+          path="banco-midias"
+          element={
+            <Exige permissao="marketing:ver">
+              <BancoMidias />
             </Exige>
           }
         />

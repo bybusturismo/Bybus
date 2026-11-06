@@ -11,8 +11,11 @@ export type MidiaCampanha = (typeof MIDIAS_CAMPANHA)[number];
 export const REDES_CONTEUDO = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "GOOGLE_NEGOCIOS", "BLOG", "OUTRA"] as const;
 export type RedeConteudo = (typeof REDES_CONTEUDO)[number];
 
-export const STATUS_CONTEUDO = ["IDEIA", "PRODUCAO", "AGENDADO", "PUBLICADO"] as const;
+/** Fluxo: ideia → rascunho (PRODUCAO) → em aprovação → aprovado → agendado → publicado. Aprovado, agendado e publicado só mudam por ação própria (aprovar, agendar, publicar). */
+export const STATUS_CONTEUDO = ["IDEIA", "PRODUCAO", "EM_APROVACAO", "APROVADO", "AGENDADO", "PUBLICADO"] as const;
 export type StatusConteudo = (typeof STATUS_CONTEUDO)[number];
+/** Situações que a edição comum pode escolher (as demais só por ação: aprovar, agendar ou publicar). */
+export const STATUS_CONTEUDO_EDITAVEIS = ["IDEIA", "PRODUCAO", "EM_APROVACAO"] as const;
 
 export const TIPOS_AFILIADO = ["HOTEL", "POUSADA", "AGENCIA", "PARCEIRO", "OUTRO"] as const;
 export type TipoAfiliado = (typeof TIPOS_AFILIADO)[number];

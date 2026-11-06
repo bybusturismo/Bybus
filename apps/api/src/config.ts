@@ -47,6 +47,22 @@ const esquema = z.object({
    * Sem ele a rota responde 404 e a central de conversas só mostra o que a fila enviou. Gere com: openssl rand -hex 32
    */
   WHATSAPP_WEBHOOK_TOKEN: z.string().min(32, "WHATSAPP_WEBHOOK_TOKEN deve ter pelo menos 32 caracteres").optional(),
+  /**
+   * Instagram (Instagram API com Instagram Login, da Meta; ver servicos/instagram/cliente.ts e docs/produto/modulo-instagram.md).
+   * Sem INSTAGRAM_TOKEN o módulo fica em modo simulado e a tela diz "Instagram não conectado". Token e segredos só em variável de ambiente/cofre.
+   */
+  INSTAGRAM_TOKEN: z.string().optional().transform((v) => v?.trim() || undefined),
+  /** Id da conta profissional do Instagram (IG user id), usado nos endereços da API. */
+  INSTAGRAM_CONTA_ID: z.string().regex(/^\d{5,30}$/, "INSTAGRAM_CONTA_ID deve ser numérico").optional(),
+  /** Segredo do app da Meta: confere a assinatura (X-Hub-Signature-256) dos avisos. Sem ele o webhook responde 404. */
+  INSTAGRAM_APP_SECRET: z.string().min(16, "INSTAGRAM_APP_SECRET deve ter pelo menos 16 caracteres").optional(),
+  /** Texto que você escolhe e digita também no painel da Meta para ela verificar o endereço do webhook (GET). */
+  INSTAGRAM_WEBHOOK_VERIFY_TOKEN: z.string().min(16, "INSTAGRAM_WEBHOOK_VERIFY_TOKEN deve ter pelo menos 16 caracteres").optional(),
+  /** Versão da Graph API (a confirmar na doc oficial no dia da conexão; fica configurável). */
+  INSTAGRAM_API_VERSAO: z.string().regex(/^v\d+\.\d+$/, "Use o formato v23.0").default("v23.0"),
+  INSTAGRAM_GRAPH_URL: z.string().url().default("https://graph.instagram.com"),
+  /** Fora da produção, só fala de verdade com a Meta com "true" (mesma trava do WhatsApp). */
+  INSTAGRAM_ENVIO_REAL: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   /** Grupo do WhatsApp que recebe a lista fechada (JID "...@g.us"); vazio = só gera o texto para copiar. */
   WHATSAPP_GRUPO_LISTA: z.string().regex(/^[\d-]+@g\.us$/, "WHATSAPP_GRUPO_LISTA deve ser o JID do grupo (…@g.us)").optional(),
   /** Fechamento automático da lista na véspera (America/Sao_Paulo). */

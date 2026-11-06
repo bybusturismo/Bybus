@@ -242,6 +242,15 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     responsavelId: uuid.nullish().transform((v) => v ?? null),
   });
 
+  /**
+   * Aprovação (ver rotas/conteudo-publicacao.ts): APROVADO só pelo botão Aprovar; no Instagram, AGENDADO e PUBLICADO só pelo agendamento
+   * e pela rotina de publicação. Nas outras redes (sem automação) a situação continua manual.
+   */
+  function guardarStatus(novo: string | undefined, rede: string) {
+    if (novo === "APROVADO") throw new ErroHttp(400, "USE_APROVAR", "Para aprovar, use o botão Aprovar.");
+    if (rede === "INSTAGRAM" && (novo === "AGENDADO" || novo === "PUBLICADO")) throw new ErroHttp(400, "USE_AGENDAR", "Posts do Instagram são agendados pelo botão Agendar e publicados pelo sistema.");
+  }
+
   async function validarResponsavel(id: string | null | undefined) {
     if (!id) return;
     const [u] = await db.select({ ativo: usuarios.ativo }).from(usuarios).where(eq(usuarios.id, id));
@@ -256,13 +265,14 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
   app.get("/api/marketing/conteudos", ver, async (req) => {
     const q = z.object({ de: dataIso.optional(), ate: dataIso.optional(), status: z.enum(STATUS_CONTEUDO).optional(), rede: z.enum(REDES_CONTEUDO).optional() }).parse(req.query);
     const filtros = [visivel(req.usuario!, conteudos.unidadeId), q.de ? gte(conteudos.dataPrevista, q.de) : undefined, q.ate ? lte(conteudos.dataPrevista, q.ate) : undefined, q.status ? eq(conteudos.status, q.status) : undefined, q.rede ? eq(conteudos.rede, q.rede) : undefined];
-    const lista = await db.select({ c: conteudos, responsavel: usuarios.nome }).from(conteudos).leftJoin(usuarios, eq(usuarios.id, conteudos.responsavelId))
+    const lista = await db.select({ c: conteudos, responsavel: usuarios.nome, qtdMidias: sql<number>`(select count(*)::int from conteudo_midias m where m.conteudo_id = ${conteudos.id})` }).from(conteudos).leftJoin(usuarios, eq(usuarios.id, conteudos.responsavelId))
       .where(and(...filtros)).orderBy(sql`${conteudos.dataPrevista} asc nulls last`, asc(conteudos.titulo)).limit(500);
-    return lista.map((l) => ({ ...l.c, responsavel: l.responsavel }));
+    return lista.map(({ c: { pubContainerId: _c, ...c }, responsavel, qtdMidias }) => ({ ...c, responsavel, qtdMidias }));
   });
 
   app.post("/api/marketing/conteudos", gerenciar, async (req) => {
     const c = esquemaConteudo.parse(req.body);
+    guardarStatus(c.status, c.rede);
     exigirAlterar(req.usuario!, c.unidadeId);
     await validarResponsavel(c.responsavelId);
     const [novo] = await db.insert(conteudos).values(c).returning();
@@ -283,7 +293,16 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     const dados = esquemaConteudo.partial().parse(req.body);
     if (dados.unidadeId !== undefined) exigirAlterar(req.usuario!, dados.unidadeId);
     await validarResponsavel(dados.responsavelId);
-    const [novo] = await db.update(conteudos).set({ ...dados, atualizadoEm: new Date() }).where(eq(conteudos.id, id)).returning();
+    if (dados.status !== undefined && dados.status !== atual.status) guardarStatus(dados.status, dados.rede ?? atual.rede);
+    // Aprovado/agendado perde a aprovação (e sai da fila) se o texto ou a rede mudarem, ou se voltar para uma situação anterior.
+    const voltou = dados.status !== undefined && ["IDEIA", "PRODUCAO", "EM_APROVACAO"].includes(dados.status);
+    const mudouConteudo = (dados.legenda !== undefined && dados.legenda !== atual.legenda) || (dados.rede !== undefined && dados.rede !== atual.rede);
+    const perdeAprovacao = (atual.status === "APROVADO" || (atual.status === "AGENDADO" && atual.pubStatus === "AGENDADO")) && (voltou || mudouConteudo);
+    const [novo] = await db.update(conteudos).set({
+      ...dados, atualizadoEm: new Date(),
+      ...(perdeAprovacao ? { status: voltou ? dados.status! : "EM_APROVACAO", aprovadoEm: null, aprovadoPor: null, pubStatus: null, pubErro: null, pubContainerId: null } : {}),
+    }).where(and(eq(conteudos.id, id), sql`${conteudos.pubStatus} is distinct from 'PUBLICANDO'`)).returning();
+    if (!novo) throw new ErroHttp(409, "PUBLICANDO", "Este post está sendo publicado agora. Tente de novo em instantes.");
     await auditar(db, req, "CONTEUDO_EDITADO", { tipo: "conteudo", id }, { campos: Object.keys(dados), de: atual.status, para: novo!.status });
     return novo;
   });
