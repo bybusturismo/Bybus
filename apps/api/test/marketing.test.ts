@@ -113,7 +113,7 @@ describe("campanhas e cupons", () => {
     expect(r.statusCode).toBe(200);
     const id = r.json().id;
     let lista = (await gestor.req("GET", "/api/marketing/campanhas")).json();
-    expect(lista.atribuicao.situacao).toBe("A_CONFIRMAR");
+    expect(lista.atribuicao.situacao).toBe("AUTOMATICA_QUANDO_HA_VENDA");
     let c = lista.campanhas.find((x: { id: string }) => x.id === id);
     expect(c.indicadores.temAtribuicao).toBe(false);
     expect(c.indicadores.retorno).toBeNull();

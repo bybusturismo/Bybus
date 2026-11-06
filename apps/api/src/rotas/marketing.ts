@@ -4,15 +4,16 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
   codigoAfiliadoValido, indicadoresCampanha, linkAfiliado, MIDIAS_CAMPANHA, MODELO_AVALIACAO_PADRAO, normalizarCodigoAfiliado,
-  percentuais, REDES_CONTEUDO, renderizarModeloAvaliacao, STATUS_CONTEUDO, STATUS_PEDIDO_AVALIACAO, TIPOS_AFILIADO, mediaNotas,
+  percentuais, REDES_CONTEUDO, STATUS_CONTEUDO, TIPOS_AFILIADO,
 } from "@bybus/core";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
 import {
-  afiliados, avaliacaoNotas, avaliacaoPedidos, campanhaResultados, campanhas, conteudos, marketingConfig,
+  afiliados, campanhaResultados, campanhas, conteudos, marketingConfig,
   passageiros, passeios, perfis, pessoas, reservas, saidas, usuarios,
 } from "../db/schema.js";
-import { filtroUnidade, garantirReserva, podeUnidade } from "../seguranca/escopo.js";
+import { filtroUnidade, podeUnidade } from "../seguranca/escopo.js";
+import { atribuicaoDeVendas, custosDasCampanhas } from "../servicos/atribuicao.js";
 import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
 
 const uuid = z.string().uuid();
@@ -143,13 +144,24 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
   async function listarCampanhas(u: UsuarioSessao, extra?: SQL) {
     const lista = await db.select().from(campanhas).where(and(visivel(u, campanhas.unidadeId), extra)).orderBy(desc(campanhas.inicio), asc(campanhas.nome));
     const resultados = lista.length ? await db.select().from(campanhaResultados).where(inArray(campanhaResultados.campanhaId, lista.map((c) => c.id))).orderBy(asc(campanhaResultados.mes)) : [];
+    // Marketing 2: com venda atribuída automaticamente (UTM/cupom da Paytour) ela substitui o retorno digitado; custo importado por CSV substitui o investimento.
+    const auto = await atribuicaoDeVendas(db, u, lista);
+    const custos = await custosDasCampanhas(db, lista.map((c) => c.id));
     return lista.map((c) => {
       const rs = resultados.filter((r) => r.campanhaId === c.id);
+      const a = auto.porCampanha.get(c.id);
+      const usaAuto = !!a && a.reservas > 0;
+      const custo = custos.get(c.id);
+      const investimento = custo ? custo.custoCentavos : c.investimentoCentavos;
+      const efetivos = usaAuto ? [{ reservas: a!.reservas, passageiros: a!.passageiros, receitaCentavos: a!.receitaCentavos }] : rs;
       return {
         ...c, criadoPor: undefined,
         resultados: rs.map((r) => ({ id: r.id, mes: r.mes, reservas: r.reservas, passageiros: r.passageiros, receitaCentavos: r.receitaCentavos, fonte: r.fonte })),
-        totais: { reservas: rs.reduce((s, r) => s + r.reservas, 0), passageiros: rs.reduce((s, r) => s + r.passageiros, 0), receitaCentavos: rs.some((r) => r.receitaCentavos != null) ? rs.reduce((s, r) => s + (r.receitaCentavos ?? 0), 0) : null },
-        indicadores: indicadoresCampanha({ investimentoCentavos: c.investimentoCentavos, metaReservas: c.metaReservas, resultados: rs }),
+        totais: { reservas: efetivos.reduce((s, r) => s + r.reservas, 0), passageiros: efetivos.reduce((s, r) => s + r.passageiros, 0), receitaCentavos: efetivos.some((r) => r.receitaCentavos != null) ? efetivos.reduce((s, r) => s + (r.receitaCentavos ?? 0), 0) : null },
+        indicadores: indicadoresCampanha({ investimentoCentavos: investimento, metaReservas: c.metaReservas, resultados: efetivos }),
+        atribuicao: { tipo: usaAuto ? "AUTOMATICA" : rs.length ? "MANUAL" : "NENHUMA", pedidos: a?.vendas ?? 0, porUtm: a?.porUtm ?? 0, porCupom: a?.porCupom ?? 0 },
+        investimentoEfetivoCentavos: investimento,
+        custoImportado: custo ? { dias: custo.dias, custoCentavos: custo.custoCentavos, cliques: custo.cliques, impressoes: custo.impressoes } : null,
       };
     });
   }
@@ -158,8 +170,8 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     const q = z.object({ ativas: z.enum(["0", "1"]).optional() }).parse(req.query);
     const campanhasLista = await listarCampanhas(req.usuario!, q.ativas === "1" ? eq(campanhas.ativa, true) : undefined);
     return {
-      /** A Paytour ainda não informa cupom/UTM por pedido: o retorno vem de lançamentos manuais. */
-      atribuicao: { situacao: "A_CONFIRMAR", nota: "Atribuição de vendas por cupom/UTM a confirmar com a Paytour; por enquanto os resultados são lançados à mão." },
+      /** Atribuição automática por UTM/cupom da Paytour quando há pedido casado; senão vale o lançamento manual. */
+      atribuicao: { situacao: "AUTOMATICA_QUANDO_HA_VENDA", nota: "Vendas com UTM ou cupom da campanha são atribuídas automaticamente (Paytour); sem elas, vale o resultado lançado à mão." },
       campanhas: campanhasLista,
       totais: {
         investimentoCentavos: campanhasLista.reduce((s, c) => s + c.investimentoCentavos, 0),
@@ -326,118 +338,7 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     return lerConfig();
   });
 
-  // ───────────── Avaliações ─────────────
-
-  /** Resumo: notas internas, pedidos por situação e destaque do Tripadvisor (reservas Viator). Só agregados. */
-  app.get("/api/marketing/avaliacoes/resumo", ver, async (req) => {
-    const p = periodo.parse(req.query);
-    const u = req.usuario!;
-    if (p.unidadeId && !podeUnidade(u, p.unidadeId)) throw naoEncontrado("Praça");
-    const escopo = and(gte(saidas.data, p.de), lte(saidas.data, p.ate), filtroUnidade(u), p.unidadeId ? eq(passeios.unidadeId, p.unidadeId) : undefined);
-    const canalExpr = sql<string>`coalesce(${reservas.canalOrigem}, ${reservas.canal})::text`;
-    const notas = await db.select({ nota: avaliacaoNotas.nota, guia: pessoas.nome, canal: canalExpr }).from(avaliacaoNotas)
-      .innerJoin(reservas, eq(reservas.id, avaliacaoNotas.reservaId)).innerJoin(saidas, eq(saidas.id, avaliacaoNotas.saidaId))
-      .innerJoin(passeios, eq(passeios.id, saidas.passeioId)).leftJoin(pessoas, eq(pessoas.id, saidas.guiaId)).where(escopo);
-    const pedidos = await db.select({ status: avaliacaoPedidos.status, n: sql<number>`count(*)::int` }).from(avaliacaoPedidos)
-      .innerJoin(saidas, eq(saidas.id, avaliacaoPedidos.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId)).where(escopo).groupBy(avaliacaoPedidos.status);
-    const [viator] = await db.select({ reservas: reservasN, passageiros: passageirosN }).from(reservas)
-      .innerJoin(saidas, eq(saidas.id, reservas.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId))
-      .leftJoin(passageiros, eq(passageiros.reservaId, reservas.id))
-      .where(and(eq(reservas.status, "CONFIRMADA"), escopo, sql`coalesce(${reservas.canalOrigem}, ${reservas.canal}) = 'VIATOR'`));
-    const agrupar = (chave: (n: (typeof notas)[number]) => string) => {
-      const m = new Map<string, number[]>();
-      for (const n of notas) m.set(chave(n), [...(m.get(chave(n)) ?? []), n.nota]);
-      return [...m.entries()].map(([k, v]) => ({ chave: k, quantidade: v.length, media: mediaNotas(v) })).sort((a, b) => b.quantidade - a.quantidade);
-    };
-    const cfg = await lerConfig();
-    return {
-      periodo: { de: p.de, ate: p.ate },
-      notas: {
-        quantidade: notas.length,
-        media: mediaNotas(notas.map((n) => n.nota)),
-        distribuicao: [1, 2, 3, 4, 5].map((v) => ({ nota: v, quantidade: notas.filter((n) => n.nota === v).length })),
-        porGuia: agrupar((n) => n.guia ?? "Sem guia"),
-        porCanal: agrupar((n) => n.canal),
-      },
-      pedidos: Object.fromEntries(STATUS_PEDIDO_AVALIACAO.map((s) => [s, pedidos.find((x) => x.status === s)?.n ?? 0])),
-      tripadvisor: { reservasViator: viator?.reservas ?? 0, passageirosViator: viator?.passageiros ?? 0, link: cfg.linkTripadvisor },
-    };
-  });
-
-  app.get("/api/marketing/avaliacoes/pedidos", ver, async (req) => {
-    const q = z.object({ status: z.enum(STATUS_PEDIDO_AVALIACAO).optional() }).and(periodo).parse(req.query);
-    const u = req.usuario!;
-    if (q.unidadeId && !podeUnidade(u, q.unidadeId)) throw naoEncontrado("Praça");
-    const canalExpr = sql<string>`coalesce(${reservas.canalOrigem}, ${reservas.canal})::text`;
-    return db.select({ id: avaliacaoPedidos.id, reservaId: avaliacaoPedidos.reservaId, status: avaliacaoPedidos.status, texto: avaliacaoPedidos.texto, data: saidas.data, passeio: passeios.nome, canal: canalExpr })
-      .from(avaliacaoPedidos).innerJoin(reservas, eq(reservas.id, avaliacaoPedidos.reservaId)).innerJoin(saidas, eq(saidas.id, avaliacaoPedidos.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId))
-      .where(and(gte(saidas.data, q.de), lte(saidas.data, q.ate), filtroUnidade(u), q.unidadeId ? eq(passeios.unidadeId, q.unidadeId) : undefined, q.status ? eq(avaliacaoPedidos.status, q.status) : undefined))
-      .orderBy(desc(saidas.data), asc(avaliacaoPedidos.criadoEm)).limit(500);
-  });
-
-  /** Cria os pedidos das reservas já realizadas no período (um por reserva; repetir não duplica). Não envia nada. */
-  app.post("/api/marketing/avaliacoes/pedidos/gerar", gerenciar, async (req) => {
-    const u = req.usuario!;
-    // Padrão próprio: últimos 7 dias até ontem (passeios já realizados). Corpo ausente é aceito.
-    const q = z.object({ de: dataIso.optional(), ate: dataIso.optional(), unidadeId: uuid.optional() }).parse(req.body ?? {});
-    const ate = q.ate ?? somarDias(hoje(), -1);
-    const p = { de: q.de ?? somarDias(ate, -6), ate, unidadeId: q.unidadeId };
-    if (p.de > p.ate) throw new ErroHttp(400, "PERIODO_INVALIDO", "A data inicial deve ser anterior à final.");
-    if (p.unidadeId && !podeUnidade(u, p.unidadeId)) throw naoEncontrado("Praça");
-    if ((Date.parse(p.ate) - Date.parse(p.de)) / 86400_000 > 31) throw new ErroHttp(400, "PERIODO_LONGO", "Gere os pedidos de no máximo 31 dias por vez.");
-    const ateEfetivo = p.ate < hoje() ? p.ate : somarDias(hoje(), -1);
-    const cfg = await lerConfig();
-    const candidatas = await db.select({ reservaId: reservas.id, saidaId: saidas.id, nome: reservas.contatoNome, telefone: reservas.contatoTelefone, data: saidas.data, passeio: passeios.nome })
-      .from(reservas).innerJoin(saidas, eq(saidas.id, reservas.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId))
-      .where(and(
-        eq(reservas.status, "CONFIRMADA"), sql`${saidas.status} <> 'CANCELADA'`, gte(saidas.data, p.de), lte(saidas.data, ateEfetivo), filtroUnidade(u),
-        p.unidadeId ? eq(passeios.unidadeId, p.unidadeId) : undefined,
-        sql`exists (select 1 from ${passageiros} where ${passageiros.reservaId} = ${reservas.id} and ${passageiros.embarque} <> 'NO_SHOW')`,
-        sql`not exists (select 1 from ${avaliacaoPedidos} where ${avaliacaoPedidos.reservaId} = ${reservas.id})`,
-      )).limit(2000);
-    let criados = 0;
-    for (const c of candidatas) {
-      const t = renderizarModeloAvaliacao(cfg.modeloAvaliacao, { nome: c.nome, passeio: c.passeio, data: dataBr(c.data), linkTripadvisor: cfg.linkTripadvisor });
-      const r = await db.insert(avaliacaoPedidos).values({ reservaId: c.reservaId, saidaId: c.saidaId, texto: t, status: c.telefone?.trim() ? "PENDENTE" : "SEM_TELEFONE" }).onConflictDoNothing().returning({ id: avaliacaoPedidos.id });
-      criados += r.length;
-    }
-    await auditar(db, req, "AVALIACAO_PEDIDOS_GERADOS", { tipo: "avaliacao_pedido" }, { de: p.de, ate: ateEfetivo, criados });
-    return { criados, periodo: { de: p.de, ate: ateEfetivo }, envio: "NAO_ENVIADO" };
-  });
-
-  app.patch("/api/marketing/avaliacoes/pedidos/:id", gerenciar, async (req) => {
-    const { id } = z.object({ id: uuid }).parse(req.params);
-    const { status } = z.object({ status: z.enum(["PENDENTE", "ENVIADA_MANUAL", "IGNORADA"]) }).parse(req.body);
-    const [p] = await db.select({ reservaId: avaliacaoPedidos.reservaId }).from(avaliacaoPedidos).where(eq(avaliacaoPedidos.id, id));
-    if (!p) throw naoEncontrado("Pedido de avaliação");
-    await garantirReserva(db, req.usuario!, p.reservaId);
-    await db.update(avaliacaoPedidos).set({ status, atualizadoEm: new Date() }).where(eq(avaliacaoPedidos.id, id));
-    await auditar(db, req, "AVALIACAO_PEDIDO_ATUALIZADO", { tipo: "avaliacao_pedido", id }, { status });
-    return { ok: true };
-  });
-
-  app.get("/api/marketing/avaliacoes/notas", ver, async (req) => {
-    const p = periodo.parse(req.query);
-    const u = req.usuario!;
-    if (p.unidadeId && !podeUnidade(u, p.unidadeId)) throw naoEncontrado("Praça");
-    const canalExpr = sql<string>`coalesce(${reservas.canalOrigem}, ${reservas.canal})::text`;
-    return db.select({ id: avaliacaoNotas.id, reservaId: avaliacaoNotas.reservaId, nota: avaliacaoNotas.nota, comentario: avaliacaoNotas.comentario, data: saidas.data, passeio: passeios.nome, canal: canalExpr, guia: pessoas.nome })
-      .from(avaliacaoNotas).innerJoin(reservas, eq(reservas.id, avaliacaoNotas.reservaId)).innerJoin(saidas, eq(saidas.id, avaliacaoNotas.saidaId))
-      .innerJoin(passeios, eq(passeios.id, saidas.passeioId)).leftJoin(pessoas, eq(pessoas.id, saidas.guiaId))
-      .where(and(gte(saidas.data, p.de), lte(saidas.data, p.ate), filtroUnidade(u), p.unidadeId ? eq(passeios.unidadeId, p.unidadeId) : undefined))
-      .orderBy(desc(saidas.data), desc(avaliacaoNotas.criadoEm)).limit(500);
-  });
-
-  /** Nota interna da reserva (coluna "Pesquisa" da lista). Registrar de novo atualiza a nota. */
-  app.post("/api/marketing/avaliacoes/notas", gerenciar, async (req) => {
-    const c = z.object({ reservaId: uuid, nota: z.number().int().min(1).max(5), comentario: textoOpc(500) }).parse(req.body);
-    await garantirReserva(db, req.usuario!, c.reservaId);
-    const [r] = await db.select({ saidaId: reservas.saidaId }).from(reservas).where(eq(reservas.id, c.reservaId));
-    const [n] = await db.insert(avaliacaoNotas).values({ reservaId: c.reservaId, saidaId: r!.saidaId, nota: c.nota, comentario: c.comentario, registradoPor: req.usuario!.id })
-      .onConflictDoUpdate({ target: avaliacaoNotas.reservaId, set: { nota: c.nota, comentario: c.comentario, registradoPor: req.usuario!.id } }).returning();
-    await auditar(db, req, "AVALIACAO_NOTA_REGISTRADA", { tipo: "reserva", id: c.reservaId }, { nota: c.nota });
-    return n;
-  });
+  // Avaliações (fila, painel, notas) e o resto do marketing 2: ver rotas/avaliacoes.ts e rotas/marketing-extras.ts.
 
   // ───────────── Afiliados próprios ─────────────
 
