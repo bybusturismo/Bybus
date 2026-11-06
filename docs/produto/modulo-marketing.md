@@ -45,3 +45,6 @@ Regras puras (canal real, indicadores de campanha, percentuais, código e link d
 5. **Perfis padrão**: decidir quais perfis recebem `marketing:ver`/`marketing:gerenciar` (sugestão: Supervisor vê; marketing gerencia).
 6. **Receita nos painéis de canal**: as reservas não guardam valor; o painel de vendas mostra reservas e passageiros. Receita por canal depende do financeiro/Paytour.
 7. **Calendário em grade mensal** (hoje é lista filtrável) e **integração de publicação** nas redes: fora do escopo desta entrega.
+
+## Atualização (06/11/2026)
+Abas novas **Instagram** e **Banco de mídias**; o Calendário de conteúdo ganhou o fluxo ideia → rascunho (`PRODUCAO`) → em aprovação → aprovado → agendado → publicado, mídia, agendamento no Instagram e sugestão de legenda por IA. Ver `docs/produto/modulo-instagram.md`.

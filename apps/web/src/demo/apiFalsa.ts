@@ -17,6 +17,7 @@ import { rotearMarketing } from "./marketingDemo";
 import { rotearRastreio } from "./rastreioDemo";
 import { criarTransferDemo } from "./transferDemo";
 import { criarWhatsappDemo } from "./whatsappDemo";
+import { rotearInstagram } from "./instagramDemo";
 import { resumoDeVendas, rotearVisaoGeral, valorDemoDaReserva } from "./visaoGeralDemo";
 
 /** Catálogo de permissões (espelha apps/api/src/seguranca/permissoes.ts). */
@@ -49,8 +50,8 @@ const CATALOGO: Record<string, string> = {
   "ia:gestores": "Ver os gestores de IA, rodar a avaliação e aprovar ou descartar ações sugeridas",
   "financeiro:ver": "Ver o financeiro (contas a pagar e a receber, extratos, DRE)",
   "financeiro:gerenciar": "Lançar, baixar, importar extratos e conciliar no financeiro",
-  "whatsapp:ver": "Ver as conversas de WhatsApp com os clientes (telefones e textos)",
-  "whatsapp:responder": "Responder e iniciar conversas de WhatsApp pela tela",
+  "whatsapp:ver": "Conversas (WhatsApp e Instagram): ver mensagens, comentários e contatos dos clientes",
+  "whatsapp:responder": "Conversas (WhatsApp e Instagram): responder mensagens e comentários, etiquetar, atribuir e editar respostas prontas",
   "transfer:gerenciar": "Montar e ajustar o transfer do dia (ordem de busca, horários, van, motorista, taxa) e configurar os bairros",
   "transfer:operar": "Operar o transfer pelo celular (motorista): marcar buscado/não apareceu e registrar a taxa recebida",
 };
@@ -307,6 +308,8 @@ const whatsappDemo = criarWhatsappDemo({
   reservas: () => reservas,
   saida: (saidaId) => { const s = saidas.find((x) => x.id === saidaId); const p = s && passeios.find((x) => x.id === s.passeioId); return s && p ? { data: s.data, passeio: p.nome, unidadeId: p.unidadeId } : undefined; },
   passageiros: (reservaId) => pax.filter((x) => x.reservaId === reservaId).length,
+  usuarioId: () => sessao?.id ?? "",
+  ponto: (reservaId) => { const r = reservas.find((x) => x.id === reservaId); const p = r?.pontoEmbarqueId ? pontos.find((x) => x.id === r.pontoEmbarqueId) : undefined; return p ? { nome: p.nome, horario: p.horario } : null; },
 });
 const transferDemo = criarTransferDemo({
   passeio: { id: passeio.id, nome: passeio.nome, unidadeId: passeio.unidadeId },
@@ -811,7 +814,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   }
 
   if (metodo === "GET" && caminho === "/api/auditoria") { exigir("auditoria:ver"); return auditoria.slice(0, Number(q.get("limite") ?? 200)); }
-  for (const rotear of [rotearFinanceiro, rotearFrota, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, whatsappDemo.rotear, rotearVisaoGeral, transferDemo.rotear]) {
+  for (const rotear of [rotearFinanceiro, rotearFrota, rotearInstagram, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, whatsappDemo.rotear, rotearVisaoGeral, transferDemo.rotear]) {
     const resposta = rotear(ctxModulos, metodo, caminho, q, c);
     if (resposta !== NAO) return resposta;
   }

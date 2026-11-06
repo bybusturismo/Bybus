@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, mensagemDeErro, qs } from "../api/cliente";
-import type { WaConversaDetalhe, WaConversaResumo, WaEnvio, WaLista, WaMensagem, WaMensagens, WaModo } from "../api/tipos";
+import { aplicarVariaveis, ETIQUETAS_CONVERSA, ROTULO_ETIQUETA_CONVERSA } from "@bybus/core";
+import type { CanalConversa, EtiquetaConversa, WaConversaDetalhe, WaConversaResumo, WaEnvio, WaLista, WaMensagem, WaMensagens, WaModo } from "../api/tipos";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { Icone } from "../componentes/Icone";
 import { Modal } from "../componentes/Modal";
 import { useSessao } from "../sessao/Sessao";
 import { FUSO, formatarDataCurta, hojeIso, somarDias } from "../util/formato";
 import { useCarregar } from "../util/useCarregar";
-import "../estilos/whatsapp.css";
+import { ComentariosInstagram } from "./conversas/Comentarios";
+import { BibliotecaRespostas, filtrarRespostas, SugestoesRespostas, useRespostasProntas, type Resposta } from "./conversas/RespostasProntas";
+import "../estilos/conversas.css";
 
 const ATUALIZAR_MS = 10_000;
 const LIMITE_TEXTO = 4096;
@@ -18,11 +21,24 @@ const SITUACAO: Record<string, string> = { SIMULADA: "simulada", ENVIADA: "envia
 
 /** Telefone legível: +55 (48) 99999-0000. Número escondido pelo WhatsApp (lid:…) vira um aviso. */
 export function formatarTelefone(tel: string): string {
+  if (tel.startsWith("ig:")) return "Contato do Instagram";
   if (tel.startsWith("lid:")) return "Número oculto pelo WhatsApp";
   const m = /^55(\d{2})(\d{4,5})(\d{4})$/.exec(tel);
   return m ? `+55 (${m[1]}) ${m[2]}-${m[3]}` : `+${tel}`;
 }
 const titulo = (c: { nome: string | null; telefone: string }) => c.nome || formatarTelefone(c.telefone);
+const ROTULO_CANAL: Record<CanalConversa, string> = { WHATSAPP: "WhatsApp", INSTAGRAM: "Instagram" };
+const dosCanais: Array<{ valor: "" | CanalConversa; rotulo: string }> = [{ valor: "", rotulo: "Todos os canais" }, { valor: "WHATSAPP", rotulo: "WhatsApp" }, { valor: "INSTAGRAM", rotulo: "Instagram" }];
+
+/** Ícone do canal (texto acessível junto: o rótulo nunca depende só do ícone). */
+function IconeCanal({ canal }: { canal: CanalConversa }) {
+  return <span className={`wa-canal wa-canal--${canal.toLowerCase()}`} title={ROTULO_CANAL[canal]}><Icone nome={canal === "INSTAGRAM" ? "camera" : "mensagem"} tamanho={14} /><span className="visualmente-oculto">{ROTULO_CANAL[canal]}</span></span>;
+}
+
+function tempoRestante(min: number): string {
+  const h = Math.floor(min / 60);
+  return h > 0 ? `${h} h ${min % 60} min` : `${min} min`;
+}
 
 const dia = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: FUSO }).format(d);
 const hora = (d: Date) => new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
@@ -75,6 +91,8 @@ function useAtraso<T>(valor: T, ms: number): T {
 function AvisosDeModo({ modo }: { modo: WaModo }) {
   return (
     <>
+      {modo.instagram && !modo.instagram.conectado && <Aviso tipo="info" titulo="Instagram não conectado">Os Directs e comentários do Instagram aparecem aqui depois que a conta for conectada (passo a passo em docs/produto/modulo-instagram.md).</Aviso>}
+      {modo.instagram?.conectado && modo.instagram.simulado && <Aviso tipo="atencao" titulo="Instagram em modo simulado">Nada é enviado ao Instagram de verdade: respostas e comentários ficam só registrados aqui.</Aviso>}
       {modo.simulado && (
         <Aviso tipo="atencao" titulo="WhatsApp em modo simulado">
           Nada é enviado de verdade: as respostas ficam só registradas aqui.
@@ -132,13 +150,20 @@ function NovaConversa({ aoFechar, aoCriar }: { aoFechar: () => void; aoCriar: (i
 }
 
 function ItemConversa({ c, ativa, aoAbrir }: { c: WaConversaResumo; ativa: boolean; aoAbrir: () => void }) {
+  const iniciais = c.atendenteNome ? c.atendenteNome.split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase() : null;
   return (
     <li>
       <button type="button" className={`wa-item${ativa ? " wa-item--ativa" : ""}${c.naoLidas ? " wa-item--nova" : ""}`} aria-current={ativa ? "true" : undefined} onClick={aoAbrir}>
         <span className="wa-item__linha">
-          <span className="wa-item__nome">{titulo(c)}</span>
+          <span className="wa-item__nome"><IconeCanal canal={c.canal} /> {titulo(c)}</span>
           <span className="wa-item__hora">{quandoNaLista(c.ultimaMensagemEm)}</span>
         </span>
+        {(c.etiquetas.length > 0 || iniciais) && (
+          <span className="wa-item__marcas">
+            {c.etiquetas.map((e) => <span key={e} className="etiqueta etiqueta--neutra">{ROTULO_ETIQUETA_CONVERSA[e]}</span>)}
+            {iniciais && <span className="etiqueta etiqueta--info" title={`Atendente: ${c.atendenteNome}`}>{iniciais}</span>}
+          </span>
+        )}
         <span className="wa-item__linha">
           <span className="wa-item__previa">{previaDaLista(c)}</span>
           {c.naoLidas > 0 && <span className="wa-item__contador" aria-label={`${c.naoLidas} não lidas`}>{c.naoLidas}</span>}
@@ -163,8 +188,11 @@ function Balao({ m }: { m: WaMensagem }) {
   );
 }
 
-function Conversa({ id, podeResponder, aoVoltar, aoMudar }: { id: string; podeResponder: boolean; aoVoltar: () => void; aoMudar: () => void }) {
+function Conversa({ id, podeResponder, aoVoltar, aoMudar, respostas, atendentes, meuId }: {
+  id: string; podeResponder: boolean; aoVoltar: () => void; aoMudar: () => void; respostas: Resposta[]; atendentes: Array<{ id: string; nome: string }>; meuId: string;
+}) {
   const detalhe = useCarregar((s) => api.get<WaConversaDetalhe>(`/api/whatsapp/conversas/${id}`, s), [id]);
+  const [faltando, setFaltando] = useState<string[]>([]);
   const [itens, setItens] = useState<WaMensagem[]>([]); // mais recentes primeiro (como a API)
   const [temMais, setTemMais] = useState(false);
   const [carregou, setCarregou] = useState(false);
@@ -221,13 +249,20 @@ function Conversa({ id, podeResponder, aoVoltar, aoMudar }: { id: string; podeRe
 
   async function enviar() {
     const t = texto.trim();
-    if (!t || enviando) return;
+    // Com "/" no começo, Enter escolhe a primeira resposta pronta em vez de enviar o atalho.
+    if (t.startsWith("/")) {
+      const primeira = filtrarRespostas(respostas, t)[0];
+      if (primeira) { usarResposta(primeira); return; }
+    }
+    if (!t || enviando || janelaFechada) return;
+    if (/\{(nome|passeio|data|ponto|horario)\}/.test(t)) { setAviso("Complete os trechos entre chaves antes de enviar."); return; }
     setEnviando(true);
     setAviso(null);
     try {
       const r = await api.post<WaEnvio>(`/api/whatsapp/conversas/${id}/responder`, { texto: t });
       setTexto("");
-      if (r.status === "FALHA") setAviso("O WhatsApp não aceitou a mensagem. Ela ficou registrada como “falhou”; tente de novo em instantes.");
+      setFaltando([]);
+      if (r.status === "FALHA") setAviso(`O ${d ? ROTULO_CANAL[d.canal] : "canal"} não aceitou a mensagem. Ela ficou registrada como “falhou”; tente de novo em instantes.`);
       noFim.current = true;
       await atualizar();
       aoMudar();
@@ -245,6 +280,23 @@ function Conversa({ id, podeResponder, aoVoltar, aoMudar }: { id: string; podeRe
   }
 
   const d = detalhe.dados;
+  const janelaFechada = d?.canal === "INSTAGRAM" && d.janela !== null && !d.janela.aberta;
+
+  async function mudarEtiqueta(e: EtiquetaConversa) {
+    if (!d) return;
+    const novas = d.etiquetas.includes(e) ? d.etiquetas.filter((x) => x !== e) : [...d.etiquetas, e];
+    try { await api.put(`/api/whatsapp/conversas/${id}/etiquetas`, { etiquetas: novas }); await detalhe.recarregar(); aoMudar(); } catch (x) { setAviso(mensagemDeErro(x)); }
+  }
+  async function atribuir(usuarioId: string | null) {
+    try { await api.post(`/api/whatsapp/conversas/${id}/atribuir`, { usuarioId }); await detalhe.recarregar(); aoMudar(); } catch (x) { setAviso(mensagemDeErro(x)); }
+  }
+  /** Insere a resposta pronta na caixa, com as variáveis da reserva; o que faltar fica entre chaves para completar. */
+  function usarResposta(r: Resposta) {
+    const v = d?.variaveis;
+    const aplicada = aplicarVariaveis(r.texto, { nome: v?.nome, passeio: v?.passeio, data: v?.data, ponto: v?.ponto, horario: v?.horario });
+    setTexto(aplicada.texto);
+    setFaltando(aplicada.faltando);
+  }
   const cronologico = [...itens].reverse();
   let diaAnterior = "";
   return (
@@ -254,10 +306,34 @@ function Conversa({ id, podeResponder, aoVoltar, aoMudar }: { id: string; podeRe
           <Icone nome="seta" />
         </button>
         <div className="wa-conversa__quem">
-          <strong>{d ? titulo(d) : "…"}</strong>
-          {d && d.nome && <span className="texto-fraco">{formatarTelefone(d.telefone)}</span>}
+          <strong>{d ? <><IconeCanal canal={d.canal} /> {titulo(d)}</> : "…"}</strong>
+          {d && d.nome && <span className="texto-fraco">{d.canal === "INSTAGRAM" ? "Instagram" : formatarTelefone(d.telefone)}</span>}
         </div>
       </header>
+
+      {d && (
+        <div className="wa-gestao" aria-label="Etiquetas e atendente">
+          <div className="wa-etiquetas" role="group" aria-label="Etiquetas">
+            {ETIQUETAS_CONVERSA.map((e) => (
+              <button key={e} type="button" className={`wa-etiqueta${d.etiquetas.includes(e) ? " wa-etiqueta--ativa" : ""}`} aria-pressed={d.etiquetas.includes(e)} disabled={!podeResponder} onClick={() => void mudarEtiqueta(e)}>{ROTULO_ETIQUETA_CONVERSA[e]}</button>
+            ))}
+          </div>
+          <div className="wa-atendente">
+            <label htmlFor="wa-atendente">Atendente</label>
+            <select id="wa-atendente" value={d.atendenteId ?? ""} disabled={!podeResponder} onChange={(e) => void atribuir(e.target.value || null)}>
+              <option value="">Sem atendente</option>
+              {atendentes.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+            </select>
+            {podeResponder && d.atendenteId !== meuId && <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void atribuir(meuId)}>Assumir</button>}
+          </div>
+        </div>
+      )}
+
+      {d?.canal === "INSTAGRAM" && d.janela && (
+        d.janela.aberta
+          ? <p className="wa-janela texto-fraco">Instagram: você pode responder por mais {tempoRestante(d.janela.minutosRestantes)} (regra de 24 horas da Meta, contada da última mensagem do cliente).</p>
+          : <Aviso tipo="atencao" titulo="Janela de 24 horas encerrada">Já se passaram mais de 24 horas desde a última mensagem do cliente: o Instagram não permite mais responder por aqui. Quando o cliente escrever de novo, a resposta é liberada.</Aviso>
+      )}
 
       {d && (
         <div className="wa-reservas" aria-label="Reservas deste contato">
@@ -300,18 +376,21 @@ function Conversa({ id, podeResponder, aoVoltar, aoMudar }: { id: string; podeRe
       </div>
 
       {aviso && <Aviso tipo="erro">{aviso}</Aviso>}
+      {faltando.length > 0 && <p className="wa-faltando">Complete antes de enviar: {faltando.map((f) => `{${f}}`).join(", ")} (não há reserva com essa informação).</p>}
       {podeResponder ? (
         <form className="wa-resposta" onSubmit={(e) => { e.preventDefault(); void enviar(); }}>
+          {texto.startsWith("/") && <SugestoesRespostas respostas={respostas} consulta={texto} aoEscolher={usarResposta} />}
           <textarea
             aria-label="Mensagem"
-            placeholder="Escreva uma mensagem (Enter envia, Shift+Enter quebra a linha)"
+            placeholder={janelaFechada ? "Janela de 24 horas encerrada" : "Escreva uma mensagem (Enter envia, / abre as respostas prontas)"}
             rows={2}
             maxLength={LIMITE_TEXTO}
             value={texto}
+            disabled={janelaFechada}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={aoTeclar}
           />
-          <button type="submit" className="botao botao--primario" disabled={enviando || !texto.trim()}>
+          <button type="submit" className="botao botao--primario" disabled={enviando || !texto.trim() || janelaFechada}>
             <Icone nome="seta" /> Enviar
           </button>
         </form>
@@ -322,47 +401,69 @@ function Conversa({ id, podeResponder, aoVoltar, aoMudar }: { id: string; podeRe
   );
 }
 
-export function Whatsapp() {
-  const { pode } = useSessao();
+export function Conversas() {
+  const { pode, usuario } = useSessao();
   const podeResponder = pode("whatsapp:responder");
   const [params, setParams] = useSearchParams();
   const aberta = params.get("c");
   const [busca, setBusca] = useState("");
   const [soNaoLidas, setSoNaoLidas] = useState(false);
   const [nova, setNova] = useState(false);
+  const [biblioteca, setBiblioteca] = useState(false);
+  const [canal, setCanal] = useState<"" | CanalConversa>("");
+  const [etiqueta, setEtiqueta] = useState<"" | EtiquetaConversa>("");
+  const [quem, setQuem] = useState<"" | "eu" | "sem">("");
+  const aba = params.get("aba") === "comentarios" ? "comentarios" : "mensagens";
   const termo = useAtraso(busca.trim(), 250);
-  const lista = useCarregar((s) => api.get<WaLista>(`/api/whatsapp/conversas${qs({ busca: termo, naoLidas: soNaoLidas ? "1" : undefined, limite: 200 })}`, s), [termo, soNaoLidas]);
+  const lista = useCarregar((s) => api.get<WaLista>(`/api/whatsapp/conversas${qs({ busca: termo, naoLidas: soNaoLidas ? "1" : undefined, canal, etiqueta, atendente: quem, limite: 200 })}`, s), [termo, soNaoLidas, canal, etiqueta, quem]);
+  const respostas = useRespostasProntas();
+  const atendentes = useCarregar((s) => api.get<Array<{ id: string; nome: string }>>("/api/whatsapp/atendentes", s), []);
   useAtualizacao(() => { void lista.recarregar(); });
+  const filtrando = !!(termo || soNaoLidas || canal || etiqueta || quem);
 
   const abrir = (id: string | null) => setParams(id ? { c: id } : {}, { replace: false });
+  const trocarAba = (a: "mensagens" | "comentarios") => setParams(a === "comentarios" ? { aba: "comentarios" } : {}, { replace: false });
   const l = lista.dados;
 
   return (
     <div className="pagina pagina--whatsapp">
       <div className="pagina__cabecalho">
         <div>
-          <h1>WhatsApp</h1>
-          <p className="pagina__descricao">Conversas com os clientes: o que chega, o que o sistema envia sozinho e as respostas da equipe.</p>
+          <h1>Conversas</h1>
+          <p className="pagina__descricao">WhatsApp e Instagram: o que chega, o que o sistema envia sozinho e as respostas da equipe.</p>
         </div>
-        {podeResponder && (
-          <div className="barra-acoes">
-            <button type="button" className="botao botao--secundario" onClick={() => setNova(true)}><Icone nome="mais" /> Nova conversa</button>
-          </div>
-        )}
+        <div className="barra-acoes">
+          {podeResponder && <button type="button" className="botao botao--fantasma" onClick={() => setBiblioteca(true)}><Icone nome="lista" /> Respostas prontas</button>}
+          {podeResponder && aba === "mensagens" && <button type="button" className="botao botao--secundario" onClick={() => setNova(true)}><Icone nome="mais" /> Nova conversa</button>}
+        </div>
       </div>
       {l && <AvisosDeModo modo={l.modo} />}
+      <div className="abas" role="tablist" aria-label="Conversas">
+        <button type="button" role="tab" aria-selected={aba === "mensagens"} className={`aba${aba === "mensagens" ? " aba--ativa" : ""}`} onClick={() => trocarAba("mensagens")}>Mensagens{l && l.naoLidasTotal > 0 ? ` (${l.naoLidasTotal})` : ""}</button>
+        <button type="button" role="tab" aria-selected={aba === "comentarios"} className={`aba${aba === "comentarios" ? " aba--ativa" : ""}`} onClick={() => trocarAba("comentarios")}>Comentários do Instagram</button>
+      </div>
+      {aba === "comentarios" ? <ComentariosInstagram podeResponder={podeResponder} /> : <>
 
       <div className={`wa${aberta ? " wa--aberta" : ""}`}>
         <aside className="wa-lista" aria-label="Conversas">
           <div className="wa-lista__filtros">
             <input type="search" aria-label="Buscar conversa" placeholder="Buscar por nome ou telefone" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <div className="wa-lista__selects">
+              <select aria-label="Canal" value={canal} onChange={(e) => setCanal(e.target.value as "" | CanalConversa)}>{dosCanais.map((c) => <option key={c.valor} value={c.valor}>{c.rotulo}</option>)}</select>
+              <select aria-label="Etiqueta" value={etiqueta} onChange={(e) => setEtiqueta(e.target.value as "" | EtiquetaConversa)}><option value="">Todas as etiquetas</option>{ETIQUETAS_CONVERSA.map((e) => <option key={e} value={e}>{ROTULO_ETIQUETA_CONVERSA[e]}</option>)}</select>
+            </div>
+            <div className="wa-lista__quem" role="group" aria-label="Atendente">
+              <button type="button" className={`wa-filtro${quem === "" ? " wa-filtro--ativo" : ""}`} aria-pressed={quem === ""} onClick={() => setQuem("")}>Todas</button>
+              <button type="button" className={`wa-filtro${quem === "eu" ? " wa-filtro--ativo" : ""}`} aria-pressed={quem === "eu"} onClick={() => setQuem("eu")}>Minhas conversas{l ? ` (${l.minhasConversas})` : ""}</button>
+              <button type="button" className={`wa-filtro${quem === "sem" ? " wa-filtro--ativo" : ""}`} aria-pressed={quem === "sem"} onClick={() => setQuem("sem")}>Sem atendente</button>
+            </div>
             <label className="wa-lista__nao-lidas">
               <input type="checkbox" checked={soNaoLidas} onChange={(e) => setSoNaoLidas(e.target.checked)} /> Não lidas{l && l.naoLidasTotal > 0 ? ` (${l.naoLidasTotal})` : ""}
             </label>
           </div>
           {lista.carregando && !l ? <Carregando /> : lista.erro && !l ? <ErroCarga mensagem={lista.erro} tentarDeNovo={lista.recarregar} /> : l?.conversas.length === 0 ? (
-            <Vazio titulo={termo || soNaoLidas ? "Nenhuma conversa encontrada." : "Nenhuma conversa ainda."}>
-              {!termo && !soNaoLidas && "As conversas aparecem quando um cliente escreve ou quando o sistema envia uma confirmação."}
+            <Vazio titulo={filtrando ? "Nenhuma conversa encontrada." : "Nenhuma conversa ainda."}>
+              {!filtrando && "As conversas aparecem quando um cliente escreve ou quando o sistema envia uma confirmação."}
             </Vazio>
           ) : (
             <ul className="wa-lista__itens">
@@ -372,7 +473,7 @@ export function Whatsapp() {
         </aside>
 
         {aberta ? (
-          <Conversa key={aberta} id={aberta} podeResponder={podeResponder} aoVoltar={() => abrir(null)} aoMudar={() => void lista.recarregar()} />
+          <Conversa key={aberta} id={aberta} podeResponder={podeResponder} aoVoltar={() => abrir(null)} aoMudar={() => void lista.recarregar()} respostas={respostas.dados ?? []} atendentes={atendentes.dados ?? []} meuId={usuario?.id ?? ""} />
         ) : (
           <section className="wa-conversa wa-conversa--vazia" aria-label="Conversa">
             <Vazio titulo="Escolha uma conversa" >Clique em uma conversa da lista para ver as mensagens e responder.</Vazio>
@@ -380,6 +481,9 @@ export function Whatsapp() {
         )}
       </div>
 
+      </>}
+
+      {biblioteca && <BibliotecaRespostas aoFechar={() => setBiblioteca(false)} aoMudar={() => void respostas.recarregar()} />}
       {nova && <NovaConversa aoFechar={() => setNova(false)} aoCriar={(id) => { setNova(false); abrir(id); void lista.recarregar(); }} />}
     </div>
   );

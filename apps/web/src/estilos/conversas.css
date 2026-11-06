@@ -6,7 +6,7 @@
 .wa {
   display: grid;
   grid-template-columns: 21rem minmax(0, 1fr);
-  height: calc(100dvh - var(--altura-topo) - 13rem);
+  height: calc(100dvh - var(--altura-topo) - 16rem);
   min-height: 24rem;
   border: 1px solid var(--cor-borda);
   border-radius: 8px;
@@ -259,7 +259,7 @@
 @media (max-width: 760px) {
   .wa {
     grid-template-columns: minmax(0, 1fr);
-    height: calc(100dvh - var(--altura-topo) - 9rem);
+    height: calc(100dvh - var(--altura-topo) - 12rem);
   }
   .pagina--whatsapp .pagina__descricao {
     display: none;
@@ -285,4 +285,178 @@
   .wa-resposta:not(.wa-resposta--so-leitura) {
     padding-right: 5.5rem;
   }
+}
+
+/* ---------- Canal, etiquetas, atendente e respostas prontas ---------- */
+.wa-canal {
+  display: inline-flex;
+  vertical-align: middle;
+  color: var(--cor-texto-fraco);
+}
+.wa-canal--instagram {
+  color: var(--cor-texto);
+}
+.wa-item__marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.wa-lista__selects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-2);
+}
+.wa-lista__quem,
+.wa-sugestoes__idiomas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.wa-filtro,
+.wa-etiqueta {
+  padding: 2px var(--esp-2);
+  border: 1px solid var(--cor-borda);
+  border-radius: 999px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: var(--texto-xs);
+  cursor: pointer;
+}
+.wa-filtro--ativo,
+.wa-etiqueta--ativa {
+  border-color: var(--cor-primaria);
+  background: var(--cor-primaria-suave);
+  font-weight: var(--peso-forte);
+}
+.wa-etiqueta:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.wa-gestao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--cor-borda);
+}
+.wa-etiquetas,
+.wa-atendente {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: var(--texto-xs);
+}
+.wa-janela,
+.wa-faltando {
+  margin: 0;
+  padding: var(--esp-1) var(--esp-3);
+  font-size: var(--texto-xs);
+}
+.wa-faltando {
+  color: var(--cor-atencao);
+}
+.wa-resposta {
+  position: relative;
+}
+.wa-sugestoes {
+  position: absolute;
+  left: var(--esp-3);
+  right: var(--esp-3);
+  bottom: 100%;
+  z-index: 5;
+  max-height: 16rem;
+  overflow-y: auto;
+  padding: var(--esp-2);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+  box-shadow: var(--sombra-forte);
+}
+.wa-sugestoes ul {
+  list-style: none;
+  margin: var(--esp-2) 0 0;
+  padding: 0;
+}
+.wa-sugestao {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--esp-1) var(--esp-2);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: var(--texto-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.wa-sugestao:hover,
+.wa-sugestao:focus-visible {
+  background: var(--cor-superficie-2);
+}
+.wa-sugestao__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+}
+.wa-sugestao__texto {
+  color: var(--cor-texto-fraco);
+  font-size: var(--texto-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Comentários do Instagram ---------- */
+.ig-comentarios__lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ig-comentario {
+  padding: var(--esp-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+}
+.ig-comentario--oculto {
+  opacity: 0.7;
+}
+.ig-comentario__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: var(--texto-sm);
+}
+.ig-comentario__texto {
+  margin: var(--esp-1) 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ig-comentario__post,
+.ig-comentario__resposta {
+  margin: var(--esp-1) 0;
+  font-size: var(--texto-xs);
+}
+.ig-comentario__acoes,
+.ig-comentario__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--esp-2);
+  margin-top: var(--esp-2);
+}
+.ig-comentario__form textarea {
+  flex: 1 1 16rem;
 }

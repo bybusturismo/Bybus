@@ -38,3 +38,6 @@ Pedido do dono: "o WhatsApp precisa de uma tela que mostre as trocas de mensagen
 - LGPD: texto das conversas fica só no banco; sem exportação; leitura de conversa não é auditada (só respostas e nova conversa). Política de retenção: a definir.
 - A conexão da Evolution fica só em memória (some ao reiniciar a API até o próximo aviso).
 - Pendências: baixar mídia, marcar como lida no WhatsApp do cliente, arquivar conversa (coluna existe, sem botão), tempo real (hoje, atualização a cada 10 s), vincular a conversa a um cliente manualmente.
+
+## Atualização (06/11/2026): central "Conversas"
+A tela virou **Conversas** (`/conversas`; `/whatsapp` redireciona) com WhatsApp e Instagram, etiquetas, atendente, respostas prontas e comentários. Ver `docs/produto/modulo-instagram.md`. As rotas continuam em `/api/whatsapp/*` (com `canal` e filtros novos).

@@ -47,7 +47,7 @@ export const ROTULO_MIDIA: Record<string, string> = {
 export const ROTULO_REDE: Record<string, string> = {
   INSTAGRAM: "Instagram", FACEBOOK: "Facebook", TIKTOK: "TikTok", YOUTUBE: "YouTube", GOOGLE_NEGOCIOS: "Google Meu Negócio", BLOG: "Blog", OUTRA: "Outra",
 };
-export const ROTULO_STATUS_CONTEUDO: Record<string, string> = { IDEIA: "Ideia", PRODUCAO: "Em produção", AGENDADO: "Agendado", PUBLICADO: "Publicado" };
+export const ROTULO_STATUS_CONTEUDO: Record<string, string> = { IDEIA: "Ideia", PRODUCAO: "Rascunho", EM_APROVACAO: "Em aprovação", APROVADO: "Aprovado", AGENDADO: "Agendado", PUBLICADO: "Publicado" };
 export const ROTULO_TIPO_AFILIADO: Record<string, string> = { HOTEL: "Hotel", POUSADA: "Pousada", AGENCIA: "Agência", PARCEIRO: "Parceiro", OUTRO: "Outro" };
 export const ROTULO_STATUS_PEDIDO: Record<string, string> = {
   PENDENTE: "A enviar", ENVIADA_MANUAL: "Enviada à mão", SIMULADA: "Simulada", SEM_TELEFONE: "Sem telefone", IGNORADA: "Ignorada",
