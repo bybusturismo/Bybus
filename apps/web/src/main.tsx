@@ -7,6 +7,7 @@ import "./estilos/tokens.css";
 import "./estilos/base.css";
 import "./estilos/telas.css";
 import "./estilos/rastreio.css";
+import "./estilos/padrao.css";
 import "./estilos/impressao.css";
 import "./estilos/demo.css";
 

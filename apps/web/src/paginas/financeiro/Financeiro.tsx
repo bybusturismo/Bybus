@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
+import { AbasModulo } from "../../componentes/Pagina";
 import "./financeiro.css";
 
 const ABAS = [
@@ -17,13 +18,7 @@ const ABAS = [
 export function Financeiro() {
   return (
     <div className="pagina">
-      <nav className="abas fin-abas" aria-label="Financeiro">
-        {ABAS.map((a) => (
-          <NavLink key={a.para} to={a.para} end={a.fim} className={({ isActive }) => `aba${isActive ? " aba--ativa" : ""}`}>
-            {a.rotulo}
-          </NavLink>
-        ))}
-      </nav>
+      <AbasModulo rotulo="Financeiro" itens={ABAS} />
       <Outlet />
     </div>
   );

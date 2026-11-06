@@ -7,10 +7,10 @@ import { Icone } from "../componentes/Icone";
 import { Modal } from "../componentes/Modal";
 import { useNotificar } from "../componentes/Notificacoes";
 import { nomePraca, useSessao } from "../sessao/Sessao";
-import { diferencaDias, formatarData, formatarDataExtenso, hojeIso, intervaloDias, partesData, plural, somarDias } from "../util/formato";
+import { diferencaDias, formatarData, formatarDataCurta, formatarDataExtenso, hojeIso, intervaloDias, plural, somarDias } from "../util/formato";
 import { ROTULO_STATUS_SAIDA } from "../util/rotulos";
 import { EtiquetaLinha } from "../componentes/Etiquetas";
-import { Indicador, Indicadores } from "../componentes/Indicador";
+import { CabecalhoPagina, FaixaNumeros } from "../componentes/Pagina";
 import { useCarregar } from "../util/useCarregar";
 
 const DIAS = 14;
@@ -22,18 +22,6 @@ function lerPasseioSalvo(): string {
   } catch {
     return "";
   }
-}
-
-/** Bloco de calendário do dia (decorativo: a data por extenso vem no texto do cartão). */
-function BlocoDia({ data, hoje }: { data: string; hoje: string }) {
-  const p = partesData(data);
-  return (
-    <div className={`saida__dia${data === hoje ? " saida__dia--hoje" : ""}`} aria-hidden="true">
-      <span className="saida__semana">{p.semana}</span>
-      <span className="saida__num">{p.dia}</span>
-      <span className="saida__mes">{p.mes}</span>
-    </div>
-  );
 }
 
 /** Totais do período (saídas não canceladas). */
@@ -161,54 +149,49 @@ export function Saidas() {
 
   return (
     <div className="pagina">
-      <div className="pagina__cabecalho">
-        <div>
-          <h1>Saídas</h1>
-          <p className="pagina__descricao">
-            {unidades.length > 1 ? nomePraca(unidades, praca) : unidades[0]?.nome ?? ""} · {formatarData(inicio)} a {formatarData(fim)}
-          </p>
-        </div>
-        <div className="barra-acoes">
-          {podeCriar && passeioCriar && (
+      <CabecalhoPagina
+        titulo="Saídas"
+        descricao={`${unidades.length > 1 ? nomePraca(unidades, praca) : unidades[0]?.nome ?? ""} · ${formatarData(inicio)} a ${formatarData(fim)}`}
+        filtros={
+          <>
+            {daPraca.length > 1 && (
+              <div className="campo campo--linha">
+                <label htmlFor="filtro-passeio">Passeio</label>
+                <select id="filtro-passeio" value={filtroPasseio} onChange={(e) => escolherPasseio(e.target.value)}>
+                  <option value="">Todos os passeios</option>
+                  <OpcoesPasseio grupos={grupos} />
+                </select>
+              </div>
+            )}
+            <div className="campo campo--linha periodo">
+              <label htmlFor="periodo-de">De</label>
+              <input id="periodo-de" type="date" value={inicio} onChange={(e) => e.target.value && irPara(e.target.value, e.target.value > fim ? somarDias(e.target.value, dias - 1) : fim)} />
+              <label htmlFor="periodo-ate">até</label>
+              <input id="periodo-ate" type="date" value={fim} min={inicio} max={somarDias(inicio, 365)} onChange={(e) => e.target.value && irPara(inicio, e.target.value)} />
+            </div>
+            <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => irPara(somarDias(inicio, -dias))} aria-label={`${dias} dias anteriores`}>
+              ←
+            </button>
+            {(inicio !== hoje || dias !== DIAS) && (
+              <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setParams({})}>
+                Hoje
+              </button>
+            )}
+            <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => irPara(somarDias(inicio, dias))} aria-label={`Próximos ${dias} dias`}>
+              →
+            </button>
+          </>
+        }
+        acoes={
+          podeCriar && passeioCriar ? (
             <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setNovaAberta(true)}>
               <Icone nome="mais" tamanho={16} /> Nova saída
             </button>
-          )}
-          <div className="campo campo--linha periodo">
-            <label htmlFor="periodo-de">De</label>
-            <input id="periodo-de" type="date" value={inicio} onChange={(e) => e.target.value && irPara(e.target.value, e.target.value > fim ? somarDias(e.target.value, dias - 1) : fim)} />
-            <label htmlFor="periodo-ate">até</label>
-            <input id="periodo-ate" type="date" value={fim} min={inicio} max={somarDias(inicio, 365)} onChange={(e) => e.target.value && irPara(inicio, e.target.value)} />
-          </div>
-          <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => irPara(somarDias(inicio, -dias))} aria-label={`${dias} dias anteriores`}>
-            ←
-          </button>
-          {(inicio !== hoje || dias !== DIAS) && (
-            <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setParams({})}>
-              Hoje
-            </button>
-          )}
-          <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => irPara(somarDias(inicio, dias))} aria-label={`Próximos ${dias} dias`}>
-            →
-          </button>
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {saidas.dados && saidas.dados.length > 0 && <ResumoPeriodo r={resumirPeriodo(saidas.dados, (s) => porId.get(s.passeioId)?.minimoConfirmacao ?? 12)} />}
-
-      {daPraca.length > 1 && (
-        <div className="filtros">
-          {daPraca.length > 1 && (
-            <div className="campo campo--linha">
-              <label htmlFor="filtro-passeio">Passeio</label>
-              <select id="filtro-passeio" value={filtroPasseio} onChange={(e) => escolherPasseio(e.target.value)}>
-                <option value="">Todos os passeios</option>
-                <OpcoesPasseio grupos={grupos} />
-              </select>
-            </div>
-          )}
-        </div>
-      )}
 
       {erroCriar && <Aviso tipo="erro">{erroCriar}</Aviso>}
       {novaAberta && passeioCriar && (
@@ -256,86 +239,71 @@ export function Saidas() {
               As saídas aparecem sozinhas quando entra uma reserva (Paytour, Viator, Decolar, Civitatis).{podeCriar ? " Para um caso fora disso, use “Nova saída”." : ""}
             </Vazio>
           )}
-          <ul className="lista-saidas" aria-label="Saídas por dia" aria-busy={saidas.carregando}>
-            {intervaloDias(inicio, dias).flatMap((data) => {
-              const doDia = porData.get(data) ?? [];
-              const relativo = rotuloRelativo(data, hoje);
-              // Dias sem saída não aparecem (as saídas nascem das reservas; pedido do dono, 04/11).
-              if (doDia.length === 0) return [];
-              return doDia.map((s) => {
-                const minimo = porId.get(s.passeioId)?.minimoConfirmacao ?? 12;
-                const abaixoMinimo = s.pagantes < minimo && s.status !== "CANCELADA";
-                const ocupacao = Math.min(100, Math.round((s.assentos / Math.max(1, s.capacidade)) * 100));
-                return (
-                  <li key={s.id} className={`saida saida--${s.status.toLowerCase()}`}>
-                    <BlocoDia data={data} hoje={hoje} />
-                    <div className="saida__principal">
-                      <div className="saida__etiquetas">
-                        {relativo && <span className="etiqueta etiqueta--hoje">{relativo}</span>}
-                        <span className={`etiqueta etiqueta--status-${s.status.toLowerCase()}`}>{ROTULO_STATUS_SAIDA[s.status]}</span>
-                        <EtiquetaLinha linha={s.linha} />
-                      </div>
-                      <span className="saida__passeio">
-                        {s.passeio}
-                        {mostrarPraca && <span className="texto-fraco"> · {siglaPraca(s.unidadeId)}</span>}
-                      </span>
-                      <Link to={`/saidas/${s.id}${novaReserva ? "/reservas?nova=1" : ""}`} className="saida__link">
-                        {formatarDataExtenso(data)}
-                      </Link>
-                      <div className="saida__equipe">
-                        <span className={s.veiculo ? undefined : "texto-fraco"}>
-                          <Icone nome="onibus" tamanho={16} /> {s.veiculo ? `Veículo: ${s.veiculo}` : "Veículo a definir"}
-                        </span>
-                        <span className={s.guia ? undefined : "texto-fraco"}>
-                          <Icone nome="cracha" tamanho={16} /> {s.guia ? `Guia: ${s.guia}` : "Guia a definir"}
-                        </span>
-                        {s.motorista && (
-                          <span>
-                            <Icone nome="volante" tamanho={16} /> Motorista: {s.motorista}
+          <div className="tabela-rolagem" aria-busy={saidas.carregando}>
+            <table className="tabela tabela--saidas tabela--cartoes" aria-label="Saídas por dia">
+              <thead>
+                <tr><th>Data</th><th>Passeio</th><th>Situação</th><th>Ocupação</th><th className="num">Passag.</th><th className="num">Reservas</th><th>Pagantes</th><th>Equipe</th><th /></tr>
+              </thead>
+              <tbody>
+                {intervaloDias(inicio, dias).flatMap((data) => {
+                  const doDia = porData.get(data) ?? [];
+                  const relativo = rotuloRelativo(data, hoje);
+                  // Dias sem saída não aparecem (as saídas nascem das reservas; pedido do dono, 04/11).
+                  return doDia.map((s, k) => {
+                    const minimo = porId.get(s.passeioId)?.minimoConfirmacao ?? 12;
+                    const abaixoMinimo = s.pagantes < minimo && s.status !== "CANCELADA";
+                    const ocupacao = Math.min(100, Math.round((s.assentos / Math.max(1, s.capacidade)) * 100));
+                    const destino = `/saidas/${s.id}${novaReserva ? "/reservas?nova=1" : ""}`;
+                    return (
+                      <tr key={s.id} className={s.status === "CANCELADA" ? "linha--ok" : abaixoMinimo ? "linha--atencao" : undefined}>
+                        <td className="sem-quebra" data-rotulo="Data">
+                          {k === 0 && (
+                            <>
+                              <Link to={destino} className="saida__link" title={formatarDataExtenso(data)}>{formatarDataCurta(data)}</Link>
+                              {relativo && <span className="etiqueta etiqueta--hoje">{relativo}</span>}
+                            </>
+                          )}
+                        </td>
+                        <td>
+                          <span className="saida__passeio">
+                            {s.passeio}
+                            {mostrarPraca && <span className="texto-fraco"> · {siglaPraca(s.unidadeId)}</span>}
                           </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="saida__ocupacao">
-                      <div className="saida__ocupacao-topo">
-                        <span className="saida__rotulo">Ocupação</span>
-                        <span className="saida__percentual">{ocupacao}%</span>
-                      </div>
-                      <span className={`barra-ocupacao${ocupacao >= 90 ? " barra-ocupacao--cheia" : ""}`} aria-hidden="true">
-                        <span style={{ width: `${ocupacao}%` }} />
-                      </span>
-                      <dl className="saida__numeros">
-                        <div>
-                          <dt>Passageiros</dt>
-                          <dd>{s.passageiros}</dd>
-                        </div>
-                        <div>
-                          <dt>Reservas</dt>
-                          <dd>{s.reservas}</dd>
-                        </div>
-                        <div>
-                          <dt>Assentos</dt>
-                          <dd>
-                            {s.assentos}/{s.capacidade}
-                          </dd>
-                        </div>
-                      </dl>
-                      <div className={abaixoMinimo ? "saida__pagantes saida__pagantes--abaixo" : "saida__pagantes saida__pagantes--ok"}>
-                        <Icone nome={abaixoMinimo ? "alerta" : "check"} tamanho={16} />
-                        <span>
-                          <strong>{s.pagantes}</strong> {s.pagantes === 1 ? "pagante" : "pagantes"} (mín. {minimo})
-                          <span className="saida__selo">{abaixoMinimo ? ` · faltam ${minimo - s.pagantes}` : " · mínimo atingido"}</span>
-                        </span>
-                      </div>
-                    </div>
-                    <Link to={`/saidas/${s.id}${novaReserva ? "/reservas?nova=1" : ""}`} className="botao botao--secundario botao--pequeno saida__acao" aria-label={`Abrir lista de passageiros de ${formatarData(data)} — ${s.passeio}`}>
-                      Lista de passageiros →
-                    </Link>
-                  </li>
-                );
-              });
-            })}
-          </ul>
+                          <EtiquetaLinha linha={s.linha} />
+                        </td>
+                        <td data-rotulo="Situação"><span className={`etiqueta etiqueta--status-${s.status.toLowerCase()}`}>{ROTULO_STATUS_SAIDA[s.status]}</span></td>
+                        <td className="saida__ocupacao-celula" data-rotulo="Ocupação">
+                          <span className={`barra-ocupacao${ocupacao >= 90 ? " barra-ocupacao--cheia" : ""}`} aria-hidden="true"><span style={{ width: `${ocupacao}%` }} /></span>
+                          <span className="num-ocupacao">{ocupacao}% · {s.assentos}/{s.capacidade}</span>
+                        </td>
+                        <td className="num" data-rotulo="Passageiros">{s.passageiros}</td>
+                        <td className="num" data-rotulo="Reservas">{s.reservas}</td>
+                        <td className="sem-quebra" data-rotulo="Pagantes">
+                          <span className={abaixoMinimo ? "saida__pagantes saida__pagantes--abaixo" : "saida__pagantes saida__pagantes--ok"}>
+                            <Icone nome={abaixoMinimo ? "alerta" : "check"} tamanho={14} />
+                            <span>
+                              <strong>{s.pagantes}</strong> (mín. {minimo})
+                              <span className="saida__selo">{abaixoMinimo ? ` · faltam ${minimo - s.pagantes}` : ""}</span>
+                            </span>
+                          </span>
+                        </td>
+                        <td className="saida__equipe" data-rotulo="Equipe">
+                          <span className={s.veiculo ? undefined : "texto-fraco"}>{s.veiculo ? `Veículo: ${s.veiculo}` : "Veículo a definir"}</span>
+                          <span className={s.guia ? undefined : "texto-fraco"}>{s.guia ? `Guia: ${s.guia}` : "Guia a definir"}</span>
+                          {s.motorista && <span>Motorista: {s.motorista}</span>}
+                        </td>
+                        <td className="celula-acoes">
+                          <Link to={destino} className="botao botao--secundario botao--pequeno" aria-label={`Abrir lista de passageiros de ${formatarData(data)} — ${s.passeio}`}>
+                            Lista de passageiros →
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>
@@ -344,15 +312,16 @@ export function Saidas() {
 
 function ResumoPeriodo({ r }: { r: ReturnType<typeof resumirPeriodo> }) {
   return (
-    <Indicadores rotulo="Resumo do período">
-      <Indicador tinta="azul" icone="calendario" rotulo="Saídas no período" valor={r.saidas} detalhe={plural(r.confirmadas, "confirmada")} />
-      <Indicador tinta="rosa" icone="pessoas" rotulo="Passageiros" valor={r.passageiros} detalhe={plural(r.reservas, "reserva")} />
-      <Indicador tinta="violeta" icone="grafico" rotulo="Ocupação média" valor={`${r.ocupacao}%`} detalhe="dos assentos" />
-      {r.abaixoMinimo > 0 ? (
-        <Indicador tinta="ambar" icone="alerta" rotulo="Abaixo do mínimo" valor={r.abaixoMinimo} detalhe={`${r.abaixoMinimo === 1 ? "saída precisa" : "saídas precisam"} de atenção`} />
-      ) : (
-        <Indicador tinta="verde" icone="check" rotulo="Mínimo de pagantes" valor="OK" detalhe="todas as saídas atingiram" />
-      )}
-    </Indicadores>
+    <FaixaNumeros
+      rotulo="Resumo do período"
+      itens={[
+        { rotulo: "saídas no período", valor: r.saidas, detalhe: plural(r.confirmadas, "confirmada") },
+        { rotulo: "passageiros", valor: r.passageiros, detalhe: plural(r.reservas, "reserva") },
+        { rotulo: "de ocupação média", valor: `${r.ocupacao}%` },
+        r.abaixoMinimo > 0
+          ? { rotulo: r.abaixoMinimo === 1 ? "saída abaixo do mínimo" : "saídas abaixo do mínimo", valor: r.abaixoMinimo, tom: "atencao" }
+          : { rotulo: "todas atingiram o mínimo de pagantes", valor: "OK", tom: "sucesso" },
+      ]}
+    />
   );
 }

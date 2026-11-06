@@ -1,0 +1,671 @@
+/*
+ * Padrão visual único do Bybus Gestão (revisão UX de 06/11/2026; ver docs/produto/revisao-ux.md).
+ * Camada final: unifica densidade, cabeçalhos, filtros, cartões, indicadores, tabelas, etiquetas, abas e estados
+ * em todas as telas. Só usa tokens de tokens.css (funciona nos dois temas). Densa de propósito (pedido do dono:
+ * letras pequenas, muita informação por tela), mas com mínimo de 12px em tabelas e 13px no corpo.
+ * O prefixo ".app" garante precedência sobre o CSS de cada módulo, que é carregado antes.
+ */
+
+/* ---------- Estrutura ---------- */
+.app .conteudo {
+  padding: var(--esp-3) var(--esp-5) var(--esp-6);
+}
+.app .conteudo > * {
+  max-width: 1600px;
+  margin-inline: auto;
+}
+.app h2 {
+  font-size: var(--texto-lg);
+  margin-bottom: var(--esp-2);
+}
+.app h3 {
+  font-size: var(--texto-md);
+  margin-bottom: var(--esp-1);
+}
+.app .subtitulo {
+  margin-top: var(--esp-4);
+}
+.app .topo__logo-img {
+  height: 30px;
+}
+.app .menu-topo__area {
+  padding: 5px 9px;
+}
+
+/* ---------- Cabeçalho de página: título + filtros + ações na mesma faixa ---------- */
+.app .pagina__cabecalho {
+  align-items: center;
+  gap: var(--esp-2) var(--esp-4);
+  margin-bottom: var(--esp-3);
+}
+.app .pagina__cabecalho h1 {
+  font-size: var(--texto-2xl);
+  margin: 0;
+}
+.app .pagina__titulo {
+  min-width: 0;
+}
+.app .pagina__descricao {
+  font-size: var(--texto-sm);
+  margin: 1px 0 0;
+  max-width: 90ch;
+}
+.app .pagina__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2) var(--esp-3);
+  margin-left: auto;
+}
+.app .pagina__filtros .campo {
+  margin: 0;
+}
+.app .pagina__cabecalho > .barra-acoes,
+.app .pagina__cabecalho > .campo,
+.app .pagina__cabecalho > .link-cabecalho {
+  margin-left: auto;
+}
+.app .pagina__filtros + .barra-acoes {
+  margin-left: 0;
+}
+.app .barra-acoes {
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-3);
+  align-items: center;
+}
+.app .pagina__cabecalho .barra-acoes {
+  margin-bottom: 0;
+}
+.app .barra-ferramentas {
+  margin: var(--esp-2) 0;
+}
+
+/* ---------- Barra de filtros única ---------- */
+.app .filtros {
+  gap: var(--esp-2) var(--esp-4);
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--raio);
+  box-shadow: none;
+  margin-bottom: var(--esp-3);
+}
+.app .filtros .campo--linha > label,
+.app .pagina__filtros .campo--linha > label,
+.app .barra-ferramentas label {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-fraco);
+}
+
+/* ---------- Cartões ---------- */
+.app .cartao {
+  padding: var(--esp-3) var(--esp-4);
+  margin-bottom: var(--esp-3);
+  border-radius: var(--raio);
+  box-shadow: none;
+}
+.app .cartao > h2:first-child,
+.app .cartao > .cartao__topo > h2 {
+  font-size: var(--texto-lg);
+}
+
+/* ---------- Indicadores (KPI): número em destaque, rótulo pequeno ---------- */
+.app .indicadores {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-3);
+}
+.app .indicador {
+  gap: var(--esp-3);
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--raio);
+  box-shadow: none;
+}
+.app .indicador__icone {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--raio);
+}
+.app .indicador__icone .icone {
+  width: 18px;
+  height: 18px;
+}
+.app .indicador__rotulo {
+  font-size: var(--texto-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--peso-medio);
+}
+.app .indicador__valor {
+  font-size: var(--texto-2xl);
+  font-weight: var(--peso-forte);
+}
+.app .indicador__detalhe {
+  font-size: var(--texto-xs);
+}
+
+/* Faixa de números do dia (cabeçalho de páginas operacionais). */
+.faixa-numeros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  margin: 0 0 var(--esp-3);
+}
+.faixa-numeros__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--esp-2);
+  padding: var(--esp-1) var(--esp-3);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  margin: 0;
+}
+.faixa-numeros dt {
+  order: 2;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-fraco);
+}
+.faixa-numeros dd {
+  order: 1;
+  margin: 0;
+  font-size: var(--texto-xl);
+  font-weight: var(--peso-forte);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.faixa-numeros__detalhe {
+  order: 3;
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-fraco);
+}
+.faixa-numeros__item--atencao {
+  background: var(--cor-atencao-fundo);
+  border-color: var(--cor-atencao-borda);
+}
+.faixa-numeros__item--atencao dd {
+  color: var(--cor-atencao);
+}
+.faixa-numeros__item--perigo {
+  background: var(--cor-perigo-fundo);
+  border-color: var(--cor-perigo);
+}
+.faixa-numeros__item--perigo dd {
+  color: var(--cor-perigo);
+}
+.faixa-numeros__item--sucesso dd {
+  color: var(--cor-sucesso);
+}
+
+/* ---------- Tabela densa: linhas de ~32px, cabeçalho fixo, números à direita ---------- */
+.app .tabela-rolagem {
+  border-radius: var(--raio);
+  box-shadow: none;
+}
+@media screen and (min-width: 1100px) and (pointer: fine) {
+  /* Cabeçalho fixo: a tabela rola dentro da própria caixa quando é comprida. */
+  .app .tabela-rolagem {
+    max-height: calc(100vh - var(--altura-topo) - 150px);
+    overflow: auto;
+  }
+}
+.app .tabela {
+  font-size: var(--texto-sm);
+}
+.app .tabela th,
+.app .tabela td {
+  padding: 5px var(--esp-3);
+  vertical-align: middle;
+}
+.app .tabela thead th {
+  top: 0;
+  z-index: 1;
+  font-size: var(--texto-xs);
+  letter-spacing: 0.05em;
+  padding-block: 6px;
+  border-bottom: 1px solid var(--cor-borda-forte);
+}
+.app .tabela .etiqueta {
+  margin-left: 0;
+}
+.app .tabela td > .etiqueta + .etiqueta {
+  margin-left: var(--esp-1);
+}
+.app .tabela .botao {
+  min-height: 26px;
+  padding: 2px var(--esp-2);
+  font-size: var(--texto-sm);
+}
+.app .tabela td.num,
+.app .tabela th.num,
+.app .tabela td.col-num,
+.app .tabela th.col-num,
+.app .tabela td.valor,
+.app .tabela th.valor {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.app .tabela tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--cor-superficie-2) 38%, transparent);
+}
+.app .tabela--compacta th,
+.app .tabela--compacta td {
+  padding: 3px var(--esp-2);
+}
+.app .celula-acoes {
+  display: table-cell;
+}
+/* Linhas que pedem ação ficam marcadas (faixa na borda esquerda + fundo suave), além da etiqueta de texto. */
+.app .tabela tr.linha--atencao > td:first-child,
+.app .tabela tr.linha--perigo > td:first-child {
+  box-shadow: inset 3px 0 0 var(--cor-atencao-borda);
+}
+.app .tabela tr.linha--perigo > td:first-child {
+  box-shadow: inset 3px 0 0 var(--cor-perigo);
+}
+.app .tabela tr.linha--atencao {
+  background: var(--cor-atencao-fundo);
+}
+.app .tabela tr.linha--perigo {
+  background: var(--cor-perigo-fundo);
+}
+.app .tabela tr.linha--ok td {
+  color: var(--cor-texto-fraco);
+}
+
+/* ---------- Etiquetas de status: mesmas cores em todo o sistema ---------- */
+.app .etiqueta {
+  padding: 0 8px;
+  line-height: 1.55;
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-medio);
+}
+.etiqueta--info {
+  color: var(--cor-info);
+  background: var(--cor-info-fundo);
+}
+.etiqueta--embarque-aguardando {
+  color: var(--cor-texto-fraco);
+  background: var(--cor-superficie-2);
+}
+.etiqueta--status-aberta {
+  color: var(--cor-atencao);
+  background: var(--cor-atencao-fundo);
+  border-color: var(--cor-atencao-borda);
+}
+
+/* ---------- Botões: um primário por área ---------- */
+.app .botao {
+  border-radius: var(--raio);
+  gap: var(--esp-1);
+}
+.app .botao--primario {
+  box-shadow: none;
+}
+.app .botao--secundario {
+  box-shadow: none;
+}
+@media (min-width: 1100px) and (pointer: fine) {
+  .app .botao {
+    padding: 3px var(--esp-3);
+  }
+  .app .botao--pequeno {
+    min-height: 28px;
+    padding: 2px var(--esp-2);
+  }
+  .app .botao--icone {
+    padding: 3px;
+  }
+}
+
+/* ---------- Campos ---------- */
+.app .campo {
+  margin-bottom: var(--esp-3);
+}
+@media (min-width: 1100px) and (pointer: fine) {
+  .app input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  .app select,
+  .app textarea {
+    padding: 3px var(--esp-2);
+    border-radius: var(--raio);
+    font-size: var(--texto-md);
+  }
+  .app textarea {
+    padding: var(--esp-1) var(--esp-2);
+  }
+  .app input[type="checkbox"],
+  .app input[type="radio"] {
+    width: 16px;
+    height: 16px;
+  }
+}
+/* No celular os campos ficam em 16px (o iPhone dá zoom automático em campos menores). */
+@media (max-width: 1099px) {
+  .app input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  .app select,
+  .app textarea {
+    font-size: 16px;
+  }
+}
+
+/* ---------- Abas (iguais em Financeiro, Frota, Marketing, Saída, Gestores, Importar…) ---------- */
+.app .abas {
+  gap: 0;
+  border-bottom: 1px solid var(--cor-borda);
+  margin-bottom: var(--esp-3);
+  scrollbar-width: thin;
+}
+.app .aba {
+  padding: var(--esp-1) var(--esp-3);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  font-size: var(--texto-md);
+}
+.app .abas--modulo {
+  margin-bottom: var(--esp-2);
+}
+.app .aba--ativa {
+  color: var(--cor-primaria);
+  border-bottom-color: var(--cor-primaria);
+}
+@media (min-width: 1100px) and (pointer: fine) {
+  .app .aba {
+    min-height: 34px;
+  }
+}
+
+/* ---------- Estados vazios, de carregamento e de erro: iguais em todas as telas ---------- */
+.app .estado {
+  padding: var(--esp-5) var(--esp-4);
+  font-size: var(--texto-md);
+}
+.app .estado--vazio,
+.app .estado--erro {
+  border: 1px dashed var(--cor-borda-forte);
+  border-radius: var(--raio);
+  background: color-mix(in srgb, var(--cor-superficie) 70%, transparent);
+}
+.app .estado--erro {
+  border-color: var(--cor-perigo);
+  background: var(--cor-perigo-fundo);
+}
+.app .estado__titulo {
+  font-size: var(--texto-lg);
+  margin-bottom: var(--esp-1);
+}
+.app .aviso {
+  padding: var(--esp-2) var(--esp-3);
+  margin-bottom: var(--esp-3);
+  font-size: var(--texto-md);
+}
+
+/* ---------- Celular: uma coluna, alvos grandes, sem rolagem horizontal ---------- */
+@media (max-width: 1099px) {
+  .app .conteudo {
+    padding: var(--esp-3);
+  }
+  .app .filtros {
+    gap: var(--esp-2) var(--esp-3);
+  }
+  .app .pagina__filtros {
+    margin-left: 0;
+    width: 100%;
+  }
+  .app .pagina__cabecalho > .barra-acoes,
+  .app .pagina__cabecalho > .campo {
+    margin-left: 0;
+  }
+  .app .indicadores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .app .tabela .botao {
+    min-height: 36px;
+  }
+}
+@media (max-width: 520px) {
+  .app .pagina__cabecalho .barra-acoes {
+    width: 100%;
+  }
+  .app .filtros .campo--linha {
+    flex: 1 1 100%;
+  }
+  .app .filtros .campo--linha input,
+  .app .filtros .campo--linha select {
+    flex: 1;
+  }
+}
+
+/* ---------- Telas: Listas de passageiros, Saídas, Conferência ---------- */
+.app .listas__automacao {
+  padding: var(--esp-1) var(--esp-3);
+  margin-bottom: var(--esp-3);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+.app .listas__automacao ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--esp-5);
+  font-size: var(--texto-sm);
+}
+.app .tabela--listas .celula-acoes,
+.app .tabela--saidas .celula-acoes {
+  text-align: right;
+}
+.app .tabela--listas .celula-acoes .botao + .botao {
+  margin-left: 2px;
+}
+.app .tabela--listas .listas__previa {
+  margin: 0;
+}
+.app .tabela--saidas .saida__passeio {
+  font-family: var(--fonte);
+  font-size: var(--texto-md);
+  font-weight: var(--peso-forte);
+}
+.app .tabela--saidas .saida__link {
+  display: inline;
+  font-weight: var(--peso-medio);
+}
+.app .tabela--saidas .etiqueta--hoje {
+  margin-left: var(--esp-1);
+}
+.app .tabela--saidas .saida__equipe {
+  display: table-cell;
+  margin: 0;
+  font-size: var(--texto-sm);
+}
+.app .tabela--saidas .saida__equipe > span {
+  display: block;
+  white-space: nowrap;
+}
+.app .tabela--saidas .saida__ocupacao-celula {
+  min-width: 150px;
+}
+.app .tabela--saidas .barra-ocupacao {
+  height: 6px;
+  margin-bottom: 2px;
+}
+.app .tabela--saidas .num-ocupacao {
+  font-size: var(--texto-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.app .tabela--saidas .saida__pagantes {
+  display: inline-flex;
+  padding: 0 var(--esp-2);
+  gap: var(--esp-1);
+  font-size: var(--texto-sm);
+  white-space: nowrap;
+}
+.app .conferencia__alertas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 2px;
+}
+.app .conferencia__alertas .etiqueta {
+  margin: 0;
+}
+.app .tabela select {
+  min-width: 9rem;
+  max-width: 17rem;
+}
+.app .tabela select {
+  max-width: 14rem;
+}
+.app .tabela--conferencia .celula-acoes {
+  white-space: normal;
+  min-width: 11rem;
+}
+/* Ação destrutiva dentro de tabela: só contorno (o vermelho cheio fica para a confirmação). */
+.app .tabela .botao--perigo {
+  background: var(--cor-superficie);
+  color: var(--cor-perigo);
+  border-color: var(--cor-perigo);
+}
+.app .tabela .botao--perigo:hover:not(:disabled) {
+  background: var(--cor-perigo-fundo);
+}
+
+/* ---------- Saída (lista, reservas, embarque) ---------- */
+.app .pagina--saida .migalhas {
+  margin-bottom: 2px;
+}
+.app .resumo {
+  padding: var(--esp-2) var(--esp-3);
+  margin-bottom: var(--esp-2);
+  border-radius: var(--raio);
+  box-shadow: none;
+}
+.app .resumo__grade {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1) var(--esp-6);
+}
+.app .resumo__item {
+  min-width: 0;
+}
+.app .resumo__item dt {
+  font-size: var(--texto-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.app .resumo__numero {
+  font-size: var(--texto-xl);
+  font-weight: var(--peso-forte);
+}
+.app .barra-ferramentas .campo--busca {
+  flex: 0 1 280px;
+}
+.app .painel-alertas {
+  padding: var(--esp-2) var(--esp-3);
+  margin-bottom: var(--esp-2);
+}
+.app .bloco {
+  margin-bottom: var(--esp-3);
+}
+
+/* ---------- Visão Geral, Importar, Listagem ---------- */
+.app .vg-cartoes {
+  align-items: start;
+}
+.app .vg-cartao {
+  box-shadow: none;
+  padding: var(--esp-2) var(--esp-3);
+}
+.app .vg-cartao__valor {
+  font-size: var(--texto-2xl);
+}
+.app .vg-bloco {
+  box-shadow: none;
+}
+.app textarea {
+  max-height: 14rem;
+}
+.app .lr-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2) var(--esp-3);
+  align-items: end;
+  padding: var(--esp-2) var(--esp-3);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  margin-bottom: var(--esp-3);
+}
+.app .lr-filtros .campo {
+  flex: 0 1 auto;
+}
+
+/* ---------- Celular: tabelas do dia viram cartões (uma coluna, sem rolagem lateral) ---------- */
+@media (max-width: 760px) {
+  .app .tabela-rolagem:has(> .tabela--cartoes) {
+    border: 0;
+    background: transparent;
+    overflow: visible;
+    max-height: none;
+  }
+  .app .tabela--cartoes,
+  .app .tabela--cartoes tbody,
+  .app .tabela--cartoes tr,
+  .app .tabela--cartoes td {
+    display: block;
+    width: 100%;
+  }
+  .app .tabela--cartoes thead {
+    display: none;
+  }
+  .app .tabela--cartoes tr {
+    margin-bottom: var(--esp-2);
+    padding: var(--esp-2) var(--esp-3);
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio);
+  }
+  .app .tabela--cartoes tr.linha--atencao {
+    background: var(--cor-atencao-fundo);
+    border-color: var(--cor-atencao-borda);
+  }
+  .app .tabela--cartoes td {
+    padding: 2px 0;
+    border: 0;
+    text-align: left;
+  }
+  .app .tabela--cartoes td[data-rotulo] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px var(--esp-2);
+  }
+  .app .tabela--cartoes td[data-rotulo]::before {
+    content: attr(data-rotulo);
+    flex: 0 0 7.5rem;
+    font-size: var(--texto-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cor-texto-fraco);
+  }
+  .app .tabela--cartoes td.num {
+    text-align: left;
+  }
+  .app .tabela--cartoes td.celula-acoes {
+    margin-top: var(--esp-2);
+    min-width: 0;
+  }
+  .app .tabela--cartoes td.celula-acoes .botao {
+    min-height: var(--alvo-toque);
+    flex: 1 1 auto;
+  }
+  .app .tabela--cartoes select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .app .tabela--cartoes tbody tr:nth-child(even) {
+    background: var(--cor-superficie);
+  }
+  .app .frota-motivos .etiqueta {
+    white-space: normal;
+  }
+}

@@ -1,8 +1,8 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
 import { Aviso } from "../../componentes/Estados";
 import { Modal } from "../../componentes/Modal";
+import { AbasModulo, CabecalhoPagina } from "../../componentes/Pagina";
 import { useSessao } from "../../sessao/Sessao";
 import { useCarregar } from "../../util/useCarregar";
 import type { SituacaoPlano, SituacaoVencimento, Veiculo } from "./tipos";
@@ -22,20 +22,11 @@ export function CabecalhoFrota({ titulo, descricao, acoes }: { titulo: string; d
   const { pode } = useSessao();
   return (
     <>
-      <div className="pagina__cabecalho">
-        <div>
-          <h1>{titulo}</h1>
-          {descricao && <p className="pagina__descricao">{descricao}</p>}
-        </div>
-        {acoes && <div className="barra-acoes">{acoes}</div>}
-      </div>
-      <nav className="abas" aria-label="Seções da frota">
-        {ABAS.filter((a) => a.permissoes.some((p) => pode(p))).map((a) => (
-          <NavLink key={a.para} end={"fim" in a} to={a.para} className={({ isActive }) => `aba${isActive ? " aba--ativa" : ""}`}>
-            {a.rotulo}
-          </NavLink>
-        ))}
-      </nav>
+      <AbasModulo
+        rotulo="Seções da frota"
+        itens={ABAS.filter((a) => a.permissoes.some((p) => pode(p))).map((a) => ({ para: a.para, rotulo: a.rotulo, fim: "fim" in a }))}
+      />
+      <CabecalhoPagina titulo={titulo} descricao={descricao} acoes={acoes} />
     </>
   );
 }

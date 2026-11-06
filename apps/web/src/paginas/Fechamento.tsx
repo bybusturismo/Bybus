@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useSessao } from "../sessao/Sessao";
 import { Link } from "react-router-dom";
 import { api, mensagemDeErro, qs } from "../api/cliente";
 import type { MensagemFila, SituacaoFechamento } from "../api/tipos";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { Modal } from "../componentes/Modal";
+import { CabecalhoPagina } from "../componentes/Pagina";
 import { useNotificar } from "../componentes/Notificacoes";
 import { formatarDataCurta, formatarDataHora, hojeIso, somarDias } from "../util/formato";
 import { useCarregar } from "../util/useCarregar";
@@ -124,21 +125,16 @@ export function Fechamento() {
   const s = sit.dados;
   return (
     <div className="pagina">
-      <div className="pagina__cabecalho">
-        <div>
-          <h1>Listas de passageiros</h1>
-          <p className="pagina__descricao">
-            A lista da véspera fecha {s?.automatico ? `sozinha às ${s.horaFechamento}` : "pelo botão (fechamento automático desligado)"}, em ordem de embarque, e cada titular recebe a confirmação. Venda depois disso gera um adendo.
-          </p>
-        </div>
-        <div className="campo campo--linha"><label htmlFor="fech-data">Data do passeio</label><input id="fech-data" type="date" value={data} onChange={(e) => setData(e.target.value)} /></div>
-      </div>
+      <CabecalhoPagina
+        titulo="Listas de passageiros"
+        descricao={`A lista da véspera fecha ${s?.automatico ? `sozinha às ${s.horaFechamento}` : "pelo botão (fechamento automático desligado)"}, em ordem de embarque, e cada titular recebe a confirmação. Venda depois disso gera um adendo.`}
+        filtros={<div className="campo campo--linha"><label htmlFor="fech-data">Data do passeio</label><input id="fech-data" type="date" value={data} onChange={(e) => setData(e.target.value)} /></div>}
+      />
       {s && (
-        <section className="cartao listas__automacao" aria-label="Automação da lista">
-          <h2>Automação</h2>
+        <section className="listas__automacao" aria-label="Automação da lista">
           <ul>
             <li><strong>Fechamento:</strong> {s.automatico ? `automático às ${s.horaFechamento} da véspera` : "manual (automático desligado)"}</li>
-            <li><strong>Grupo do WhatsApp:</strong> {s.whatsapp.grupoConfigurado ? "a lista vai sozinha para o grupo" : "não configurado — use “Copiar texto”"}</li>
+            <li><strong>Grupo do WhatsApp:</strong> {s.whatsapp.grupoConfigurado ? "a lista vai sozinha para o grupo" : "não configurado — use “Texto para o WhatsApp”"}</li>
             <li><strong>Confirmação para cada titular:</strong> enviada ao fechar</li>
             <li><strong>WhatsApp:</strong> {s.whatsapp.envioReal ? "envio real ligado" : <span className="texto-atencao">modo simulado — nada sai de verdade até contratar o provedor</span>}</li>
             <li><strong>Listas desta data:</strong> {s.saidas.filter((x) => x.listaFechadaEm).length} fechada(s) de {s.saidas.length}</li>
@@ -149,47 +145,56 @@ export function Fechamento() {
       {sit.carregando && !s ? <Carregando /> : sit.erro ? <ErroCarga mensagem={sit.erro} tentarDeNovo={sit.recarregar} /> : s?.saidas.length === 0 ? (
         <Vazio titulo={`Nenhuma saída em ${formatarDataCurta(data)}.`} />
       ) : (
-        <ul className="lista-fechamento">
-          {s?.saidas.map((x) => {
-            const fechada = !!x.listaFechadaEm;
-            return (
-              <li key={x.saidaId} className={`cartao fechamento${fechada ? " fechamento--fechada" : ""}`}>
-                <div className="fechamento__topo">
-                  <div>
-                    <h2><Link to={`/saidas/${x.saidaId}`}>{x.passeio}</Link></h2>
-                    <p className="texto-fraco">Guia: {x.guia ?? "a definir"} · Motorista: {x.motorista ?? "a definir"}{x.veiculo ? ` · ${x.veiculo}` : ""}</p>
-                  </div>
-                  <span className={`etiqueta ${fechada ? "etiqueta--sucesso" : "etiqueta--atencao"}`}>
-                    {fechada ? `Fechada${x.versao > 1 ? ` · adendo ${x.versao - 1}` : ""} · ${formatarDataHora(x.listaFechadaEm)}` : "Aberta"}
-                  </span>
-                </div>
-                <div className="fechamento__numeros">
-                  <span><strong>{x.reservas}</strong> reservas</span>
-                  <span className={x.naoConferidas ? "texto-atencao" : ""}><strong>{x.naoConferidas}</strong> a conferir</span>
-                  <span className={x.semPonto ? "texto-perigo" : ""}><strong>{x.semPonto}</strong> sem ponto</span>
-                  {fechada && x.depoisDoFechamento > 0 && <span className="texto-atencao"><strong>{x.depoisDoFechamento}</strong> depois do fechamento</span>}
-                  {Object.entries(x.mensagens).map(([k, n]) => <span key={k}>{n} {ROTULO_STATUS[k]?.toLowerCase() ?? k}</span>)}
-                </div>
-                <div className="barra-acoes">
-                  <button type="button" className="botao botao--secundario botao--pequeno" aria-expanded={aberta === x.saidaId} onClick={() => setAberta((a) => (a === x.saidaId ? null : x.saidaId))}>
-                    {aberta === x.saidaId ? "Esconder lista" : "Ver lista"}
-                  </button>
-                  <Link className="botao botao--secundario botao--pequeno" to={`/saidas/${x.saidaId}`}>Abrir / imprimir</Link>
-                  <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void verTexto(x.saidaId, x.passeio)}>Texto para o WhatsApp</button>
-                  {x.naoConferidas > 0 && <Link className="botao botao--secundario botao--pequeno" to="/conferencia">Conferir pendências</Link>}
-                  {podeDecidir && (!fechada || x.depoisDoFechamento > 0) && (
-                    <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado === x.saidaId}
-                      onClick={() => setConfirmar({ saidaId: x.saidaId, passeio: x.passeio, adendo: fechada, titulares: fechada ? x.depoisDoFechamento : x.reservas })}>
-                      {fechada ? "Gerar adendo" : "Fechar lista agora"}
-                    </button>
-                  )}
-                  {podeDecidir && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setMensagensDe(x.saidaId)}>Mensagens</button>}
-                </div>
-                {aberta === x.saidaId && <PreviaLista saidaId={x.saidaId} />}
-              </li>
-            );
-          })}
-        </ul>
+        <div className="tabela-rolagem">
+          <table className="tabela tabela--listas tabela--cartoes">
+            <thead>
+              <tr><th>Passeio e equipe</th><th>Situação</th><th className="num">Reservas</th><th className="num">A conferir</th><th className="num">Sem ponto</th><th>Mensagens</th><th>Ações</th></tr>
+            </thead>
+            <tbody>
+              {s?.saidas.map((x) => {
+                const fechada = !!x.listaFechadaEm;
+                const msgs = Object.entries(x.mensagens).map(([k, n]) => `${n} ${ROTULO_STATUS[k]?.toLowerCase() ?? k}`).join(" · ");
+                return (
+                  <Fragment key={x.saidaId}>
+                    <tr className={!fechada ? "linha--atencao" : x.depoisDoFechamento > 0 ? "linha--atencao" : undefined}>
+                      <td>
+                        <strong><Link to={`/saidas/${x.saidaId}`}>{x.passeio}</Link></strong>
+                        <div className="texto-fraco">Guia: {x.guia ?? "a definir"} · Motorista: {x.motorista ?? "a definir"}{x.veiculo ? ` · ${x.veiculo}` : ""}</div>
+                      </td>
+                      <td data-rotulo="Situação">
+                        <span className={`etiqueta ${fechada ? "etiqueta--sucesso" : "etiqueta--atencao"}`}>
+                          {fechada ? `Fechada${x.versao > 1 ? ` · adendo ${x.versao - 1}` : ""}` : "Aberta"}
+                        </span>
+                        {fechada && <div className="texto-fraco">{formatarDataHora(x.listaFechadaEm)}</div>}
+                        {fechada && x.depoisDoFechamento > 0 && <div className="texto-atencao"><strong>{x.depoisDoFechamento}</strong> depois do fechamento</div>}
+                      </td>
+                      <td className="num" data-rotulo="Reservas"><strong>{x.reservas}</strong></td>
+                      <td data-rotulo="A conferir" className={`num${x.naoConferidas ? " texto-atencao" : ""}`}><strong>{x.naoConferidas}</strong></td>
+                      <td data-rotulo="Sem ponto" className={`num${x.semPonto ? " texto-perigo" : ""}`}><strong>{x.semPonto}</strong></td>
+                      <td className="texto-fraco" data-rotulo="Mensagens">{msgs || "—"}</td>
+                      <td className="celula-acoes">
+                        <button type="button" className="botao botao--secundario botao--pequeno" aria-expanded={aberta === x.saidaId} onClick={() => setAberta((a) => (a === x.saidaId ? null : x.saidaId))}>
+                          {aberta === x.saidaId ? "Esconder lista" : "Ver lista"}
+                        </button>{" "}
+                        <Link className="botao botao--secundario botao--pequeno" to={`/saidas/${x.saidaId}`}>Abrir / imprimir</Link>{" "}
+                        <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void verTexto(x.saidaId, x.passeio)}>Texto para o WhatsApp</button>{" "}
+                        {x.naoConferidas > 0 && <><Link className="botao botao--secundario botao--pequeno" to="/conferencia">Conferir pendências</Link>{" "}</>}
+                        {podeDecidir && (!fechada || x.depoisDoFechamento > 0) && (
+                          <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado === x.saidaId}
+                            onClick={() => setConfirmar({ saidaId: x.saidaId, passeio: x.passeio, adendo: fechada, titulares: fechada ? x.depoisDoFechamento : x.reservas })}>
+                            {fechada ? "Gerar adendo" : "Fechar lista agora"}
+                          </button>
+                        )}{" "}
+                        {podeDecidir && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setMensagensDe(x.saidaId)}>Mensagens</button>}
+                      </td>
+                    </tr>
+                    {aberta === x.saidaId && <tr><td colSpan={7}><PreviaLista saidaId={x.saidaId} /></td></tr>}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {confirmar && (
         <Modal aberto titulo={confirmar.adendo ? "Gerar adendo da lista?" : "Fechar a lista agora?"} aoFechar={() => setConfirmar(null)}>

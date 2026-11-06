@@ -97,14 +97,15 @@
   --fonte: "Helvetica Neue LT Pro", "Inter Variable", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --fonte-titulo: "Sugo Pro Classic", "Fredoka Variable", "Helvetica Neue LT Pro", "Inter Variable", Arial, system-ui, sans-serif;
   --fonte-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  /* Escala compacta (pedido do dono, 04/11/2026: letras menores e mais informação por tela). */
-  --texto-xs: 0.6875rem;
-  --texto-sm: 0.8125rem;
-  --texto-md: 0.875rem;
-  --texto-lg: 1rem;
-  --texto-xl: 1.125rem;
-  --texto-2xl: 1.375rem;
-  --texto-3xl: 1.625rem;
+  /* Escala compacta (pedido do dono, 04/11/2026: letras menores e mais informação por tela;
+     revisão UX de 06/11/2026: corpo 13px, tabelas e rótulos 12,5px, microtexto 11px, nunca menos). */
+  --texto-xs: 0.6875rem;   /* 11px: só rótulos em caixa-alta e legendas */
+  --texto-sm: 0.78125rem;  /* 12,5px: tabelas, rótulos de campo, notas */
+  --texto-md: 0.8125rem;   /* 13px: corpo */
+  --texto-lg: 0.9375rem;   /* 15px: títulos de cartão */
+  --texto-xl: 1.0625rem;   /* 17px */
+  --texto-2xl: 1.25rem;    /* 20px: título de página e número de indicador */
+  --texto-3xl: 1.5rem;     /* 24px */
   --peso-normal: 400;
   --peso-medio: 600;
   --peso-forte: 700;
@@ -115,14 +116,14 @@
   --esp-2: 0.5rem;
   --esp-3: 0.75rem;
   --esp-4: 0.875rem;
-  --esp-5: 1.25rem;
-  --esp-6: 1.5rem;
+  --esp-5: 1.125rem;
+  --esp-6: 1.375rem;
   --esp-7: 2.25rem;
 
   /* Forma */
-  --raio-sm: 6px;
-  --raio: 10px;
-  --raio-lg: 16px;
+  --raio-sm: 5px;
+  --raio: 8px;
+  --raio-lg: 10px;
   --raio-xl: 22px;
   --sombra: 0 1px 2px rgb(35 31 32 / 0.04);
   --sombra-hover: 0 2px 8px rgb(35 31 32 / 0.08);
@@ -131,9 +132,18 @@
 
   /* Layout */
   --largura-menu: 272px;
-  --altura-topo: 60px;
+  --altura-topo: 52px;
   --altura-menu-inferior: 64px;
-  --alvo-toque: 44px;
+  --alvo-toque: 44px;      /* celular e telas de toque: alvos grandes */
+  --alvo-linha: 44px;
+}
+
+/* Computador com mouse: controles compactos (32px) para caber muita informação. */
+@media (min-width: 1100px) and (pointer: fine) {
+  :root {
+    --alvo-toque: 32px;
+    --alvo-linha: 30px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

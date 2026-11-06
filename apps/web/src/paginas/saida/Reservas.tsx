@@ -470,6 +470,7 @@ export function Reservas() {
                   </div>
                 )}
               </div>
+              <div className="tabela-rolagem">
               <table className="tabela tabela--compacta">
                 <caption className="visualmente-oculto">Passageiros da reserva de {r.contatoNome}</caption>
                 <thead>
@@ -520,6 +521,7 @@ export function Reservas() {
                   ))}
                 </tbody>
               </table>
+              </div>
               {podeEditar && r.status === "CONFIRMADA" && (
                 <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setDialogo({ tipo: "passageiro", reserva: r, passageiro: null })}>
                   <Icone nome="mais" tamanho={16} /> Adicionar passageiro

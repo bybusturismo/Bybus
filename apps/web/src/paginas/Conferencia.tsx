@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, mensagemDeErro, qs } from "../api/cliente";
 import type { ItemConferencia, PontoEmbarque } from "../api/tipos";
-import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
+import { Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { useNotificar } from "../componentes/Notificacoes";
+import { CabecalhoPagina, FaixaNumeros } from "../componentes/Pagina";
 import { useSessao } from "../sessao/Sessao";
 import { formatarDataCurta, hojeIso, somarDias } from "../util/formato";
 import { ROTULO_CANAL } from "../util/rotulos";
@@ -17,7 +18,7 @@ export function resumoCategorias(c: ItemConferencia["categorias"]): string {
   return Object.entries(c).filter(([, n]) => n).map(([k, n]) => `${n} ${SIGLA[k] ?? k}`).join(" · ") || "—";
 }
 
-function Cartao({ item, pontos, aoMudar }: { item: ItemConferencia; pontos: PontoEmbarque[]; aoMudar: () => Promise<void> }) {
+function Linha({ item, pontos, aoMudar }: { item: ItemConferencia; pontos: PontoEmbarque[]; aoMudar: () => Promise<void> }) {
   const notificar = useNotificar();
   const [pontoId, setPontoId] = useState(item.ponto?.id ?? "");
   const [ocupado, setOcupado] = useState(false);
@@ -56,42 +57,38 @@ function Cartao({ item, pontos, aoMudar }: { item: ItemConferencia; pontos: Pont
 
   const conferida = item.conferencia === "CONFERIDA";
   return (
-    <li className={`conferencia${conferida ? " conferencia--ok" : ""}`}>
-      <div className="conferencia__topo">
-        <div>
-          <strong className="conferencia__titular">{item.contatoNome}</strong>
-          <span className="texto-fraco"> · {item.passageiros} pax ({resumoCategorias(item.categorias)})</span>
-        </div>
-        <span className={`etiqueta ${conferida ? "etiqueta--sucesso" : "etiqueta--atencao"}`}>{conferida ? "Conferida" : "A conferir"}</span>
-      </div>
-      <dl className="conferencia__dados">
-        <div><dt>Passeio</dt><dd><Link to={`/saidas/${item.saidaId}`}>{formatarDataCurta(item.data)} · {item.passeio}</Link></dd></div>
-        <div><dt>Canal</dt><dd>{ROTULO_CANAL[item.canal] ?? item.canal}{item.codigoExterno ? <span className="texto-fraco"> · {item.codigoExterno}</span> : null}</dd></div>
-        <div><dt>Pagamento</dt><dd>{item.pagamento ? <span className={`etiqueta ${item.pagamento === "A_PAGAR" ? "etiqueta--atencao" : "etiqueta--neutra"}`}>{ROTULO_PAGAMENTO[item.pagamento]}</span> : "—"}{item.formaPagamento ? <span className="texto-fraco"> {item.formaPagamento}</span> : null}</dd></div>
-        <div><dt>Origem</dt><dd>{item.origemCliente ?? "—"}</dd></div>
-        <div><dt>Contato</dt><dd>{item.contatoTelefone ?? <span className="texto-fraco">sem telefone</span>}</dd></div>
-        <div><dt>Informado pelo cliente</dt><dd>{item.hospedagemInformada ? `${item.hospedagemInformada}${item.pediuTransfer ? " (transfer)" : ""}` : <span className="texto-fraco">nada ainda</span>}</dd></div>
-      </dl>
-      {item.alertas.length > 0 && (
-        <div className="conferencia__alertas">
-          {item.alertas.map((a) => <span key={a} className="etiqueta etiqueta--perigo">{a}</span>)}
-        </div>
-      )}
-      {erro && <Aviso tipo="erro">{erro}</Aviso>}
-      <div className="conferencia__acoes">
+    <tr className={conferida ? "linha--ok" : item.alertas.length > 0 ? "linha--atencao" : undefined}>
+      <td>
+        <strong>{item.contatoNome}</strong>
+        <div className="texto-fraco">{item.passageiros} pax ({resumoCategorias(item.categorias)}){item.origemCliente ? ` · ${item.origemCliente}` : ""}</div>
+        {item.alertas.length > 0 && (
+          <div className="conferencia__alertas">
+            {item.alertas.map((a) => <span key={a} className="etiqueta etiqueta--perigo">{a}</span>)}
+          </div>
+        )}
+        {erro && <div className="texto-perigo" role="alert">{erro}</div>}
+      </td>
+      <td className="sem-quebra" data-rotulo="Passeio"><Link to={`/saidas/${item.saidaId}`}>{formatarDataCurta(item.data)}</Link><div className="texto-fraco">{item.passeio}</div></td>
+      <td data-rotulo="Canal">{ROTULO_CANAL[item.canal] ?? item.canal}{item.codigoExterno ? <div className="texto-fraco mono">{item.codigoExterno}</div> : null}</td>
+      <td data-rotulo="Pagamento">{item.pagamento ? <span className={`etiqueta ${item.pagamento === "A_PAGAR" ? "etiqueta--atencao" : "etiqueta--neutra"}`}>{ROTULO_PAGAMENTO[item.pagamento]}</span> : "—"}{item.formaPagamento ? <div className="texto-fraco">{item.formaPagamento}</div> : null}</td>
+      <td className="sem-quebra" data-rotulo="Contato">{item.contatoTelefone ?? <span className="texto-fraco">sem telefone</span>}</td>
+      <td data-rotulo="Informado pelo cliente">{item.hospedagemInformada ? `${item.hospedagemInformada}${item.pediuTransfer ? " (transfer)" : ""}` : <span className="texto-fraco">nada ainda</span>}</td>
+      <td data-rotulo="Ponto de embarque">
         <label className="visualmente-oculto" htmlFor={`ponto-${item.id}`}>Ponto de embarque de {item.contatoNome}</label>
         <select id={`ponto-${item.id}`} value={pontoId} onChange={(e) => setPontoId(e.target.value)}>
           <option value="">Ponto de embarque…</option>
           {pontos.filter((p) => p.ativo !== false || p.id === pontoId).map((p) => <option key={p.id} value={p.id}>{p.horario} — {p.nome}{p.ativo === false ? " (inativo)" : ""}</option>)}
         </select>
+      </td>
+      <td className="celula-acoes">
         <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado || !pontoId} onClick={() => void conferir()}>
           {conferida ? "Conferir de novo" : "Confirmar embarque"}
-        </button>
+        </button>{" "}
         <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void copiarLink()}>
-          {item.linkGerado ? "Novo link para o cliente" : "Link para o cliente"}
+          {item.linkGerado ? "Novo link" : "Link para o cliente"}
         </button>
-      </div>
-    </li>
+      </td>
+    </tr>
   );
 }
 
@@ -107,32 +104,46 @@ export function Conferencia() {
 
   return (
     <div className="pagina">
-      <div className="pagina__cabecalho">
-        <div>
-          <h1>Conferência de embarque</h1>
-          <p className="pagina__descricao">Confira ponto de embarque, pagamento e contato de cada reserva antes do fechamento da lista (21h da véspera).</p>
-        </div>
-      </div>
-      <div className="filtros">
-        <div className="campo campo--linha"><label htmlFor="conf-de">De</label><input id="conf-de" type="date" value={de} onChange={(e) => setDe(e.target.value)} /></div>
-        <div className="campo campo--linha"><label htmlFor="conf-ate">Até</label><input id="conf-ate" type="date" value={ate} min={de} onChange={(e) => setAte(e.target.value)} /></div>
-        <div className="campo campo--linha">
-          <label htmlFor="conf-situacao">Situação</label>
-          <select id="conf-situacao" value={situacao} onChange={(e) => setSituacao(e.target.value as typeof situacao)}>
-            <option value="PENDENTE">A conferir</option>
-            <option value="CONFERIDA">Conferidas</option>
-            <option value="TODAS">Todas</option>
-          </select>
-        </div>
-      </div>
+      <CabecalhoPagina
+        titulo="Conferência de embarque"
+        descricao="Confira ponto de embarque, pagamento e contato de cada reserva antes do fechamento da lista (21h da véspera)."
+        filtros={
+          <>
+            <div className="campo campo--linha"><label htmlFor="conf-de">De</label><input id="conf-de" type="date" value={de} onChange={(e) => setDe(e.target.value)} /></div>
+            <div className="campo campo--linha"><label htmlFor="conf-ate">Até</label><input id="conf-ate" type="date" value={ate} min={de} onChange={(e) => setAte(e.target.value)} /></div>
+            <div className="campo campo--linha">
+              <label htmlFor="conf-situacao">Situação</label>
+              <select id="conf-situacao" value={situacao} onChange={(e) => setSituacao(e.target.value as typeof situacao)}>
+                <option value="PENDENTE">A conferir</option>
+                <option value="CONFERIDA">Conferidas</option>
+                <option value="TODAS">Todas</option>
+              </select>
+            </div>
+          </>
+        }
+      />
       {lista.carregando && !lista.dados ? <Carregando /> : lista.erro ? <ErroCarga mensagem={lista.erro} tentarDeNovo={lista.recarregar} /> : lista.dados?.length === 0 ? (
         <Vazio titulo={situacao === "PENDENTE" ? "Nada a conferir neste período." : "Nenhuma reserva neste período."} />
       ) : (
         <>
-          <p className="texto-fraco">{lista.dados?.length} reserva(s)</p>
-          <ul className="lista-conferencia">
-            {lista.dados?.map((i) => <Cartao key={i.id} item={i} pontos={pontos.dados?.[i.passeioId] ?? []} aoMudar={lista.recarregar} />)}
-          </ul>
+          <FaixaNumeros
+            rotulo="Resumo da conferência"
+            itens={[
+              { rotulo: "reserva(s)", valor: lista.dados?.length ?? 0 },
+              { rotulo: "a conferir", valor: (lista.dados ?? []).filter((i) => i.conferencia !== "CONFERIDA").length, tom: "atencao" },
+              { rotulo: "com alerta", valor: (lista.dados ?? []).filter((i) => i.alertas.length > 0).length, tom: "perigo" },
+            ]}
+          />
+          <div className="tabela-rolagem">
+            <table className="tabela tabela--conferencia tabela--cartoes">
+              <thead>
+                <tr><th>Titular</th><th>Passeio</th><th>Canal</th><th>Pagamento</th><th>Contato</th><th>Informado pelo cliente</th><th>Ponto de embarque</th><th /></tr>
+              </thead>
+              <tbody>
+                {lista.dados?.map((i) => <Linha key={i.id} item={i} pontos={pontos.dados?.[i.passeioId] ?? []} aoMudar={lista.recarregar} />)}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>
