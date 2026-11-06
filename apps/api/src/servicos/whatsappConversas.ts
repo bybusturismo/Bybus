@@ -1,7 +1,7 @@
 import { and, desc, eq, sql, type SQL } from "drizzle-orm";
 import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
-import { passeios, reservas, saidas, waConversas, waMensagens, type mensagens } from "../db/schema.js";
+import { passeios, pontosEmbarque, reservas, saidas, waConversas, waMensagens, type mensagens } from "../db/schema.js";
 import { chaveTelefone, normalizarDestino } from "./whatsapp.js";
 
 /**
@@ -38,12 +38,12 @@ const escapar = (t: string) => t.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 /** Reservas confirmadas cujo telefone é o mesmo (DDI+DDD+8 últimos dígitos). `escopo` limita às praças do usuário. */
 export async function reservasDoTelefone(db: Db, chave: string, escopo?: SQL, limite = 10) {
-  if (chave.startsWith("lid:") || chave.length < 8) return [];
+  if (chave.startsWith("lid:") || chave.startsWith("ig:") || chave.length < 8) return [];
   const linhas = await db.select({
     reservaId: reservas.id, saidaId: saidas.id, data: saidas.data, passeio: passeios.nome, unidadeId: passeios.unidadeId,
-    titular: reservas.contatoNome, telefone: reservas.contatoTelefone, canal: reservas.canal,
+    titular: reservas.contatoNome, telefone: reservas.contatoTelefone, canal: reservas.canal, ponto: pontosEmbarque.nome, horario: pontosEmbarque.horario,
     passageiros: sql<number>`(select count(*)::int from passageiros p where p.reserva_id = ${reservas.id})`,
-  }).from(reservas).innerJoin(saidas, eq(saidas.id, reservas.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId))
+  }).from(reservas).innerJoin(saidas, eq(saidas.id, reservas.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId)).leftJoin(pontosEmbarque, eq(pontosEmbarque.id, reservas.pontoEmbarqueId))
     .where(and(
       eq(reservas.status, "CONFIRMADA"),
       sql`regexp_replace(coalesce(${reservas.contatoTelefone}, ''), '[^0-9]', '', 'g') like ${`%${chave.slice(-8)}`}`,
@@ -83,11 +83,25 @@ export async function obterConversa(db: Db, c: { telefone: string; jid?: string 
   return vincularUnidade(db, conversa);
 }
 
-async function tocarConversa(db: Db, id: string, quando: Date, entrada: boolean) {
+export async function tocarConversa(db: Db, id: string, quando: Date, entrada: boolean) {
+  const q = quando.toISOString();
   await db.update(waConversas).set({
-    ultimaMensagemEm: sql`greatest(coalesce(${waConversas.ultimaMensagemEm}, ${quando.toISOString()}::timestamptz), ${quando.toISOString()}::timestamptz)`,
-    ...(entrada ? { naoLidas: sql`${waConversas.naoLidas} + 1` } : {}),
+    ultimaMensagemEm: sql`greatest(coalesce(${waConversas.ultimaMensagemEm}, ${q}::timestamptz), ${q}::timestamptz)`,
+    ...(entrada ? {
+      naoLidas: sql`${waConversas.naoLidas} + 1`,
+      // A janela de 24 h do Instagram conta da última mensagem do cliente.
+      ultimaEntradaEm: sql`greatest(coalesce(${waConversas.ultimaEntradaEm}, ${q}::timestamptz), ${q}::timestamptz)`,
+    } : {}),
   }).where(eq(waConversas.id, id));
+}
+
+/** Acha ou cria a conversa de Instagram do contato (IGSID). O nome só preenche se ainda faltar. */
+export async function obterConversaInstagram(db: Db, c: { idContato: string; nome?: string | null }): Promise<Conversa> {
+  const chave = `ig:${c.idContato}`;
+  await db.insert(waConversas).values({ canal: "INSTAGRAM", telefone: chave, chave, idContato: c.idContato, nome: c.nome?.trim() || null }).onConflictDoNothing();
+  let conversa = (await db.select().from(waConversas).where(eq(waConversas.chave, chave)))[0]!;
+  if (c.nome?.trim() && !conversa.nome) conversa = (await db.update(waConversas).set({ nome: c.nome.trim() }).where(eq(waConversas.id, conversa.id)).returning())[0] ?? conversa;
+  return conversa;
 }
 
 interface NovaSaida { conversaId: string; texto: string; tipo?: string; status: StatusMensagem; idExterno?: string | null; enviadaPor?: string | null; mensagemFilaId?: string | null; quando?: Date }

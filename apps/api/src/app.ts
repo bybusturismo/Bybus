@@ -15,6 +15,9 @@ import { agendarFechamento } from "./servicos/fechamento.js";
 import { rotasFinanceiro } from "./rotas/financeiro.js";
 import { rotasRastreio } from "./rotas/rastreio.js";
 import { rotasWhatsapp } from "./rotas/whatsapp.js";
+import { rotasInstagram } from "./rotas/instagram.js";
+import { rotasConteudoPublicacao } from "./rotas/conteudo-publicacao.js";
+import { agendarInstagram } from "./servicos/instagram/agendamento.js";
 import { rotasVisaoGeral } from "./rotas/visao-geral.js";
 import { rotasReservasLista } from "./rotas/reservas-lista.js";
 import { rotasTransfer } from "./rotas/transfer.js";
@@ -43,7 +46,10 @@ export const mascararUrl = (url: string) => url
   .replace(/(\/embarque\/)[A-Za-z0-9_-]+/g, "$1***")
   // O token do rastreio tem 20+ caracteres; rotas internas (/api/rastreio/saidas…) não são afetadas.
   .replace(/(\/rastreio\/)[A-Za-z0-9_-]{20,}/g, "$1***")
-  .replace(/(\/api\/interno\/whatsapp\/)[A-Za-z0-9_-]+/g, "$1***");
+  .replace(/(\/api\/interno\/whatsapp\/)[A-Za-z0-9_-]+/g, "$1***")
+  // Instagram: token de verificação do webhook (na query) e token da mídia agendada (na rota pública).
+  .replace(/(hub\.verify_token=)[^&]*/g, "$1***")
+  .replace(/(\/api\/publico\/instagram\/midia\/)[A-Za-z0-9_-]+/g, "$1***");
 
 export async function criarApp(config: Config): Promise<{ app: FastifyInstance; fechar: () => Promise<void> }> {
   const { db, pool } = criarDb(config.DATABASE_URL);
@@ -75,6 +81,8 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   app.addHook("onRequest", async (req) => {
     // O aviso da Evolution (rede interna) não é navegador: ele se protege pelo token na URL e pela recusa de X-Forwarded-For.
     if (req.url.startsWith("/api/interno/whatsapp/")) return;
+    // O aviso da Meta (Instagram) também não é navegador: protege-se pela assinatura HMAC do corpo.
+    if (req.url.startsWith("/api/webhooks/instagram")) return;
     if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers["x-bybus"] !== "1") {
       throw new ErroHttp(403, "CSRF", "Requisição bloqueada.");
     }
@@ -119,6 +127,8 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasFinanceiro(app, ctx);
   await rotasRastreio(app, ctx);
   await rotasWhatsapp(app, ctx);
+  await rotasInstagram(app, ctx);
+  await rotasConteudoPublicacao(app, ctx);
   await rotasVisaoGeral(app, ctx);
   await rotasReservasLista(app, ctx);
   await rotasTransfer(app, ctx);
@@ -127,6 +137,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);
   const pararIa = agendarAvaliacaoIa(db, config, app.log);
   const pararRastreio = agendarLimpezaRastreio(db, config, app.log);
+  const pararInstagram = agendarInstagram(db, config, app.log);
 
-  return { app, fechar: async () => { pararPaytour(); pararFechamento(); pararIa(); pararRastreio(); await app.close(); await pool.end(); } };
+  return { app, fechar: async () => { pararPaytour(); pararFechamento(); pararIa(); pararRastreio(); pararInstagram(); await app.close(); await pool.end(); } };
 }

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { mensagens, unidades, usuarios } from "../schema.js";
 
@@ -9,9 +10,15 @@ const agora = () => timestamp({ withTimezone: true }).notNull().defaultNow();
  */
 export const waConversas = pgTable("wa_conversas", {
   id: uuid().primaryKey().defaultRandom(),
-  /** Telefone em dígitos com DDI (como em normalizarDestino) ou "lid:<código>" quando o WhatsApp esconde o número. */
+  /** WHATSAPP ou INSTAGRAM (central "Conversas"). */
+  canal: text().notNull().default("WHATSAPP"),
+  /** Telefone em dígitos com DDI (como em normalizarDestino), "lid:<código>" quando o WhatsApp esconde o número, ou "ig:<IGSID>" no Instagram. */
   telefone: text().notNull(),
-  /** Chave de comparação: DDI+DDD+8 últimos dígitos (Brasil) ou os dígitos; única por conversa. */
+  /** Instagram: id do contato naquela conta (IGSID); é para onde a resposta vai. Nulo no WhatsApp. */
+  idContato: text(),
+  /** Quando o contato escreveu pela última vez (Instagram: a janela de resposta de 24 h conta daqui). */
+  ultimaEntradaEm: timestamp({ withTimezone: true }),
+  /** Chave de comparação: DDI+DDD+8 últimos dígitos (Brasil) ou os dígitos ("ig:<IGSID>" no Instagram); única por conversa. */
   chave: text().notNull(),
   /** Endereço do WhatsApp (JID), quando conhecido; é para onde a resposta vai. */
   jid: text(),
@@ -22,10 +29,16 @@ export const waConversas = pgTable("wa_conversas", {
   ultimaMensagemEm: timestamp({ withTimezone: true }),
   naoLidas: integer().notNull().default(0),
   arquivada: boolean().notNull().default(false),
+  /** Etiquetas da conversa (códigos de ETIQUETAS_CONVERSA no core). */
+  etiquetas: text().array().notNull().default(sql`'{}'::text[]`),
+  /** Atendente responsável (contador "minhas conversas"). */
+  atendenteId: uuid().references(() => usuarios.id, { onDelete: "set null" }),
   criadoEm: agora(),
 }, (t) => [
+  index("wa_conversas_atendente_idx").on(t.atendenteId),
   uniqueIndex("wa_conversas_chave_uq").on(t.chave),
   index("wa_conversas_ultima_idx").on(t.ultimaMensagemEm),
+  index("wa_conversas_canal_idx").on(t.canal),
 ]);
 
 /** Mensagem de uma conversa. Mídia só registra o tipo (sem baixar o arquivo nesta versão). */
@@ -51,3 +64,21 @@ export const waMensagens = pgTable("wa_mensagens", {
   uniqueIndex("wa_mensagens_fila_uq").on(t.mensagemFilaId),
   index("wa_mensagens_conversa_idx").on(t.conversaId, t.criadoEm),
 ]);
+
+/**
+ * Biblioteca de respostas prontas das Conversas (WhatsApp e Instagram), por idioma. O atalho "/" na caixa de resposta abre a lista.
+ * Variáveis no texto: {nome}, {passeio}, {data}, {ponto}, {horario}. `revisada` = o dono já conferiu o texto (as sugestões iniciais nascem false).
+ */
+export const respostasRapidas = pgTable("respostas_rapidas", {
+  id: uuid().primaryKey().defaultRandom(),
+  /** Palavra curta para achar com "/": minúsculas, números e hífen. */
+  atalho: text().notNull(),
+  titulo: text().notNull(),
+  /** PT, EN ou ES. */
+  idioma: text().notNull().default("PT"),
+  texto: text().notNull(),
+  revisada: boolean().notNull().default(false),
+  criadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  criadoEm: agora(),
+  atualizadoEm: agora(),
+}, (t) => [uniqueIndex("respostas_rapidas_atalho_idioma_uq").on(t.atalho, t.idioma)]);

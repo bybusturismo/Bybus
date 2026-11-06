@@ -31,8 +31,8 @@ export const CATALOGO_PERMISSOES = {
   "ia:gestores": "Ver os gestores de IA, rodar a avaliação e aprovar ou descartar ações sugeridas",
   "financeiro:ver": "Ver o financeiro (contas a pagar e a receber, extratos, DRE)",
   "financeiro:gerenciar": "Lançar, baixar, importar extratos e conciliar no financeiro",
-  "whatsapp:ver": "Ver as conversas de WhatsApp com os clientes (telefones e textos)",
-  "whatsapp:responder": "Responder e iniciar conversas de WhatsApp pela tela",
+  "whatsapp:ver": "Conversas (WhatsApp e Instagram): ver mensagens, comentários e contatos dos clientes",
+  "whatsapp:responder": "Conversas (WhatsApp e Instagram): responder mensagens e comentários, etiquetar, atribuir e editar respostas prontas",
   "transfer:gerenciar": "Montar e ajustar o transfer do dia (ordem de busca, horários, van, motorista, taxa) e configurar os bairros",
   "transfer:operar": "Operar o transfer pelo celular (motorista): marcar buscado/não apareceu e registrar a taxa recebida",
 } as const;

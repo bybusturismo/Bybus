@@ -155,8 +155,8 @@ describe("calendário de conteúdo", () => {
     expect(r.statusCode).toBe(200);
     expect(r.json().status).toBe("IDEIA");
     const id = r.json().id;
-    expect((await gestor.req("PATCH", `/api/marketing/conteudos/${id}`, { status: "AGENDADO" })).statusCode).toBe(200);
-    const lista = (await leitor.req("GET", "/api/marketing/conteudos?status=AGENDADO&rede=INSTAGRAM")).json();
+    expect((await gestor.req("PATCH", `/api/marketing/conteudos/${id}`, { status: "EM_APROVACAO" })).statusCode).toBe(200);
+    const lista = (await leitor.req("GET", "/api/marketing/conteudos?status=EM_APROVACAO&rede=INSTAGRAM")).json();
     expect(lista.map((x: { id: string }) => x.id)).toContain(id);
     expect((await gestor.req("POST", "/api/marketing/conteudos", { titulo: "Post", rede: "MYSPACE" })).statusCode).toBe(400);
     expect((await gestor.req("POST", "/api/marketing/conteudos", { titulo: "Post com link ruim", rede: "BLOG", link: "javascript:alert(1)" })).statusCode).toBe(400);
