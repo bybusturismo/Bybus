@@ -17,7 +17,11 @@ export type StatusConteudo = (typeof STATUS_CONTEUDO)[number];
 export const TIPOS_AFILIADO = ["HOTEL", "POUSADA", "AGENCIA", "PARCEIRO", "OUTRO"] as const;
 export type TipoAfiliado = (typeof TIPOS_AFILIADO)[number];
 
-export const STATUS_PEDIDO_AVALIACAO = ["PENDENTE", "ENVIADA_MANUAL", "SIMULADA", "SEM_TELEFONE", "IGNORADA"] as const;
+/**
+ * Situação do pedido de avaliação. Fluxo: PENDENTE (a enviar) → pedido feito (ENVIADA_MANUAL, SIMULADA ou ENVIADA)
+ * → LEMBRADA → AVALIADA (marcação manual). SEM_TELEFONE e IGNORADA ficam fora do fluxo.
+ */
+export const STATUS_PEDIDO_AVALIACAO = ["PENDENTE", "ENVIADA_MANUAL", "SIMULADA", "ENVIADA", "LEMBRADA", "AVALIADA", "SEM_TELEFONE", "IGNORADA"] as const;
 export type StatusPedidoAvaliacao = (typeof STATUS_PEDIDO_AVALIACAO)[number];
 
 /** Resultado de uma campanha com atribuição lançada (a fonte da atribuição ainda é "a confirmar"). */
