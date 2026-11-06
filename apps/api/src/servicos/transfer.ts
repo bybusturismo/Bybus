@@ -329,5 +329,6 @@ export async function semearTransferPadrao(db: Db, passeioId: string) {
   ];
   await db.insert(transferBairros).values(padrao.map((b, i) => ({ passeioId, nome: b.nome, ordemBusca: i + 1, horarioReferencia: b.horario, horarioAConfirmar: b.aConfirmar, pontoEmbarqueId: ponto(b.ponto) }))).onConflictDoNothing();
   const [villa] = await db.select({ id: pontosEmbarque.id }).from(pontosEmbarque).where(and(eq(pontosEmbarque.passeioId, passeioId), eq(pontosEmbarque.ehTransfer, false), sql`lower(${pontosEmbarque.nome}) like '%villa romana%'`));
-  await db.insert(transferConfig).values({ passeioId, pontoEncontroId: villa?.id ?? null }).onConflictDoNothing();
+  // Encontro da van com o ônibus no Villa Romana às 07:45 (confirmado pelo dono em 06/11/2026).
+  await db.insert(transferConfig).values({ passeioId, pontoEncontroId: villa?.id ?? null, chegadaPrevista: "07:45" }).onConflictDoNothing();
 }

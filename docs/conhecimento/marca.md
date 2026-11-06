@@ -10,6 +10,12 @@
 - Versões por praça: "By Bus + FLORIPA", "+ BC", "+ BLUMENAU". Slogan: **"veja a cidade de camarote"**.
 - Grafismos: o "BUS" em faixas coloridas e padrões derivados.
 
+## Mensagens aos clientes (dono, 06/11/2026)
+- Assinatura das mensagens automáticas: **"— Equipe By Bus"**.
+- Pontualidade: as mensagens dizem que não há tolerância para atrasos (o veículo é 100% pontual).
+- Tom de voz: três opções em validação com o dono (A anfitrião simpático, recomendada; B guia animado; C profissional). A confirmar.
+- Cupom de retorno pós-passeio: a empresa não usa hoje; o fluxo fica desligado.
+
 ## Paleta oficial
 | Cor | CMYK | Pantone | HEX |
 |---|---|---|---|

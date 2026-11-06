@@ -63,16 +63,16 @@ export function textoConfirmacao(d: {
   const linhas = [`${ola} Seu passeio *${d.passeio}* é amanhã, ${semanaBr(d.data)} (${dataBr(d.data)}).`];
   if (d.transfer) {
     linhas.push(d.transfer.horario
-      ? `Transfer: vamos buscar você${d.transfer.local ? ` em ${d.transfer.local}` : ""} às *${d.transfer.horario}* (horário confirmado). Esteja pronto(a) na portaria alguns minutos antes.`
+      ? `Transfer: vamos buscar você${d.transfer.local ? ` em ${d.transfer.local}` : ""} às *${d.transfer.horario}* (horário confirmado). Esteja pronto(a) na portaria alguns minutos antes: a van é pontual e não há tolerância para atrasos.`
       : `Transfer: confirmaremos o horário de busca${d.transfer.local ? ` em ${d.transfer.local}` : ""} em breve.`);
     if (d.transfer.taxaACobrarCentavos > 0) linhas.push(`Taxa do transfer: R$ ${(d.transfer.taxaACobrarCentavos / 100).toFixed(2).replace(".", ",")}, paga ao motorista (PIX ou dinheiro).`);
   } else if (d.ponto) {
     linhas.push(`Embarque: *${d.ponto.horario}* — ${d.ponto.nome}${d.ponto.endereco ? ` (${d.ponto.endereco})` : ""}.`);
-    linhas.push("Chegue alguns minutos antes: não há tolerância para atrasos.");
+    linhas.push("Chegue alguns minutos antes: o ônibus é pontual e não há tolerância para atrasos.");
   } else {
     linhas.push(d.linkEmbarque ? `Ainda não temos o seu ponto de embarque. Informe aqui: ${d.linkEmbarque}` : "Ainda não temos o seu ponto de embarque: responda esta mensagem com o hotel ou endereço onde está hospedado(a).");
   }
-  linhas.push("Pela manhã enviaremos o link para acompanhar o ônibus. Bom passeio! — By Bus Turismo");
+  linhas.push("Pela manhã enviaremos o link para acompanhar o ônibus. Bom passeio! — Equipe By Bus");
   return linhas.join("\n");
 }
 
@@ -83,6 +83,6 @@ export function textoRastreio(d: { primeiroNome: string; passeio: string; link: 
   return [
     `${ola} O ônibus do passeio *${d.passeio}* já saiu.`,
     `Acompanhe no mapa e veja quanto falta para ele chegar ao seu ponto: ${d.link}`,
-    "O horário é uma estimativa e pode variar com o trânsito. — By Bus Turismo",
+    "O horário é uma estimativa e pode variar com o trânsito. — Equipe By Bus",
   ].join("\n");
 }

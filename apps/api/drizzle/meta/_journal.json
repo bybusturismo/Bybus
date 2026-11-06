@@ -162,6 +162,13 @@
       "when": 1793951710111,
       "tag": "0022_marketing2",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793970913855,
+      "tag": "0023_encontro_transfer",
+      "breakpoints": true
     }
   ]
 }
