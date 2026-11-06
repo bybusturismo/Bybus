@@ -48,8 +48,8 @@ export function RelatorioDetalhe({ id }: { id: string }) {
           <p>Reservas: <strong>{formatarNumero(x.vendas.atual.reservas)}</strong> <Variacao v={x.vendas.variacao.reservas} /> <span className="texto-fraco">(antes {formatarNumero(x.vendas.anterior.reservas)})</span></p>
           <p>Passageiros: <strong>{formatarNumero(x.vendas.atual.passageiros)}</strong> <Variacao v={x.vendas.variacao.passageiros} /></p>
           {x.vendas.atual.receitaCentavos != null && <p>Receita das reservas: <strong>{formatarMoeda(x.vendas.atual.receitaCentavos)}</strong> <Variacao v={x.vendas.variacao.receita} /></p>}
-          {x.vendas.porCanal.length > 0 && <table className="tabela"><thead><tr><th>Canal</th><th className="num">Reservas</th><th className="num">Variação</th></tr></thead>
-            <tbody>{x.vendas.porCanal.map((c) => <tr key={c.canal}><td>{rotuloCanal(c.canal)}</td><td className="num">{c.reservas}</td><td className="num"><Variacao v={c.variacaoReservas} /></td></tr>)}</tbody></table>}
+          {x.vendas.porCanal.length > 0 && <div className="tabela-rolagem"><table className="tabela"><thead><tr><th>Canal</th><th className="num">Reservas</th><th className="num">Variação</th></tr></thead>
+            <tbody>{x.vendas.porCanal.map((c) => <tr key={c.canal}><td>{rotuloCanal(c.canal)}</td><td className="num">{c.reservas}</td><td className="num"><Variacao v={c.variacaoReservas} /></td></tr>)}</tbody></table></div>}
         </section>
         <section className="cartao" aria-labelledby="r-o">
           <h2 id="r-o">Origem dos clientes</h2>
@@ -57,8 +57,8 @@ export function RelatorioDetalhe({ id }: { id: string }) {
         </section>
         <section className="cartao" aria-labelledby="r-c">
           <h2 id="r-c">Campanhas</h2>
-          {x.campanhas.length ? <table className="tabela"><thead><tr><th>Campanha</th><th className="num">Reservas</th><th className="num">Custo/reserva</th><th className="num">Retorno</th></tr></thead>
-            <tbody>{x.campanhas.map((c) => <tr key={c.nome}><td>{c.nome}</td><td className="num">{c.reservas}</td><td className="num">{c.custoPorReservaCentavos == null ? "—" : formatarMoeda(c.custoPorReservaCentavos)}</td><td className="num">{c.retorno == null ? "—" : `${c.retorno.toLocaleString("pt-BR")}×`}</td></tr>)}</tbody></table> : <p className="texto-fraco">Nenhuma venda atribuída a campanha.</p>}
+          {x.campanhas.length ? <div className="tabela-rolagem"><table className="tabela"><thead><tr><th>Campanha</th><th className="num">Reservas</th><th className="num">Custo/reserva</th><th className="num">Retorno</th></tr></thead>
+            <tbody>{x.campanhas.map((c) => <tr key={c.nome}><td>{c.nome}</td><td className="num">{c.reservas}</td><td className="num">{c.custoPorReservaCentavos == null ? "—" : formatarMoeda(c.custoPorReservaCentavos)}</td><td className="num">{c.retorno == null ? "—" : `${c.retorno.toLocaleString("pt-BR")}×`}</td></tr>)}</tbody></table></div> : <p className="texto-fraco">Nenhuma venda atribuída a campanha.</p>}
         </section>
         <section className="cartao" aria-labelledby="r-a">
           <h2 id="r-a">Avaliações e NPS</h2>

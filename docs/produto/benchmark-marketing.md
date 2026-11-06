@@ -45,3 +45,12 @@ mlabs.com.br (funcionalidades/agendamento-de-posts, agencias, blog); b2bstack.co
 
 ## Decisão do dono (06/11/2026)
 Aprovados para construir: 1 (avaliações: fila e painel), 2 (relatório automático), 4 (respostas rápidas e etiquetas), 5+6 (aprovação de posts, banco de mídias e legendas com IA), 7 (link na bio com cliques), 3 (retorno de campanhas com UTM e cupom), 15 (orçamento de grupos), 12+13 (mensagens automáticas ao longo da reserva com NPS). Itens que dependem de envio real (WhatsApp oficial, custo da IA, APIs do Google/Meta Ads) são construídos em modo simulado até as decisões.
+
+## O que foi feito (06/11/2026, detalhes em `modulo-marketing.md`, seção "Marketing 2")
+- **1 Avaliações** (fila diária no idioma do cliente, link por canal, Viator orientada, pedido/lembrete 7 dias/avaliada, painel e notas por canal e concorrente): feito.
+- **2 Relatório automático** (semanal segunda 07h e mensal dia 1, comparativo, histórico, impressão/PDF, resumo da IA só com IA ligada): feito.
+- **3 Link na bio** com cliques medidos sem dado pessoal: feito.
+- **4 Retorno de campanhas** (links com UTM e QR, atribuição automática por UTM/cupom/afiliado, custo por CSV): feito; APIs do Google/Meta Ads ficam como próxima etapa.
+- **5 Orçamento de grupos** (página pública com anti-spam e LGPD, tela em Reservas, aviso na Visão Geral): feito.
+- **6+7 Mensagens automáticas e NPS** (fluxos com liga/desliga e texto por idioma, NPS por link com token, casos internos, convite sem "review gating", cupom de retorno): feito.
+- **Em modo simulado** até haver provedor de WhatsApp. **Não feitos nesta rodada** (a cargo de outro trabalho): respostas rápidas e etiquetas nas Conversas, calendário com aprovação/banco de mídias/legendas com IA.
