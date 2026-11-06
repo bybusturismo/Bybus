@@ -42,3 +42,6 @@ Provedor oficial de WhatsApp; custo da IA; aprovações de API (Google Business 
 
 ## Fontes
 mlabs.com.br (funcionalidades/agendamento-de-posts, agencias, blog); b2bstack.com.br (mLabs, RD Station, Etus, Blip, Postgrain); rdstation.com (precos, produtos/crm, produtos/conversas); reportei.com; help.metricool.com; hubspot.com/pricing/crm; salesdorado.com (Kommo); zenvia.com; capterra.com (TrustYou); toolradar.com (TrustYou × ReviewPro); operatorresources.viator.com/category/reviews; postproxy.dev (Google Business Profile, terceiro).
+
+## Decisão do dono (06/11/2026)
+Aprovados para construir: 1 (avaliações: fila e painel), 2 (relatório automático), 4 (respostas rápidas e etiquetas), 5+6 (aprovação de posts, banco de mídias e legendas com IA), 7 (link na bio com cliques), 3 (retorno de campanhas com UTM e cupom), 15 (orçamento de grupos), 12+13 (mensagens automáticas ao longo da reserva com NPS). Itens que dependem de envio real (WhatsApp oficial, custo da IA, APIs do Google/Meta Ads) são construídos em modo simulado até as decisões.
