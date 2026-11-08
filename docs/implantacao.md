@@ -8,6 +8,13 @@ Pacote em `implantacao/`: imagens Docker da API e do site, banco PostgreSQL 16, 
 - **Cópia externa dos backups** (ex.: armazenamento de objetos do próprio provedor ou Google Drive).
 
 ## 2. Instalar (uma vez)
+**Jeito rápido (08/11/2026):** no servidor novo (Ubuntu 24.04, como root), o `implantacao/instalar-servidor.sh` faz tudo:
+atualiza o sistema, liga firewall (22/80/443), fail2ban e atualizações automáticas, instala o Docker, baixa o código em
+`/opt/bybus`, gera o `.env` com segredos aleatórios (pergunta só o e-mail do administrador), sobe o sistema, confere o
+HTTPS e mostra a senha temporária do 1º acesso uma única vez (e a tira do `.env`). Pode ser rodado de novo para atualizar.
+Servidor de produção: Contabo, IP 92.242.191.131, endereço `gestao.bybusturismo.com.br` (Cloudflare, nuvem cinza até o HTTPS sair).
+
+Jeito manual:
 ```bash
 # no servidor, com Docker e Git instalados
 git clone https://github.com/bybusturismo/Bybus.git && cd Bybus
