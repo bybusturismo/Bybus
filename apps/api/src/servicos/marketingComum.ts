@@ -58,3 +58,4 @@ export async function gravarChave(db: Db, chave: string, valor: string | null, u
   else await db.insert(marketingConfig).values({ chave, valor, atualizadoPor: usuarioId }).onConflictDoUpdate({ target: marketingConfig.chave, set: { valor, atualizadoEm: new Date(), atualizadoPor: usuarioId } });
 }
 export const chaveLinkGoogle = (unidadeId: string) => `link_google_${unidadeId}`;
+export const chaveLinkTripadvisor = (unidadeId: string) => `link_tripadvisor_${unidadeId}`;

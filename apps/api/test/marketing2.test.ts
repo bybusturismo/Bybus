@@ -116,6 +116,8 @@ describe("avaliações: fila, idioma, canal, envio simulado e painel", () => {
     expect(r.statusCode).toBe(200);
     expect(r.json().linksGoogle.find((l: { unidadeId: string }) => l.unidadeId === flnId).link).toBe("https://g.page/r/fln-teste");
     expect(r.json().envio.real).toBe(false);
+    // Páginas do Tripadvisor por praça já vêm da migração 0026 (links informados pelo dono).
+    expect(r.json().linksTripadvisor.find((l: { unidadeId: string }) => l.unidadeId === flnId).link).toContain("Floripa_by_Bus");
   });
 
   it("gera a fila no idioma do cliente, com o link do canal certo e sem tocar em quem não veio", async () => {
@@ -143,7 +145,7 @@ describe("avaliações: fila, idioma, canal, envio simulado e painel", () => {
     expect((await leitor.req("PATCH", `/api/marketing/avaliacoes/pedidos/${pt.id}`, { idioma: "en" })).statusCode).toBe(403);
     expect((await gestor.req("PATCH", `/api/marketing/avaliacoes/pedidos/${pt.id}`, { idioma: "en", canalAvaliacao: "TRIPADVISOR" })).statusCode).toBe(200);
     let p = (await gestor.req("GET", `/api/marketing/avaliacoes/pedidos?de=${dia(-3)}&ate=${dia(-1)}`)).json().find((x: { id: string }) => x.id === pt.id);
-    expect(p).toMatchObject({ idioma: "en", canalAvaliacao: "TRIPADVISOR", link: "https://tripadvisor.exemplo.test/bybus" });
+    expect(p).toMatchObject({ idioma: "en", canalAvaliacao: "TRIPADVISOR", link: expect.stringContaining("Floripa_by_Bus") }); // a página da praça vale mais que o link geral
     expect(p.texto).toContain("Hi Ana!");
     expect((await gestor.req("PATCH", `/api/marketing/avaliacoes/pedidos/${pt.id}`, { texto: "Mensagem editada à mão para {nome}" })).statusCode).toBe(200);
     p = (await gestor.req("GET", `/api/marketing/avaliacoes/pedidos?de=${dia(-3)}&ate=${dia(-1)}`)).json().find((x: { id: string }) => x.id === pt.id);

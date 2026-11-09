@@ -9,7 +9,7 @@ import { filtroUnidade, garantirReserva, podeUnidade } from "../seguranca/escopo
 import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
 import { envioReal } from "../servicos/whatsapp.js";
 import { enviarPedidoAvaliacao, gerarPedidosAvaliacao, lerConfigAvaliacao, pendentesSemNps, textoDoPedido } from "../servicos/avaliacoes.js";
-import { chaveLinkGoogle, dataIso, exigirPraca, gravarChave, hojeSp, naoEncontrado, periodoPadrao, segundaDaSemana, somarDias, texto, textoOpc, urlHttps, uuid, visivel } from "../servicos/marketingComum.js";
+import { chaveLinkGoogle, chaveLinkTripadvisor, dataIso, exigirPraca, gravarChave, hojeSp, naoEncontrado, periodoPadrao, segundaDaSemana, somarDias, texto, textoOpc, urlHttps, uuid, visivel } from "../servicos/marketingComum.js";
 
 const CANAIS_EXTERNOS = ["GOOGLE", "TRIPADVISOR", "VIATOR", "CIVITATIS", "DECOLAR", "OUTRO"] as const;
 const FEITOS = ["ENVIADA_MANUAL", "SIMULADA", "ENVIADA", "LEMBRADA", "AVALIADA"];
@@ -35,6 +35,7 @@ export async function rotasAvaliacoes(app: FastifyInstance, { db, config }: Cont
       padroes: MODELOS_AVALIACAO,
       linkTripadvisor: cfg.linkTripadvisor,
       linksGoogle: pracas.filter((p) => podeUnidade(u, p.id)).map((p) => ({ unidadeId: p.id, codigo: p.codigo, nome: p.nome, link: cfg.googlePorUnidade.get(p.id) ?? null })),
+      linksTripadvisor: pracas.filter((p) => podeUnidade(u, p.id)).map((p) => ({ unidadeId: p.id, codigo: p.codigo, nome: p.nome, link: cfg.tripadvisorPorUnidade.get(p.id) ?? null })),
       envio: { real: envioReal(config), nota: envioReal(config) ? "Envio real pelo WhatsApp ligado." : "Modo simulado: nada sai de verdade; o pedido fica como “Simulada”." },
     };
   }
@@ -46,6 +47,7 @@ export async function rotasAvaliacoes(app: FastifyInstance, { db, config }: Cont
       modelos: z.object({ pt: texto(1000).min(10), en: texto(1000).min(10), es: texto(1000).min(10) }).partial().optional(),
       linkTripadvisor: urlHttps.nullish(),
       linksGoogle: z.array(z.object({ unidadeId: uuid, link: urlHttps.nullable() })).max(50).optional(),
+      linksTripadvisor: z.array(z.object({ unidadeId: uuid, link: urlHttps.nullable() })).max(50).optional(),
     }).parse(req.body);
     if (c.modelos) {
       for (const i of IDIOMAS) if (c.modelos[i] !== undefined) await gravarChave(db, i === "pt" ? "modelo_avaliacao" : `modelo_avaliacao_${i}`, c.modelos[i]!, u.id);
@@ -55,6 +57,10 @@ export async function rotasAvaliacoes(app: FastifyInstance, { db, config }: Cont
       // Link de uma praça: só quem tem a praça altera.
       if (!podeUnidade(u, l.unidadeId)) throw naoEncontrado("Praça");
       await gravarChave(db, chaveLinkGoogle(l.unidadeId), l.link, u.id);
+    }
+    for (const l of c.linksTripadvisor ?? []) {
+      if (!podeUnidade(u, l.unidadeId)) throw naoEncontrado("Praça");
+      await gravarChave(db, chaveLinkTripadvisor(l.unidadeId), l.link, u.id);
     }
     await auditar(db, req, "MARKETING_CONFIG_EDITADA", { tipo: "marketing_config" }, { campos: [...Object.keys(c)] });
     return configCompleta(u);

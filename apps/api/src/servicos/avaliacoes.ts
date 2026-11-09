@@ -10,21 +10,30 @@ import { ErroHttp } from "../seguranca/sessao.js";
 import { chaveLinkGoogle, dataBr, lerChaves } from "./marketingComum.js";
 import { enfileirarMensagem } from "./fechamento.js";
 
-export interface ConfigAvaliacao { modelos: Partial<ModelosPorIdioma>; linkTripadvisor: string | null; googlePorUnidade: Map<string, string> }
+export interface ConfigAvaliacao { modelos: Partial<ModelosPorIdioma>; linkTripadvisor: string | null; googlePorUnidade: Map<string, string>; tripadvisorPorUnidade: Map<string, string> }
 
 /** Modelos por idioma (o português continua na chave antiga `modelo_avaliacao`), link do Tripadvisor e o Google de cada praça. */
 export async function lerConfigAvaliacao(db: Db): Promise<ConfigAvaliacao> {
   const c = await lerChaves(db);
   const google = new Map<string, string>();
-  for (const [k, v] of c) if (k.startsWith("link_google_")) google.set(k.slice("link_google_".length), v);
+  const trip = new Map<string, string>();
+  for (const [k, v] of c) {
+    if (k.startsWith("link_google_")) google.set(k.slice("link_google_".length), v);
+    if (k.startsWith("link_tripadvisor_")) trip.set(k.slice("link_tripadvisor_".length), v);
+  }
   const pt = c.get("modelo_avaliacao");
   return {
     modelos: { ...(pt && pt !== MODELO_AVALIACAO_PADRAO ? { pt } : {}), ...(c.get("modelo_avaliacao_en") ? { en: c.get("modelo_avaliacao_en")! } : {}), ...(c.get("modelo_avaliacao_es") ? { es: c.get("modelo_avaliacao_es")! } : {}) },
     linkTripadvisor: c.get("link_tripadvisor") ?? null,
     googlePorUnidade: google,
+    tripadvisorPorUnidade: trip,
   };
 }
-export const linksDaPraca = (cfg: ConfigAvaliacao, unidadeId: string | null): LinksAvaliacao => ({ google: (unidadeId && cfg.googlePorUnidade.get(unidadeId)) || null, tripadvisor: cfg.linkTripadvisor });
+/** Tripadvisor: cada praça tem a sua página (Floripa by Bus, BC by Bus); sem a da praça, vale o link geral. */
+export const linksDaPraca = (cfg: ConfigAvaliacao, unidadeId: string | null): LinksAvaliacao => ({
+  google: (unidadeId && cfg.googlePorUnidade.get(unidadeId)) || null,
+  tripadvisor: (unidadeId && cfg.tripadvisorPorUnidade.get(unidadeId)) || cfg.linkTripadvisor,
+});
 
 export { chaveLinkGoogle };
 

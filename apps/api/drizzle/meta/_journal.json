@@ -183,6 +183,13 @@
       "when": 1794226277325,
       "tag": "0025_van_10_lugares",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794247333946,
+      "tag": "0026_links_tripadvisor",
+      "breakpoints": true
     }
   ]
 }

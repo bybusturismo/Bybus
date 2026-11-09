@@ -25,6 +25,7 @@ interface Pedido {
 interface Externa { id: string; semana: string; canal: string; alvo: string; unidadeId: string | null; notaCentesimos: number; quantidade: number }
 interface Config {
   modelos: Record<"pt" | "en" | "es", string>; padroes: Record<"pt" | "en" | "es", string>; linkTripadvisor: string | null;
+  linksTripadvisor?: Array<{ unidadeId: string; codigo: string; nome: string; link: string | null }>;
   linksGoogle: Array<{ unidadeId: string; codigo: string; nome: string; link: string | null }>; envio: { real: boolean; nota: string };
 }
 
@@ -91,15 +92,17 @@ function ConfigForm({ config, aoSalvar }: { config: Config; aoSalvar: () => Prom
   const [modelos, setModelos] = useState(config.modelos);
   const [trip, setTrip] = useState(config.linkTripadvisor ?? "");
   const [google, setGoogle] = useState<Record<string, string>>(Object.fromEntries(config.linksGoogle.map((l) => [l.unidadeId, l.link ?? ""])));
+  const [tripPraca, setTripPraca] = useState<Record<string, string>>(Object.fromEntries((config.linksTripadvisor ?? []).map((l) => [l.unidadeId, l.link ?? ""])));
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   async function salvar(e: FormEvent) {
     e.preventDefault();
     setErro(null);
-    for (const l of [trip, ...Object.values(google)]) if (l.trim() && !/^https:\/\//i.test(l.trim())) return setErro("Os links precisam começar com https://");
+    for (const l of [trip, ...Object.values(google), ...Object.values(tripPraca)]) if (l.trim() && !/^https:\/\//i.test(l.trim())) return setErro("Os links precisam começar com https://");
     setSalvando(true);
     try {
-      await api.patch("/api/marketing/avaliacoes/config", { modelos, linkTripadvisor: trip.trim() || null, linksGoogle: config.linksGoogle.map((l) => ({ unidadeId: l.unidadeId, link: google[l.unidadeId]?.trim() || null })) });
+      await api.patch("/api/marketing/avaliacoes/config", { modelos, linkTripadvisor: trip.trim() || null, linksGoogle: config.linksGoogle.map((l) => ({ unidadeId: l.unidadeId, link: google[l.unidadeId]?.trim() || null })),
+        linksTripadvisor: (config.linksTripadvisor ?? []).map((l) => ({ unidadeId: l.unidadeId, link: tripPraca[l.unidadeId]?.trim() || null })) });
       notificar("Configuração salva.");
       await aoSalvar();
     } catch (x) {
@@ -116,7 +119,11 @@ function ConfigForm({ config, aoSalvar }: { config: Config; aoSalvar: () => Prom
           <div className="campo" key={l.unidadeId}><label htmlFor={`g-${l.codigo}`}>Link de avaliação no Google — {l.nome}</label>
             <input id={`g-${l.codigo}`} type="url" placeholder="https://g.page/r/…" maxLength={500} value={google[l.unidadeId] ?? ""} onChange={(e) => setGoogle({ ...google, [l.unidadeId]: e.target.value })} /></div>
         ))}
-        <div className="campo"><label htmlFor="g-trip">Link da página no Tripadvisor (a confirmar com o dono)</label><input id="g-trip" type="url" placeholder="https://" maxLength={500} value={trip} onChange={(e) => setTrip(e.target.value)} /></div>
+        {(config.linksTripadvisor ?? []).map((l) => (
+          <div className="campo" key={`t-${l.unidadeId}`}><label htmlFor={`t-${l.codigo}`}>Página no Tripadvisor — {l.nome}</label>
+            <input id={`t-${l.codigo}`} type="url" placeholder="https://www.tripadvisor.com/…" maxLength={500} value={tripPraca[l.unidadeId] ?? ""} onChange={(e) => setTripPraca({ ...tripPraca, [l.unidadeId]: e.target.value })} /></div>
+        ))}
+        <div className="campo"><label htmlFor="g-trip">Tripadvisor geral (vale para praça sem página própria)</label><input id="g-trip" type="url" placeholder="https://" maxLength={500} value={trip} onChange={(e) => setTrip(e.target.value)} /></div>
       </div>
       {(["pt", "en", "es"] as const).map((i) => (
         <div className="campo" key={i}>
