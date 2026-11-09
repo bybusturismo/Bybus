@@ -35,8 +35,17 @@ export class Cliente {
       method, url, payload: payload as never,
       headers: { cookie: this.cookie, ...(method !== "GET" ? { "x-bybus": "1" } : {}) },
     });
+    // Guarda os cookies por nome (sessão e, por exemplo, o do Cofre), como um navegador.
     const setCookie = r.headers["set-cookie"];
-    if (setCookie) this.cookie = String(Array.isArray(setCookie) ? setCookie[0] : setCookie).split(";")[0]!;
+    if (setCookie) {
+      const atuais = new Map(this.cookie ? this.cookie.split("; ").map((c) => [c.split("=")[0]!, c] as const) : []);
+      for (const linha of Array.isArray(setCookie) ? setCookie : [setCookie]) {
+        const par = String(linha).split(";")[0]!;
+        const nome = par.split("=")[0]!;
+        if (/Max-Age=0|Expires=Thu, 01 Jan 1970/i.test(String(linha)) || par.endsWith("=")) atuais.delete(nome); else atuais.set(nome, par);
+      }
+      this.cookie = [...atuais.values()].join("; ");
+    }
     return r;
   }
 

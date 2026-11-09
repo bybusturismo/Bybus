@@ -27,3 +27,18 @@ Diretoria · Administrador do sistema · Supervisor de operação · Atendente/v
 ## Ambientes
 - **Desenvolvimento** (local) → **Testes/Homologação** (dados fictícios; o dono valida aqui) → **Produção**.
 - Nenhum dado real de cliente fora da produção.
+
+## Cofre de senhas (09/11/2026, formato do APP TOMA)
+Menu da foto › **Cofre de senhas** (`/cofre`). Senhas da empresa por setor, cifradas (AES-256-GCM) com `COFRE_CHAVE` (só no `.env` do
+servidor; se perder, as senhas não abrem — guardar cópia fora do servidor). Entrar pede a senha do sistema (15 min); 5 erros travam 15 min.
+Só o gestor (o primeiro administrador) cria setores e indica quem vê/edita cada um (inclusive administradores). A senha só sai ao clicar em
+mostrar/copiar (some em 30 s; a área de transferência é limpa) e cada vez fica no **registro** (só o gestor vê). Importar colando a planilha
+de senhas (categoria, nome, dados), lida no navegador. Fora da busca, da IA, dos logs e das exportações.
+
+## Ficha do usuário, foto e senha (09/11/2026)
+- Usuários › **Ficha**: dados pessoais, contratação (CLT, PJ, diarista…), contato de emergência, endereço, Pix/banco e anexos (contrato,
+  documentos; PDF/JPG/PNG até 5 MB). Parte sensível e anexos cifrados; permissão `usuarios:ficha`; abrir/alterar fica na auditoria.
+- Foto de cada usuário (quem gerencia usuários troca).
+- **Esqueci minha senha**: link por e-mail (1 hora, uso único), sem passar pelo administrador. Precisa do e-mail ligado no servidor
+  (`implantacao/ligar-email.sh`, Gmail com senha de app).
+- Login: errar algumas vezes não trava; 10 erros seguidos pausam 5 minutos (proteção contra robôs).

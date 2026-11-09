@@ -84,6 +84,7 @@ gerar_se_vazio CHAVE_CRIPTOGRAFIA "$(openssl rand -base64 32)"
 gerar_se_vazio INTEGRACAO_EMAIL_TOKEN "$(openssl rand -hex 32)"
 gerar_se_vazio WHATSAPP_WEBHOOK_TOKEN "$(openssl rand -hex 32)"
 # Usados só se o WhatsApp (Evolution) for ligado, mas o Docker exige que existam.
+gerar_se_vazio COFRE_CHAVE "$(openssl rand -hex 32)"
 gerar_se_vazio META_WA_VERIFY_TOKEN "$(openssl rand -hex 24)"
 gerar_se_vazio EVOLUTION_API_KEY "$(openssl rand -hex 24)"
 gerar_se_vazio EVOLUTION_DB_PASSWORD "$(openssl rand -hex 24)"

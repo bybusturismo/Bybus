@@ -730,6 +730,8 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     demoIntegracao.paytour = { de: "", ate: "", pedidos: 2, resumo: { CRIAR: 0, ATUALIZAR: 2, CANCELAR: 0, IGNORAR: 0 } };
     return { de: "", ate: "", pedidos: 2, previa: [], resumo: { CRIAR: 0, ATUALIZAR: 2, CANCELAR: 0, IGNORAR: 0 } };
   }
+  // Demonstração: o Cofre de senhas não guarda nada fictício (só mostra que existe).
+  if (metodo === "GET" && caminho === "/api/cofre/estado") return { configurado: false, aberto: false, ate: null, gestor: false, temSetor: false };
   if (metodo === "GET" && caminho === "/api/whatsapp/meta") {
     exigir("importacoes:executar");
     return { provedor: "simulado", configurada: false, numeroConfigurado: false, avisosLigados: false, enderecoAvisos: null, erro: null, modelos: [] };

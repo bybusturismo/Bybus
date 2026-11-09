@@ -21,6 +21,7 @@ import { EmbarquePublico } from "./paginas/EmbarquePublico";
 import { RastreioPublico } from "./paginas/RastreioPublico";
 import { BioPublica } from "./paginas/publico/BioPublica";
 import { RedefinirSenha } from "./paginas/RedefinirSenha";
+import { Cofre } from "./paginas/Cofre";
 import { NpsPublico } from "./paginas/publico/NpsPublico";
 import { OrcamentoPublico } from "./paginas/publico/OrcamentoPublico";
 import { Motorista } from "./paginas/rastreio/Motorista";
@@ -493,6 +494,7 @@ export function Rotas() {
           }
         />
         <Route path="conta" element={<Conta />} />
+        <Route path="cofre" element={<Cofre />} />
         <Route path="configuracoes" element={<Configuracoes />} />
         <Route
           path="*"

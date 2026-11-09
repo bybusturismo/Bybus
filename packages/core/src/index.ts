@@ -15,6 +15,7 @@ export * from "./mensagens.js";
 export * from "./confirmacao.js";
 export * from "./whatsappMeta.js";
 export * from "./ficha.js";
+export * from "./cofre.js";
 export * from "./frota/index.js";
 export * from "./marketing/marketing.js";
 export * from "./biblioteca/markdown.js";

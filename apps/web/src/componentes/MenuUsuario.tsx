@@ -63,6 +63,7 @@ export function MenuUsuario({ temConfiguracoes, aoAtalhos }: { temConfiguracoes:
             </span>
           </div>
           <Link role="menuitem" className="menu-usuario__item" to="/conta"><Icone nome="conta" tamanho={16} /> Meu perfil</Link>
+          <Link role="menuitem" className="menu-usuario__item" to="/cofre"><Icone nome="escudo" tamanho={16} /> Cofre de senhas</Link>
           {temConfiguracoes && <Link role="menuitem" className="menu-usuario__item" to="/configuracoes"><Icone nome="engrenagem" tamanho={16} /> Configurações</Link>}
           <button type="button" role="menuitem" className="menu-usuario__item" onClick={() => { setAberto(false); aoAtalhos(); }}><Icone nome="lista" tamanho={16} /> Atalhos do teclado</button>
           <button type="button" role="menuitem" className="menu-usuario__item menu-usuario__item--sair" onClick={() => void sair()}><Icone nome="sair" tamanho={16} /> Sair</button>
