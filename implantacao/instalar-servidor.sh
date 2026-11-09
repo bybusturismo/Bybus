@@ -32,6 +32,11 @@ ufw --force enable >/dev/null
 dpkg-reconfigure -f noninteractive unattended-upgrades >/dev/null 2>&1 || true
 systemctl enable --now fail2ban >/dev/null 2>&1 || true
 systemctl enable --now docker >/dev/null
+# DNS fixo para o Docker (em alguns VPS o DNS interno falha ao montar as imagens: erro EAI_AGAIN).
+if [ ! -f /etc/docker/daemon.json ]; then
+  printf '{\n  "dns": ["1.1.1.1", "8.8.8.8"]\n}\n' > /etc/docker/daemon.json
+  systemctl restart docker
+fi
 timedatectl set-timezone UTC || true
 
 # Memória extra (swap) para a montagem das imagens, se o servidor tiver menos de 6 GB.
@@ -87,7 +92,12 @@ if [ "$IP_DOMINIO" != "$IP_SERVIDOR" ]; then
 fi
 
 passo "6/7 Montando e ligando o sistema (leva alguns minutos na primeira vez)"
-"${COMPOSE[@]}" up -d --build
+# Se a internet oscilar no meio da montagem, tenta de novo (até 3 vezes).
+for tentativa in 1 2 3; do
+  if "${COMPOSE[@]}" up -d --build; then break; fi
+  [ "$tentativa" -eq 3 ] && { echo "A montagem falhou 3 vezes. Mande ao Claude a foto das últimas linhas."; exit 1; }
+  aviso "Falhou ao montar (tentativa $tentativa). Tentando de novo em 20 segundos..."; sleep 20
+done
 
 passo "7/7 Aguardando o sistema responder"
 ok=""

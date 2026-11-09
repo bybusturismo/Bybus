@@ -5,6 +5,8 @@
 
 FROM node:22-alpine AS base
 WORKDIR /app
+# Rede instável no VPS (EAI_AGAIN): mais tentativas e menos downloads ao mesmo tempo.
+ENV npm_config_fetch_retries=6 npm_config_fetch_retry_mintimeout=10000 npm_config_fetch_retry_maxtimeout=120000 npm_config_network_concurrency=8
 # Certificado extra opcional (só para builds atrás de proxy corporativo): --secret id=ca,src=arquivo.crt
 RUN --mount=type=secret,id=ca,required=false \
     if [ -f /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi; \
