@@ -35,3 +35,8 @@
 - Na importação, o que fica como **"não importar ainda"** é guardado em **Financeiro › Pendências** (a aba fica cifrada no banco só enquanto houver pendência).
 - Ao escolher a categoria lá, as linhas entram sem importar a aba de novo; o resto da aba não duplica. Resolvido tudo, a cópia da aba é apagada.
 - Importações feitas antes desta função não guardaram as pendências: para essas abas, importar mais uma vez (o que já entrou não duplica).
+
+## Importar pelo link do Google (09/11/2026)
+- Financeiro › Importar planilha › "Ou pelo link do Google Sheets": cola o link, escolhe a aba e segue a mesma prévia (nada duplica).
+- O servidor lê com uma **conta de serviço** do Google (só leitura de planilhas); a planilha continua privada e é compartilhada como **Leitor**
+  só com o e-mail dessa conta. Chave só no `.env` do servidor (`GOOGLE_CONTA_SERVICO`, via `implantacao/ligar-google.sh`).

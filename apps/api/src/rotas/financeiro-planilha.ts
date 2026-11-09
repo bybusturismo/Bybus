@@ -9,6 +9,7 @@ import { ErroHttp } from "../seguranca/sessao.js";
 import { garantirPlano, garantirSinonimos } from "../servicos/financeiro.js";
 import { criarContasPadrao, executarPlanilha, listarPendencias, planejarPlanilha, registrarPendencias, resolverPendencias, type PlanoPlanilha } from "../servicos/financeiro-planilha.js";
 import { uuid } from "./financeiro-comum.js";
+import { abaEmCsv, abasDaPlanilha, contaDeServico, ErroGoogle, idDaPlanilha } from "../servicos/googlePlanilhas.js";
 
 interface Guardas {
   ver: { preHandler: (req: FastifyRequest) => Promise<void> };
@@ -52,7 +53,31 @@ function resumoDoPlano(p: PlanoPlanilha) {
   };
 }
 
-export async function rotasFinanceiroPlanilha(app: FastifyInstance, { db, cofre }: Contexto, { ver, gerenciar }: Guardas) {
+export async function rotasFinanceiroPlanilha(app: FastifyInstance, { db, cofre, config }: Contexto, { ver, gerenciar }: Guardas) {
+  // ---------------------------------------------------------------- importar pelo link do Google (conta de serviço, só leitura)
+  const conta = () => contaDeServico(config);
+  const doGoogle = async <T>(f: () => Promise<T>) => {
+    try { return await f(); } catch (e) { if (e instanceof ErroGoogle) throw new ErroHttp(400, "GOOGLE", e.message); throw e; }
+  };
+  app.get("/api/financeiro/planilha/google", gerenciar, async () => ({ configurado: !!conta(), email: conta()?.client_email ?? null }));
+  app.post("/api/financeiro/planilha/google/abas", { ...gerenciar, config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
+    const { link } = z.object({ link: z.string().max(500) }).parse(req.body);
+    const c = conta();
+    if (!c) throw new ErroHttp(409, "GOOGLE_NAO_CONFIGURADO", "A leitura pelo link do Google ainda não foi configurada no servidor.");
+    const id = idDaPlanilha(link);
+    if (!id) throw new ErroHttp(400, "LINK_INVALIDO", "Cole o link da planilha do Google Sheets (docs.google.com/spreadsheets/d/…).");
+    return doGoogle(() => abasDaPlanilha(c, id));
+  });
+  app.post("/api/financeiro/planilha/google/aba", { ...gerenciar, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
+    const { link, aba } = z.object({ link: z.string().max(500), aba: z.string().min(1).max(200) }).parse(req.body);
+    const c = conta();
+    const id = idDaPlanilha(link);
+    if (!c || !id) throw new ErroHttp(400, "LINK_INVALIDO", "Link ou configuração do Google inválidos.");
+    const texto = await doGoogle(() => abaEmCsv(c, id, aba));
+    if (texto.length > 5_500_000) throw new ErroHttp(400, "ABA_GRANDE", "A aba é grande demais para importar de uma vez.");
+    return { nome: `${aba}.csv`, texto };
+  });
+
   const corpoImportacao = z.object({
     conteudo: z.string().min(1).max(5_500_000),
     arquivo: z.string().trim().max(200).nullish(),

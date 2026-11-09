@@ -35,6 +35,8 @@ const esquema = z.object({
    * permitido só em desenvolvimento, com autorização do dono registrada (ADR 0006, 04/11/2026).
    */
   DADOS_REAIS_AUTORIZADOS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /** Conta de serviço do Google (JSON da chave, em base64) para o financeiro importar a planilha pelo link. Só leitura. */
+  GOOGLE_CONTA_SERVICO: z.string().optional(),
   /** Chave do Cofre de senhas (texto aleatório longo; gere com: openssl rand -base64 48). Sem ela o Cofre fica "não configurado". */
   COFRE_CHAVE: z.string().min(32, "COFRE_CHAVE deve ter pelo menos 32 caracteres").optional(),
   /**

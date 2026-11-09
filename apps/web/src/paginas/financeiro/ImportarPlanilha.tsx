@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useCarregar } from "../../util/useCarregar";
 import { api, mensagemDeErro } from "../../api/cliente";
 import { Aviso, Carregando, ErroCarga } from "../../componentes/Estados";
 import { useNotificar } from "../../componentes/Notificacoes";
@@ -86,6 +87,28 @@ export function ImportarPlanilha() {
     await ler(texto, f.name, {});
   }
 
+  // Importar pelo link do Google (conta de serviço, 09/11/2026): o servidor lê a aba e a tela segue o mesmo caminho do .csv.
+  const google = useCarregar((s) => api.get<{ configurado: boolean; email: string | null }>("/api/financeiro/planilha/google", s), []);
+  const [link, setLink] = useState("");
+  const [abas, setAbas] = useState<Array<{ id: number; titulo: string }> | null>(null);
+  async function verAbas() {
+    setErro(null);
+    setOcupado(true);
+    try { setAbas((await api.post<{ abas: Array<{ id: number; titulo: string }> }>("/api/financeiro/planilha/google/abas", { link })).abas); } catch (x) { setAbas(null); setErro(mensagemDeErro(x)); } finally { setOcupado(false); }
+  }
+  async function lerAba(titulo: string) {
+    if (!titulo) return;
+    setPrevia(null);
+    setErro(null);
+    setMapeamentos({});
+    setOcupado(true);
+    try {
+      const r = await api.post<{ nome: string; texto: string }>("/api/financeiro/planilha/google/aba", { link, aba: titulo });
+      setConteudo(r);
+      await ler(r.texto, r.nome, {});
+    } catch (x) { setErro(mensagemDeErro(x)); setOcupado(false); }
+  }
+
   async function usarExemplo() {
     setMapeamentos({});
     setConteudo({ nome: "exemplo-ficticio.csv", texto: EXEMPLO_PLANILHA });
@@ -142,6 +165,24 @@ export function ImportarPlanilha() {
             <input id="pl-arquivo" type="file" accept=".csv,.txt,.xlsx" disabled={ocupado || faltaPraca} onChange={(e) => void escolher(e.target.files?.[0])} />
           </div>
         </div>
+        {google.dados?.configurado && (
+          <div className="grade-campos">
+            <div className="campo"><label htmlFor="pl-link">Ou pelo link do Google Sheets</label>
+              <input id="pl-link" type="url" value={link} onChange={(e) => { setLink(e.target.value); setAbas(null); }} placeholder="https://docs.google.com/spreadsheets/d/…" disabled={ocupado || faltaPraca} />
+              <span className="campo__ajuda">A planilha precisa estar compartilhada (Leitor) com {google.dados.email}.</span>
+            </div>
+            {abas ? (
+              <div className="campo"><label htmlFor="pl-aba">Aba</label>
+                <select id="pl-aba" defaultValue="" disabled={ocupado} onChange={(e) => void lerAba(e.target.value)}>
+                  <option value="" disabled>Escolha a aba…</option>
+                  {abas.map((a) => <option key={a.id} value={a.titulo}>{a.titulo}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div className="campo"><span>&nbsp;</span><button type="button" className="botao botao--secundario" disabled={ocupado || faltaPraca || !link.trim()} onClick={() => void verAbas()}>Ver as abas</button></div>
+            )}
+          </div>
+        )}
         <button type="button" className="botao botao--secundario botao--pequeno" disabled={ocupado || faltaPraca} onClick={() => void usarExemplo()}>Experimentar com uma planilha de exemplo (fictícia)</button>
       </section>
 
