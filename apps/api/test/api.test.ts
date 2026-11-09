@@ -275,10 +275,10 @@ describe("endurecimento (revisão de segurança)", () => {
     }
   });
 
-  it("produção recusa MFA desligado e exige AMBIENTE", async () => {
+  it("produção aceita a verificação em duas etapas desligada (decisão do dono, 09/11/2026) e exige AMBIENTE", async () => {
     const { lerConfig } = await import("../src/config.js");
     const base = { DATABASE_URL: "postgres://x@y/z", CHAVE_CRIPTOGRAFIA: Buffer.alloc(32).toString("base64") };
-    expect(() => lerConfig({ ...base, AMBIENTE: "producao", EXIGIR_MFA_ADMIN: "false" })).toThrow(/EXIGIR_MFA_ADMIN/);
+    expect(lerConfig({ ...base, AMBIENTE: "producao" }).EXIGIR_MFA_ADMIN).toBe(false);
     expect(() => lerConfig(base)).toThrow(/AMBIENTE/);
     // Dados reais só com autorização e só em desenvolvimento (LGPD, ADR 0006).
     expect(() => lerConfig({ ...base, AMBIENTE: "testes", DADOS_REAIS_AUTORIZADOS: "true" })).toThrow(/DADOS_REAIS_AUTORIZADOS/);

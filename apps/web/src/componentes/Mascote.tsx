@@ -2,7 +2,7 @@
  * Mascote "Turistinha": homem sorridente de chapéu panamá branco, camisa florida rosa e azul, bermuda azul e chinelos.
  *
  * ARTE PROVISÓRIA: enquanto não existir `apps/web/src/marca/turistinha.png`, o componente desenha o SVG simples abaixo.
- * Para trocar pela arte oficial, basta salvar o arquivo com esse nome (PNG com fundo transparente, proporção ~3:4)
+ * Para trocar pela arte oficial, basta salvar o arquivo com esse nome (PNG com fundo transparente; a arte oficial de 09/11/2026 tem proporção ~7:8)
  * e reiniciar o servidor de desenvolvimento ou refazer o build. Nenhum código precisa mudar.
  */
 const arquivos = import.meta.glob("../marca/turistinha.png", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
@@ -12,7 +12,7 @@ export const MASCOTE_PROVISORIO = !urlOficial;
 
 export function Mascote({ tamanho = 64, titulo = "Turistinha, o assistente" }: { tamanho?: number; titulo?: string }) {
   if (urlOficial) {
-    return <img className="mascote" src={urlOficial} alt={titulo} width={tamanho} height={Math.round(tamanho * 1.33)} />;
+    return <img className="mascote" src={urlOficial} alt={titulo} width={tamanho} height={Math.round(tamanho * 1.14)} />;
   }
   return (
     <svg className="mascote mascote--provisorio" role="img" aria-label={titulo} width={tamanho} height={Math.round(tamanho * 1.4)} viewBox="0 0 120 168" data-provisorio="true">

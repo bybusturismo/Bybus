@@ -56,7 +56,7 @@ docker compose -f implantacao/docker-compose.yml --env-file implantacao/.env exe
 - Teste a restauração uma vez por mês num ambiente de testes.
 
 ## 6. Checklist de segurança antes de abrir para a equipe
-- [ ] `AMBIENTE=producao` e `EXIGIR_MFA_ADMIN=true` (a API recusa subir com MFA desligado em produção).
+- [ ] `AMBIENTE=producao`. Verificação em duas etapas **desligada para todos por decisão do dono (09/11/2026)**, ciente do risco (`EXIGIR_MFA_ADMIN=false`).
 - [ ] Segredos fortes e só no `.env` do servidor; `.env` nunca no Git.
 - [ ] Firewall do servidor: só portas 22 (SSH com chave), 80 e 443.
 - [ ] Atualizações automáticas de segurança do sistema operacional ligadas.

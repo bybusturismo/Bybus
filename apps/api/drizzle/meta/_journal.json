@@ -225,6 +225,13 @@
       "when": 1794252601837,
       "tag": "0031_cofre_senhas",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794253724416,
+      "tag": "0032_retirar_mfa",
+      "breakpoints": true
     }
   ]
 }

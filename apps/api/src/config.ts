@@ -111,16 +111,16 @@ const esquema = z.object({
   IA_AVALIACAO_DIARIA: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
   /** Horário (America/Sao_Paulo) da avaliação diária. */
   IA_AVALIACAO_HORARIO: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM").default("06:30"),
-  /** MFA obrigatório para ADMIN e SUPERVISOR. */
-  EXIGIR_MFA_ADMIN: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
+  /**
+   * Exigir a verificação em duas etapas (código do celular) de quem tem permissões sensíveis. Decisão do dono (09/11/2026):
+   * retirada de todos ("false", padrão). Para voltar a exigir, EXIGIR_MFA_ADMIN=true.
+   */
+  EXIGIR_MFA_ADMIN: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 });
 
 const esquemaValidado = esquema.refine((c) => !c.DADOS_REAIS_AUTORIZADOS || c.AMBIENTE === "desenvolvimento", {
   message: "DADOS_REAIS_AUTORIZADOS só vale em desenvolvimento (em testes os dados são sempre fictícios; em produção já são reais).",
   path: ["DADOS_REAIS_AUTORIZADOS"],
-}).refine((c) => c.AMBIENTE !== "producao" || c.EXIGIR_MFA_ADMIN, {
-  message: "Em produção, EXIGIR_MFA_ADMIN não pode ser false.",
-  path: ["EXIGIR_MFA_ADMIN"],
 });
 
 export type Config = z.infer<typeof esquema>;
