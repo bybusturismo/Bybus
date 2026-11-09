@@ -51,26 +51,30 @@ fi
 
 passo "4/7 Configuração (.env com segredos gerados aqui no servidor)"
 ENV="$PASTA/implantacao/.env"
-SENHA_ADMIN=""
+definir() { if grep -q "^$1=" "$ENV"; then sed -i "s|^$1=.*|$1=$2|" "$ENV"; else echo "$1=$2" >> "$ENV"; fi; }
+# Gera o segredo só se ainda estiver vazio (rodar de novo não troca senhas já em uso).
+gerar_se_vazio() { grep -q "^$1=..*" "$ENV" || definir "$1" "$2"; }
 if [ ! -f "$ENV" ]; then
   EMAIL_ADMIN=""
   while [ -z "$EMAIL_ADMIN" ]; do
     read -r -p "E-mail do administrador (login do sistema): " EMAIL_ADMIN < /dev/tty
   done
-  SENHA_ADMIN="Bybus-$(openssl rand -hex 4)-$(openssl rand -hex 4)-7"
   cp "$PASTA/implantacao/producao.env.exemplo" "$ENV"
-  definir() { sed -i "s|^$1=.*|$1=$2|" "$ENV"; }
   definir DOMINIO "$DOMINIO"
   definir URL_PUBLICA "https://$DOMINIO"
-  definir POSTGRES_PASSWORD "$(openssl rand -hex 24)"
-  definir CHAVE_CRIPTOGRAFIA "$(openssl rand -base64 32)"
-  definir INTEGRACAO_EMAIL_TOKEN "$(openssl rand -hex 32)"
-  definir WHATSAPP_WEBHOOK_TOKEN "$(openssl rand -hex 32)"
   definir ADMIN_EMAIL "$EMAIL_ADMIN"
-  definir ADMIN_SENHA_INICIAL "$SENHA_ADMIN"
+  definir ADMIN_SENHA_INICIAL "Bybus-$(openssl rand -hex 4)-$(openssl rand -hex 4)-7"
 else
-  echo "Já existe um .env: mantido como está."
+  echo "Já existe um .env: mantido (só os segredos que faltam são gerados)."
 fi
+gerar_se_vazio POSTGRES_PASSWORD "$(openssl rand -hex 24)"
+gerar_se_vazio CHAVE_CRIPTOGRAFIA "$(openssl rand -base64 32)"
+gerar_se_vazio INTEGRACAO_EMAIL_TOKEN "$(openssl rand -hex 32)"
+gerar_se_vazio WHATSAPP_WEBHOOK_TOKEN "$(openssl rand -hex 32)"
+# Usados só se o WhatsApp (Evolution) for ligado, mas o Docker exige que existam.
+gerar_se_vazio EVOLUTION_API_KEY "$(openssl rand -hex 24)"
+gerar_se_vazio EVOLUTION_DB_PASSWORD "$(openssl rand -hex 24)"
+SENHA_ADMIN="$(grep '^ADMIN_SENHA_INICIAL=' "$ENV" | cut -d= -f2- || true)"
 chmod 600 "$ENV"
 mkdir -p "$PASTA/implantacao/backups"
 
