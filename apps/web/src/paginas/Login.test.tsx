@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { respostaJson } from "../teste/ajuda";
+import { corpoEnviado, respostaJson, simularApi } from "../teste/ajuda";
 import { Login } from "./Login";
 
 describe("Login", () => {
@@ -42,5 +42,16 @@ describe("Login", () => {
     await u.type(screen.getByLabelText("Senha"), "errada");
     await u.click(screen.getByRole("button", { name: "Entrar" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(esperado);
+  });
+
+  it("Esqueci minha senha: pede o link por e-mail sem sair da tela de login", async () => {
+    const api = simularApi({ "POST /api/auth/esqueci": { ok: true, mensagem: "Se este e-mail estiver cadastrado, enviamos um link." } });
+    render(<Login aoEntrar={() => {}} />);
+    const u = userEvent.setup();
+    await u.click(screen.getByRole("button", { name: "Esqueci minha senha" }));
+    await u.type(screen.getByLabelText("Seu e-mail de acesso"), "guia@bybus.test");
+    await u.click(screen.getByRole("button", { name: "Receber link por e-mail" }));
+    expect(await screen.findByText(/enviamos um link/)).toBeInTheDocument();
+    expect(corpoEnviado(api, "POST", "/api/auth/esqueci")).toEqual({ email: "guia@bybus.test" });
   });
 });

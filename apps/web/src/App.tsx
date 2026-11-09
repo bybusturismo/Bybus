@@ -20,6 +20,7 @@ import { Conversas } from "./paginas/Conversas";
 import { EmbarquePublico } from "./paginas/EmbarquePublico";
 import { RastreioPublico } from "./paginas/RastreioPublico";
 import { BioPublica } from "./paginas/publico/BioPublica";
+import { RedefinirSenha } from "./paginas/RedefinirSenha";
 import { NpsPublico } from "./paginas/publico/NpsPublico";
 import { OrcamentoPublico } from "./paginas/publico/OrcamentoPublico";
 import { Motorista } from "./paginas/rastreio/Motorista";
@@ -516,6 +517,11 @@ export function App() {
   // Marketing: link na bio, pedido de orçamento de grupos e pesquisa NPS (sem login nem sessão).
   const caminho = window.location.pathname.replace(/\/$/, "");
   if (caminho === "/bio") return <BioPublica />;
+  // Link de "Esqueci minha senha" (sem login nem sessão).
+  if (caminho === "/redefinir-senha") {
+    const c = new URLSearchParams(window.location.search).get("c") ?? "";
+    if (/^[A-Za-z0-9_-]{20,100}$/.test(c)) return <RedefinirSenha codigo={c} />;
+  }
   if (caminho === "/orcamento") return <OrcamentoPublico />;
   const nps = /^\/nps\/([A-Za-z0-9_-]{20,64})$/.exec(caminho);
   if (nps) return <NpsPublico token={nps[1]!} />;

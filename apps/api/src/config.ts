@@ -35,6 +35,15 @@ const esquema = z.object({
    * permitido só em desenvolvimento, com autorização do dono registrada (ADR 0006, 04/11/2026).
    */
   DADOS_REAIS_AUTORIZADOS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /**
+   * E-mail de saída (recuperação de senha). Padrão: Gmail com "senha de app" (Conta Google › Segurança › Senhas de app).
+   * Sem EMAIL_USUARIO/EMAIL_SENHA o sistema não envia e-mail (o "Esqueci minha senha" avisa para falar com o administrador).
+   */
+  EMAIL_SMTP_HOST: z.string().default("smtp.gmail.com"),
+  EMAIL_SMTP_PORTA: z.coerce.number().int().default(465),
+  EMAIL_USUARIO: z.string().email().optional(),
+  EMAIL_SENHA: z.string().min(8).optional(),
+  EMAIL_REMETENTE_NOME: z.string().default("By Bus Turismo"),
   /** WhatsApp: "simulado" (padrão, nada sai), "meta" (oficial, Cloud API; ADR 0010) ou "evolution" (não oficial; ver servicos/whatsapp.ts). */
   WHATSAPP_PROVEDOR: z.enum(["simulado", "evolution", "meta"]).default("simulado"),
   /**

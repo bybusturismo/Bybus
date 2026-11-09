@@ -746,3 +746,13 @@
     flex-wrap: wrap;
   }
 }
+
+/* Botão com cara de link (ex.: "Esqueci minha senha"). */
+.botao--link { background: none; border: 0; padding: 0; color: var(--cor-primaria, #0066b3); text-decoration: underline; cursor: pointer; font: inherit; }
+.botao--link:hover { text-decoration: none; }
+
+/* Ficha do usuário */
+.ficha h3 { margin-top: 1rem; font-size: 1rem; }
+.ficha__foto { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
+.ficha__anexos { list-style: none; padding: 0; display: grid; gap: 0.35rem; }
+.usuario-nome { display: inline-flex; align-items: center; gap: 0.5rem; }

@@ -8,6 +8,41 @@ interface Props {
   aoEntrar: () => void | Promise<void>;
 }
 
+/** "Esqueci minha senha": o link vai para o e-mail da pessoa (pedido do dono, 09/11/2026). */
+function EsqueciSenha({ emailInicial }: { emailInicial: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [email, setEmail] = useState(emailInicial);
+  const [msg, setMsg] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  async function pedir(e: FormEvent) {
+    e.preventDefault();
+    setEnviando(true);
+    setMsg(null);
+    try {
+      const r = await requisitar<{ mensagem: string }>("/api/auth/esqueci", { metodo: "POST", corpo: { email: email.trim() }, semAvisoSessao: true });
+      setMsg({ tipo: "sucesso", texto: r.mensagem });
+    } catch (x) {
+      setMsg({ tipo: "erro", texto: x instanceof ErroApi ? x.message : "Não foi possível pedir o link agora." });
+    } finally {
+      setEnviando(false);
+    }
+  }
+  if (!aberto) {
+    return <p className="cartao-acesso__rodape"><button type="button" className="botao botao--link" onClick={() => { setEmail(emailInicial); setAberto(true); }}>Esqueci minha senha</button></p>;
+  }
+  return (
+    <form className="cartao-acesso__rodape" onSubmit={pedir} noValidate aria-label="Esqueci minha senha">
+      {msg && <Aviso tipo={msg.tipo}>{msg.texto}</Aviso>}
+      <div className="campo">
+        <label htmlFor="esqueci-email">Seu e-mail de acesso</label>
+        <input id="esqueci-email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <button type="submit" className="botao botao--secundario botao--bloco" disabled={enviando || !email.trim()}>{enviando ? "Enviando…" : "Receber link por e-mail"}</button>
+      <button type="button" className="botao botao--fantasma botao--bloco" onClick={() => setAberto(false)}>Voltar</button>
+    </form>
+  );
+}
+
 /** Traduz o erro de login em mensagem clara, sem revelar se o e-mail existe. */
 export function mensagemLogin(e: unknown): string {
   if (!(e instanceof ErroApi)) return "Erro inesperado. Tente novamente.";
@@ -136,7 +171,7 @@ export function Login({ aviso, aoEntrar }: Props) {
             </button>
           )}
         </form>
-        <p className="cartao-acesso__rodape">Esqueceu a senha? Peça ao administrador para redefini-la.</p>
+        {!pedirCodigo && <EsqueciSenha emailInicial={email} />}
       </main>
     </div>
   );

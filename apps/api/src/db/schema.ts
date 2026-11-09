@@ -114,6 +114,16 @@ export const usuariosUnidades = pgTable("usuarios_unidades", {
   unidadeId: uuid().notNull().references(() => unidades.id),
 }, (t) => [primaryKey({ columns: [t.usuarioId, t.unidadeId] })]);
 
+/** Links de "Esqueci minha senha": só o hash do código fica no banco; vale 1 hora e uma vez só. */
+export const senhaTokens = pgTable("senha_tokens", {
+  id: uuid().primaryKey().defaultRandom(),
+  usuarioId: uuid().notNull().references(() => usuarios.id, { onDelete: "cascade" }),
+  hash: text().notNull().unique(),
+  expiraEm: timestamp({ withTimezone: true }).notNull(),
+  usadoEm: timestamp({ withTimezone: true }),
+  criadoEm: agora(),
+});
+
 export const sessoes = pgTable("sessoes", {
   /** SHA-256 do token do cookie (o token em si nunca é guardado). */
   id: text().primaryKey(),
