@@ -127,4 +127,30 @@ describe("confirmação da véspera em duas etapas", () => {
     const r = await rodarConfirmacaoVespera(db, config, as("10:00"));
     expect(r.avaliadas).toBe(0);
   });
+
+  it("Viator sem ponto 4h depois da prévia: aviso com texto pronto no idioma do cliente", async () => {
+    const [c] = await db.insert(saidas).values({ passeioId: ids.passeio, data: "2027-03-13", capacidade: 73 }).returning();
+    const semResp = await novaReserva(c!.id, 31, "PAGO", { canal: "VIATOR", pontoEmbarqueId: null, codigoExterno: "BR-123456789", contatoTelefone: "+1 202 555 0100" });
+    const recente = await novaReserva(c!.id, 32, "PAGO", { canal: "VIATOR", pontoEmbarqueId: null, codigoExterno: "BR-987654321" });
+    const comPonto = await novaReserva(c!.id, 33, "PAGO", { canal: "VIATOR" });
+    const balcao = await novaReserva(c!.id, 34, "PAGO", { pontoEmbarqueId: null });
+    const ha = (h: number) => new Date(Date.now() - h * 3_600_000);
+    await db.insert(mensagens).values([
+      { tipo: "PREVIA", reservaId: semResp, saidaId: c!.id, destino: "x", texto: "x", status: "SIMULADA", criadoEm: ha(5) },
+      { tipo: "PREVIA", reservaId: recente, saidaId: c!.id, destino: "x", texto: "x", status: "SIMULADA", criadoEm: ha(1) },
+      { tipo: "PREVIA", reservaId: comPonto, saidaId: c!.id, destino: "x", texto: "x", status: "SIMULADA", criadoEm: ha(5) },
+      { tipo: "PREVIA", reservaId: balcao, saidaId: c!.id, destino: "x", texto: "x", status: "SIMULADA", criadoEm: ha(5) },
+    ]);
+    const admin = new Cliente(app);
+    await admin.login("admin@bybus.test");
+    const lista = (await admin.req("GET", `/api/saidas/${c!.id}/viator-sem-resposta`)).json();
+    expect(lista).toHaveLength(1);
+    expect(lista[0]).toMatchObject({ reservaId: semResp, referencia: "BR-123456789", idioma: "en" });
+    expect(lista[0].texto).toContain("name and address of your hotel");
+    const sit = (await admin.req("GET", "/api/fechamento?data=2027-03-13")).json();
+    expect(sit.saidas.find((x: { saidaId: string }) => x.saidaId === c!.id).viatorSemResposta).toBe(1);
+    const guia = new Cliente(app);
+    await guia.login("guia@bybus.test");
+    expect((await guia.req("GET", `/api/saidas/${c!.id}/viator-sem-resposta`)).statusCode).toBe(403);
+  });
 });

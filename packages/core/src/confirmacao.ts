@@ -70,3 +70,25 @@ export function regiaoComTransito(...textos: Array<string | null | undefined>): 
   for (const r of REGIOES) if (r.termos.some((x) => t.includes(` ${normalizar(x)} `))) return r.regiao;
   return null;
 }
+
+/** Horas sem resposta (sem ponto informado) depois da prévia/confirmação para avisar a equipe de mandar pela Viator (gerente, 09/11/2026). */
+export const HORAS_SEM_RESPOSTA_VIATOR = 4;
+
+/**
+ * Mensagem para a equipe colar no chat da Viator/Tripadvisor quando o cliente não responde no WhatsApp.
+ * Sem link (um link novo invalidaria o do WhatsApp): o cliente responde com o hotel e a equipe cadastra. [A CONFIRMAR] texto oficial.
+ */
+export function textoViatorSemResposta(idioma: "pt" | "en" | "es", d: { primeiroNome: string; passeio: string; data: string }): string {
+  const data = d.data.split("-").reverse().join("/");
+  const nome = d.primeiroNome || "";
+  if (idioma === "en") {
+    return `Hi${nome ? ` ${nome}` : ""}! This is By Bus Turismo, the operator of your ${d.passeio} tour on ${data}. We sent you a WhatsApp message but have not heard back. `
+      + "Please reply here with the name and address of your hotel, so we can tell you your pickup point and time. The bus leaves on time and we need this information today. Thank you! — By Bus Team";
+  }
+  if (idioma === "es") {
+    return `¡Hola${nome ? `, ${nome}` : ""}! Somos By Bus Turismo, la empresa de tu paseo ${d.passeio} del ${data}. Te enviamos un mensaje por WhatsApp, pero no recibimos respuesta. `
+      + "Por favor, respóndenos aquí con el nombre y la dirección de tu hotel para indicarte el punto y el horario de embarque. El bus sale puntualmente y necesitamos esta información hoy. ¡Gracias! — Equipo By Bus";
+  }
+  return `Olá${nome ? `, ${nome}` : ""}! Aqui é a By Bus Turismo, do seu passeio ${d.passeio} em ${data}. Enviamos uma mensagem pelo WhatsApp, mas ainda não tivemos retorno. `
+    + "Por favor, responda aqui com o nome e o endereço do seu hotel para informarmos o ponto e o horário de embarque. O ônibus sai pontualmente e precisamos dessa informação hoje. Obrigado! — Equipe By Bus";
+}

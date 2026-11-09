@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
-  avaliarConfirmacao, REGRAS_CONFIRMACAO_PADRAO, regiaoComTransito, textoConfirmacao, textoPrevia,
+  avaliarConfirmacao, HORAS_SEM_RESPOSTA_VIATOR, idiomaDoCliente, REGRAS_CONFIRMACAO_PADRAO, textoViatorSemResposta, regiaoComTransito, textoConfirmacao, textoPrevia,
   type ContarPor, type DecisaoConfirmacao, type RegrasConfirmacao,
 } from "@bybus/core";
 import { auditar } from "../auditoria.js";
@@ -155,4 +155,29 @@ export async function situacaoConfirmacao(db: Db, ss: Array<{ id: string; confir
     const decisao: DecisaoConfirmacao | "CONFIRMADA" = s.confirmadaEm ? "CONFIRMADA" : a.decisao;
     return [s.id, { ...c, decisao, motivo: s.confirmadaEm ? null : a.motivo, confirmadaEm: s.confirmadaEm, automatica: s.confirmadaAutomatica }];
   }));
+}
+
+/**
+ * Clientes da Viator/Tripadvisor sem ponto de embarque X horas depois da prévia/confirmação (não responderam no WhatsApp):
+ * a equipe manda pelo chat da Viator, com o texto pronto (gerente, 09/11/2026). Nada é enviado sozinho.
+ */
+export async function viatorSemResposta(db: Db, saidaIds: string[], agora = new Date()) {
+  if (!saidaIds.length) return [];
+  const corte = new Date(agora.getTime() - HORAS_SEM_RESPOSTA_VIATOR * 3_600_000);
+  const rs = await db.select({ r: reservas, data: saidas.data, passeio: passeios.nome }).from(reservas)
+    .innerJoin(saidas, eq(saidas.id, reservas.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId))
+    .where(and(inArray(reservas.saidaId, saidaIds), eq(reservas.status, "CONFIRMADA"), isNull(reservas.pontoEmbarqueId)));
+  const viator = rs.filter((x) => (x.r.canalOrigem ?? x.r.canal) === "VIATOR");
+  if (!viator.length) return [];
+  const msgs = await db.select({ reservaId: mensagens.reservaId, criadoEm: mensagens.criadoEm }).from(mensagens)
+    .where(and(inArray(mensagens.reservaId, viator.map((x) => x.r.id)), inArray(mensagens.tipo, ["PREVIA", "CONFIRMACAO"])));
+  return viator.flatMap(({ r, data, passeio }) => {
+    const primeira = msgs.filter((m) => m.reservaId === r.id).map((m) => m.criadoEm).sort((a, b) => a.getTime() - b.getTime())[0];
+    if (!primeira || primeira > corte) return [];
+    const idioma = idiomaDoCliente({ telefone: r.contatoTelefone, origemCliente: r.origemCliente });
+    return [{
+      reservaId: r.id, saidaId: r.saidaId, titular: r.contatoNome, referencia: r.codigoExterno ?? r.referencias[0] ?? null, desde: primeira, idioma,
+      texto: textoViatorSemResposta(idioma, { primeiroNome: primeiroNome(r.contatoNome), passeio, data }),
+    }];
+  });
 }

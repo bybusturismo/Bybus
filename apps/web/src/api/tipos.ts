@@ -425,6 +425,7 @@ export interface RegrasConfirmacao {
 export interface SituacaoConfirmacao {
   pagas: number; pendentes: number; decisao: "CONFIRMADA" | "CONFIRMAR" | "AGUARDAR" | "DECIDIR"; motivo: string | null; confirmadaEm: string | null; automatica: boolean | null;
 }
+export interface ViatorSemResposta { reservaId: string; titular: string; referencia: string | null; desde: string; idioma: "pt" | "en" | "es"; texto: string }
 export interface SituacaoFechamento {
   data: string;
   horaFechamento: string;
@@ -434,7 +435,7 @@ export interface SituacaoFechamento {
   saidas: Array<{
     saidaId: string; passeio: string; data: string; guia: string | null; motorista: string | null; veiculo: string | null;
     listaFechadaEm: string | null; versao: number; reservas: number; naoConferidas: number; semPonto: number; depoisDoFechamento: number;
-    confirmacao: SituacaoConfirmacao; previasEnviadas: number;
+    confirmacao: SituacaoConfirmacao; previasEnviadas: number; viatorSemResposta: number;
     mensagens: Record<string, number>;
   }>;
 }

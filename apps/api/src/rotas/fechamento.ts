@@ -8,7 +8,7 @@ import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { CONTAR_POR, textoListaGrupo, validarRegrasConfirmacao } from "@bybus/core";
 import { auditar } from "../auditoria.js";
-import { confirmarSaida, lerRegrasConfirmacao, salvarRegrasConfirmacao } from "../servicos/confirmacao.js";
+import { confirmarSaida, lerRegrasConfirmacao, salvarRegrasConfirmacao, viatorSemResposta } from "../servicos/confirmacao.js";
 import { agoraSp, enviarMensagem, fecharLista, situacaoFechamento } from "../servicos/fechamento.js";
 import { carregarManifesto } from "../servicos/manifesto.js";
 import { transferNaLista } from "../servicos/transfer.js";
@@ -48,6 +48,13 @@ export async function rotasFechamento(app: FastifyInstance, { db, config, cofre 
     await salvarRegrasConfirmacao(db, r, req.usuario!.id);
     await auditar(db, req, "CONFIRMACAO_REGRAS_ALTERADAS", undefined, r);
     return r;
+  });
+
+  /** Clientes da Viator sem resposta: texto pronto para a equipe mandar pelo chat da Viator/Tripadvisor. */
+  app.get("/api/saidas/:id/viator-sem-resposta", decidir, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    await garantirSaida(db, req.usuario!, id);
+    return (await viatorSemResposta(db, [id])).map(({ saidaId: _s, ...x }) => x);
   });
 
   /** Confirma a saída agora (decisão da equipe) e envia a confirmação a quem ainda não recebeu. */

@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 import { useSessao } from "../sessao/Sessao";
 import { Link } from "react-router-dom";
 import { api, mensagemDeErro, qs } from "../api/cliente";
-import type { MensagemFila, RegrasConfirmacao, SituacaoConfirmacao, SituacaoFechamento } from "../api/tipos";
+import type { MensagemFila, RegrasConfirmacao, SituacaoConfirmacao, SituacaoFechamento, ViatorSemResposta } from "../api/tipos";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { Modal } from "../componentes/Modal";
 import { CabecalhoPagina } from "../componentes/Pagina";
@@ -72,6 +72,32 @@ function Mensagens({ saidaId, aoFechar }: { saidaId: string; aoFechar: () => voi
           </table>
         </div>
       )}
+    </Modal>
+  );
+}
+
+/** Clientes da Viator/Tripadvisor sem resposta no WhatsApp: texto pronto para colar no chat da Viator (nada sai sozinho). */
+function MensagensViator({ saidaId, aoFechar }: { saidaId: string; aoFechar: () => void }) {
+  const notificar = useNotificar();
+  const lista = useCarregar((s) => api.get<ViatorSemResposta[]>(`/api/saidas/${saidaId}/viator-sem-resposta`, s), [saidaId]);
+  async function copiar(texto: string) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      notificar("Texto copiado. Cole no chat da reserva na Viator.");
+    } catch {
+      notificar("Não consegui copiar: selecione o texto e copie.");
+    }
+  }
+  return (
+    <Modal aberto titulo="Viator sem resposta no WhatsApp" aoFechar={aoFechar} largura="larga">
+      <p className="texto-fraco">Clientes da Viator/Tripadvisor ainda sem ponto de embarque horas depois da mensagem. Abra a reserva no painel da Viator (pela referência), cole o texto no chat e, quando o cliente responder, cadastre o hotel na reserva.</p>
+      {lista.carregando && !lista.dados ? <Carregando /> : lista.erro ? <ErroCarga mensagem={lista.erro} /> : lista.dados?.length === 0 ? <Vazio titulo="Ninguém pendente." /> : lista.dados?.map((x) => (
+        <section key={x.reservaId} className="cartao" aria-label={x.titular}>
+          <p><strong>{x.titular}</strong> · referência {x.referencia ?? "—"} · <span className="texto-fraco">mensagem desde {formatarDataHora(x.desde)} · {x.idioma.toUpperCase()}</span></p>
+          <textarea className="fechamento__texto" readOnly value={x.texto} rows={4} aria-label={`Texto para ${x.titular}`} />
+          <div className="modal__acoes"><button type="button" className="botao botao--primario botao--pequeno" onClick={() => void copiar(x.texto)}>Copiar texto</button></div>
+        </section>
+      ))}
     </Modal>
   );
 }
@@ -155,6 +181,7 @@ export function Fechamento() {
   const [erro, setErro] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<{ saidaId: string; passeio: string; adendo: boolean; titulares: number } | null>(null);
   const [editarRegras, setEditarRegras] = useState(false);
+  const [viatorDe, setViatorDe] = useState<string | null>(null);
   const [confirmarSaida, setConfirmarSaida] = useState<{ saidaId: string; passeio: string; titulares: number } | null>(null);
 
   async function confirmarAgora(saidaId: string) {
@@ -253,6 +280,7 @@ export function Fechamento() {
                                   : `Reavalia até as ${s?.regrasConfirmacao.horaLimite ?? ""}`}</div>}
                         </>}
                         {x.previasEnviadas > 0 && !x.confirmacao.confirmadaEm && <div className="texto-fraco">{x.previasEnviadas} prévia(s) enviada(s)</div>}
+                        {x.viatorSemResposta > 0 && <div className="texto-atencao"><strong>{x.viatorSemResposta}</strong> Viator sem resposta</div>}
                       </td>
                       <td data-rotulo="Lista">
                         <span className={`etiqueta ${fechada ? "etiqueta--sucesso" : "etiqueta--atencao"}`}>
@@ -282,6 +310,7 @@ export function Fechamento() {
                             {fechada ? "Reenviar lista atualizada" : "Fechar lista agora"}
                           </button>
                         )}{" "}
+                        {podeDecidir && x.viatorSemResposta > 0 && <><button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setViatorDe(x.saidaId)}>Mensagem para a Viator</button>{" "}</>}
                         {podeDecidir && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setMensagensDe(x.saidaId)}>Mensagens</button>}
                       </td>
                     </tr>
@@ -319,6 +348,7 @@ export function Fechamento() {
       )}
       {editarRegras && s && <RegrasConfirmacaoModal atuais={s.regrasConfirmacao} horaFechamento={s.horaFechamento} aoFechar={() => setEditarRegras(false)} aoSalvar={() => { setEditarRegras(false); void sit.recarregar(); }} />}
       {texto && <TextoLista titulo={texto.titulo} texto={texto.texto} aoFechar={() => setTexto(null)} />}
+      {viatorDe && <MensagensViator saidaId={viatorDe} aoFechar={() => setViatorDe(null)} />}
       {mensagensDe && <Mensagens saidaId={mensagensDe} aoFechar={() => setMensagensDe(null)} />}
     </div>
   );

@@ -6,7 +6,7 @@ import type { Db } from "../db/cliente.js";
 import { fechamentos, mensagens, passeios, reservas, saidas } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
 import { carregarManifesto } from "./manifesto.js";
-import { confirmarSaida, rodarConfirmacaoVespera, situacaoConfirmacao } from "./confirmacao.js";
+import { confirmarSaida, rodarConfirmacaoVespera, situacaoConfirmacao, viatorSemResposta } from "./confirmacao.js";
 import { enviarWhatsapp, normalizarDestino } from "./whatsapp.js";
 import { registrarSaidaFila } from "./whatsappConversas.js";
 import { mensagemDoMotoristaTransfer, sincronizarTransfer, transferNaLista } from "./transfer.js";
@@ -124,6 +124,7 @@ export async function situacaoFechamento(db: Db, data: string, filtro: SQL | und
   const rs = ids.length ? await db.select().from(reservas).where(and(inArray(reservas.saidaId, ids), eq(reservas.status, "CONFIRMADA"))) : [];
   const ms = ids.length ? await db.select({ saidaId: mensagens.saidaId, status: mensagens.status, tipo: mensagens.tipo }).from(mensagens).where(inArray(mensagens.saidaId, ids)) : [];
   const conf = await situacaoConfirmacao(db, lista.map(({ saida: s }) => s));
+  const semResposta = await viatorSemResposta(db, ids);
   return lista.map(({ saida: s, passeio }) => {
     const minhas = rs.filter((r) => r.saidaId === s.id);
     return {
@@ -135,6 +136,7 @@ export async function situacaoFechamento(db: Db, data: string, filtro: SQL | und
       // Vendas novas ou embarque informado pelo cliente depois da lista: entram no próximo adendo.
       depoisDoFechamento: s.listaFechadaEm ? minhas.filter((r) => r.criadoEm > s.listaFechadaEm! || (r.informadoPeloClienteEm && r.informadoPeloClienteEm > s.listaFechadaEm!)).length : 0,
       confirmacao: conf.get(s.id)!,
+      viatorSemResposta: semResposta.filter((x) => x.saidaId === s.id).length,
       previasEnviadas: ms.filter((m) => m.saidaId === s.id && m.tipo === "PREVIA").length,
       mensagens: ms.filter((m) => m.saidaId === s.id).reduce<Record<string, number>>((acc, m) => ({ ...acc, [m.status]: (acc[m.status] ?? 0) + 1 }), {}),
     };

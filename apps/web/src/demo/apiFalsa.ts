@@ -5,7 +5,7 @@
  */
 import {
   PONTOS_TODA_ILHA, detectarDuplicatas, documentoValido, formatarCpf, lerCsvPaytour, lerEmailBokun, mascararDocumento,
-  REGRAS_CONFIRMACAO_PADRAO, avaliarConfirmacao, montarManifesto, normalizarDocumento, textoConfirmacao, textoListaGrupo, validarRegrasConfirmacao, type Canal,
+  REGRAS_CONFIRMACAO_PADRAO, avaliarConfirmacao, montarManifesto, normalizarDocumento, textoConfirmacao, textoListaGrupo, textoViatorSemResposta, idiomaDoCliente, validarRegrasConfirmacao, type Canal,
   type RegrasConfirmacao, type Categoria, type ReservaImportada, type TipoDocumento,
 } from "@bybus/core";
 
@@ -660,6 +660,15 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     auditar("SAIDA_CONFIRMADA", "saida", s.id);
     return { jaEstava, enviadas: jaEstava ? 0 : reservas.filter((x) => x.saidaId === s.id && x.status === "CONFIRMADA").length };
   }
+  if (metodo === "GET" && r(/^\/api\/saidas\/([^/]+)\/viator-sem-resposta$/)) {
+    exigir("saidas:decidir");
+    const s = achar(saidas, m![1]!, "Saída");
+    return reservas.filter((x) => x.saidaId === s.id && x.status === "CONFIRMADA" && (x.canalOrigem ?? x.canal) === "VIATOR" && !x.pontoEmbarqueId).map((x) => {
+      const idioma = idiomaDoCliente({ telefone: x.contatoTelefone, origemCliente: extrasDemo(x).origemCliente });
+      return { reservaId: x.id, titular: x.contatoNome, referencia: x.codigoExterno ?? null, desde: agoraIso(), idioma,
+        texto: textoViatorSemResposta(idioma, { primeiroNome: x.contatoNome.split(" ")[0] ?? "", passeio: passeioDe(s.passeioId).nome, data: s.data }) };
+    });
+  }
   if (metodo === "GET" && caminho === "/api/fechamento") {
     exigir("saidas:decidir");
     const data = q.get("data") ?? dataMais(1);
@@ -679,6 +688,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
             return { ...c, decisao: conf ? "CONFIRMADA" : a.decisao, motivo: conf ? null : a.motivo, confirmadaEm: conf?.em ?? null, automatica: conf?.automatica ?? null };
           })(),
           previasEnviadas: 0,
+          viatorSemResposta: rs.filter((r) => (r.canalOrigem ?? r.canal) === "VIATOR" && !r.pontoEmbarqueId).length,
           mensagens: ms.reduce<Record<string, number>>((acc, x) => ({ ...acc, [x.status]: (acc[x.status] ?? 0) + 1 }), {}) };
       }),
     };

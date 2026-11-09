@@ -120,3 +120,6 @@ Outros produtos sabidos por documentos internos: **Nascer do Sol** (2021) e **Br
 - **Reservas de OTAs (Tripadvisor/Viator, Civitatis, Decolar):** hoje são lançadas na Paytour com embarque no Villa Romana e o embarque real é alinhado na véspera; clientes do Tripadvisor muitas vezes não respondem pelo WhatsApp.
 - **Transfer:** o motorista atual deixa de fazer o transfer com o carro próprio no próximo ano; proposta de horário padrão por bairro informado já na confirmação. Estudo de vender o transfer como **opcional** na Paytour (que não limita vagas nem horário de encerramento).
 - **Confirmação da saída (proposta, a validar):** pontos de corte por reservas pagas × pendentes (ex.: 10 pagas → confirmar de manhã/início da tarde; 10 pendentes → aguardar até 18h; 16 com metade pagas → confirmar).
+- **Transfer (dono, 09/11/2026):** será vendido como **opcional** na Paytour; a van leva **motorista + 10 passageiros**; horário limite para pedir:
+  **21h da véspera**; **sem limite de vendas** — passando de 10, a empresa providencia outro veículo (o sistema avisa).
+- **Check-in:** o dono aprovou gravar na Paytour o check-in marcado pela guia (ADR 0009).

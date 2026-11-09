@@ -36,7 +36,7 @@ describe("Fechamento e mensagens", () => {
   const regras = { ligado: true, contarPor: "RESERVAS", pagasParaConfirmar: 10, totalParaConfirmar: 16, pagasMinimasNoTotal: 8, horaPrevia: "09:00", horaLimite: "18:00" };
   const situacao = { data: "2099-01-05", horaFechamento: "21:00", automatico: true, whatsapp: { provedor: "simulado", envioReal: false, grupoConfigurado: false }, regrasConfirmacao: regras,
     saidas: [{ saidaId: "s1", passeio: "City Tour Toda Ilha", data: "2099-01-05", guia: "Guia Fictícia Ana", motorista: null, veiculo: null, listaFechadaEm: null, versao: 0, reservas: 4, naoConferidas: 1, semPonto: 1, depoisDoFechamento: 0,
-      confirmacao: { pagas: 3, pendentes: 1, decisao: "AGUARDAR", motivo: "3 pagas e 1 pendentes. Reavaliando até as 18:00.", confirmadaEm: null, automatica: null }, previasEnviadas: 4, mensagens: {} }] };
+      confirmacao: { pagas: 3, pendentes: 1, decisao: "AGUARDAR", motivo: "3 pagas e 1 pendentes. Reavaliando até as 18:00.", confirmadaEm: null, automatica: null }, previasEnviadas: 4, viatorSemResposta: 1, mensagens: {} }] };
 
   it("mostra a confirmação da véspera, confirma a saída e ajusta os pontos de corte", async () => {
     const api = simularApi({
@@ -59,6 +59,19 @@ describe("Fechamento e mensagens", () => {
     await u.click(d.getByRole("button", { name: "Salvar regras" }));
     const put = api.mock.calls.find(([x, i]) => String(x) === "/api/confirmacao/regras" && i?.method === "PUT");
     expect(JSON.parse(String(put?.[1]?.body))).toMatchObject({ pagasParaConfirmar: 12 });
+  });
+
+  it("Viator sem resposta: mostra o aviso e o texto pronto para colar no chat da Viator", async () => {
+    simularApi({
+      "GET /api/fechamento": situacao,
+      "GET /api/saidas/s1/viator-sem-resposta": [{ reservaId: "r9", titular: "John Fictício", referencia: "BR-000111222", desde: "2099-01-04T12:00:00Z", idioma: "en", texto: "Hi John! This is By Bus Turismo… name and address of your hotel" }],
+    });
+    renderizar(<Fechamento />, { sessao: sessaoFicticia("SUPERVISOR", ["saidas:decidir", "manifesto:ver"], { unidades: [FLN] }) });
+    expect(await screen.findByText("Viator sem resposta")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Mensagem para a Viator" }));
+    const d = within(await screen.findByRole("dialog"));
+    expect(await d.findByText(/BR-000111222/)).toBeInTheDocument();
+    expect((d.getByLabelText("Texto para John Fictício") as HTMLTextAreaElement).value).toContain("name and address of your hotel");
   });
 
   it("quem só vê a lista não confirma nem ajusta", async () => {

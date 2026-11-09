@@ -34,4 +34,10 @@ Pedido do gerente (avaliação dos textos, 09/11/2026), aprovado pelo dono ("com
 ## Pendências
 - Validar os números dos cortes e os textos com o dono.
 - Foto do ônibus em cada ponto (precisa do provedor de WhatsApp com envio de imagem).
-- Mensagem pelo Tripadvisor quando o cliente não responde no WhatsApp (verificar se há integração possível).
+- Envio automático pelo chat da Viator (sem integração conhecida): por enquanto a equipe copia e cola.
+
+## Viator/Tripadvisor sem resposta (09/11/2026)
+- Cliente da Viator (canal real) **sem ponto de embarque 4 horas** depois da prévia ou da confirmação aparece na lista do dia como
+  "Viator sem resposta"; o botão **Mensagem para a Viator** mostra a referência da reserva e um **texto pronto** no idioma do cliente
+  (PT/EN/ES, pelo país ou DDI) para colar no chat da Viator. O texto **não leva link** (um link novo invalidaria o do WhatsApp): pede o
+  nome e o endereço do hotel; a equipe cadastra quando o cliente responder. Texto sugerido pelo sistema, liberado pelo dono para ajustar depois.

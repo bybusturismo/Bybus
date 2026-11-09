@@ -66,3 +66,16 @@ describe("textos da véspera", () => {
     expect(t).not.toContain("ADENDO");
   });
 });
+
+describe("mensagem para a Viator quando o cliente não responde", () => {
+  it("sai no idioma do cliente, sem link, pedindo o hotel", async () => {
+    const { textoViatorSemResposta } = await import("../src/index.js");
+    const en = textoViatorSemResposta("en", { primeiroNome: "John", passeio: "City Tour", data: "2026-11-14" });
+    expect(en).toContain("Hi John!");
+    expect(en).toContain("14/11/2026");
+    expect(en).toContain("name and address of your hotel");
+    expect(en).not.toMatch(/https?:/);
+    expect(textoViatorSemResposta("es", { primeiroNome: "", passeio: "City Tour", data: "2026-11-14" })).toContain("¡Hola! Somos By Bus");
+    expect(textoViatorSemResposta("pt", { primeiroNome: "Ana", passeio: "City Tour", data: "2026-11-14" })).toContain("Equipe By Bus");
+  });
+});

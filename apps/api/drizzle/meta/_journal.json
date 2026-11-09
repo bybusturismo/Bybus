@@ -176,6 +176,13 @@
       "when": 1794197994082,
       "tag": "0024_confirmacao_vespera",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794226277325,
+      "tag": "0025_van_10_lugares",
+      "breakpoints": true
     }
   ]
 }

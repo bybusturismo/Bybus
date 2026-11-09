@@ -16,7 +16,7 @@ export async function configDoPasseio(db: Db, passeioId: string): Promise<Config
   const [c] = await db.select().from(transferConfig).where(eq(transferConfig.passeioId, passeioId));
   return c ?? {
     passeioId, taxaPorPassageiroCentavos: 4500, taxaAConfirmar: false, intervaloMinutos: 5, pontoEncontroId: null, chegadaPrevista: null,
-    motoristaPadraoId: null, veiculoPadraoId: null, veiculoPadraoTexto: null, lugaresPadrao: null, atualizadoEm: new Date(),
+    motoristaPadraoId: null, veiculoPadraoId: null, veiculoPadraoTexto: null, lugaresPadrao: 10, atualizadoEm: new Date(),
   };
 }
 
@@ -223,7 +223,12 @@ export async function carregarTransfer(db: Db, saidaId: string, opcoes: { verCon
   if (dia && !dia.motoristaId) alertas.push("Motorista do transfer não definido.");
   if (dia && !veiculo) alertas.push("Veículo do transfer não definido.");
   if (dia && !encontro) alertas.push("Ponto de encontro com o ônibus não definido.");
-  if (lugares && totais.assentos > lugares) alertas.push(`${totais.assentos} passageiros para ${lugares} lugares: falta lugar na van.`);
+  // Sem limite de vendas (dono, 09/11/2026): passando da van, a empresa providencia outro veículo.
+  if (lugares && totais.assentos > lugares) alertas.push(`${totais.assentos} passageiros para ${lugares} lugares: providencie outro veículo para o transfer.`);
+  // Horário limite do transfer: 21h da véspera (dono, 09/11/2026). Compras depois disso precisam de contato da equipe.
+  const limite = new Date(new Date(`${saida.data}T21:00:00-03:00`).getTime() - 86_400_000);
+  const depoisDoLimite = itens.filter(({ reserva }) => reserva.criadoEm > limite).length;
+  if (depoisDoLimite) alertas.push(`${depoisDoLimite} reserva(s) com transfer comprada(s) depois das 21h da véspera: confirme com o cliente se ainda dá para buscar.`);
   const semBairro = reservasDto.filter((r) => !r.bairroId).length;
   if (semBairro) alertas.push(`${semBairro} reserva(s) sem bairro definido: escolha o bairro para entrar na ordem de busca.`);
   const semHotel = reservasDto.filter((r) => !r.endereco).length;
@@ -330,5 +335,6 @@ export async function semearTransferPadrao(db: Db, passeioId: string) {
   await db.insert(transferBairros).values(padrao.map((b, i) => ({ passeioId, nome: b.nome, ordemBusca: i + 1, horarioReferencia: b.horario, horarioAConfirmar: b.aConfirmar, pontoEmbarqueId: ponto(b.ponto) }))).onConflictDoNothing();
   const [villa] = await db.select({ id: pontosEmbarque.id }).from(pontosEmbarque).where(and(eq(pontosEmbarque.passeioId, passeioId), eq(pontosEmbarque.ehTransfer, false), sql`lower(${pontosEmbarque.nome}) like '%villa romana%'`));
   // Encontro da van com o ônibus no Villa Romana às 07:45 (confirmado pelo dono em 06/11/2026).
-  await db.insert(transferConfig).values({ passeioId, pontoEncontroId: villa?.id ?? null, chegadaPrevista: "07:45" }).onConflictDoNothing();
+  // Van: motorista + 10 passageiros (dono, 09/11/2026).
+  await db.insert(transferConfig).values({ passeioId, pontoEncontroId: villa?.id ?? null, chegadaPrevista: "07:45", lugaresPadrao: 10 }).onConflictDoNothing();
 }
