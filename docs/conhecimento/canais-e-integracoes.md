@@ -86,5 +86,6 @@ Integração pela **API oficial da Meta**, "Instagram API com Instagram Login" (
 ## WhatsApp: decisão final (dono, 09/11/2026)
 - **WhatsApp oficial da Meta** (Cloud API), com custo por mensagem aprovado pelo dono; a Evolution fica como reserva. ADR 0010.
 - Portfólio da Meta: **Floripa by Bus** (há também o BC by Bus); aplicativo "Bybus Gestão" criado; verificação da empresa enviada (resposta em até 48 h).
-- Número do WhatsApp: a decidir pelo dono.
+- Número do WhatsApp: **(48) 99924-8636**, um só para todos os passeios; fica no WhatsApp Business do celular **e** no sistema (coexistência, opção B do dono).
+- Regra do dono: como a Meta cobra por mensagem, **juntar informações numa mensagem só** sempre que possível.
 - Tripadvisor por praça: Floripa by Bus (g303576-d2362697) e BC by Bus (g680306-d10686390) — links cadastrados no sistema.

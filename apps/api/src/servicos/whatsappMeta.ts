@@ -3,7 +3,7 @@ import { MODELOS_META } from "@bybus/core";
 import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
 import { mensagens, waMensagens } from "../db/schema.js";
-import { obterConversa, tocarConversa } from "./whatsappConversas.js";
+import { gravarSaida, obterConversa, tocarConversa } from "./whatsappConversas.js";
 import { normalizarDestino } from "./whatsapp.js";
 
 /**
@@ -64,6 +64,21 @@ async function receberMensagemMeta(db: Db, m: Record<string, any>, nomes: Map<st
   return !!nova;
 }
 
+/**
+ * Coexistência (o número continua no WhatsApp Business do celular, decisão do dono em 09/11/2026): o que a equipe manda pelo
+ * celular chega como "eco" e entra na conversa como mensagem nossa.
+ */
+async function receberEcoMeta(db: Db, e: Record<string, any>) {
+  const telefone = normalizarDestino(typeof e.to === "string" ? e.to : null);
+  const idExterno = typeof e.id === "string" ? e.id.slice(0, 200) : "";
+  const resumo = resumirMensagemMeta(e);
+  if (!telefone || !idExterno || !resumo) return false;
+  const ts = Number(e.timestamp);
+  const conversa = await obterConversa(db, { telefone });
+  await gravarSaida(db, { conversaId: conversa.id, texto: resumo.texto ?? "", tipo: resumo.tipo, status: "ENVIADA", idExterno, quando: Number.isFinite(ts) && ts > 0 ? new Date(ts * 1000) : new Date() });
+  return true;
+}
+
 /** Processa o aviso da Meta (já com a assinatura conferida). Só o número configurado; o resto é ignorado. */
 export async function processarAvisoMeta(db: Db, config: Config, corpo: unknown): Promise<{ gravadas: number; status: number }> {
   const b = (corpo && typeof corpo === "object" ? corpo : {}) as Record<string, any>;
@@ -73,7 +88,14 @@ export async function processarAvisoMeta(db: Db, config: Config, corpo: unknown)
   for (const e of b.entry) {
     for (const ch of Array.isArray(e?.changes) ? e.changes : []) {
       const v = ch?.value;
-      if (ch?.field !== "messages" || !v || v.metadata?.phone_number_id !== config.META_WA_NUMERO_ID) continue;
+      if (!v || v.metadata?.phone_number_id !== config.META_WA_NUMERO_ID) continue;
+      if (ch?.field === "smb_message_echoes") {
+        for (const e of Array.isArray(v.message_echoes) ? v.message_echoes : []) {
+          try { if (await receberEcoMeta(db, e)) gravadas++; } catch (x) { console.error("[whatsapp-meta] falha ao gravar eco:", x instanceof Error ? x.name : "erro"); }
+        }
+        continue;
+      }
+      if (ch?.field !== "messages") continue;
       const nomes = new Map<string, string>();
       for (const c of Array.isArray(v.contacts) ? v.contacts : []) if (typeof c?.wa_id === "string" && typeof c?.profile?.name === "string") nomes.set(c.wa_id, c.profile.name);
       for (const m of Array.isArray(v.messages) ? v.messages : []) {

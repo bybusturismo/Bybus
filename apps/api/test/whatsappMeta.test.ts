@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { modeloConfirmacao } from "@bybus/core";
 import { lerConfig } from "../src/config.js";
 import { criarDb } from "../src/db/cliente.js";
@@ -45,7 +45,7 @@ describe("envio pelo WhatsApp oficial", () => {
     await enviarWhatsapp(config, "5548900000001", "Olá!", buscar as unknown as typeof fetch, { janelaAberta: false, modelo });
     const corpo2 = JSON.parse(String((buscar.mock.calls[1] as unknown as [string, RequestInit])[1].body));
     expect(corpo2).toMatchObject({ type: "template", template: { name: "bybus_confirmacao", language: { code: "pt_BR" } } });
-    expect(corpo2.template.components[0].parameters).toHaveLength(4);
+    expect(corpo2.template.components[0].parameters).toHaveLength(5);
 
     expect(await enviarWhatsapp(config, "5548900000001", "Olá!", buscar as unknown as typeof fetch, { janelaAberta: false })).toMatchObject({ status: "FALHA", erro: "FORA_DA_JANELA" });
     expect(await enviarWhatsapp(config, "120363000000000000@g.us", "Lista", buscar as unknown as typeof fetch, { janelaAberta: true })).toMatchObject({ status: "FALHA", erro: "GRUPO_NAO_SUPORTADO" });
@@ -91,6 +91,32 @@ describe("avisos da Meta (rota pública)", () => {
     const corpo = JSON.stringify({ object: "whatsapp_business_account", entry: [{ changes: [{ field: "messages", value: { metadata: { phone_number_id: "111" }, messages: [{ from: "5548900000099", id: "wamid.X", type: "text", text: { body: "oi" } }] } }] }] });
     expect((await postarAviso(corpo)).statusCode).toBe(200);
     expect(await db.select().from(waConversas).where(eq(waConversas.chave, chaveTelefone("5548900000099")))).toHaveLength(0);
+  });
+});
+
+describe("coexistência e economia de mensagens", () => {
+  it("mensagem mandada pelo celular (eco) entra na conversa como nossa", async () => {
+    const corpo = JSON.stringify({ object: "whatsapp_business_account", entry: [{ changes: [{ field: "smb_message_echoes", value: { metadata: { phone_number_id: META.META_WA_NUMERO_ID },
+      message_echoes: [{ from: "554899248636", to: "5548900000004", id: "wamid.ECO1", timestamp: String(Math.floor(Date.now() / 1000)), type: "text", text: { body: "Respondido pelo celular" } }] } }] }] });
+    expect((await postarAviso(corpo)).statusCode).toBe(200);
+    const [c] = await db.select().from(waConversas).where(eq(waConversas.chave, chaveTelefone("5548900000004")));
+    const ms = await db.select().from(waMensagens).where(eq(waMensagens.conversaId, c!.id));
+    expect(ms).toHaveLength(1);
+    expect(ms[0]).toMatchObject({ direcao: "SAIDA", texto: "Respondido pelo celular", status: "ENVIADA" });
+  });
+
+  it("mesma pessoa, mesma saída e mesmo conteúdo: só a primeira mensagem sai (as outras ficam AGRUPADA)", async () => {
+    const buscar = vi.fn(async () => resposta({ messages: [{ id: `wamid.AG${buscar.mock.calls.length}` }] }));
+    vi.stubGlobal("fetch", buscar);
+    const [s] = await db.execute<{ id: string }>(sql`select id from saidas limit 1`).then((r) => r.rows);
+    const base = { tipo: "RASTREIO", saidaId: s!.id, destino: "+55 48 90000-0005", modelo: modeloConfirmacao({ primeiroNome: "Caio", passeio: "City Tour", data: "2027-04-10", ponto: null, linkEmbarque: null }) };
+    const a = await enfileirarMensagem(db, config, { ...base, reservaId: null, texto: "Olá, Caio! Acompanhe: https://x.test/rastreio/aaa" });
+    const b = await enfileirarMensagem(db, config, { ...base, reservaId: null, texto: "Olá, Caio! Acompanhe: https://x.test/rastreio/bbb" });
+    const c = await enfileirarMensagem(db, config, { ...base, reservaId: null, texto: "Olá, Duda! Acompanhe: https://x.test/rastreio/ccc" });
+    expect(a!.status).toBe("PENDENTE");
+    expect(b!.status).toBe("AGRUPADA");
+    expect(c!.status).toBe("PENDENTE");
+    expect(buscar).toHaveBeenCalledTimes(2);
   });
 });
 

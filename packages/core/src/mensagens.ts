@@ -69,7 +69,13 @@ export interface DadosConfirmacao {
   transitoIntenso?: boolean;
   /** O link de embarque já foi na prévia da manhã (gerar outro invalidaria o primeiro). */
   linkJaEnviado?: boolean;
+  /** Link do mapa do ônibus, enviado já na confirmação (uma mensagem a menos por reserva: o dono paga por mensagem). */
+  linkRastreio?: string | null;
 }
+
+/** Fecho da confirmação: com o link do mapa já incluído, não há mensagem de rastreio separada no dia. */
+export const fechoConfirmacao = (linkRastreio?: string | null) =>
+  linkRastreio ? `No dia, acompanhe o ônibus no mapa por aqui: ${linkRastreio}` : "No dia, enviaremos o link para acompanhar o ônibus.";
 
 /** Linhas do meio da confirmação (embarque, transfer ou pedido do ponto): as mesmas no texto livre e no modelo da Meta. */
 export function detalhesConfirmacao(d: DadosConfirmacao): string[] {
@@ -102,7 +108,7 @@ export function textoConfirmacao(d: DadosConfirmacao): string {
   return [
     `${ola} Seu passeio *${d.passeio}* de amanhã, ${diaComData(d.data)}, está confirmado! 🚌`,
     ...detalhesConfirmacao(d),
-    "No dia, enviaremos o link para acompanhar o ônibus. Bom passeio! — Equipe By Bus",
+    `${fechoConfirmacao(d.linkRastreio)} Bom passeio! — Equipe By Bus`,
   ].join("\n");
 }
 

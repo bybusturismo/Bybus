@@ -72,6 +72,10 @@ describe("confirmação da véspera em duas etapas", () => {
     expect(conf.some((x) => x.texto.includes("link que enviamos mais cedo"))).toBe(true);
     expect(conf.some((x) => x.texto.includes("/embarque/"))).toBe(false);
     expect(conf.every((x) => x.texto.includes("está confirmado"))).toBe(true);
+    // O link do mapa já vai na confirmação: no dia, nenhuma mensagem de rastreio a mais.
+    expect(conf.every((x) => x.texto.includes("https://gestao.exemplo.test/rastreio/"))).toBe(true);
+    const { enviarLinksRastreio } = await import("../src/servicos/rastreio.js");
+    expect((await enviarLinksRastreio(db, config, { id: ids.saidaA, data: DATA }, "City Tour")).enfileiradas).toBe(0);
     // Os 4 novos não recebem prévia (já foram direto para a confirmação).
     expect((await tipos(ids.saidaA)).filter((x) => x.tipo === "PREVIA")).toHaveLength(10);
   });

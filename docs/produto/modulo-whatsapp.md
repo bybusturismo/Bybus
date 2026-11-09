@@ -37,6 +37,17 @@ Pedido do dono: "o WhatsApp precisa de uma tela que mostre as trocas de mensagen
 5. Regras: fora de 24 h desde a última mensagem do cliente, só modelo; a tela de Conversas recusa texto livre nesse caso. Lista das 21h
    vai à guia e ao motorista (sem grupos). Revisão de segurança da rota pública em `apps/api/src/rotas/whatsappMeta.ts`.
 
+### Economia de mensagens (regra do dono, 09/11/2026: "como pagamos por mensagem, concatenar")
+- O link do mapa do ônibus vai **na confirmação da véspera**; no dia não sai mensagem de rastreio separada para quem já recebeu.
+- Mesma pessoa (telefone), mesma saída, mesmo tipo e mesmo conteúdo → só a primeira sai; as outras ficam `AGRUPADA`.
+- Saída que já atinge o corte de manhã recebe direto a confirmação (sem prévia). Respostas dentro de 24 h da última mensagem do cliente são grátis.
+- Toda mensagem automática nova deve ser pensada para **juntar** informação na mensagem que já existe antes de criar outra.
+
+### Coexistência (opção B do dono, 09/11/2026)
+Número de atendimento **(48) 99924-8636**, para todos os passeios, continua no WhatsApp Business do celular e também no sistema.
+As mensagens mandadas pelo celular chegam como eco (`smb_message_echoes`) e entram na conversa. Assinar também esse campo no webhook.
+[A CONFIRMAR] se a Meta libera a coexistência direto no Gerenciador do WhatsApp para a conta; se exigir "Embedded Signup", ver alternativa.
+
 ### Configurar (Evolution — reserva)
 **Jeito rápido (09/11/2026):** no servidor, `bash /opt/bybus/implantacao/ligar-whatsapp.sh` faz os passos abaixo (gera as chaves que faltam,
 liga a Evolution, cria a instância, configura o aviso para o Bybus) e pede o número: mostra um **código de 8 letras** para digitar no celular em

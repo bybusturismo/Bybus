@@ -9,6 +9,7 @@ import type { Db } from "../db/cliente.js";
 import { confirmacaoRegras, mensagens, passageiros, passeios, pontosEmbarque, reservas, saidas } from "../db/schema.js";
 import { agoraSp, enfileirarMensagem } from "./fechamento.js";
 import { gerarLinkEmbarque } from "./linkEmbarque.js";
+import { gerarLinkRastreio } from "./rastreio.js";
 import { sincronizarTransfer, transferNaLista } from "./transfer.js";
 
 /**
@@ -76,7 +77,9 @@ export async function enviarConfirmacoes(db: Db, config: Config, saidaId: string
     // Aviso de trânsito: hospedado no continente, norte ou Lagoa e embarcando fora da própria região.
     const regiaoHotel = regiaoComTransito(r.hospedagemInformada);
     const transitoIntenso = !!p && !p.ehTransfer && !!regiaoHotel && regiaoHotel !== regiaoComTransito(p.nome, p.endereco);
-    const dados = { primeiroNome: primeiroNome(r.contatoNome), passeio: s.passeio, data: s.saida.data, ponto: p, linkEmbarque: link, linkJaEnviado, transfer, transitoIntenso };
+    // O link do mapa do ônibus vai já na confirmação: no dia não sai outra mensagem (o dono paga por mensagem; 09/11/2026).
+    const linkRastreio = config.URL_PUBLICA ? `${config.URL_PUBLICA.replace(/\/$/, "")}/rastreio/${await gerarLinkRastreio(db, r.id, s.saida.data)}` : null;
+    const dados = { primeiroNome: primeiroNome(r.contatoNome), passeio: s.passeio, data: s.saida.data, ponto: p, linkEmbarque: link, linkJaEnviado, transfer, transitoIntenso, linkRastreio };
     const m = await enfileirarMensagem(db, config, {
       tipo: "CONFIRMACAO", reservaId: r.id, saidaId, destino: r.contatoTelefone, texto: textoConfirmacao(dados), modelo: modeloConfirmacao(dados),
     });

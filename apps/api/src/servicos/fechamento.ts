@@ -21,9 +21,22 @@ export function agoraSp(agora = new Date()) {
   return { hoje, amanha, hora: `${v("hour")}:${v("minute")}` };
 }
 
+const JUNTAVEIS = new Set(["PREVIA", "CONFIRMACAO", "RASTREIO", "POS_PASSEIO", "COMPRA", "AVALIACAO"]);
+const semLinkDoMapa = (t: string) => t.replace(/https?:\/\/\S+\/rastreio\/[\w-]+/g, "<mapa>");
+
 /** Coloca a mensagem na fila (uma por reserva e tipo) e tenta enviar já. `modelo`: o modelo da Meta usado fora da janela de 24 h. */
 export async function enfileirarMensagem(db: Db, config: Config, m: { tipo: string; reservaId: string | null; saidaId: string | null; destino: string | null; texto: string; modelo?: UsoModelo | null }) {
   const destino = normalizarDestino(m.destino);
+  // O dono paga por mensagem (09/11/2026): mesma pessoa, mesma saída, mesmo tipo e mesmo conteúdo → só a primeira sai; as outras
+  // ficam registradas como AGRUPADA (ex.: duas reservas do mesmo telefone). O link do mapa vale para a saída toda, então não diferencia.
+  if (destino && m.saidaId && JUNTAVEIS.has(m.tipo)) {
+    const anteriores = await db.select({ texto: mensagens.texto }).from(mensagens)
+      .where(and(eq(mensagens.saidaId, m.saidaId), eq(mensagens.tipo, m.tipo), eq(mensagens.destino, destino), ne(mensagens.status, "FALHA")));
+    if (anteriores.some((a) => semLinkDoMapa(a.texto) === semLinkDoMapa(m.texto))) {
+      const [agrupada] = await db.insert(mensagens).values({ ...m, destino, status: "AGRUPADA" }).onConflictDoNothing().returning();
+      return agrupada ?? null;
+    }
+  }
   const [nova] = await db.insert(mensagens).values({ ...m, destino, status: destino ? "PENDENTE" : "SEM_TELEFONE" }).onConflictDoNothing().returning();
   if (nova && destino) await enviarMensagem(db, config, nova.id);
   return nova ?? null;

@@ -1,4 +1,4 @@
-import { detalhesConfirmacao, diaComData, type DadosConfirmacao } from "./mensagens.js";
+import { detalhesConfirmacao, diaComData, fechoConfirmacao, type DadosConfirmacao } from "./mensagens.js";
 
 /**
  * WhatsApp oficial da Meta (decisão do dono, 09/11/2026; ADR 0010). Fora da janela de 24 h desde a última mensagem do cliente,
@@ -24,8 +24,8 @@ export const MODELOS_META: readonly ModeloMeta[] = [
   },
   {
     nome: "bybus_confirmacao", categoria: "UTILITY", idioma: "pt_BR", descricao: "Confirmação da saída com horário e ponto",
-    corpo: "Olá, {{1}}! Seu passeio *{{2}}* de amanhã, {{3}}, está confirmado! 🚌\n{{4}}\nNo dia, enviaremos o link para acompanhar o ônibus. Bom passeio! — Equipe By Bus",
-    exemplo: ["Ana", "City Tour Toda Ilha", "sábado (14/11/2026)", "Embarque: *08:00* — Villa Romana Shopping (ponto de táxi). Aguarde no local 10 minutos antes: o ônibus é pontual e não há tolerância para atrasos."],
+    corpo: "Olá, {{1}}! Seu passeio *{{2}}* de amanhã, {{3}}, está confirmado! 🚌\n{{4}}\n{{5}} Bom passeio! — Equipe By Bus",
+    exemplo: ["Ana", "City Tour Toda Ilha", "sábado (14/11/2026)", "Embarque: *08:00* — Villa Romana Shopping (ponto de táxi). Aguarde no local 10 minutos antes: o ônibus é pontual e não há tolerância para atrasos.", "No dia, acompanhe o ônibus no mapa por aqui: https://gestao.bybusturismo.com.br/rastreio/exemplo"],
   },
   {
     nome: "bybus_rastreio", categoria: "UTILITY", idioma: "pt_BR", descricao: "Ônibus saiu: link para acompanhar",
@@ -57,7 +57,7 @@ export function modeloPrevia(d: { primeiroNome: string; passeio: string; data: s
 }
 
 export function modeloConfirmacao(d: DadosConfirmacao): UsoModelo {
-  return uso("bybus_confirmacao", [nome(d.primeiroNome), d.passeio, diaComData(d.data), detalhesConfirmacao(d).join(" ")]);
+  return uso("bybus_confirmacao", [nome(d.primeiroNome), d.passeio, diaComData(d.data), detalhesConfirmacao(d).join(" "), fechoConfirmacao(d.linkRastreio)]);
 }
 
 export function modeloRastreio(d: { primeiroNome: string; passeio: string; link: string }): UsoModelo {

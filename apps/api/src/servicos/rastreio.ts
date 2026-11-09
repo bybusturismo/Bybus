@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, isNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt } from "drizzle-orm";
 import { compararPontos, modeloRastreio, textoRastreio } from "@bybus/core";
 import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
@@ -30,7 +30,7 @@ export async function ultimaSessao(db: Db, saidaId: string) {
  * Cria (ou troca) o link de acompanhamento da reserva. O token vai só na mensagem; o banco guarda o hash.
  * Refazer o link invalida o anterior.
  */
-async function gerarLinkRastreio(db: Db, reservaId: string, data: string) {
+export async function gerarLinkRastreio(db: Db, reservaId: string, data: string) {
   const token = randomBytes(24).toString("base64url");
   const expiraEm = fimDoDia(data);
   await db.insert(rastreioLinks).values({ reservaId, tokenHash: hashToken(token), expiraEm })
@@ -48,6 +48,9 @@ export async function enviarLinksRastreio(db: Db, config: Config, saida: { id: s
   const base = config.URL_PUBLICA.replace(/\/$/, "");
   const ativas = await db.select().from(reservas).where(and(eq(reservas.saidaId, saida.id), eq(reservas.status, "CONFIRMADA")));
   const jaTem = new Set((await db.select({ id: mensagens.reservaId }).from(mensagens).where(and(eq(mensagens.saidaId, saida.id), eq(mensagens.tipo, "RASTREIO")))).map((m) => m.id));
+  // Quem já recebeu o link do mapa na confirmação da véspera não recebe outra mensagem (o dono paga por mensagem).
+  const ids = ativas.map((r) => r.id);
+  if (ids.length) for (const l of await db.select({ id: rastreioLinks.reservaId }).from(rastreioLinks).where(inArray(rastreioLinks.reservaId, ids))) jaTem.add(l.id);
   let enfileiradas = 0;
   for (const r of ativas) {
     if (jaTem.has(r.id)) continue;
