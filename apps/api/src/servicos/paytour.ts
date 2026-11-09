@@ -2,6 +2,8 @@ import { pedidoPaytourParaReservas, type PedidoPaytour } from "@bybus/core";
 import { auditar } from "../auditoria.js";
 import { deveAnonimizar, type Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
+import { sql } from "drizzle-orm";
+import { paytourProdutos } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
 import { ErroHttp } from "../seguranca/sessao.js";
 import { gravarEstadoIntegracao, lerEstadoIntegracao } from "./estadoIntegracao.js";
@@ -121,6 +123,7 @@ export async function sincronizarPaytour(
       ? await importarReservas(db, cofre, reservas, { confirmar: true, origem: "PAYTOUR_API", usuario: USUARIO_INTEGRACAO, anonimizar: deveAnonimizar(config) })
       : { previa: [], resumo: { CRIAR: 0, ATUALIZAR: 0, CANCELAR: 0, IGNORAR: 0 } };
 
+    await anotarProdutosDesconhecidos(db, previa);
     const resultado = { de, ate, pedidos: pedidos.length, resumo, completo };
     // Janela maior que o limite de páginas: o cursor não avança (a próxima rodada relê a janela; a importação é idempotente).
     await gravarEstado(db, completo
@@ -184,4 +187,18 @@ export function agendarPaytour(db: Db, cofre: Cofre, config: Config, log: { erro
     clearTimeout(primeira);
     clearInterval(intervalo);
   };
+}
+
+/** Guarda os produtos que nenhum passeio reconheceu (para a equipe classificar em Integrações). Já decididos não voltam à lista. */
+export async function anotarProdutosDesconhecidos(db: Db, previa: Array<{ avisos: string[] }>) {
+  const contagem = new Map<string, number>();
+  for (const p of previa) for (const a of p.avisos) {
+    const m = /^Produto não reconhecido: "(.*)"\.$/.exec(a);
+    if (m && m[1]!.trim()) contagem.set(m[1]!.trim().slice(0, 300), (contagem.get(m[1]!.trim().slice(0, 300)) ?? 0) + 1);
+  }
+  for (const [produto, n] of contagem) {
+    await db.insert(paytourProdutos).values({ produto, pedidos: n }).onConflictDoUpdate({
+      target: paytourProdutos.produto, set: { pedidos: sql`${paytourProdutos.pedidos} + ${n}`, ultimaVezEm: new Date() },
+    });
+  }
 }

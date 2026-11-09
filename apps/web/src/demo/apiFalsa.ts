@@ -732,6 +732,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   }
   // Demonstração: o Cofre de senhas não guarda nada fictício (só mostra que existe).
   if (metodo === "GET" && caminho === "/api/cofre/estado") return { configurado: false, aberto: false, ate: null, gestor: false, temSetor: false };
+  if (metodo === "GET" && caminho === "/api/integracoes/paytour/produtos") return { produtos: [], passeios: [], pracas: [] };
   if (metodo === "GET" && caminho === "/api/whatsapp/meta") {
     exigir("importacoes:executar");
     return { provedor: "simulado", configurada: false, numeroConfigurado: false, avisosLigados: false, enderecoAvisos: null, erro: null, modelos: [] };

@@ -166,6 +166,21 @@ export const passeios = pgTable("passeios", {
   veiculoPadrao: text(),
 });
 
+/**
+ * Produtos da Paytour que nenhum passeio reconhece (09/11/2026): ficam listados em Integrações para a equipe dizer se é um passeio
+ * nosso (novo ou existente) ou revenda de terceiros (Beto Carrero, escuna…), que não entra nas listas de passageiros.
+ */
+export const paytourProdutos = pgTable("paytour_produtos", {
+  produto: text().primaryKey(),
+  pedidos: integer().notNull().default(0),
+  ultimaVezEm: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  /** null = pendente; REVENDA; ou PASSEIO (com passeioId). */
+  decisao: text(),
+  passeioId: uuid(),
+  decididoPor: uuid(),
+  decididoEm: timestamp({ withTimezone: true }),
+});
+
 export const pontosEmbarque = pgTable("pontos_embarque", {
   id: uuid().primaryKey().defaultRandom(),
   passeioId: uuid().notNull().references(() => passeios.id),

@@ -102,6 +102,7 @@ function CartaoPaytour() {
           {resultado && <TabelaPrevia resultado={resultado} />}
         </>
       )}
+      <ProdutosNaoReconhecidos />
     </section>
   );
 }
@@ -135,6 +136,61 @@ function CartaoEmails() {
         </>
       )}
     </section>
+  );
+}
+
+interface ProdutosPaytour {
+  produtos: Array<{ produto: string; pedidos: number; ultimaVezEm: string }>;
+  passeios: Array<{ id: string; nome: string; unidadeId: string }>;
+  pracas: Array<{ id: string; nome: string }>;
+}
+
+/** Produtos da Paytour que nenhum passeio reconhece: passeio nosso (novo ou existente) ou revenda de terceiros. */
+function ProdutosNaoReconhecidos() {
+  const notificar = useNotificar();
+  const d = useCarregar((s) => api.get<ProdutosPaytour>("/api/integracoes/paytour/produtos", s), []);
+  const [escolha, setEscolha] = useState<Record<string, string>>({});
+  const [erro, setErro] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  async function aplicar(produto: string) {
+    const v = escolha[produto] ?? "";
+    const [acao, id] = v.split(":");
+    setOcupado(produto);
+    setErro(null);
+    try {
+      await api.post("/api/integracoes/paytour/produtos/decidir", { produto, acao, ...(acao === "PASSEIO_EXISTENTE" ? { passeioId: id } : acao === "NOVO_PASSEIO" ? { unidadeId: id } : {}) });
+      notificar(acao === "REVENDA" ? "Marcado como revenda: não entra nas listas." : "Pronto. Use “Reler a partir da data” para trazer as vendas antigas deste produto.");
+      await d.recarregar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    } finally {
+      setOcupado(null);
+    }
+  }
+  const r = d.dados;
+  if (!r || r.produtos.length === 0) return null;
+  return (
+    <div className="integracao__produtos">
+      <h3>Produtos não reconhecidos ({r.produtos.length})</h3>
+      <p className="texto-fraco">Vendas da Paytour que não entraram nas listas porque nenhum passeio reconhece o produto. Diga o que é cada um.</p>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      <ul className="integracao__canais">
+        {r.produtos.map((p) => (
+          <li key={p.produto}>
+            <strong>{p.produto}</strong> <span className="texto-fraco">· {plural(p.pedidos, "venda", "vendas")}</span>
+            <div className="campo campo--linha">
+              <select aria-label={`O que é ${p.produto}`} value={escolha[p.produto] ?? ""} onChange={(e) => setEscolha((x) => ({ ...x, [p.produto]: e.target.value }))}>
+                <option value="">Escolha…</option>
+                <option value="REVENDA">Revenda de terceiros (não entra nas listas)</option>
+                <optgroup label="É um passeio nosso que já existe">{r.passeios.map((x) => <option key={x.id} value={`PASSEIO_EXISTENTE:${x.id}`}>{x.nome}</option>)}</optgroup>
+                <optgroup label="É um passeio nosso novo, na praça">{r.pracas.map((x) => <option key={x.id} value={`NOVO_PASSEIO:${x.id}`}>{x.nome}</option>)}</optgroup>
+              </select>
+              <button type="button" className="botao botao--primario botao--pequeno" disabled={!escolha[p.produto] || ocupado === p.produto} onClick={() => void aplicar(p.produto)}>Aplicar</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

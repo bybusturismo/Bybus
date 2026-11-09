@@ -232,6 +232,13 @@
       "when": 1794253724416,
       "tag": "0032_retirar_mfa",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794262410162,
+      "tag": "0033_paytour_produtos",
+      "breakpoints": true
     }
   ]
 }

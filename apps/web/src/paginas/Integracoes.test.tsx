@@ -42,4 +42,19 @@ describe("Integrações", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Enviar modelos para aprovação" }));
     expect(api.mock.calls.some(([u, i]) => String(u) === "/api/whatsapp/meta/modelos/enviar" && i?.method === "POST")).toBe(true);
   });
+
+  it("produtos da Paytour não reconhecidos: classifica como revenda", async () => {
+    const api = simularApi({
+      "GET /api/integracoes/paytour": { configurada: true, automaticaACadaMinutos: 2, ultimaExecucaoEm: null, ultimoResultado: null, ultimoErro: null },
+      "GET /api/integracoes/emails": { configurada: false, ultimaExecucaoEm: null, ultimoResultado: null },
+      "GET /api/whatsapp/meta": { provedor: "simulado", configurada: false, numeroConfigurado: false, avisosLigados: false, enderecoAvisos: null, erro: null, modelos: [] },
+      "GET /api/integracoes/paytour/produtos": { produtos: [{ produto: "Ingresso Parque Fictício", pedidos: 3, ultimaVezEm: "2026-11-09T12:00:00Z" }], passeios: [{ id: "p1", nome: "City Tour Toda Ilha", unidadeId: "u1" }], pracas: [{ id: "u1", nome: "Florianópolis" }] },
+      "POST /api/integracoes/paytour/produtos/decidir": { ok: true, passeioId: null },
+    });
+    renderizar(<Integracoes />, { sessao: sessaoFicticia("ADMIN", ["importacoes:executar"]) });
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("O que é Ingresso Parque Fictício"), "Revenda de terceiros (não entra nas listas)");
+    await u.click(screen.getByRole("button", { name: "Aplicar" }));
+    expect(corpoEnviado(api, "POST", "/api/integracoes/paytour/produtos/decidir")).toEqual({ produto: "Ingresso Parque Fictício", acao: "REVENDA" });
+  });
 });

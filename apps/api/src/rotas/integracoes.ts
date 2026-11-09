@@ -9,6 +9,8 @@ import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { ClientePaytour, ErroPaytour, estadoPaytour, paytourConfigurada, sincronizarPaytour } from "../servicos/paytour.js";
 import { gravarEstadoIntegracao, lerEstadoIntegracao } from "../servicos/estadoIntegracao.js";
 import { importarReservas, USUARIO_INTEGRACAO } from "../servicos/importacao.js";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { passeios, paytourProdutos, unidades } from "../db/schema.js";
 
 /** ATENCAO: e-mail do canal que pede resposta da equipe (ex.: Decolar pedindo mudança de data ou estorno). */
 export type ResultadoEmail = "IMPORTADO" | "SEM_LEITOR" | "ATENCAO" | "NAO_RECONHECIDO";
@@ -74,6 +76,50 @@ export async function rotasIntegracoes(app: FastifyInstance, { db, config, cofre
   app.get("/api/integracoes/emails", pre, async () => {
     const e = await lerEstadoIntegracao(db, "emails");
     return { configurada: !!config.INTEGRACAO_EMAIL_TOKEN, ultimaExecucaoEm: e?.ultimaExecucaoEm ?? null, ultimoResultado: e?.ultimoResultado ?? null };
+  });
+
+  // ---------- Produtos da Paytour que nenhum passeio reconhece (09/11/2026) ----------
+  const escaparRegex = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  app.get("/api/integracoes/paytour/produtos", pre, async (req) => {
+    const pendentes = await db.select().from(paytourProdutos).where(isNull(paytourProdutos.decisao)).orderBy(desc(paytourProdutos.pedidos));
+    const lista = await db.select({ id: passeios.id, nome: passeios.nome, unidadeId: passeios.unidadeId }).from(passeios).where(eq(passeios.ativo, true)).orderBy(asc(passeios.nome));
+    const pracas = await db.select({ id: unidades.id, nome: unidades.nome, cidade: unidades.cidade }).from(unidades).where(eq(unidades.ativa, true)).orderBy(asc(unidades.nome));
+    const u = req.usuario!;
+    const pode = (id: string) => u.todasUnidades || u.unidadeIds.includes(id);
+    return { produtos: pendentes.map((p) => ({ produto: p.produto, pedidos: p.pedidos, ultimaVezEm: p.ultimaVezEm })), passeios: lista.filter((x) => pode(x.unidadeId)), pracas: pracas.filter((x) => pode(x.id)) };
+  });
+
+  app.post("/api/integracoes/paytour/produtos/decidir", pre, async (req) => {
+    const b = z.object({
+      produto: z.string().min(1).max(300),
+      acao: z.enum(["REVENDA", "PASSEIO_EXISTENTE", "NOVO_PASSEIO"]),
+      passeioId: z.string().uuid().optional(),
+      unidadeId: z.string().uuid().optional(),
+    }).parse(req.body);
+    const u = req.usuario!;
+    const [p] = await db.select().from(paytourProdutos).where(and(eq(paytourProdutos.produto, b.produto), isNull(paytourProdutos.decisao)));
+    if (!p) throw new ErroHttp(404, "NAO_ENCONTRADO", "Produto não encontrado (talvez já classificado).");
+    const exato = `^${escaparRegex(b.produto)}$`;
+    let passeioId: string | null = null;
+    if (b.acao === "PASSEIO_EXISTENTE") {
+      const [x] = b.passeioId ? await db.select().from(passeios).where(eq(passeios.id, b.passeioId)) : [];
+      if (!x || !(u.todasUnidades || u.unidadeIds.includes(x.unidadeId))) throw new ErroHttp(404, "NAO_ENCONTRADO", "Passeio não encontrado.");
+      await db.update(passeios).set({ padraoProduto: x.padraoProduto ? `(?:${x.padraoProduto})|${exato}` : exato }).where(eq(passeios.id, x.id));
+      passeioId = x.id;
+    } else if (b.acao === "NOVO_PASSEIO") {
+      const [pr] = b.unidadeId ? await db.select().from(unidades).where(eq(unidades.id, b.unidadeId)) : [];
+      if (!pr || !(u.todasUnidades || u.unidadeIds.includes(pr.id))) throw new ErroHttp(400, "SEM_PRACA", "Escolha a praça do passeio novo.");
+      const base = b.produto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40) || "PASSEIO";
+      const existentes = new Set((await db.select({ c: passeios.codigo }).from(passeios)).map((x) => x.c));
+      let codigo = base;
+      for (let i = 2; existentes.has(codigo); i++) codigo = `${base}_${i}`;
+      const [novo] = await db.insert(passeios).values({ codigo, nome: b.produto.slice(0, 150), cidade: pr.cidade, unidadeId: pr.id, capacidadePadrao: 46, minimoConfirmacao: 1, minimoSupervisor: 1, padraoProduto: exato })
+        .returning({ id: passeios.id });
+      passeioId = novo!.id;
+    }
+    await db.update(paytourProdutos).set({ decisao: b.acao === "REVENDA" ? "REVENDA" : "PASSEIO", passeioId, decididoPor: u.id, decididoEm: new Date() }).where(eq(paytourProdutos.produto, b.produto));
+    await auditar(db, req, "PAYTOUR_PRODUTO_CLASSIFICADO", { tipo: "importacao" }, { acao: b.acao, passeioId });
+    return { ok: true, passeioId };
   });
 
   /** Situação da conexão com a Paytour (sem expor as credenciais). */
