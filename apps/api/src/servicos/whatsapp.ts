@@ -1,3 +1,4 @@
+import type { UsoModelo } from "@bybus/core";
 import type { Config } from "../config.js";
 
 /**
@@ -10,8 +11,13 @@ import type { Config } from "../config.js";
 export type ResultadoEnvio = { status: "ENVIADA" | "SIMULADA" | "FALHA"; provedor: string; erro?: string; /** Id da mensagem no WhatsApp (para deduplicar o aviso que a Evolution manda depois). */ idExterno?: string };
 
 export function envioReal(c: Config): boolean {
-  return c.WHATSAPP_PROVEDOR === "evolution" && !!c.EVOLUTION_URL && !!c.EVOLUTION_API_KEY && (c.AMBIENTE === "producao" || c.WHATSAPP_ENVIO_REAL);
+  const liberado = c.AMBIENTE === "producao" || c.WHATSAPP_ENVIO_REAL;
+  if (c.WHATSAPP_PROVEDOR === "meta") return liberado && !!c.META_WA_TOKEN && !!c.META_WA_NUMERO_ID;
+  return c.WHATSAPP_PROVEDOR === "evolution" && !!c.EVOLUTION_URL && !!c.EVOLUTION_API_KEY && liberado;
 }
+
+/** O provedor manda para grupos? A Meta não (a lista vai à guia e ao motorista, um a um). */
+export const enviaParaGrupo = (c: Config) => c.WHATSAPP_PROVEDOR !== "meta";
 
 /** Telefone em dígitos com DDI (Brasil quando vier sem); grupo = JID "...@g.us". Inválido → null. */
 export function normalizarDestino(destino: string | null | undefined): string | null {
@@ -32,8 +38,40 @@ export function chaveTelefone(normalizado: string): string {
   return normalizado;
 }
 
-export async function enviarWhatsapp(c: Config, destino: string, texto: string, buscar: typeof fetch = fetch): Promise<ResultadoEnvio> {
+/**
+ * Opções do WhatsApp oficial: dentro da janela de 24 h (o cliente escreveu nas últimas 24 h) vale texto livre; fora dela,
+ * só um modelo aprovado. Sem modelo fora da janela → FALHA "FORA_DA_JANELA" (a equipe responde quando o cliente escrever).
+ */
+export interface OpcoesEnvio { janelaAberta?: boolean; modelo?: UsoModelo | null }
+
+async function enviarMeta(c: Config, destino: string, texto: string, o: OpcoesEnvio, buscar: typeof fetch): Promise<ResultadoEnvio> {
+  if (destino.endsWith("@g.us")) return { status: "FALHA", provedor: "meta", erro: "GRUPO_NAO_SUPORTADO" };
+  let corpo: Record<string, unknown>;
+  if (o.janelaAberta) corpo = { type: "text", text: { body: texto.slice(0, 4096), preview_url: false } };
+  else if (o.modelo) {
+    corpo = { type: "template", template: { name: o.modelo.nome, language: { code: o.modelo.idioma },
+      components: [{ type: "body", parameters: o.modelo.parametros.map((t) => ({ type: "text", text: t })) }] } };
+  } else return { status: "FALHA", provedor: "meta", erro: "FORA_DA_JANELA" };
+  try {
+    const r = await buscar(`${c.META_GRAPH_URL.replace(/\/$/, "")}/${c.META_API_VERSAO}/${c.META_WA_NUMERO_ID}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${c.META_WA_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: destino, ...corpo }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const json = (await r.json().catch(() => null)) as { messages?: Array<{ id?: unknown }>; error?: { code?: unknown } } | null;
+    // Só o código do erro da Meta vai para o registro (nunca texto nem telefone).
+    if (!r.ok) return { status: "FALHA", provedor: "meta", erro: `HTTP ${r.status}${json?.error?.code ? ` · ${String(json.error.code).slice(0, 12)}` : ""}` };
+    const id = json?.messages?.[0]?.id;
+    return { status: "ENVIADA", provedor: "meta", ...(typeof id === "string" ? { idExterno: id.slice(0, 200) } : {}) };
+  } catch (e) {
+    return { status: "FALHA", provedor: "meta", erro: e instanceof Error ? e.name : "erro" };
+  }
+}
+
+export async function enviarWhatsapp(c: Config, destino: string, texto: string, buscar: typeof fetch = fetch, opcoes: OpcoesEnvio = {}): Promise<ResultadoEnvio> {
   if (!envioReal(c)) return { status: "SIMULADA", provedor: "simulado" };
+  if (c.WHATSAPP_PROVEDOR === "meta") return enviarMeta(c, destino, texto, opcoes, buscar);
   const url = `${c.EVOLUTION_URL!.replace(/\/$/, "")}/message/sendText/${encodeURIComponent(c.EVOLUTION_INSTANCIA)}`;
   try {
     const r = await buscar(url, {

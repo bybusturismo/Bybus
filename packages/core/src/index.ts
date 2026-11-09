@@ -13,6 +13,7 @@ export * from "./importadores/decolar-email.js";
 export * from "./sugestao-ponto.js";
 export * from "./mensagens.js";
 export * from "./confirmacao.js";
+export * from "./whatsappMeta.js";
 export * from "./frota/index.js";
 export * from "./marketing/marketing.js";
 export * from "./biblioteca/markdown.js";

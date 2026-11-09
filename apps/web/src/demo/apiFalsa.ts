@@ -729,6 +729,10 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     demoIntegracao.paytour = { de: "", ate: "", pedidos: 2, resumo: { CRIAR: 0, ATUALIZAR: 2, CANCELAR: 0, IGNORAR: 0 } };
     return { de: "", ate: "", pedidos: 2, previa: [], resumo: { CRIAR: 0, ATUALIZAR: 2, CANCELAR: 0, IGNORAR: 0 } };
   }
+  if (metodo === "GET" && caminho === "/api/whatsapp/meta") {
+    exigir("importacoes:executar");
+    return { provedor: "simulado", configurada: false, numeroConfigurado: false, avisosLigados: false, enderecoAvisos: null, erro: null, modelos: [] };
+  }
   if (metodo === "GET" && caminho === "/api/integracoes/emails") {
     exigir("importacoes:executar");
     return { configurada: true, ultimaExecucaoEm: demoIntegracao.emailsEm, ultimoResultado: { mensagens: 3, CRIAR: 2, ATUALIZAR: 1, CANCELAR: 0, IGNORAR: 0, semLeitor: 0, precisamAtencao: 1, naoReconhecidas: 0 } };

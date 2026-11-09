@@ -26,7 +26,18 @@ Pedido do dono: "o WhatsApp precisa de uma tela que mostre as trocas de mensagen
 - Aceita só `messages.upsert`, `messages.update` e `connection.update`; ignora grupos (`@g.us`), status, canais, reações e outras instâncias. Mensagens enviadas pelo celular entram como saída. Duplicadas (mesmo `idExterno`) são ignoradas.
 - **Log:** o token é mascarado (`/api/interno/whatsapp/***`) e nenhum texto, telefone ou nome vai para log. A auditoria da resposta guarda só o id da conversa.
 
-### Configurar
+### WhatsApp oficial da Meta (ADR 0010, decisão de 09/11/2026)
+1. Meta: verificação da empresa (portfólio **Floripa by Bus**), aplicativo **Bybus Gestão** (caso de uso WhatsApp), número da By Bus,
+   forma de pagamento e **usuário do sistema** com token permanente (`whatsapp_business_messaging`, `whatsapp_business_management`).
+2. Servidor (`/opt/bybus/implantacao/.env`): `WHATSAPP_PROVEDOR=meta`, `META_WA_TOKEN`, `META_WA_NUMERO_ID`, `META_WA_CONTA_ID`,
+   `META_APP_SECRET` (Configurações do app › Básico) e `META_WA_VERIFY_TOKEN` (o instalador gera). Rodar o instalador de novo.
+3. Meta › WhatsApp › Configuração: endereço de retorno `https://gestao.bybusturismo.com.br/api/webhooks/whatsapp`, token de verificação =
+   `META_WA_VERIFY_TOKEN`; assinar o campo **messages**.
+4. Sistema › Integrações › WhatsApp oficial: **Enviar modelos para aprovação** e acompanhar (Aprovado / Em análise / Recusado).
+5. Regras: fora de 24 h desde a última mensagem do cliente, só modelo; a tela de Conversas recusa texto livre nesse caso. Lista das 21h
+   vai à guia e ao motorista (sem grupos). Revisão de segurança da rota pública em `apps/api/src/rotas/whatsappMeta.ts`.
+
+### Configurar (Evolution — reserva)
 **Jeito rápido (09/11/2026):** no servidor, `bash /opt/bybus/implantacao/ligar-whatsapp.sh` faz os passos abaixo (gera as chaves que faltam,
 liga a Evolution, cria a instância, configura o aviso para o Bybus) e pede o número: mostra um **código de 8 letras** para digitar no celular em
 WhatsApp > Aparelhos conectados > Conectar com número de telefone. Testado contra a Evolution 2.3.7 (criar instância, webhook, estado). Decisão do

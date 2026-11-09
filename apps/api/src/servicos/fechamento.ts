@@ -1,13 +1,13 @@
 import { and, eq, gte, inArray, isNull, ne, type SQL } from "drizzle-orm";
-import { textoListaGrupo } from "@bybus/core";
+import { modeloListaEquipe, textoListaGrupo, type UsoModelo } from "@bybus/core";
 import { auditar } from "../auditoria.js";
 import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
-import { fechamentos, mensagens, passeios, reservas, saidas } from "../db/schema.js";
+import { fechamentos, mensagens, passeios, pessoas, reservas, saidas, waConversas } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
 import { carregarManifesto } from "./manifesto.js";
 import { confirmarSaida, rodarConfirmacaoVespera, situacaoConfirmacao, viatorSemResposta } from "./confirmacao.js";
-import { enviarWhatsapp, normalizarDestino } from "./whatsapp.js";
+import { chaveTelefone, enviaParaGrupo, enviarWhatsapp, normalizarDestino } from "./whatsapp.js";
 import { registrarSaidaFila } from "./whatsappConversas.js";
 import { mensagemDoMotoristaTransfer, sincronizarTransfer, transferNaLista } from "./transfer.js";
 
@@ -21,18 +21,25 @@ export function agoraSp(agora = new Date()) {
   return { hoje, amanha, hora: `${v("hour")}:${v("minute")}` };
 }
 
-/** Coloca a mensagem na fila (uma por reserva e tipo) e tenta enviar já. */
-export async function enfileirarMensagem(db: Db, config: Config, m: { tipo: string; reservaId: string | null; saidaId: string | null; destino: string | null; texto: string }) {
+/** Coloca a mensagem na fila (uma por reserva e tipo) e tenta enviar já. `modelo`: o modelo da Meta usado fora da janela de 24 h. */
+export async function enfileirarMensagem(db: Db, config: Config, m: { tipo: string; reservaId: string | null; saidaId: string | null; destino: string | null; texto: string; modelo?: UsoModelo | null }) {
   const destino = normalizarDestino(m.destino);
   const [nova] = await db.insert(mensagens).values({ ...m, destino, status: destino ? "PENDENTE" : "SEM_TELEFONE" }).onConflictDoNothing().returning();
   if (nova && destino) await enviarMensagem(db, config, nova.id);
   return nova ?? null;
 }
 
+/** O cliente escreveu nas últimas 24 h? (WhatsApp oficial: dentro da janela vale texto livre.) */
+async function janelaAberta(db: Db, destino: string) {
+  if (destino.endsWith("@g.us")) return false;
+  const [c] = await db.select({ ultima: waConversas.ultimaEntradaEm }).from(waConversas).where(eq(waConversas.chave, chaveTelefone(destino)));
+  return !!c?.ultima && Date.now() - c.ultima.getTime() < 24 * 3_600_000;
+}
+
 export async function enviarMensagem(db: Db, config: Config, id: string) {
   const [m] = await db.select().from(mensagens).where(eq(mensagens.id, id));
   if (!m || !m.destino || m.status === "ENVIADA") return;
-  const r = await enviarWhatsapp(config, m.destino, m.texto);
+  const r = await enviarWhatsapp(config, m.destino, m.texto, fetch, { janelaAberta: await janelaAberta(db, m.destino), modelo: m.modelo ?? null });
   await db.update(mensagens).set({ status: r.status, provedor: r.provedor, erro: r.erro ?? null, enviadaEm: r.status === "ENVIADA" ? new Date() : null }).where(eq(mensagens.id, id));
   await registrarSaidaFila(db, m, r); // também aparece na conversa do destinatário (grupo fica de fora)
 }
@@ -62,7 +69,22 @@ export async function fecharLista(db: Db, cofre: Cofre, config: Config, saidaId:
   });
   await auditar(db, null, quem.automatico ? "LISTA_FECHADA_AUTOMATICA" : "LISTA_FECHADA", { tipo: "saida", id: saidaId }, { versao, ...resumo }, quem.usuarioId);
 
-  if (config.WHATSAPP_GRUPO_LISTA) await enfileirarMensagem(db, config, { tipo: `LISTA_GRUPO_V${versao}`, reservaId: null, saidaId, destino: config.WHATSAPP_GRUPO_LISTA, texto });
+  if (enviaParaGrupo(config)) {
+    if (config.WHATSAPP_GRUPO_LISTA) await enfileirarMensagem(db, config, { tipo: `LISTA_GRUPO_V${versao}`, reservaId: null, saidaId, destino: config.WHATSAPP_GRUPO_LISTA, texto });
+  } else {
+    // WhatsApp oficial não manda para grupos: a lista vai à guia e ao motorista, um a um. Fora da janela de 24 h vai o modelo
+    // com o link da lista no sistema (que exige login: nada de nomes de passageiros fora do sistema).
+    const equipe = [saida.guiaId, saida.motoristaId].filter((x): x is string => !!x);
+    const pessoasEquipe = equipe.length ? await db.select({ id: pessoas.id, nome: pessoas.nome, telefone: pessoas.telefone }).from(pessoas).where(inArray(pessoas.id, equipe)) : [];
+    const link = config.URL_PUBLICA ? `${config.URL_PUBLICA.replace(/\/$/, "")}/saidas/${saidaId}` : "";
+    for (const p of pessoasEquipe) {
+      if (!p.telefone) continue;
+      await enfileirarMensagem(db, config, {
+        tipo: `LISTA_${p.id === saida.guiaId ? "GUIA" : "MOTORISTA"}_V${versao}`, reservaId: null, saidaId, destino: p.telefone, texto,
+        modelo: link ? modeloListaEquipe({ primeiroNome: p.nome.split(/\s+/)[0] ?? "", passeio: passeio.nome, data: saida.data, versao, link }) : null,
+      });
+    }
+  }
 
   // Lista do transfer para o motorista da van (sem telefones de passageiros; respeita o modo simulado do WhatsApp).
   const msgTransfer = transferResumo ? await mensagemDoMotoristaTransfer(db, saidaId) : null;

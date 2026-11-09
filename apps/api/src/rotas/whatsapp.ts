@@ -38,7 +38,7 @@ export async function rotasWhatsapp(app: FastifyInstance, { db, config }: Contex
     return c;
   }
 
-  const modo = () => ({ provedor: config.WHATSAPP_PROVEDOR, envioReal: envioReal(config), simulado: !envioReal(config), avisosLigados: !!config.WHATSAPP_WEBHOOK_TOKEN, conexao: conexaoEvolution.estado, instagram: estadoInstagram(config) });
+  const modo = () => ({ provedor: config.WHATSAPP_PROVEDOR, envioReal: envioReal(config), simulado: !envioReal(config), avisosLigados: config.WHATSAPP_PROVEDOR === "meta" ? !!config.META_APP_SECRET && !!config.META_WA_VERIFY_TOKEN : !!config.WHATSAPP_WEBHOOK_TOKEN, conexao: conexaoEvolution.estado, instagram: estadoInstagram(config) });
 
   // ---------- Aviso da Evolution (rede interna do Docker; sem login) ----------
   // Só a Evolution chama, por http://api:3333/api/interno/whatsapp/<token>. Quem vem da internet passa pelo Caddy, que sempre
@@ -153,7 +153,11 @@ export async function rotasWhatsapp(app: FastifyInstance, { db, config }: Contex
     }
     const destino = c.jid ?? (c.telefone.startsWith("lid:") ? null : c.telefone);
     if (!destino) throw new ErroHttp(400, "SEM_DESTINO", "Esta conversa não tem um endereço para resposta.");
-    const r = await enviarWhatsapp(config, destino, texto);
+    // WhatsApp oficial: texto livre só dentro de 24 h da última mensagem do cliente (a tela avisa quando a janela fechou).
+    if (config.WHATSAPP_PROVEDOR === "meta" && envioReal(config) && !janelaResposta(c.ultimaEntradaEm).aberta) {
+      throw new ErroHttp(409, "JANELA_24H_FECHADA", "Já se passaram mais de 24 horas desde a última mensagem do cliente: pelo WhatsApp oficial só dá para responder depois que ele escrever de novo (ou com um modelo aprovado).");
+    }
+    const r = await enviarWhatsapp(config, destino, texto, fetch, { janelaAberta: true });
     const m = await gravarSaida(db, { conversaId: c.id, texto, status: r.status, idExterno: r.idExterno, enviadaPor: usuarioId });
     await db.update(waConversas).set({ naoLidas: 0 }).where(eq(waConversas.id, c.id));
     // LGPD: a auditoria guarda só a conversa (nunca o texto nem o telefone).

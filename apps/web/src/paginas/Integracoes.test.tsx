@@ -16,6 +16,7 @@ describe("Integrações", () => {
       "GET /api/integracoes/paytour": { configurada: true, automaticaACadaMinutos: 2, ultimaExecucaoEm: "2026-11-04T12:00:00Z", ultimoResultado: { pedidos: 4, resumo: { CRIAR: 4, ATUALIZAR: 0, CANCELAR: 0, IGNORAR: 0 } }, ultimoErro: null },
       "GET /api/integracoes/emails": { configurada: false, ultimaExecucaoEm: null, ultimoResultado: null },
       "POST /api/integracoes/paytour/sincronizar": { de: "", ate: "", pedidos: 1, previa: [], resumo: { CRIAR: 1, ATUALIZAR: 0, CANCELAR: 0, IGNORAR: 0 } },
+      "GET /api/whatsapp/meta": { provedor: "simulado", configurada: false, numeroConfigurado: false, avisosLigados: false, enderecoAvisos: null, erro: null, modelos: [] },
     });
     renderizar(<Integracoes />, { sessao: sessaoFicticia("ADMIN", ["importacoes:executar"]) });
     expect(await screen.findByText("4 pedidos lidos · 4 reservas novas")).toBeInTheDocument();
@@ -25,5 +26,20 @@ describe("Integrações", () => {
     await u.type(screen.getByLabelText("Reler desde"), "2026-10-01");
     await u.click(screen.getByRole("button", { name: "Reler a partir da data" }));
     expect(corpoEnviado(api, "POST", "/api/integracoes/paytour/sincronizar")).toEqual({ desde: "2026-10-01" });
+  });
+
+  it("WhatsApp oficial: mostra a situação dos modelos e envia os que faltam para aprovação", async () => {
+    const api = simularApi({
+      "GET /api/integracoes/paytour": { configurada: false, automaticaACadaMinutos: 2, ultimaExecucaoEm: null, ultimoResultado: null, ultimoErro: null },
+      "GET /api/integracoes/emails": { configurada: false, ultimaExecucaoEm: null, ultimoResultado: null },
+      "GET /api/whatsapp/meta": { provedor: "meta", configurada: true, numeroConfigurado: true, avisosLigados: true, enderecoAvisos: "https://gestao.exemplo.test/api/webhooks/whatsapp", erro: null,
+        modelos: [{ nome: "bybus_previa", descricao: "Prévia da véspera", status: "APPROVED", motivo: null }, { nome: "bybus_confirmacao", descricao: "Confirmação da saída", status: "NAO_ENVIADO", motivo: null }] },
+      "POST /api/whatsapp/meta/modelos/enviar": { enviados: ["bybus_confirmacao"], erros: [] },
+    });
+    renderizar(<Integracoes />, { sessao: sessaoFicticia("ADMIN", ["importacoes:executar"]) });
+    expect(await screen.findByText("Aprovado")).toBeInTheDocument();
+    expect(screen.getByText("https://gestao.exemplo.test/api/webhooks/whatsapp")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Enviar modelos para aprovação" }));
+    expect(api.mock.calls.some(([u, i]) => String(u) === "/api/whatsapp/meta/modelos/enviar" && i?.method === "POST")).toBe(true);
   });
 });

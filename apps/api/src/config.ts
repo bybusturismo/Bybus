@@ -35,8 +35,21 @@ const esquema = z.object({
    * permitido só em desenvolvimento, com autorização do dono registrada (ADR 0006, 04/11/2026).
    */
   DADOS_REAIS_AUTORIZADOS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
-  /** WhatsApp: "simulado" (padrão, nada sai) ou "evolution" (Evolution API; ver servicos/whatsapp.ts). */
-  WHATSAPP_PROVEDOR: z.enum(["simulado", "evolution"]).default("simulado"),
+  /** WhatsApp: "simulado" (padrão, nada sai), "meta" (oficial, Cloud API; ADR 0010) ou "evolution" (não oficial; ver servicos/whatsapp.ts). */
+  WHATSAPP_PROVEDOR: z.enum(["simulado", "evolution", "meta"]).default("simulado"),
+  /**
+   * WhatsApp oficial (Meta Cloud API). Token permanente do usuário do sistema (whatsapp_business_messaging e _management),
+   * ID do número e ID da conta do WhatsApp Business. Segredos só no .env/cofre, nunca no chat nem no Git.
+   */
+  META_WA_TOKEN: z.string().optional().transform((v) => v?.trim() || undefined),
+  META_WA_NUMERO_ID: z.string().regex(/^\d{5,30}$/, "META_WA_NUMERO_ID deve ser numérico").optional(),
+  META_WA_CONTA_ID: z.string().regex(/^\d{5,30}$/, "META_WA_CONTA_ID deve ser numérico").optional(),
+  /** Segredo do aplicativo da Meta: confere a assinatura dos avisos (webhook) do WhatsApp. */
+  META_APP_SECRET: z.string().min(16, "META_APP_SECRET deve ter pelo menos 16 caracteres").optional(),
+  /** Palavra combinada com a Meta na verificação do endereço do aviso. Gere com: openssl rand -hex 24 */
+  META_WA_VERIFY_TOKEN: z.string().min(16, "META_WA_VERIFY_TOKEN deve ter pelo menos 16 caracteres").optional(),
+  META_API_VERSAO: z.string().regex(/^v\d+\.\d+$/, "Use o formato v23.0").default("v23.0"),
+  META_GRAPH_URL: z.string().url().default("https://graph.facebook.com"),
   EVOLUTION_URL: z.string().url().optional(),
   EVOLUTION_API_KEY: z.string().min(8).optional(),
   EVOLUTION_INSTANCIA: z.string().min(1).default("bybus"),

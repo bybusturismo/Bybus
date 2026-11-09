@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
-  avaliarConfirmacao, HORAS_SEM_RESPOSTA_VIATOR, idiomaDoCliente, REGRAS_CONFIRMACAO_PADRAO, textoViatorSemResposta, regiaoComTransito, textoConfirmacao, textoPrevia,
+  avaliarConfirmacao, HORAS_SEM_RESPOSTA_VIATOR, idiomaDoCliente, modeloConfirmacao, modeloPrevia, REGRAS_CONFIRMACAO_PADRAO, textoViatorSemResposta, regiaoComTransito, textoConfirmacao, textoPrevia,
   type ContarPor, type DecisaoConfirmacao, type RegrasConfirmacao,
 } from "@bybus/core";
 import { auditar } from "../auditoria.js";
@@ -76,9 +76,9 @@ export async function enviarConfirmacoes(db: Db, config: Config, saidaId: string
     // Aviso de trânsito: hospedado no continente, norte ou Lagoa e embarcando fora da própria região.
     const regiaoHotel = regiaoComTransito(r.hospedagemInformada);
     const transitoIntenso = !!p && !p.ehTransfer && !!regiaoHotel && regiaoHotel !== regiaoComTransito(p.nome, p.endereco);
+    const dados = { primeiroNome: primeiroNome(r.contatoNome), passeio: s.passeio, data: s.saida.data, ponto: p, linkEmbarque: link, linkJaEnviado, transfer, transitoIntenso };
     const m = await enfileirarMensagem(db, config, {
-      tipo: "CONFIRMACAO", reservaId: r.id, saidaId, destino: r.contatoTelefone,
-      texto: textoConfirmacao({ primeiroNome: primeiroNome(r.contatoNome), passeio: s.passeio, data: s.saida.data, ponto: p, linkEmbarque: link, linkJaEnviado, transfer, transitoIntenso }),
+      tipo: "CONFIRMACAO", reservaId: r.id, saidaId, destino: r.contatoTelefone, texto: textoConfirmacao(dados), modelo: modeloConfirmacao(dados),
     });
     if (m) n++;
   }
@@ -97,9 +97,9 @@ async function enviarPrevias(db: Db, config: Config, saidaId: string) {
     if (ja.has(r.id)) continue;
     const semPonto = !r.pontoEmbarqueId;
     const link = semPonto && config.URL_PUBLICA ? `${config.URL_PUBLICA.replace(/\/$/, "")}${(await gerarLinkEmbarque(db, r.id)).caminho}` : null;
+    const dados = { primeiroNome: primeiroNome(r.contatoNome), passeio: s.passeio, data: s.data, linkEmbarque: link, semPonto };
     const m = await enfileirarMensagem(db, config, {
-      tipo: "PREVIA", reservaId: r.id, saidaId, destino: r.contatoTelefone,
-      texto: textoPrevia({ primeiroNome: primeiroNome(r.contatoNome), passeio: s.passeio, data: s.data, linkEmbarque: link, semPonto }),
+      tipo: "PREVIA", reservaId: r.id, saidaId, destino: r.contatoTelefone, texto: textoPrevia(dados), modelo: modeloPrevia(dados),
     });
     if (m) n++;
   }

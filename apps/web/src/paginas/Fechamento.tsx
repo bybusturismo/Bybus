@@ -11,7 +11,7 @@ import { formatarDataCurta, formatarDataHora, hojeIso, somarDias } from "../util
 import { useCarregar } from "../util/useCarregar";
 
 const ROTULO_STATUS: Record<string, string> = { ENVIADA: "Enviadas", SIMULADA: "Simuladas", PENDENTE: "Na fila", SEM_TELEFONE: "Sem telefone", FALHA: "Falharam" };
-const ROTULO_TIPO = (t: string) => (t.startsWith("LISTA_GRUPO") ? "Lista no grupo" : ({ CONFIRMACAO: "Confirmação da véspera", PREVIA: "Prévia (montando a lista)", VOUCHER: "Voucher", RASTREIO: "Rastreamento" } as Record<string, string>)[t] ?? t);
+const ROTULO_TIPO = (t: string) => (t.startsWith("LISTA_GRUPO") ? "Lista no grupo" : t.startsWith("LISTA_GUIA") ? "Lista para a guia" : t.startsWith("LISTA_MOTORISTA") ? "Lista para o motorista" : ({ CONFIRMACAO: "Confirmação da véspera", PREVIA: "Prévia (montando a lista)", VOUCHER: "Voucher", RASTREIO: "Rastreamento" } as Record<string, string>)[t] ?? t);
 
 function TextoLista({ titulo, texto, aoFechar }: { titulo: string; texto: string; aoFechar: () => void }) {
   const notificar = useNotificar();

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, isNull, lt } from "drizzle-orm";
-import { compararPontos, textoRastreio } from "@bybus/core";
+import { compararPontos, modeloRastreio, textoRastreio } from "@bybus/core";
 import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
 import { mensagens, pontosEmbarque, rastreioLinks, rastreioPosicoes, rastreioSessoes, reservas, saidas } from "../db/schema.js";
@@ -55,6 +55,7 @@ export async function enviarLinksRastreio(db: Db, config: Config, saida: { id: s
     const m = await enfileirarMensagem(db, config, {
       tipo: "RASTREIO", reservaId: r.id, saidaId: saida.id, destino: r.contatoTelefone,
       texto: textoRastreio({ primeiroNome: r.contatoNome.split(/[\s,]+/).filter(Boolean)[0] ?? "", passeio: passeioNome, link: `${base}/rastreio/${token}` }),
+      modelo: modeloRastreio({ primeiroNome: r.contatoNome.split(/[\s,]+/).filter(Boolean)[0] ?? "", passeio: passeioNome, link: `${base}/rastreio/${token}` }),
     });
     if (m) enfileiradas++;
   }

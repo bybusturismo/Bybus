@@ -82,3 +82,9 @@ Escolha do dono (igual ao APP TOMA): Evolution API (WhatsApp Web, **não oficial
 
 ## Instagram (decisão do dono, 06/11/2026)
 Integração pela **API oficial da Meta**, "Instagram API com Instagram Login" (conta profissional da própria empresa: acesso padrão, sem revisão de aplicativo). Três usos: dados da conta no Marketing, responder Direct e comentários pela tela **Conversas** (junto do WhatsApp) e agendar posts no Calendário de conteúdo. Regra da Meta: Direct só pode ser respondido até 24 horas depois da última mensagem do cliente. Tudo nasce em **modo simulado** (sem token, nada sai); só fala com a Meta em produção ou com `INSTAGRAM_ENVIO_REAL=true`. Passo a passo, segurança e itens "a confirmar" em `docs/produto/modulo-instagram.md`.
+
+## WhatsApp: decisão final (dono, 09/11/2026)
+- **WhatsApp oficial da Meta** (Cloud API), com custo por mensagem aprovado pelo dono; a Evolution fica como reserva. ADR 0010.
+- Portfólio da Meta: **Floripa by Bus** (há também o BC by Bus); aplicativo "Bybus Gestão" criado; verificação da empresa enviada (resposta em até 48 h).
+- Número do WhatsApp: a decidir pelo dono.
+- Tripadvisor por praça: Floripa by Bus (g303576-d2362697) e BC by Bus (g680306-d10686390) — links cadastrados no sistema.

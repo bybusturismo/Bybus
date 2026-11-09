@@ -61,7 +61,7 @@ const AVISO_TRANSITO = "Você está numa região com trânsito intenso pela manh
  * região de trânsito intenso sai mais cedo; o transfer tem horário padrão e qualquer mudança é avisada pelo WhatsApp.
  * [A CONFIRMAR] texto oficial com o dono.
  */
-export function textoConfirmacao(d: {
+export interface DadosConfirmacao {
   primeiroNome: string; passeio: string; data: string; ponto: { horario: string; nome: string; endereco: string | null } | null; linkEmbarque: string | null;
   /** Quem vem de transfer: horário de busca, local e taxa a pagar ao motorista. */
   transfer?: { horario: string | null; local: string | null; taxaACobrarCentavos: number } | null;
@@ -69,9 +69,11 @@ export function textoConfirmacao(d: {
   transitoIntenso?: boolean;
   /** O link de embarque já foi na prévia da manhã (gerar outro invalidaria o primeiro). */
   linkJaEnviado?: boolean;
-}): string {
-  const ola = d.primeiroNome ? `Olá, ${d.primeiroNome}!` : "Olá!";
-  const linhas = [`${ola} Seu passeio *${d.passeio}* de amanhã, ${semanaBr(d.data)} (${dataBr(d.data)}), está confirmado! 🚌`];
+}
+
+/** Linhas do meio da confirmação (embarque, transfer ou pedido do ponto): as mesmas no texto livre e no modelo da Meta. */
+export function detalhesConfirmacao(d: DadosConfirmacao): string[] {
+  const linhas: string[] = [];
   if (d.transfer) {
     linhas.push(d.transfer.horario
       ? `Transfer: vamos buscar você${d.transfer.local ? ` em ${d.transfer.local}` : ""} às *${d.transfer.horario}*. Aguarde em frente ao hotel 10 minutos antes: a van é pontual e não há tolerância para atrasos. Se o horário mudar, avisaremos por aqui.`
@@ -89,8 +91,19 @@ export function textoConfirmacao(d: {
         : "Falta só o seu ponto de embarque: responda esta mensagem com o hotel ou endereço onde está hospedado(a).");
     linhas.push("Se o seu hotel não tiver embarque, indicaremos o ponto mais próximo.");
   }
-  linhas.push("No dia, enviaremos o link para acompanhar o ônibus. Bom passeio! — Equipe By Bus");
-  return linhas.join("\n");
+  return linhas;
+}
+
+/** "sábado (14/11/2026)": como a data aparece nas mensagens da véspera. */
+export const diaComData = (iso: string) => `${semanaBr(iso)} (${dataBr(iso)})`;
+
+export function textoConfirmacao(d: DadosConfirmacao): string {
+  const ola = d.primeiroNome ? `Olá, ${d.primeiroNome}!` : "Olá!";
+  return [
+    `${ola} Seu passeio *${d.passeio}* de amanhã, ${diaComData(d.data)}, está confirmado! 🚌`,
+    ...detalhesConfirmacao(d),
+    "No dia, enviaremos o link para acompanhar o ônibus. Bom passeio! — Equipe By Bus",
+  ].join("\n");
 }
 
 /**

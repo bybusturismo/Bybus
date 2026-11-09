@@ -138,6 +138,79 @@ function CartaoEmails() {
   );
 }
 
+interface SituacaoMeta {
+  provedor: string; configurada: boolean; numeroConfigurado: boolean; avisosLigados: boolean; enderecoAvisos: string | null; erro: string | null;
+  modelos: Array<{ nome: string; descricao: string; status: string; motivo: string | null }>;
+}
+const ROTULO_MODELO: Record<string, { texto: string; classe: string }> = {
+  APPROVED: { texto: "Aprovado", classe: "etiqueta--sucesso" }, PENDING: { texto: "Em análise", classe: "etiqueta--neutra" },
+  REJECTED: { texto: "Recusado", classe: "etiqueta--perigo" }, PAUSED: { texto: "Pausado", classe: "etiqueta--atencao" },
+  DISABLED: { texto: "Desativado", classe: "etiqueta--perigo" }, NAO_ENVIADO: { texto: "Não enviado", classe: "etiqueta--neutra" },
+};
+
+/** WhatsApp oficial da Meta (ADR 0010): conexão e modelos de mensagem aprovados. */
+function CartaoWhatsappMeta() {
+  const notificar = useNotificar();
+  const sit = useCarregar((sinal) => api.get<SituacaoMeta>("/api/whatsapp/meta", sinal), []);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const s = sit.dados;
+  async function enviar() {
+    setEnviando(true);
+    setErro(null);
+    try {
+      const r = await api.post<{ enviados: string[]; erros: Array<{ nome: string; erro: string }> }>("/api/whatsapp/meta/modelos/enviar");
+      notificar(r.enviados.length ? `${plural(r.enviados.length, "modelo enviado", "modelos enviados")} para aprovação.` : "Nenhum modelo novo para enviar.");
+      if (r.erros.length) setErro(r.erros.map((e) => `${e.nome}: ${e.erro}`).join(" · "));
+      await sit.recarregar();
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setEnviando(false);
+    }
+  }
+  const faltam = s?.modelos.some((m) => m.status === "NAO_ENVIADO");
+  return (
+    <section className="cartao integracao tinta--verde" aria-labelledby="titulo-wa-meta">
+      <header className="integracao__cabecalho">
+        <span className="integracao__icone" aria-hidden="true"><Icone nome="mensagem" tamanho={22} /></span>
+        <div>
+          <h2 id="titulo-wa-meta">WhatsApp oficial (Meta)</h2>
+          <p className="texto-fraco">Mensagens aos clientes pelo número oficial da By Bus. Fora das 24 h desde a última mensagem do cliente, só saem os modelos aprovados pela Meta.</p>
+        </div>
+      </header>
+      {sit.carregando && !s ? <Carregando /> : sit.erro ? <ErroCarga mensagem={sit.erro} tentarDeNovo={sit.recarregar} /> : s && (
+        <>
+          <ul className="integracao__canais">
+            <li><span className={`etiqueta ${s.provedor === "meta" ? "etiqueta--sucesso" : "etiqueta--neutra"}`}>{s.provedor === "meta" ? "Ligado" : "Desligado"}</span> Envio pelo WhatsApp oficial{s.provedor !== "meta" ? ` (hoje: ${s.provedor === "simulado" ? "modo simulado" : s.provedor})` : ""}.</li>
+            <li><span className={`etiqueta ${s.configurada && s.numeroConfigurado ? "etiqueta--sucesso" : "etiqueta--neutra"}`}>{s.configurada && s.numeroConfigurado ? "Pronto" : "Falta"}</span> Chave de acesso, número e conta do WhatsApp Business no servidor.</li>
+            <li><span className={`etiqueta ${s.avisosLigados ? "etiqueta--sucesso" : "etiqueta--neutra"}`}>{s.avisosLigados ? "Pronto" : "Falta"}</span> Recebimento das mensagens dos clientes{s.enderecoAvisos ? <> — endereço para cadastrar na Meta: <code>{s.enderecoAvisos}</code></> : ""}.</li>
+          </ul>
+          {s.erro && <Aviso tipo="erro">Não consegui consultar a Meta ({s.erro}). Confira a chave de acesso.</Aviso>}
+          {erro && <Aviso tipo="erro">{erro}</Aviso>}
+          {s.modelos.length > 0 && (
+            <div className="tabela-rolagem">
+              <table className="tabela tabela--compacta">
+                <thead><tr><th>Modelo</th><th>Situação</th></tr></thead>
+                <tbody>
+                  {s.modelos.map((m) => (
+                    <tr key={m.nome}>
+                      <td>{m.descricao}<div className="texto-fraco">{m.nome}</div></td>
+                      <td><span className={`etiqueta ${(ROTULO_MODELO[m.status] ?? ROTULO_MODELO.PENDING!).classe}`}>{(ROTULO_MODELO[m.status] ?? { texto: m.status }).texto}</span>{m.motivo && <div className="texto-fraco">{m.motivo}</div>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {s.configurada && faltam && <button type="button" className="botao botao--primario" disabled={enviando} onClick={() => void enviar()}>{enviando ? "Enviando…" : "Enviar modelos para aprovação"}</button>}
+          {!s.configurada && <Aviso tipo="info">Para ligar: concluir a verificação da empresa e o número na Meta; depois a chave de acesso vai direto no servidor (nunca no chat). Passo a passo em docs/produto/modulo-whatsapp.md.</Aviso>}
+        </>
+      )}
+    </section>
+  );
+}
+
 export function Integracoes() {
   return (
     <div className="pagina pagina--estreita">
@@ -149,6 +222,7 @@ export function Integracoes() {
       </div>
       <CartaoPaytour />
       <CartaoEmails />
+      <CartaoWhatsappMeta />
     </div>
   );
 }

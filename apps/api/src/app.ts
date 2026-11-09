@@ -16,6 +16,7 @@ import { rotasFinanceiro } from "./rotas/financeiro.js";
 import { rotasRastreio } from "./rotas/rastreio.js";
 import { rotasWhatsapp } from "./rotas/whatsapp.js";
 import { rotasInstagram } from "./rotas/instagram.js";
+import { rotasWhatsappMeta } from "./rotas/whatsappMeta.js";
 import { rotasConteudoPublicacao } from "./rotas/conteudo-publicacao.js";
 import { agendarInstagram } from "./servicos/instagram/agendamento.js";
 import { rotasVisaoGeral } from "./rotas/visao-geral.js";
@@ -84,8 +85,8 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   app.addHook("onRequest", async (req) => {
     // O aviso da Evolution (rede interna) não é navegador: ele se protege pelo token na URL e pela recusa de X-Forwarded-For.
     if (req.url.startsWith("/api/interno/whatsapp/")) return;
-    // O aviso da Meta (Instagram) também não é navegador: protege-se pela assinatura HMAC do corpo.
-    if (req.url.startsWith("/api/webhooks/instagram")) return;
+    // Os avisos da Meta (Instagram e WhatsApp oficial) também não são navegador: protegem-se pela assinatura HMAC do corpo.
+    if (req.url.startsWith("/api/webhooks/instagram") || req.url.startsWith("/api/webhooks/whatsapp")) return;
     if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers["x-bybus"] !== "1") {
       throw new ErroHttp(403, "CSRF", "Requisição bloqueada.");
     }
@@ -132,6 +133,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasRastreio(app, ctx);
   await rotasWhatsapp(app, ctx);
   await rotasInstagram(app, ctx);
+  await rotasWhatsappMeta(app, ctx);
   await rotasConteudoPublicacao(app, ctx);
   await rotasVisaoGeral(app, ctx);
   await rotasReservasLista(app, ctx);

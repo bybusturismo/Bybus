@@ -298,6 +298,8 @@ export const mensagens = pgTable("mensagens", {
   status: text().notNull().default("PENDENTE"),
   provedor: text(),
   erro: text(),
+  /** WhatsApp oficial: modelo aprovado pela Meta usado fora da janela de 24 h ({ nome, idioma, parametros }). */
+  modelo: jsonb().$type<{ nome: string; idioma: string; parametros: string[] }>(),
   criadoEm: agora(),
   enviadaEm: timestamp({ withTimezone: true }),
 }, (t) => [
