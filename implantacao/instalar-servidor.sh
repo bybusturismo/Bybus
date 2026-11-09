@@ -7,7 +7,7 @@
 set -euo pipefail
 
 REPO="https://github.com/bybusturismo/Bybus.git"
-BRANCH="${BYBUS_BRANCH:-claude/bybus-connectors-test-7jo7yb}"
+BRANCH="${BYBUS_BRANCH:-producao}"
 PASTA="/opt/bybus"
 DOMINIO="${BYBUS_DOMINIO:-gestao.bybusturismo.com.br}"
 COMPOSE=(docker compose -f "$PASTA/implantacao/docker-compose.yml" --env-file "$PASTA/implantacao/.env")

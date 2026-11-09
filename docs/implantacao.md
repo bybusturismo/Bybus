@@ -33,6 +33,13 @@ Em 1–2 minutos o sistema responde em `https://<DOMINIO>`. Entre com `ADMIN_EMA
 Conferir em **Integrações** no menu do sistema (última execução, resultado, erros, "Sincronizar agora").
 
 ## 4. Atualizar para uma nova versão
+**Automático (decisão do dono, 09/11/2026):** o servidor confere a cada 10 minutos a área **`producao`** do GitHub
+(`implantacao/atualizar-auto.sh`, instalado uma vez com `bash /opt/bybus/implantacao/instalar-atualizador.sh`). Versão nova: cópia do banco
+(`backups/antes-atualizacao-*.dump`, 14 dias), monta e liga, confere `/api/saude`; se não voltar, retorna sozinho à versão anterior do código
+(a cópia do banco fica para restaurar à mão, se a migração tiver mudado algo). Registro em `/var/log/bybus-atualizacao.log`.
+**Publicar = levar a versão testada para a área `producao`**, só quando o dono disser "pode publicar".
+
+Manual (se precisar):
 ```bash
 cd Bybus && git pull
 docker compose -f implantacao/docker-compose.yml --env-file implantacao/.env up -d --build
