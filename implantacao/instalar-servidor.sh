@@ -99,6 +99,8 @@ if [ "$IP_DOMINIO" != "$IP_SERVIDOR" ]; then
 fi
 
 passo "6/7 Montando e ligando o sistema (leva alguns minutos na primeira vez)"
+# WhatsApp ligado (ligar-whatsapp.sh): a Evolution sobe junto.
+if grep -q '^WHATSAPP_PROVEDOR=evolution' "$ENV"; then COMPOSE+=(--profile whatsapp); fi
 # Se a internet oscilar no meio da montagem, tenta de novo (até 3 vezes).
 for tentativa in 1 2 3; do
   if "${COMPOSE[@]}" up -d --build; then break; fi

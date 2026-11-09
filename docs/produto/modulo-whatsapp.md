@@ -27,6 +27,12 @@ Pedido do dono: "o WhatsApp precisa de uma tela que mostre as trocas de mensagen
 - **Log:** o token é mascarado (`/api/interno/whatsapp/***`) e nenhum texto, telefone ou nome vai para log. A auditoria da resposta guarda só o id da conversa.
 
 ### Configurar
+**Jeito rápido (09/11/2026):** no servidor, `bash /opt/bybus/implantacao/ligar-whatsapp.sh` faz os passos abaixo (gera as chaves que faltam,
+liga a Evolution, cria a instância, configura o aviso para o Bybus) e pede o número: mostra um **código de 8 letras** para digitar no celular em
+WhatsApp > Aparelhos conectados > Conectar com número de telefone. Testado contra a Evolution 2.3.7 (criar instância, webhook, estado). Decisão do
+dono (09/11/2026): **sem provedor pago, igual ao APP TOMA**.
+
+Jeito manual:
 1. Gerar `WHATSAPP_WEBHOOK_TOKEN` (`openssl rand -hex 32`) e `EVOLUTION_API_KEY`, `EVOLUTION_DB_PASSWORD` no `.env`; definir `WHATSAPP_PROVEDOR=evolution`, `EVOLUTION_URL=http://evolution:8080`.
 2. Subir com `docker compose -f implantacao/docker-compose.yml --env-file implantacao/.env --profile whatsapp up -d` (Evolution v2.3.7 fixa, sem porta pública).
 3. Criar a instância `bybus` na Evolution e ler o QR code (WhatsApp > Aparelhos conectados). Fora da produção, o envio real só com `WHATSAPP_ENVIO_REAL=true`.
