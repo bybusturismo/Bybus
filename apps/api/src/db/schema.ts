@@ -65,6 +65,41 @@ export const usuarios = pgTable("usuarios", {
   criadoEm: agora(),
 }, (t) => [uniqueIndex("usuarios_email_uq").on(sql`lower(${t.email})`)]);
 
+/**
+ * Ficha completa do usuário (pedido do dono, 09/11/2026): o que é operacional fica aberto (apelido, nascimento, contratação,
+ * telefone); documentos, endereço, contato de emergência, Pix/banco e anotações ficam CIFRADOS em `dadosCifrados` (JSON).
+ * Só quem tem `usuarios:ficha` lê ou edita.
+ */
+export const usuariosFichas = pgTable("usuarios_fichas", {
+  usuarioId: uuid().primaryKey().references(() => usuarios.id, { onDelete: "cascade" }),
+  apelido: text(),
+  nascimento: date({ mode: "string" }),
+  telefone: text(),
+  vinculo: text(),
+  cargo: text(),
+  admissao: date({ mode: "string" }),
+  desligamento: date({ mode: "string" }),
+  dadosCifrados: text(),
+  /** Troca de Pix fica registrada (golpe comum: trocar a chave antes de um pagamento). */
+  pixAlteradoEm: timestamp({ withTimezone: true }),
+  pixAlteradoPor: uuid(),
+  atualizadoEm: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  atualizadoPor: uuid(),
+});
+
+/** Anexos da ficha (contrato, documentos): conteúdo cifrado no banco, até 5 MB, só PDF/JPG/PNG. */
+export const usuariosAnexos = pgTable("usuarios_anexos", {
+  id: uuid().primaryKey().defaultRandom(),
+  usuarioId: uuid().notNull().references(() => usuarios.id, { onDelete: "cascade" }),
+  tipo: text().notNull(),
+  nome: text().notNull(),
+  mime: text().notNull(),
+  tamanho: integer().notNull(),
+  dadosCifrados: text().notNull(),
+  criadoPor: uuid(),
+  criadoEm: agora(),
+}, (t) => [index("usuarios_anexos_usuario_idx").on(t.usuarioId)]);
+
 /** Foto de perfil do usuário (tabela à parte: não é carregada a cada requisição junto da sessão). */
 export const usuariosFotos = pgTable("usuarios_fotos", {
   usuarioId: uuid().primaryKey().references(() => usuarios.id, { onDelete: "cascade" }),

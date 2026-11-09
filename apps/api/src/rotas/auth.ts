@@ -11,8 +11,24 @@ import { sha256 } from "../seguranca/cripto.js";
 
 authenticator.options = { window: 1 };
 
-const MAX_TENTATIVAS = 5;
-const BLOQUEIO_MINUTOS = 15;
+// Pedido do dono (09/11/2026): proteção mais leve. Só depois de 10 erros seguidos o acesso pausa 5 minutos (sem aumentar a cada vez):
+// quem erra a senha uma ou duas vezes nunca é travado, mas um robô tentando senhas na internet continua barrado.
+const MAX_TENTATIVAS = 10;
+const BLOQUEIO_MINUTOS = 5;
+
+/** Valida a foto enviada (data URL JPG/PNG/WebP, conferida pelos bytes, até 200 KB). Usada pela própria pessoa e pelo administrador. */
+export function lerFoto(corpo: unknown): { tipo: string; dados: string } {
+  const { imagem } = z.object({ imagem: z.string().max(300_000) }).parse(corpo);
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(imagem);
+  if (!m) throw new ErroHttp(400, "FOTO_INVALIDA", "Envie uma imagem JPG, PNG ou WebP.");
+  const bytes = Buffer.from(m[2]!, "base64");
+  // Confere o conteúdo pela assinatura do arquivo (não só pelo tipo declarado).
+  const ok = (m[1] === "image/jpeg" && bytes[0] === 0xff && bytes[1] === 0xd8)
+    || (m[1] === "image/png" && bytes.subarray(0, 4).toString("hex") === "89504e47")
+    || (m[1] === "image/webp" && bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP");
+  if (!ok || bytes.length > 200_000) throw new ErroHttp(400, "FOTO_INVALIDA", "Imagem inválida ou grande demais (máx. 200 KB).");
+  return { tipo: m[1]!, dados: bytes.toString("base64") };
+}
 
 export async function rotasAuth(app: FastifyInstance, { db, config, cofre }: Contexto) {
   /** Registra falha (senha ou MFA) de forma atômica e aplica bloqueio progressivo: 15 min, 1 h, 4 h, 24 h. */
@@ -22,7 +38,7 @@ export async function rotasAuth(app: FastifyInstance, { db, config, cofre }: Con
       .where(eq(usuarios.id, usuarioId))
       .returning({ tentativas: usuarios.tentativasFalhas, bloqueios: usuarios.bloqueios });
     if (r && r.tentativas >= MAX_TENTATIVAS) {
-      const minutos = Math.min(BLOQUEIO_MINUTOS * 4 ** r.bloqueios, 24 * 60);
+      const minutos = BLOQUEIO_MINUTOS;
       await db.update(usuarios).set({
         tentativasFalhas: 0,
         bloqueios: sql`${usuarios.bloqueios} + 1`,
@@ -127,16 +143,7 @@ export async function rotasAuth(app: FastifyInstance, { db, config, cofre }: Con
   app.put("/api/auth/foto", { bodyLimit: 400_000 }, async (req) => {
     const u = req.usuario;
     if (!u) throw new ErroHttp(401, "NAO_AUTENTICADO", "Faça login para continuar.");
-    const { imagem } = z.object({ imagem: z.string().max(300_000) }).parse(req.body);
-    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(imagem);
-    if (!m) throw new ErroHttp(400, "FOTO_INVALIDA", "Envie uma imagem JPG, PNG ou WebP.");
-    const bytes = Buffer.from(m[2]!, "base64");
-    // Confere o conteúdo pela assinatura do arquivo (não só pelo tipo declarado).
-    const ok = (m[1] === "image/jpeg" && bytes[0] === 0xff && bytes[1] === 0xd8)
-      || (m[1] === "image/png" && bytes.subarray(0, 4).toString("hex") === "89504e47")
-      || (m[1] === "image/webp" && bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP");
-    if (!ok || bytes.length > 200_000) throw new ErroHttp(400, "FOTO_INVALIDA", "Imagem inválida ou grande demais (máx. 200 KB).");
-    const valores = { tipo: m[1]!, dados: bytes.toString("base64"), atualizadaEm: new Date() };
+    const valores = { ...lerFoto(req.body), atualizadaEm: new Date() };
     await db.insert(usuariosFotos).values({ usuarioId: u.id, ...valores }).onConflictDoUpdate({ target: usuariosFotos.usuarioId, set: valores });
     await auditar(db, req, "FOTO_PERFIL_ALTERADA", { tipo: "usuario", id: u.id });
     return { fotoVersao: valores.atualizadaEm.getTime() };

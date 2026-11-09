@@ -4,6 +4,7 @@
  */
 export const CATALOGO_PERMISSOES = {
   "usuarios:gerenciar": "Gerenciar usuários e perfis de acesso",
+  "usuarios:ficha": "Ver e editar a ficha dos usuários (documentos, contratação, contato de emergência, pagamento e anexos)",
   "unidades:gerenciar": "Cadastrar e editar praças/unidades",
   "auditoria:ver": "Ver o histórico de auditoria",
   "pessoas:gerenciar": "Cadastrar e editar guias, motoristas e colaboradores",
@@ -43,6 +44,7 @@ export const PERMISSOES = Object.keys(CATALOGO_PERMISSOES) as Permissao[];
 /** Quem tem qualquer uma destas permissões é obrigado a usar MFA (regra do sistema, não configurável). */
 export const PERMISSOES_SENSIVEIS: readonly Permissao[] = [
   "usuarios:gerenciar",
+  "usuarios:ficha",
   "unidades:gerenciar",
   "manifesto:documentos",
   "pessoas:gerenciar",

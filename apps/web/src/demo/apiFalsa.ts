@@ -55,6 +55,7 @@ const CATALOGO: Record<string, string> = {
   "whatsapp:ver": "Conversas (WhatsApp e Instagram): ver mensagens, comentários e contatos dos clientes",
   "whatsapp:responder": "Conversas (WhatsApp e Instagram): responder mensagens e comentários, etiquetar, atribuir e editar respostas prontas",
   "transfer:gerenciar": "Montar e ajustar o transfer do dia (ordem de busca, horários, van, motorista, taxa) e configurar os bairros",
+  "usuarios:ficha": "Ver e editar a ficha dos usuários (documentos, contratação, contato de emergência, pagamento e anexos)",
   "transfer:operar": "Operar o transfer pelo celular (motorista): marcar buscado/não apareceu e registrar a taxa recebida",
 };
 const TODAS = Object.keys(CATALOGO);

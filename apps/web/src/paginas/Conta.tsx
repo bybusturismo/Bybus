@@ -8,16 +8,7 @@ import { formatarDataHora } from "../util/formato";
 import { useCarregar } from "../util/useCarregar";
 import { ConfigurarMfa, FormTrocarSenha } from "./Pendencias";
 import { Avatar } from "../componentes/MenuUsuario";
-
-/** Reduz a foto no navegador (quadrado de 256 px, JPEG) antes de enviar: arquivo pequeno e sem metadados (GPS etc.). */
-async function reduzirFoto(arquivo: File): Promise<string> {
-  const bitmap = await createImageBitmap(arquivo);
-  const lado = Math.min(bitmap.width, bitmap.height);
-  const tela = document.createElement("canvas");
-  tela.width = tela.height = 256;
-  tela.getContext("2d")!.drawImage(bitmap, (bitmap.width - lado) / 2, (bitmap.height - lado) / 2, lado, lado, 0, 0, 256, 256);
-  return tela.toDataURL("image/jpeg", 0.85);
-}
+import { reduzirFoto } from "../util/foto";
 
 function FotoPerfil() {
   const { usuario, recarregar } = useSessao();

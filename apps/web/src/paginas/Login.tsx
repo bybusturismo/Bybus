@@ -22,7 +22,7 @@ export function mensagemLogin(e: unknown): string {
       return e.message;
   }
   if (e.codigo === "MFA_INVALIDO") return "Código de verificação inválido. Confira o aplicativo autenticador e o horário do celular.";
-  if (e.codigo === "CREDENCIAIS_INVALIDAS") return "E-mail ou senha incorretos. Após várias tentativas, o acesso fica bloqueado por alguns minutos.";
+  if (e.codigo === "CREDENCIAIS_INVALIDAS") return "E-mail ou senha incorretos. Se esqueceu a senha, use “Esqueci minha senha”.";
   return e.message;
 }
 

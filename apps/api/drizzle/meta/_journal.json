@@ -204,6 +204,13 @@
       "when": 1794250903939,
       "tag": "0028_pendencias_planilha",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794251351856,
+      "tag": "0029_ficha_usuario",
+      "breakpoints": true
     }
   ]
 }

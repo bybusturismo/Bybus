@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
-import { auditoria, perfis, sessoes, unidades, usuarios, usuariosUnidades } from "../db/schema.js";
+import { auditoria, perfis, sessoes, unidades, usuarios, usuariosUnidades, usuariosFotos } from "../db/schema.js";
 import { CATALOGO_PERMISSOES, ehPermissao, exigeMfa, PERMISSOES } from "../seguranca/permissoes.js";
 import { gerarHashSenha } from "../seguranca/senha.js";
 import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
@@ -50,7 +50,8 @@ export async function rotasUsuarios(app: FastifyInstance, { db, config }: Contex
       .from(usuarios).innerJoin(perfis, eq(perfis.id, usuarios.perfilId));
     const lista = ids ? await base.where(inArray(usuarios.id, ids)) : await base;
     const vinculos = await db.select().from(usuariosUnidades);
-    return lista.map((u) => ({ ...u, unidadeIds: vinculos.filter((v) => v.usuarioId === u.id).map((v) => v.unidadeId) }));
+    const fotos = await db.select({ id: usuariosFotos.usuarioId, em: usuariosFotos.atualizadaEm }).from(usuariosFotos);
+    return lista.map((u) => ({ ...u, unidadeIds: vinculos.filter((v) => v.usuarioId === u.id).map((v) => v.unidadeId), fotoVersao: fotos.find((f) => f.id === u.id)?.em.getTime() ?? null }));
   }
   async function haOutroAdminAtivo(excetoId: string) {
     const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(usuarios).innerJoin(perfis, eq(perfis.id, usuarios.perfilId))
@@ -69,7 +70,8 @@ export async function rotasUsuarios(app: FastifyInstance, { db, config }: Contex
       .innerJoin(perfis, eq(perfis.id, usuarios.perfilId));
     const lista = id ? await base.where(eq(usuarios.id, id)) : await base.orderBy(usuarios.nome);
     const vinculos = await db.select().from(usuariosUnidades);
-    return lista.map((u) => ({ ...u, unidadeIds: vinculos.filter((v) => v.usuarioId === u.id).map((v) => v.unidadeId) }));
+    const fotos = await db.select({ id: usuariosFotos.usuarioId, em: usuariosFotos.atualizadaEm }).from(usuariosFotos);
+    return lista.map((u) => ({ ...u, unidadeIds: vinculos.filter((v) => v.usuarioId === u.id).map((v) => v.unidadeId), fotoVersao: fotos.find((f) => f.id === u.id)?.em.getTime() ?? null }));
   }
 
   async function definirUnidades(usuarioId: string, ids: string[]) {

@@ -1,3 +1,5 @@
+import { FichaUsuario } from "./FichaUsuario";
+import { Avatar } from "../componentes/MenuUsuario";
 import { useState, type FormEvent } from "react";
 import { api, mensagemDeErro } from "../api/cliente";
 import { PERMISSOES, type PerfilAcesso, type Unidade, type UsuarioAdmin } from "../api/tipos";
@@ -272,6 +274,7 @@ export function Usuarios() {
   const unidades = useCarregar((s) => api.get<Unidade[]>("/api/unidades", s), []);
   const [novo, setNovo] = useState(false);
   const [editarAcesso, setEditarAcesso] = useState<UsuarioAdmin | null>(null);
+  const [ficha, setFicha] = useState<UsuarioAdmin | null>(null);
   const [senha, setSenha] = useState<{ email: string; senha: string } | null>(null);
   const [acao, setAcao] = useState<Acao | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -386,7 +389,7 @@ export function Usuarios() {
                   return (
                     <tr key={u.id} className={u.ativo ? "" : "linha--inativa"}>
                       <td>
-                        {u.nome}
+                        <span className="usuario-nome"><Avatar nome={u.nome} fotoVersao={u.fotoVersao ?? null} usuarioId={u.id} tamanho={28} /> {u.nome}</span>
                         {souEu && <span className="etiqueta etiqueta--neutra">você</span>}
                       </td>
                       <td>{u.email}</td>
@@ -399,6 +402,7 @@ export function Usuarios() {
                       <td>{u.totpAtivo ? "Ativo" : <span className="texto-fraco">Não configurado</span>}</td>
                       <td>{formatarData(u.criadoEm)}</td>
                       <td className="celula-acoes">
+                        <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setFicha(u)} aria-label={`Ficha de ${u.nome}`}>Ficha</button>{" "}
                         {!souEu && (
                           <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setEditarAcesso(u)} disabled={!pronto} aria-label={`Perfil e praças de ${u.nome}`}>
                             Perfil e praças
@@ -446,6 +450,7 @@ export function Usuarios() {
           />
         )}
       </Modal>
+      {ficha && <FichaUsuario usuarioId={ficha.id} nome={ficha.nome} fotoVersao={ficha.fotoVersao ?? null} podeFicha={pode("usuarios:ficha")} aoFechar={() => setFicha(null)} aoMudarFoto={() => void lista.recarregar()} />}
       <Modal aberto={!!editarAcesso} titulo={editarAcesso ? `Perfil e praças de ${editarAcesso.nome}` : ""} aoFechar={() => setEditarAcesso(null)}>
         {editarAcesso && pronto && (
           <FormAcesso

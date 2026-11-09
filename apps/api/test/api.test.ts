@@ -35,12 +35,14 @@ describe("autenticação", () => {
     expect(a.json().mensagem).toBe(b.json().mensagem);
   });
 
-  it("bloqueia após 5 tentativas erradas", async () => {
+  it("errar algumas vezes não trava; só 10 erros seguidos pausam o acesso", async () => {
     const admin = new Cliente(app);
     await admin.login("admin@bybus.test");
     const { senhaTemporaria } = (await admin.req("POST", "/api/usuarios", { nome: "Usuário Bloqueio", email: "bloqueio@bybus.test", perfil: "GUIA" })).json();
     const c = new Cliente(app);
-    for (let i = 0; i < 5; i++) await c.login("bloqueio@bybus.test", "errada-123456");
+    for (let i = 0; i < 4; i++) await c.login("bloqueio@bybus.test", "errada-123456");
+    expect((await c.login("bloqueio@bybus.test", senhaTemporaria)).statusCode).toBe(200); // acertou: zera a contagem
+    for (let i = 0; i < 10; i++) await c.login("bloqueio@bybus.test", "errada-123456");
     // Bloqueada: mesmo com a senha certa, a resposta é a genérica (não revela o bloqueio a terceiros).
     const r = await c.login("bloqueio@bybus.test", senhaTemporaria);
     expect(r.statusCode).toBe(401);

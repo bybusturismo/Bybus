@@ -9,6 +9,7 @@ export type Perfil = string;
 /** Espelha CATALOGO_PERMISSOES da API (apps/api/src/seguranca/permissoes.ts). */
 export const PERMISSOES = [
   "usuarios:gerenciar",
+  "usuarios:ficha",
   "unidades:gerenciar",
   "auditoria:ver",
   "pessoas:gerenciar",
@@ -332,6 +333,7 @@ export interface UsuarioAdmin {
   totpAtivo: boolean;
   trocarSenha: boolean;
   criadoEm: string;
+  fotoVersao?: number | null;
 }
 
 export interface RegistroAuditoria {

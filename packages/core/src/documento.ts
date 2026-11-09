@@ -19,6 +19,20 @@ export function cpfValido(valor: string): boolean {
   return dv(9) === digitos[9] && dv(10) === digitos[10];
 }
 
+/** Valida CNPJ pelos dígitos verificadores. Aceita com ou sem máscara. */
+export function cnpjValido(valor: string): boolean {
+  const c = somenteDigitos(valor);
+  if (c.length !== 14 || /^(\d)\1{13}$/.test(c)) return false;
+  const n = c.split("").map(Number);
+  const dv = (tam: number) => {
+    const pesos = tam === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const soma = pesos.reduce((s, p, i) => s + p * n[i]!, 0);
+    const r = soma % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return dv(12) === n[12] && dv(13) === n[13];
+}
+
 export function formatarCpf(valor: string): string {
   const d = somenteDigitos(valor);
   return d.length === 11 ? `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}` : valor;

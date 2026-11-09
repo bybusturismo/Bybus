@@ -11,12 +11,12 @@ export function iniciais(nome: string | undefined): string {
 }
 
 /** Foto de perfil (ou as iniciais, sem foto). */
-export function Avatar({ nome, fotoVersao, tamanho = 32 }: { nome?: string; fotoVersao?: number | null; tamanho?: number }) {
+export function Avatar({ nome, fotoVersao, tamanho = 32, usuarioId }: { nome?: string; fotoVersao?: number | null; tamanho?: number; /** Foto de outra pessoa (tela de usuários). */ usuarioId?: string }) {
   const [falhou, setFalhou] = useState(false);
   useEffect(() => setFalhou(false), [fotoVersao]);
   const estilo = { width: tamanho, height: tamanho, fontSize: Math.round(tamanho * 0.4) };
   if (fotoVersao && !falhou) {
-    return <img className="avatar" src={`/api/auth/foto?v=${fotoVersao}`} alt="" style={estilo} onError={() => setFalhou(true)} />;
+    return <img className="avatar" src={usuarioId ? `/api/usuarios/${usuarioId}/foto?v=${fotoVersao}` : `/api/auth/foto?v=${fotoVersao}`} alt="" style={estilo} onError={() => setFalhou(true)} />;
   }
   return <span className="avatar avatar--iniciais" aria-hidden="true" style={estilo}>{iniciais(nome)}</span>;
 }
