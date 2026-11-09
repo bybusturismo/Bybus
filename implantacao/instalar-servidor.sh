@@ -19,6 +19,13 @@ aviso() { printf '\033[1;33m[aviso] %s\033[0m\n' "$1"; }
 grep -q "Ubuntu" /etc/os-release || aviso "Este instalador foi feito para Ubuntu 24.04."
 export DEBIAN_FRONTEND=noninteractive
 
+# DNS estável no servidor (o DNS padrão de alguns VPS falha de vez em quando: "Could not resolve host").
+if [ -d /etc/systemd ] && [ ! -f /etc/systemd/resolved.conf.d/dns.conf ]; then
+  mkdir -p /etc/systemd/resolved.conf.d
+  printf '[Resolve]\nDNS=1.1.1.1 8.8.8.8\nFallbackDNS=9.9.9.9\n' > /etc/systemd/resolved.conf.d/dns.conf
+  systemctl restart systemd-resolved || true
+fi
+
 passo "1/7 Atualizando o sistema"
 apt-get update -q
 apt-get -y -q -o Dpkg::Options::=--force-confold upgrade
