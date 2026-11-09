@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api, mensagemDeErro } from "../../api/cliente";
 import { Aviso, Carregando, ErroCarga } from "../../componentes/Estados";
 import { useNotificar } from "../../componentes/Notificacoes";
@@ -155,6 +156,7 @@ export function ImportarPlanilha() {
               {previa.resultado.lancamentos} lançamento(s) e {previa.resultado.transferencias} transferência(s) gravados; {previa.resultado.jaExistentes} já existiam.
               {previa.resultado.contasCriadas.length > 0 && ` Contas criadas: ${previa.resultado.contasCriadas.join(", ")}.`}
               {previa.resultado.saldosAplicados > 0 && ` ${previa.resultado.saldosAplicados} saldo(s) inicial(is) definido(s).`}
+              {(previa.resultado.pendentes ?? 0) > 0 && <> {previa.resultado.pendentes} linha(s) ficaram para depois: classifique em <Link to="/financeiro/pendencias">Financeiro › Pendências</Link>, sem importar de novo.</>}
             </Aviso>
           )}
           <section className="cartao" aria-labelledby="titulo-previa">
@@ -217,7 +219,7 @@ export function ImportarPlanilha() {
                 <div key={n.chave} className="campo campo--linha">
                   <label htmlFor={`map-${n.chave}`}>{n.grupo || "(sem grupo)"} › {n.categoria || "(sem categoria)"} <span className="texto-fraco">({n.qtd} linha(s), {formatarMoeda(n.totalCentavos)})</span></label>
                   <select id={`map-${n.chave}`} value={mapeamentos[n.chave] ?? ""} onChange={(e) => setMapeamentos((m) => ({ ...m, [n.chave]: e.target.value }))}>
-                    <option value="">Não importar ainda</option>
+                    <option value="">Não importar ainda (fica em Pendências)</option>
                     <option value="IGNORAR">Ignorar estas linhas</option>
                     <option value="TRANSFERENCIA">É transferência entre contas</option>
                     {cats.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}

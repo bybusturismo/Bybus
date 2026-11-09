@@ -229,7 +229,7 @@ export interface PreviaPlanilha {
   erros: Array<{ linha: number; motivo: string }>;
   totalErros: number;
   amostra: Array<{ data: string; tipo: TipoLancamento; aberto: boolean; descricao: string; categoria: string; fornecedor: string | null; valorCentavos: number; conta: string | null }>;
-  resultado?: { lancamentos: number; transferencias: number; jaExistentes: number; contasCriadas: string[]; saldosAplicados: number; fornecedores: number; sinonimosSalvos: number };
+  resultado?: { lancamentos: number; transferencias: number; jaExistentes: number; contasCriadas: string[]; saldosAplicados: number; fornecedores: number; sinonimosSalvos: number; pendentes?: number };
 }
 
 export interface SinonimoFin {

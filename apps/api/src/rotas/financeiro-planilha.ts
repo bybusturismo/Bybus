@@ -7,7 +7,7 @@ import type { Contexto } from "../app.js";
 import { finCategorias, finFornecedores, finSinonimos } from "../db/schema.js";
 import { ErroHttp } from "../seguranca/sessao.js";
 import { garantirPlano, garantirSinonimos } from "../servicos/financeiro.js";
-import { criarContasPadrao, executarPlanilha, planejarPlanilha, type PlanoPlanilha } from "../servicos/financeiro-planilha.js";
+import { criarContasPadrao, executarPlanilha, listarPendencias, planejarPlanilha, registrarPendencias, resolverPendencias, type PlanoPlanilha } from "../servicos/financeiro-planilha.js";
 import { uuid } from "./financeiro-comum.js";
 
 interface Guardas {
@@ -70,9 +70,26 @@ export async function rotasFinanceiroPlanilha(app: FastifyInstance, { db, cofre 
     if (!corpo.confirmar) return { previa: true as const, ...resumoDoPlano(plano) };
     if (plano.erros.length) throw new ErroHttp(400, "PLANILHA_COM_ERROS", `Há ${plano.erros.length} linha(s) com valor inválido (ex.: linha ${plano.erros[0]!.linha}). Corrija a planilha e importe de novo.`);
     const r = await executarPlanilha(db, cofre, u, plano, { salvarSinonimos: corpo.salvarSinonimos });
+    // "Não importar ainda" fica guardado em Financeiro › Pendências (sem precisar importar de novo).
+    const pendentes = await registrarPendencias(db, cofre, u, { conteudo: corpo.conteudo, unidadeId: corpo.unidadeId ?? null, arquivo: corpo.arquivo ?? null }, plano);
     // Auditoria só com contagens: nenhum dado do OBS ou de contato.
     await auditar(db, req, "FIN_PLANILHA_IMPORTADA", { tipo: "fin_planilha" }, { arquivo: corpo.arquivo ?? null, lancamentos: r.lancamentos, transferencias: r.transferencias, jaExistentes: r.jaExistentes, contasCriadas: r.contasCriadas.length, saldosAplicados: r.saldosAplicados });
-    return { previa: false as const, ...resumoDoPlano(plano), resultado: r };
+    return { previa: false as const, ...resumoDoPlano(plano), resultado: { ...r, pendentes } };
+  });
+
+  /** Pendências de categoria guardadas das importações ("não importar ainda"). */
+  app.get("/api/financeiro/planilha/pendencias", ver, async (req) => listarPendencias(db, req.usuario!));
+
+  /** Classifica as pendências: aplica às abas guardadas, sem importar de novo. */
+  app.post("/api/financeiro/planilha/pendencias/resolver", { ...gerenciar, config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req) => {
+    const corpo = z.object({
+      mapeamentos: z.record(z.string().max(200), z.union([z.string().uuid(), z.enum(["IGNORAR", "TRANSFERENCIA"])])),
+      salvarSinonimos: z.boolean().default(true),
+    }).parse(req.body);
+    if (!Object.keys(corpo.mapeamentos).length) throw new ErroHttp(400, "SEM_ESCOLHAS", "Escolha a categoria de pelo menos uma pendência.");
+    const r = await resolverPendencias(db, cofre, req.usuario!, corpo.mapeamentos, corpo.salvarSinonimos);
+    await auditar(db, req, "FIN_PENDENCIAS_RESOLVIDAS", { tipo: "fin_planilha" }, { escolhas: Object.keys(corpo.mapeamentos).length, ...r });
+    return r;
   });
 
   // ---------------------------------------------------------------- contas padrão

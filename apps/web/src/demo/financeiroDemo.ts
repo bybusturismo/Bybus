@@ -320,6 +320,8 @@ export const rotearFinanceiro: Rotear = (ctx, metodo, caminho, q, c) => {
 
   // Planilha de controle (prévia e confirmação com a planilha fictícia enviada), sinônimos, caixa, saldos e revenda
   if (metodo === "POST" && caminho === "/api/financeiro/planilha/importar") { gerir(); return importarPlanilha(ctx, c); }
+  // Demonstração: pendências não ficam guardadas (nada é salvo ao recarregar).
+  if (metodo === "GET" && caminho === "/api/financeiro/planilha/pendencias") return { itens: [], abas: [] };
   if (metodo === "POST" && caminho === "/api/financeiro/contas/padrao") { gerir(); return { criadas: [] }; }
   if (metodo === "GET" && caminho === "/api/financeiro/sinonimos") {
     ver();

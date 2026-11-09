@@ -197,6 +197,13 @@
       "when": 1794247550269,
       "tag": "0027_whatsapp_meta",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1794250903939,
+      "tag": "0028_pendencias_planilha",
+      "breakpoints": true
     }
   ]
 }

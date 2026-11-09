@@ -2,10 +2,10 @@ import {
   ALVO_APLICACAO, ALVO_IGNORAR, ALVO_TRANSFERENCIA, CONTAS_PADRAO, ROTULO_COLUNA, classificar, extrairPlaca, lerPlanilhaFinanceira, montarDicionario, normalizarTexto, separarObs,
   type ColunaValor, type ObsSeparada,
 } from "@bybus/core";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { createHash, randomUUID } from "node:crypto";
 import type { Db } from "../db/cliente.js";
-import { finCategorias, finContas, finExtratoLinhas, finFornecedores, finLancamentos, finSinonimos } from "../db/schema.js";
+import { finCategorias, finContas, finExtratoLinhas, finFornecedores, finLancamentos, finPlanilhaPendencias, finSinonimos } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
 import { ErroHttp, type UsuarioSessao } from "../seguranca/sessao.js";
 import { filtroPraca, garantirPlano, garantirSinonimos, hojeSP, saldosDasContas, validarPracaDoRegistro, type Conta } from "./financeiro.js";
@@ -439,4 +439,61 @@ export async function criarContasPadrao(db: Db, u: UsuarioSessao, unidadeId: str
     criadas.push(p.nome);
   }
   return criadas;
+}
+
+// ---------------------------------------------------------------- pendências de categoria (09/11/2026)
+
+const hashAba = (conteudo: string, unidadeId: string | null) => createHash("sha256").update(`${unidadeId ?? "empresa"}|${conteudo}`).digest("hex");
+
+/**
+ * Depois de importar uma aba: o que ficou "não importar ainda" é guardado (aba cifrada) para classificar depois em
+ * Financeiro › Pendências, sem importar de novo. Sem pendências, um registro anterior da mesma aba é dado como resolvido.
+ */
+export async function registrarPendencias(db: Db, cofre: Cofre, u: UsuarioSessao, entrada: { conteudo: string; unidadeId: string | null; arquivo: string | null }, plano: PlanoPlanilha) {
+  const hash = hashAba(entrada.conteudo, entrada.unidadeId);
+  const pendentes = plano.naoReconhecidos;
+  if (!pendentes.length) {
+    await db.update(finPlanilhaPendencias).set({ pendentes: [], conteudoCifrado: null, resolvidoEm: new Date(), atualizadoEm: new Date() }).where(eq(finPlanilhaPendencias.hash, hash));
+    return 0;
+  }
+  const valores = { pendentes, conteudoCifrado: cofre.cifrar(entrada.conteudo), resolvidoEm: null, atualizadoEm: new Date(), arquivo: entrada.arquivo };
+  await db.insert(finPlanilhaPendencias).values({ hash, unidadeId: entrada.unidadeId, criadoPor: u.id, ...valores })
+    .onConflictDoUpdate({ target: finPlanilhaPendencias.hash, set: valores });
+  return pendentes.reduce((s, p) => s + p.qtd, 0);
+}
+
+/** Pendências abertas (das praças do usuário), somadas por grupo › categoria. */
+export async function listarPendencias(db: Db, u: UsuarioSessao) {
+  const regs = await db.select().from(finPlanilhaPendencias).where(and(isNull(finPlanilhaPendencias.resolvidoEm), filtroPraca(u, finPlanilhaPendencias.unidadeId)));
+  const porChave = new Map<string, { chave: string; grupo: string; categoria: string; qtd: number; totalCentavos: number; abas: number }>();
+  for (const r of regs) for (const p of r.pendentes) {
+    const x = porChave.get(p.chave) ?? { chave: p.chave, grupo: p.grupo, categoria: p.categoria, qtd: 0, totalCentavos: 0, abas: 0 };
+    x.qtd += p.qtd; x.totalCentavos += p.totalCentavos; x.abas += 1;
+    porChave.set(p.chave, x);
+  }
+  return {
+    itens: [...porChave.values()].sort((a, b) => b.totalCentavos - a.totalCentavos),
+    abas: regs.map((r) => ({ id: r.id, arquivo: r.arquivo, unidadeId: r.unidadeId, atualizadoEm: r.atualizadoEm, linhas: r.pendentes.reduce((s, p) => s + p.qtd, 0) })),
+  };
+}
+
+/** Aplica as escolhas às abas guardadas: reprocessa cada aba com o mesmo importador (o que já entrou não duplica). */
+export async function resolverPendencias(db: Db, cofre: Cofre, u: UsuarioSessao, mapeamentos: Mapeamentos, salvarSinonimos: boolean) {
+  const regs = await db.select().from(finPlanilhaPendencias).where(and(isNull(finPlanilhaPendencias.resolvidoEm), filtroPraca(u, finPlanilhaPendencias.unidadeId)));
+  const total = { lancamentos: 0, transferencias: 0, abas: 0, restantes: 0 };
+  for (const r of regs) {
+    if (!r.conteudoCifrado || !r.pendentes.some((p) => mapeamentos[p.chave])) { total.restantes += r.pendentes.reduce((s, p) => s + p.qtd, 0); continue; }
+    const conteudo = cofre.decifrar(r.conteudoCifrado);
+    const proprios = Object.fromEntries(Object.entries(mapeamentos).filter(([k]) => r.pendentes.some((p) => p.chave === k)));
+    const plano = await planejarPlanilha(db, u, { conteudo, unidadeId: r.unidadeId, mapeamentos: proprios });
+    if (plano.erros.length) { total.restantes += r.pendentes.reduce((s, p) => s + p.qtd, 0); continue; }
+    const res = await executarPlanilha(db, cofre, u, plano, { salvarSinonimos });
+    total.lancamentos += res.lancamentos; total.transferencias += res.transferencias; total.abas += 1;
+    const resta = plano.naoReconhecidos;
+    total.restantes += resta.reduce((s, p) => s + p.qtd, 0);
+    await db.update(finPlanilhaPendencias).set(resta.length
+      ? { pendentes: resta, atualizadoEm: new Date() }
+      : { pendentes: [], conteudoCifrado: null, resolvidoEm: new Date(), atualizadoEm: new Date() }).where(eq(finPlanilhaPendencias.id, r.id));
+  }
+  return total;
 }

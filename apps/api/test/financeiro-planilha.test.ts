@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import pg from "pg";
 import { criarDb } from "../src/db/cliente.js";
 import { SENHA_DEMO } from "../src/db/ficticios.js";
-import { auditoria, perfis, unidades, usuarios, usuariosUnidades } from "../src/db/schema.js";
+import { auditoria, finPlanilhaPendencias, perfis, unidades, usuarios, usuariosUnidades } from "../src/db/schema.js";
 import { gerarHashSenha } from "../src/seguranca/senha.js";
 import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
 
@@ -175,6 +175,29 @@ describe("importação da planilha (layout novo)", () => {
     const de_novo = json(await importar(usuarioFln, { conteudo: NOVO, unidadeId: fln }));
     expect(de_novo.naoReconhecidos).toEqual([]);
     expect(de_novo.novos).toEqual({ lancamentos: 0, transferencias: 0 });
+  });
+
+  it("'não importar ainda' fica guardado em Pendências e é resolvido sem importar de novo", async () => {
+    const aba = NOVO.replace("AGENDA", "AGENDA NOVA");
+    const r = json(await importar(usuarioFln, { conteudo: aba, unidadeId: fln, arquivo: "outubro.csv", confirmar: true }));
+    expect(r.resultado.pendentes).toBe(1);
+    const p = json(await usuarioFln.req("GET", "/api/financeiro/planilha/pendencias"));
+    expect(p.itens).toEqual([{ chave: "AGENDA NOVA|LEMBRETE", grupo: "AGENDA NOVA", categoria: "LEMBRETE", qtd: 1, totalCentavos: 1000, abas: 1 }]);
+    expect(p.abas[0]).toMatchObject({ arquivo: "outubro.csv", linhas: 1 });
+    // Outra praça não vê as pendências de Florianópolis.
+    expect(json(await usuarioBc.req("GET", "/api/financeiro/planilha/pendencias")).itens).toEqual([]);
+    const cats = json(await usuarioFln.req("GET", "/api/financeiro/categorias")) as Array<{ id: string; codigo: string }>;
+    const outras = cats.find((c) => c.codigo === "DESP_OUTRAS")!.id;
+    const antes = (await lancamentos(usuarioFln)).length;
+    const res = json(await usuarioFln.req("POST", "/api/financeiro/planilha/pendencias/resolver", { mapeamentos: { "AGENDA NOVA|LEMBRETE": outras } }));
+    expect(res).toMatchObject({ lancamentos: 1, abas: 1, restantes: 0 });
+    expect((await lancamentos(usuarioFln)).length).toBe(antes + 1); // só a linha pendente; o resto da aba não duplicou
+    expect(json(await usuarioFln.req("GET", "/api/financeiro/planilha/pendencias")).itens).toEqual([]);
+    const { db, pool } = criarDb(DATABASE_URL);
+    try {
+      const regs = await db.select().from(finPlanilhaPendencias);
+      expect(regs.every((x) => x.conteudoCifrado === null && x.resolvidoEm !== null)).toBe(true); // a aba guardada é apagada ao resolver
+    } finally { await pool.end(); }
   });
 
   it("linha com valor inválido bloqueia a confirmação", async () => {

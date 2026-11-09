@@ -35,6 +35,7 @@ import { VeiculosPagina } from "./paginas/frota/Veiculos";
 import { Caixa } from "./paginas/financeiro/Caixa";
 import { Cartoes } from "./paginas/financeiro/Cartoes";
 import { ImportarPlanilha } from "./paginas/financeiro/ImportarPlanilha";
+import { PendenciasPlanilha } from "./paginas/financeiro/Pendencias";
 import { Revenda } from "./paginas/financeiro/Revenda";
 import { ContasCategorias } from "./paginas/financeiro/ContasCategorias";
 import { Extrato } from "./paginas/financeiro/Extrato";
@@ -277,6 +278,7 @@ export function Rotas() {
           <Route path="caixa" element={<Caixa />} />
           <Route path="revenda" element={<Revenda />} />
           <Route path="planilha" element={<ImportarPlanilha />} />
+          <Route path="pendencias" element={<PendenciasPlanilha />} />
         </Route>
         <Route
           path="em-breve/:modulo"

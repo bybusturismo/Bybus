@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, date, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 // Referências às tabelas de outros módulos ficam em funções (`() => unidades.id`) para não depender da ordem de carga.
 import { unidades, usuarios } from "../schema.js";
 
@@ -215,3 +215,21 @@ export const finRevendas = pgTable("fin_revendas", {
   criadoPor: uuid().references(() => usuarios.id),
   criadoEm: agora(),
 }, (t) => [index("fin_revendas_data_idx").on(t.dataVenda)]);
+
+/**
+ * Pendências de categoria da planilha (pedido do dono, 09/11/2026): linhas marcadas "não importar ainda" ficam guardadas para
+ * classificar depois, sem importar de novo. Guarda a aba (CSV) CIFRADA só enquanto houver pendência; resolvido tudo, o conteúdo é apagado.
+ */
+export const finPlanilhaPendencias = pgTable("fin_planilha_pendencias", {
+  id: uuid().primaryKey().defaultRandom(),
+  unidadeId: uuid().references(() => unidades.id),
+  arquivo: text(),
+  /** Hash da aba + praça: importar a mesma aba de novo atualiza o mesmo registro. */
+  hash: text().notNull(),
+  conteudoCifrado: text(),
+  pendentes: jsonb().$type<Array<{ chave: string; grupo: string; categoria: string; qtd: number; totalCentavos: number }>>().notNull().default(sql`'[]'::jsonb`),
+  criadoPor: uuid().references(() => usuarios.id),
+  criadoEm: agora(),
+  atualizadoEm: agora(),
+  resolvidoEm: timestamp({ withTimezone: true }),
+}, (t) => [uniqueIndex("fin_planilha_pendencias_hash_uq").on(t.hash)]);
