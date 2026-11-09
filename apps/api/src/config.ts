@@ -107,7 +107,9 @@ export function deveAnonimizar(c: Config): boolean {
 }
 
 export function lerConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const r = esquemaValidado.safeParse(env);
+  // Variável vazia no .env (ex.: "PAYTOUR_APP_KEY=") vale como não informada.
+  const semVazias = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v.trim() !== ""));
+  const r = esquemaValidado.safeParse(semVazias);
   if (!r.success) {
     throw new Error("Configuração inválida:\n" + r.error.issues.map((i) => `- ${i.path.join(".")}: ${i.message}`).join("\n"));
   }

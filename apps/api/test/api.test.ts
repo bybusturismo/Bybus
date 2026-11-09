@@ -286,6 +286,16 @@ describe("endurecimento (revisão de segurança)", () => {
     expect(deveAnonimizar(lerConfig({ ...base, AMBIENTE: "producao" }))).toBe(false);
   });
 
+  it("aceita o .env de produção do exemplo com as variáveis opcionais vazias", async () => {
+    const { lerConfig } = await import("../src/config.js");
+    const { readFileSync } = await import("node:fs");
+    const texto = readFileSync(new URL("../../../implantacao/producao.env.exemplo", import.meta.url), "utf8");
+    const env = Object.fromEntries(texto.split("\n").filter((l) => /^[A-Z_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]));
+    const c = lerConfig({ ...env, DATABASE_URL: "postgres://x@y/z", CHAVE_CRIPTOGRAFIA: Buffer.alloc(32).toString("base64"), POSTGRES_PASSWORD: "x" });
+    expect(c.AMBIENTE).toBe("producao");
+    expect(c.PAYTOUR_APP_KEY).toBeUndefined();
+  });
+
   it("lista e encerra sessões do próprio usuário", async () => {
     const a = await logado("guia@bybus.test");
     const b = await logado("guia@bybus.test");
