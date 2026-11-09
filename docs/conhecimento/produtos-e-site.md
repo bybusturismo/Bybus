@@ -108,3 +108,15 @@ Outros produtos sabidos por documentos internos: **Nascer do Sol** (2021) e **Br
 - **Pontualidade:** tolerância **zero** para atrasos; o ônibus e a van são 100% pontuais — dono, 06/11/2026.
 - **Quem faz:** a **van da empresa**, com um **motorista fixo** do transfer (cadastrar em Guias e equipe) — dono, 05/11/2026. Lugares da van: a confirmar.
 - **Bairros e horários-base (dono, 05/11/2026), nesta ordem de busca:** Ingleses a partir das 6h40 → Cachoeira do Bom Jesus 6h50 → Canasvieiras 7h → Jurerê 7h10 (Santinho fica dentro de Ingleses). São uma **base**: o horário real depende da quantidade de pessoas e dos hotéis e é **confirmado até as 21h da véspera** (fechamento da lista), quando cada cliente recebe o horário de busca.
+
+## Operação e atendimento (gerente, 09/11/2026)
+- **City Tour Toda Ilha:** sai às **8h** em frente ao ponto de táxi do Villa Romana Shopping; duração aproximada de **8h30**. O **Toda Ilha Ano Novo** sai **1 hora mais cedo**.
+- **Pontualidade:** para o cliente, tolerância zero; pede-se aguardar no ponto (ou em frente ao hotel) **10 minutos antes**, porque o ônibus não pode ficar estacionado. Internamente, no ponto inicial, é possível esperar uns 5 minutos — **isso não é informado ao cliente**.
+- **Onde aguardar:** sempre **em frente ao hotel** (não na portaria nem no café da manhã). Nem todo hotel tem embarque: quem está em hotel sem embarque vai ao ponto mais próximo.
+- **Trânsito:** hóspedes no **continente, norte da ilha e Lagoa da Conceição** devem sair mais cedo.
+- **Bebida alcoólica:** não é permitida no passeio; há paradas estratégicas para consumo.
+- **Banheiro:** ônibus urbano não tem banheiro (legislação); as paradas têm parceiros com banheiro.
+- **Pets:** pet friendly para porte pequeno e médio, sempre com o tutor; recomenda-se ir com mais de uma pessoa (há locais, como restaurantes, onde o pet não entra).
+- **Reservas de OTAs (Tripadvisor/Viator, Civitatis, Decolar):** hoje são lançadas na Paytour com embarque no Villa Romana e o embarque real é alinhado na véspera; clientes do Tripadvisor muitas vezes não respondem pelo WhatsApp.
+- **Transfer:** o motorista atual deixa de fazer o transfer com o carro próprio no próximo ano; proposta de horário padrão por bairro informado já na confirmação. Estudo de vender o transfer como **opcional** na Paytour (que não limita vagas nem horário de encerramento).
+- **Confirmação da saída (proposta, a validar):** pontos de corte por reservas pagas × pendentes (ex.: 10 pagas → confirmar de manhã/início da tarde; 10 pendentes → aguardar até 18h; 16 com metade pagas → confirmar).
