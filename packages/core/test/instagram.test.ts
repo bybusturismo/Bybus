@@ -106,10 +106,10 @@ describe("respostas prontas e etiquetas", () => {
     expect(normalizarAtalho("/Preço Criança!")).toBe("preco-crianca");
     expect(ATALHO_RESPOSTA_REGEX.test(normalizarAtalho("  /Ponto  "))).toBe(true);
   });
-  it("sugestões iniciais: 6 perguntas em PT, EN e ES, com atalhos válidos e sem repetir", () => {
-    expect(RESPOSTAS_INICIAIS).toHaveLength(18);
+  it("sugestões iniciais: 10 perguntas em PT, EN e ES, com atalhos válidos e sem repetir", () => {
+    expect(RESPOSTAS_INICIAIS).toHaveLength(30);
     const chaves = new Set(RESPOSTAS_INICIAIS.map((r) => `${r.atalho}/${r.idioma}`));
-    expect(chaves.size).toBe(18);
+    expect(chaves.size).toBe(30);
     for (const r of RESPOSTAS_INICIAIS) expect(ATALHO_RESPOSTA_REGEX.test(r.atalho)).toBe(true);
     for (const a of new Set(RESPOSTAS_INICIAIS.map((r) => r.atalho))) for (const i of IDIOMAS_RESPOSTA) expect(chaves.has(`${a}/${i}`)).toBe(true);
     // não afirmam política da empresa: só variáveis conhecidas

@@ -30,7 +30,7 @@ export class Cliente {
   cookie = "";
   constructor(private app: FastifyInstance) {}
 
-  async req(method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: unknown) {
+  async req(method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE", url: string, payload?: unknown) {
     const r = await this.app.inject({
       method, url, payload: payload as never,
       headers: { cookie: this.cookie, ...(method !== "GET" ? { "x-bybus": "1" } : {}) },

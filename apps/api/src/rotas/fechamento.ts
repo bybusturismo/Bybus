@@ -2,11 +2,13 @@ import { desc, eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Contexto } from "../app.js";
-import { mensagens, reservas } from "../db/schema.js";
+import { mensagens, reservas, saidas } from "../db/schema.js";
 import { filtroUnidade, garantirSaida } from "../seguranca/escopo.js";
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
-import { textoListaGrupo } from "@bybus/core";
+import { CONTAR_POR, textoListaGrupo, validarRegrasConfirmacao } from "@bybus/core";
+import { auditar } from "../auditoria.js";
+import { confirmarSaida, lerRegrasConfirmacao, salvarRegrasConfirmacao } from "../servicos/confirmacao.js";
 import { agoraSp, enviarMensagem, fecharLista, situacaoFechamento } from "../servicos/fechamento.js";
 import { carregarManifesto } from "../servicos/manifesto.js";
 import { transferNaLista } from "../servicos/transfer.js";
@@ -28,8 +30,33 @@ export async function rotasFechamento(app: FastifyInstance, { db, config, cofre 
       horaFechamento: config.FECHAMENTO_HORA,
       automatico: config.FECHAMENTO_AUTOMATICO,
       whatsapp: { provedor: config.WHATSAPP_PROVEDOR, envioReal: envioReal(config), grupoConfigurado: !!config.WHATSAPP_GRUPO_LISTA },
+      regrasConfirmacao: await lerRegrasConfirmacao(db),
       saidas: await situacaoFechamento(db, data, filtroUnidade(req.usuario!)),
     };
+  });
+
+  /** Pontos de corte da confirmação da véspera (quem decide a saída ajusta). */
+  app.put("/api/confirmacao/regras", decidir, async (req) => {
+    const hora = z.string().regex(/^\d{2}:\d{2}$/);
+    const n = z.number().int().min(0).max(500);
+    const r = z.object({
+      ligado: z.boolean(), contarPor: z.enum(CONTAR_POR), pagasParaConfirmar: n, totalParaConfirmar: n, pagasMinimasNoTotal: n, horaPrevia: hora, horaLimite: hora,
+    }).parse(req.body);
+    const erro = validarRegrasConfirmacao(r);
+    if (erro) throw new ErroHttp(400, "REGRAS_INVALIDAS", erro);
+    if (r.horaLimite > config.FECHAMENTO_HORA) throw new ErroHttp(400, "REGRAS_INVALIDAS", `A hora limite precisa ser até o fechamento (${config.FECHAMENTO_HORA}).`);
+    await salvarRegrasConfirmacao(db, r, req.usuario!.id);
+    await auditar(db, req, "CONFIRMACAO_REGRAS_ALTERADAS", undefined, r);
+    return r;
+  });
+
+  /** Confirma a saída agora (decisão da equipe) e envia a confirmação a quem ainda não recebeu. */
+  app.post("/api/saidas/:id/confirmar", { ...decidir, config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    await garantirSaida(db, req.usuario!, id);
+    const [s] = await db.select({ status: saidas.status }).from(saidas).where(eq(saidas.id, id));
+    if (s?.status === "CANCELADA") throw new ErroHttp(409, "SAIDA_CANCELADA", "Esta saída está cancelada.");
+    return confirmarSaida(db, config, id, { usuarioId: req.usuario!.id, motivo: "Decisão da equipe" });
   });
 
   /** Fecha agora (ou gera um adendo) e devolve o texto para o grupo. */

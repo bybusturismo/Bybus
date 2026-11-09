@@ -5,7 +5,8 @@
  */
 import {
   PONTOS_TODA_ILHA, detectarDuplicatas, documentoValido, formatarCpf, lerCsvPaytour, lerEmailBokun, mascararDocumento,
-  montarManifesto, normalizarDocumento, textoConfirmacao, textoListaGrupo, type Canal, type Categoria, type ReservaImportada, type TipoDocumento,
+  REGRAS_CONFIRMACAO_PADRAO, avaliarConfirmacao, montarManifesto, normalizarDocumento, textoConfirmacao, textoListaGrupo, validarRegrasConfirmacao, type Canal,
+  type RegrasConfirmacao, type Categoria, type ReservaImportada, type TipoDocumento,
 } from "@bybus/core";
 
 import { NAO, type Ctx } from "./comum";
@@ -122,6 +123,8 @@ const saidas: Saida[] = [];
 /** Valor informado à mão na reserva (centavos). */
 const valoresManuais = new Map<string, number>();
 const conferenciaDemo = new Map<string, { em: string; por: string }>();
+let regrasConfirmacaoDemo: RegrasConfirmacao = { ...REGRAS_CONFIRMACAO_PADRAO };
+const confirmadasDemo = new Map<string, { em: string; automatica: boolean }>();
 const fechamentoDemo = new Map<string, { em: string; versao: number }>();
 const mensagensDemo: Array<{ id: string; tipo: string; status: string; provedor: string; erro: string | null; criadoEm: string; enviadaEm: string | null; titular: string; destino: string | null; texto: string; saidaId: string; reservaId: string }> = [];
 /** Pagamento e origem fictícios e estáveis por reserva. */
@@ -640,11 +643,28 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     achar(reservas, m![1]!, "Reserva");
     return { caminho: "/embarque/demonstracao-link-ficticio-0000", expiraEm: agoraIso() };
   }
+  if (metodo === "PUT" && caminho === "/api/confirmacao/regras") {
+    exigir("saidas:decidir");
+    const novas = c as unknown as RegrasConfirmacao;
+    const erro = validarRegrasConfirmacao(novas);
+    if (erro) throw new Erro(400, "REGRAS_INVALIDAS", erro);
+    regrasConfirmacaoDemo = { ...novas };
+    auditar("CONFIRMACAO_REGRAS_ALTERADAS", "saida", "regras");
+    return regrasConfirmacaoDemo;
+  }
+  if (metodo === "POST" && r(/^\/api\/saidas\/([^/]+)\/confirmar$/)) {
+    exigir("saidas:decidir");
+    const s = achar(saidas, m![1]!, "Saída");
+    const jaEstava = confirmadasDemo.has(s.id);
+    if (!jaEstava) confirmadasDemo.set(s.id, { em: agoraIso(), automatica: false });
+    auditar("SAIDA_CONFIRMADA", "saida", s.id);
+    return { jaEstava, enviadas: jaEstava ? 0 : reservas.filter((x) => x.saidaId === s.id && x.status === "CONFIRMADA").length };
+  }
   if (metodo === "GET" && caminho === "/api/fechamento") {
     exigir("saidas:decidir");
     const data = q.get("data") ?? dataMais(1);
     return {
-      data, horaFechamento: "21:00", automatico: true, whatsapp: { provedor: "simulado", envioReal: false, grupoConfigurado: false },
+      data, horaFechamento: "21:00", automatico: true, whatsapp: { provedor: "simulado", envioReal: false, grupoConfigurado: false }, regrasConfirmacao: regrasConfirmacaoDemo,
       saidas: saidas.filter((s) => s.data === data && s.status !== "CANCELADA" && podeUnidade(unidadeDaSaida(s))).map((s) => {
         const rs = reservas.filter((r) => r.saidaId === s.id && r.status === "CONFIRMADA");
         const f = fechamentoDemo.get(s.id);
@@ -652,6 +672,13 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
         return { saidaId: s.id, passeio: passeioDe(s.passeioId).nome, data: s.data, guia: s.guia, motorista: s.motorista, veiculo: s.veiculo,
           listaFechadaEm: f?.em ?? null, versao: f?.versao ?? 0, reservas: rs.length, naoConferidas: rs.filter((r) => !conferenciaDemo.has(r.id)).length,
           semPonto: rs.filter((r) => !r.pontoEmbarqueId).length, depoisDoFechamento: 0,
+          confirmacao: (() => {
+            const c = { pagas: rs.filter((r) => extrasDemo(r).pagamento !== "A_PAGAR").length, pendentes: rs.filter((r) => extrasDemo(r).pagamento === "A_PAGAR").length };
+            const conf = confirmadasDemo.get(s.id) ?? (f ? { em: f.em, automatica: true } : null);
+            const a = avaliarConfirmacao(c, regrasConfirmacaoDemo, new Date().toTimeString().slice(0, 5));
+            return { ...c, decisao: conf ? "CONFIRMADA" : a.decisao, motivo: conf ? null : a.motivo, confirmadaEm: conf?.em ?? null, automatica: conf?.automatica ?? null };
+          })(),
+          previasEnviadas: 0,
           mensagens: ms.reduce<Record<string, number>>((acc, x) => ({ ...acc, [x.status]: (acc[x.status] ?? 0) + 1 }), {}) };
       }),
     };

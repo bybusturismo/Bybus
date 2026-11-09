@@ -169,6 +169,13 @@
       "when": 1793970913855,
       "tag": "0023_encontro_transfer",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794197994082,
+      "tag": "0024_confirmacao_vespera",
+      "breakpoints": true
     }
   ]
 }

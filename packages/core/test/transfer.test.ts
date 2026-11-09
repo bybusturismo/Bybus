@@ -144,13 +144,16 @@ describe("horários de busca não voltam no tempo", () => {
 });
 
 describe("confirmação da véspera para quem vem de transfer", () => {
-  it("leva o horário de busca confirmado, o hotel e a taxa a pagar ao motorista", async () => {
+  it("leva o horário de busca, o hotel, a taxa a pagar ao motorista e o aviso de mudança", async () => {
     const { textoConfirmacao } = await import("../src/index.js");
     const t = textoConfirmacao({ primeiroNome: "Ana", passeio: "City Tour", data: "2026-11-06", ponto: null, linkEmbarque: null, transfer: { horario: "06:45", local: "Pousada Fictícia", taxaACobrarCentavos: 8000 } });
-    expect(t).toContain("às *06:45* (horário confirmado)");
+    expect(t).toContain("às *06:45*");
+    expect(t).toContain("Aguarde em frente ao hotel 10 minutos antes");
+    expect(t).toContain("Se o horário mudar, avisaremos por aqui");
+    expect(t).not.toContain("portaria");
     expect(t).toContain("Pousada Fictícia");
     expect(t).toContain("R$ 80,00, paga ao motorista");
-    expect(t).not.toContain("Ainda não temos o seu ponto");
+    expect(t).not.toContain("Falta só o seu ponto");
     const pago = textoConfirmacao({ primeiroNome: "Ana", passeio: "City Tour", data: "2026-11-06", ponto: null, linkEmbarque: null, transfer: { horario: "06:45", local: null, taxaACobrarCentavos: 0 } });
     expect(pago).not.toContain("Taxa do transfer");
   });

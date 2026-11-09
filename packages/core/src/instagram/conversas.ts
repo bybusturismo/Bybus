@@ -53,4 +53,17 @@ export const RESPOSTAS_INICIAIS: RespostaInicial[] = [
   { atalho: "voucher", titulo: "Voucher", idioma: "PT", texto: "Olá, {nome}! Vou reenviar o voucher do {passeio} ({data}). No dia, basta mostrá-lo ao guia no embarque." },
   { atalho: "voucher", titulo: "Voucher", idioma: "EN", texto: "Hello, {nome}! I will resend the voucher for the {passeio} ({data}). On the day, just show it to the guide when boarding." },
   { atalho: "voucher", titulo: "Voucher", idioma: "ES", texto: "¡Hola, {nome}! Te reenvío el voucher del {passeio} ({data}). El día de la salida, solo muéstraselo al guía al abordar." },
+  // Respostas passadas pelo gerente (09/11/2026); EN/ES traduzidos a partir do PT, a revisar.
+  { atalho: "bebida", titulo: "Comida e bebida", idioma: "PT", texto: "Olá, {nome}! Pedimos que não leve bebida alcoólica no passeio. O roteiro tem paradas estratégicas para você comer e beber nos locais de parada." },
+  { atalho: "bebida", titulo: "Food and drinks", idioma: "EN", texto: "Hello, {nome}! Please do not bring alcoholic drinks on the tour. The route includes planned stops where you can eat and drink." },
+  { atalho: "bebida", titulo: "Comida y bebida", idioma: "ES", texto: "¡Hola, {nome}! Te pedimos que no lleves bebidas alcohólicas al paseo. El recorrido tiene paradas estratégicas para comer y beber en los lugares de parada." },
+  { atalho: "banheiro", titulo: "Banheiro no ônibus", idioma: "PT", texto: "Olá, {nome}! Pela legislação, ônibus urbano não tem banheiro, mas fazemos paradas estratégicas em parceiros que oferecem banheiro." },
+  { atalho: "banheiro", titulo: "Restroom on the bus", idioma: "EN", texto: "Hello, {nome}! By law, city buses have no restroom, but we make planned stops at partners with restrooms." },
+  { atalho: "banheiro", titulo: "Baño en el bus", idioma: "ES", texto: "¡Hola, {nome}! Por ley, los buses urbanos no tienen baño, pero hacemos paradas estratégicas en socios que ofrecen baño." },
+  { atalho: "pet", titulo: "Aceita pet?", idioma: "PT", texto: "Olá, {nome}! Sim, o passeio é pet friendly para pets de pequeno e médio porte, sempre com o tutor. Recomendamos ir com mais de uma pessoa: em alguns locais, como restaurantes, o pet não entra, e assim vocês se revezam na companhia dele." },
+  { atalho: "pet", titulo: "Pets allowed?", idioma: "EN", texto: "Hello, {nome}! Yes, the tour is pet friendly for small and medium pets, always with their owner. We recommend coming with someone else: pets are not allowed in some places, such as restaurants, so you can take turns keeping them company." },
+  { atalho: "pet", titulo: "¿Se aceptan mascotas?", idioma: "ES", texto: "¡Hola, {nome}! Sí, el paseo es pet friendly para mascotas pequeñas y medianas, siempre con su tutor. Recomendamos ir con otra persona: en algunos lugares, como restaurantes, la mascota no puede entrar, y así se turnan para acompañarla." },
+  { atalho: "duracao", titulo: "Duração do passeio", idioma: "PT", texto: "Olá, {nome}! Depende do passeio. O nosso roteiro principal, o City Tour Toda Ilha, dura aproximadamente 8h30." },
+  { atalho: "duracao", titulo: "Tour length", idioma: "EN", texto: "Hello, {nome}! It depends on the tour. Our main route, the City Tour Toda Ilha, takes about 8.5 hours." },
+  { atalho: "duracao", titulo: "Duración del paseo", idioma: "ES", texto: "¡Hola, {nome}! Depende del paseo. Nuestro recorrido principal, el City Tour Toda Ilha, dura aproximadamente 8 horas y media." },
 ];

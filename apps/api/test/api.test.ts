@@ -760,7 +760,7 @@ describe("fechamento da lista e mensagens", () => {
 
     const r2 = (await c.req("POST", `/api/saidas/${saida.id}/fechar`)).json();
     expect(r2.versao).toBe(2);
-    expect(r2.texto).toContain("ADENDO 1");
+    expect(r2.texto).toContain("LISTA ATUALIZADA (versão 2)");
     expect((await c.req("GET", `/api/mensagens?saidaId=${saida.id}`)).json().filter((m: { tipo: string }) => m.tipo === "CONFIRMACAO")).toHaveLength(2);
     const situacao = (await c.req("GET", "/api/fechamento?data=2027-02-10")).json();
     expect(situacao.whatsapp).toMatchObject({ provedor: "simulado", envioReal: false });

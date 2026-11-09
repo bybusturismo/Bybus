@@ -33,10 +33,45 @@ describe("Conferência de embarque", () => {
 });
 
 describe("Fechamento e mensagens", () => {
+  const regras = { ligado: true, contarPor: "RESERVAS", pagasParaConfirmar: 10, totalParaConfirmar: 16, pagasMinimasNoTotal: 8, horaPrevia: "09:00", horaLimite: "18:00" };
+  const situacao = { data: "2099-01-05", horaFechamento: "21:00", automatico: true, whatsapp: { provedor: "simulado", envioReal: false, grupoConfigurado: false }, regrasConfirmacao: regras,
+    saidas: [{ saidaId: "s1", passeio: "City Tour Toda Ilha", data: "2099-01-05", guia: "Guia Fictícia Ana", motorista: null, veiculo: null, listaFechadaEm: null, versao: 0, reservas: 4, naoConferidas: 1, semPonto: 1, depoisDoFechamento: 0,
+      confirmacao: { pagas: 3, pendentes: 1, decisao: "AGUARDAR", motivo: "3 pagas e 1 pendentes. Reavaliando até as 18:00.", confirmadaEm: null, automatica: null }, previasEnviadas: 4, mensagens: {} }] };
+
+  it("mostra a confirmação da véspera, confirma a saída e ajusta os pontos de corte", async () => {
+    const api = simularApi({
+      "GET /api/fechamento": situacao,
+      "POST /api/saidas/s1/confirmar": { jaEstava: false, enviadas: 4 },
+      "PUT /api/confirmacao/regras": regras,
+    });
+    renderizar(<Fechamento />, { sessao: sessaoFicticia("SUPERVISOR", ["saidas:decidir", "manifesto:ver"], { unidades: [FLN] }) });
+    expect(await screen.findByText("Aguardando")).toBeInTheDocument();
+    expect(screen.getByText("3 pagas · 1 pendentes")).toBeInTheDocument();
+    expect(screen.getByText("4 prévia(s) enviada(s)")).toBeInTheDocument();
+    const u = userEvent.setup();
+    await u.click(screen.getByRole("button", { name: "Confirmar saída" }));
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Confirmar saída" }));
+    expect(api.mock.calls.some(([x, i]) => String(x) === "/api/saidas/s1/confirmar" && i?.method === "POST")).toBe(true);
+    await u.click(screen.getByRole("button", { name: "Ajustar" }));
+    const d = within(screen.getByRole("dialog"));
+    await u.clear(d.getByLabelText(/Corte 1/));
+    await u.type(d.getByLabelText(/Corte 1/), "12");
+    await u.click(d.getByRole("button", { name: "Salvar regras" }));
+    const put = api.mock.calls.find(([x, i]) => String(x) === "/api/confirmacao/regras" && i?.method === "PUT");
+    expect(JSON.parse(String(put?.[1]?.body))).toMatchObject({ pagasParaConfirmar: 12 });
+  });
+
+  it("quem só vê a lista não confirma nem ajusta", async () => {
+    simularApi({ "GET /api/fechamento": situacao });
+    renderizar(<Fechamento />, { sessao: sessaoFicticia("GUIA", ["manifesto:ver"], { unidades: [FLN] }) });
+    expect(await screen.findByText("Aguardando")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirmar saída" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ajustar" })).toBeNull();
+  });
+
   it("avisa do modo simulado e fecha a lista mostrando o texto", async () => {
     const api = simularApi({
-      "GET /api/fechamento": { data: "2099-01-05", horaFechamento: "21:00", automatico: true, whatsapp: { provedor: "simulado", envioReal: false, grupoConfigurado: false },
-        saidas: [{ saidaId: "s1", passeio: "City Tour Toda Ilha", data: "2099-01-05", guia: "Guia Fictícia Ana", motorista: null, veiculo: null, listaFechadaEm: null, versao: 0, reservas: 4, naoConferidas: 1, semPonto: 1, depoisDoFechamento: 0, mensagens: {} }] },
+      "GET /api/fechamento": situacao,
       "POST /api/saidas/s1/fechar": { versao: 1, texto: "*RELAÇÃO DE PASSAGEIROS*\n01. Fulano Fictício · A", resumo: {} },
     });
     renderizar(<Fechamento />, { sessao: sessaoFicticia("SUPERVISOR", ["saidas:decidir", "manifesto:ver"], { unidades: [FLN] }) });

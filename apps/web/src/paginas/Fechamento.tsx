@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 import { useSessao } from "../sessao/Sessao";
 import { Link } from "react-router-dom";
 import { api, mensagemDeErro, qs } from "../api/cliente";
-import type { MensagemFila, SituacaoFechamento } from "../api/tipos";
+import type { MensagemFila, RegrasConfirmacao, SituacaoConfirmacao, SituacaoFechamento } from "../api/tipos";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { Modal } from "../componentes/Modal";
 import { CabecalhoPagina } from "../componentes/Pagina";
@@ -11,7 +11,7 @@ import { formatarDataCurta, formatarDataHora, hojeIso, somarDias } from "../util
 import { useCarregar } from "../util/useCarregar";
 
 const ROTULO_STATUS: Record<string, string> = { ENVIADA: "Enviadas", SIMULADA: "Simuladas", PENDENTE: "Na fila", SEM_TELEFONE: "Sem telefone", FALHA: "Falharam" };
-const ROTULO_TIPO = (t: string) => (t.startsWith("LISTA_GRUPO") ? "Lista no grupo" : ({ CONFIRMACAO: "Confirmação da véspera", VOUCHER: "Voucher", RASTREIO: "Rastreamento" } as Record<string, string>)[t] ?? t);
+const ROTULO_TIPO = (t: string) => (t.startsWith("LISTA_GRUPO") ? "Lista no grupo" : ({ CONFIRMACAO: "Confirmação da véspera", PREVIA: "Prévia (montando a lista)", VOUCHER: "Voucher", RASTREIO: "Rastreamento" } as Record<string, string>)[t] ?? t);
 
 function TextoLista({ titulo, texto, aoFechar }: { titulo: string; texto: string; aoFechar: () => void }) {
   const notificar = useNotificar();
@@ -84,6 +84,63 @@ function PreviaLista({ saidaId }: { saidaId: string }) {
   return <pre className="listas__previa">{r.dados?.texto}</pre>;
 }
 
+const ROTULO_DECISAO: Record<SituacaoConfirmacao["decisao"], { texto: string; classe: string }> = {
+  CONFIRMADA: { texto: "Confirmada", classe: "etiqueta--sucesso" },
+  CONFIRMAR: { texto: "Atingiu o corte", classe: "etiqueta--sucesso" },
+  AGUARDAR: { texto: "Aguardando", classe: "etiqueta--neutra" },
+  DECIDIR: { texto: "Equipe decide", classe: "etiqueta--perigo" },
+};
+
+/** Pontos de corte da confirmação da véspera (gerente, 09/11/2026). */
+function RegrasConfirmacaoModal({ atuais, horaFechamento, aoFechar, aoSalvar }: { atuais: RegrasConfirmacao; horaFechamento: string; aoFechar: () => void; aoSalvar: () => void }) {
+  const notificar = useNotificar();
+  const [f, setF] = useState<RegrasConfirmacao>(atuais);
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const num = (k: keyof RegrasConfirmacao) => ({ type: "number", min: 0, max: 500, value: f[k] as number, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: Number(e.target.value) || 0 }) });
+  async function salvar() {
+    setSalvando(true);
+    setErro(null);
+    try {
+      await api.put("/api/confirmacao/regras", f);
+      notificar("Regras de confirmação salvas.");
+      aoSalvar();
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setSalvando(false);
+    }
+  }
+  const un = f.contarPor === "PASSAGEIROS" ? "passageiros" : "reservas";
+  return (
+    <Modal aberto titulo="Confirmação da véspera: pontos de corte" aoFechar={aoFechar}>
+      <p className="texto-fraco">
+        A partir da hora da prévia, o sistema confere as saídas de amanhã. Atingiu um corte: confirma sozinho e cada cliente recebe horário e ponto.
+        Senão, o cliente recebe a prévia (“estamos montando a lista”) e o sistema reavalia ao longo do dia. Na hora limite, sem corte, a equipe decide: nada é cancelado sozinho.
+      </p>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      <div className="grade-campos">
+        <label className="interruptor"><input type="checkbox" checked={f.ligado} onChange={(e) => setF({ ...f, ligado: e.target.checked })} /> Confirmação automática ligada</label>
+        <div className="campo"><label htmlFor="rc-contar">Contar por</label>
+          <select id="rc-contar" value={f.contarPor} onChange={(e) => setF({ ...f, contarPor: e.target.value as RegrasConfirmacao["contarPor"] })}>
+            <option value="RESERVAS">Reservas</option><option value="PASSAGEIROS">Passageiros (colo não conta)</option>
+          </select>
+        </div>
+        <div className="campo"><label htmlFor="rc-pagas">Corte 1: {un} pagas para confirmar</label><input id="rc-pagas" {...num("pagasParaConfirmar")} /></div>
+        <div className="campo"><label htmlFor="rc-total">Corte 2: total de {un}…</label><input id="rc-total" {...num("totalParaConfirmar")} /></div>
+        <div className="campo"><label htmlFor="rc-min">…com pelo menos estas pagas</label><input id="rc-min" {...num("pagasMinimasNoTotal")} /></div>
+        <div className="campo"><label htmlFor="rc-previa">Hora da prévia</label><input id="rc-previa" type="time" value={f.horaPrevia} onChange={(e) => setF({ ...f, horaPrevia: e.target.value })} /></div>
+        <div className="campo"><label htmlFor="rc-limite">Hora limite da decisão (até {horaFechamento})</label><input id="rc-limite" type="time" value={f.horaLimite} onChange={(e) => setF({ ...f, horaLimite: e.target.value })} /></div>
+      </div>
+      <p className="texto-fraco">Corte com zero fica desligado. Pendentes = reservas “pagar no embarque” ou com saldo a pagar.</p>
+      <div className="modal__acoes">
+        <button type="button" className="botao botao--secundario" onClick={aoFechar}>Cancelar</button>
+        <button type="button" className="botao botao--primario" disabled={salvando} onClick={() => void salvar()}>{salvando ? "Salvando…" : "Salvar regras"}</button>
+      </div>
+    </Modal>
+  );
+}
+
 /** Central das listas de passageiros (pedido do dono, 04/11: o campo principal para a automação). */
 export function Fechamento() {
   const notificar = useNotificar();
@@ -97,6 +154,23 @@ export function Fechamento() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<{ saidaId: string; passeio: string; adendo: boolean; titulares: number } | null>(null);
+  const [editarRegras, setEditarRegras] = useState(false);
+  const [confirmarSaida, setConfirmarSaida] = useState<{ saidaId: string; passeio: string; titulares: number } | null>(null);
+
+  async function confirmarAgora(saidaId: string) {
+    setConfirmarSaida(null);
+    setOcupado(saidaId);
+    setErro(null);
+    try {
+      const r = await api.post<{ jaEstava: boolean; enviadas: number }>(`/api/saidas/${saidaId}/confirmar`);
+      notificar(r.jaEstava ? "A saída já estava confirmada." : `Saída confirmada. ${r.enviadas} confirmação(ões) na fila.`);
+      await sit.recarregar();
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setOcupado(null);
+    }
+  }
 
   async function fechar(saidaId: string, passeio: string) {
     setConfirmar(null);
@@ -104,8 +178,8 @@ export function Fechamento() {
     setErro(null);
     try {
       const r = await api.post<{ versao: number; texto: string }>(`/api/saidas/${saidaId}/fechar`);
-      notificar(r.versao > 1 ? `Adendo ${r.versao - 1} gerado.` : "Lista fechada.");
-      setTexto({ titulo: `${passeio} — lista ${r.versao > 1 ? `(adendo ${r.versao - 1})` : "fechada"}`, texto: r.texto });
+      notificar(r.versao > 1 ? `Lista atualizada (versão ${r.versao}) gerada.` : "Lista fechada.");
+      setTexto({ titulo: `${passeio} — lista ${r.versao > 1 ? `atualizada (versão ${r.versao})` : "fechada"}`, texto: r.texto });
       await sit.recarregar();
     } catch (e) {
       setErro(mensagemDeErro(e));
@@ -127,7 +201,7 @@ export function Fechamento() {
     <div className="pagina">
       <CabecalhoPagina
         titulo="Listas de passageiros"
-        descricao={`A lista da véspera fecha ${s?.automatico ? `sozinha às ${s.horaFechamento}` : "pelo botão (fechamento automático desligado)"}, em ordem de embarque, e cada titular recebe a confirmação. Venda depois disso gera um adendo.`}
+        descricao={`Na véspera, a saída é confirmada pelos pontos de corte (ou pela equipe) e cada titular recebe horário e ponto. A lista fecha ${s?.automatico ? `sozinha às ${s.horaFechamento}` : "pelo botão (fechamento automático desligado)"}, em ordem de embarque. Venda depois disso gera a lista atualizada, sempre completa.`}
         filtros={<div className="campo campo--linha"><label htmlFor="fech-data">Data do passeio</label><input id="fech-data" type="date" value={data} onChange={(e) => setData(e.target.value)} /></div>}
       />
       {s && (
@@ -135,7 +209,13 @@ export function Fechamento() {
           <ul>
             <li><strong>Fechamento:</strong> {s.automatico ? `automático às ${s.horaFechamento} da véspera` : "manual (automático desligado)"}</li>
             <li><strong>Grupo do WhatsApp:</strong> {s.whatsapp.grupoConfigurado ? "a lista vai sozinha para o grupo" : "não configurado — use “Texto para o WhatsApp”"}</li>
-            <li><strong>Confirmação para cada titular:</strong> enviada ao fechar</li>
+            <li>
+              <strong>Confirmação da véspera:</strong>{" "}
+              {s.regrasConfirmacao.ligado
+                ? `a partir das ${s.regrasConfirmacao.horaPrevia}, confirma com ${s.regrasConfirmacao.pagasParaConfirmar} pagas ou ${s.regrasConfirmacao.totalParaConfirmar} no total com ${s.regrasConfirmacao.pagasMinimasNoTotal} pagas (${s.regrasConfirmacao.contarPor === "PASSAGEIROS" ? "passageiros" : "reservas"}); decisão até as ${s.regrasConfirmacao.horaLimite}`
+                : "automática desligada (confirma no fechamento)"}
+              {podeDecidir && <>{" "}<button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setEditarRegras(true)}>Ajustar</button></>}
+            </li>
             <li><strong>WhatsApp:</strong> {s.whatsapp.envioReal ? "envio real ligado" : <span className="texto-atencao">modo simulado — nada sai de verdade até contratar o provedor</span>}</li>
             <li><strong>Listas desta data:</strong> {s.saidas.filter((x) => x.listaFechadaEm).length} fechada(s) de {s.saidas.length}</li>
           </ul>
@@ -148,7 +228,7 @@ export function Fechamento() {
         <div className="tabela-rolagem">
           <table className="tabela tabela--listas tabela--cartoes">
             <thead>
-              <tr><th>Passeio e equipe</th><th>Situação</th><th className="num">Reservas</th><th className="num">A conferir</th><th className="num">Sem ponto</th><th>Mensagens</th><th>Ações</th></tr>
+              <tr><th>Passeio e equipe</th><th>Confirmação</th><th>Lista</th><th className="num">Reservas</th><th className="num">A conferir</th><th className="num">Sem ponto</th><th>Mensagens</th><th>Ações</th></tr>
             </thead>
             <tbody>
               {s?.saidas.map((x) => {
@@ -161,9 +241,22 @@ export function Fechamento() {
                         <strong><Link to={`/saidas/${x.saidaId}`}>{x.passeio}</Link></strong>
                         <div className="texto-fraco">Guia: {x.guia ?? "a definir"} · Motorista: {x.motorista ?? "a definir"}{x.veiculo ? ` · ${x.veiculo}` : ""}</div>
                       </td>
-                      <td data-rotulo="Situação">
+                      <td data-rotulo="Confirmação">
+                        {x.reservas === 0 && !x.confirmacao.confirmadaEm ? <span className="texto-fraco">Sem reservas</span> : <>
+                          <span className={`etiqueta ${ROTULO_DECISAO[x.confirmacao.decisao].classe}`} title={x.confirmacao.motivo ?? undefined}>{ROTULO_DECISAO[x.confirmacao.decisao].texto}</span>
+                          <div className="texto-fraco">{x.confirmacao.pagas} pagas · {x.confirmacao.pendentes} pendentes</div>
+                          {x.confirmacao.confirmadaEm
+                            ? <div className="texto-fraco">{x.confirmacao.automatica ? "pelos cortes" : "pela equipe"} · {formatarDataHora(x.confirmacao.confirmadaEm)}</div>
+                            : <div className={x.confirmacao.decisao === "DECIDIR" ? "texto-perigo" : "texto-fraco"}>{
+                              x.confirmacao.decisao === "DECIDIR" ? "Não atingiu os cortes: confirme ou cancele"
+                                : x.confirmacao.decisao === "CONFIRMAR" ? "Confirma na próxima rodada"
+                                  : `Reavalia até as ${s?.regrasConfirmacao.horaLimite ?? ""}`}</div>}
+                        </>}
+                        {x.previasEnviadas > 0 && !x.confirmacao.confirmadaEm && <div className="texto-fraco">{x.previasEnviadas} prévia(s) enviada(s)</div>}
+                      </td>
+                      <td data-rotulo="Lista">
                         <span className={`etiqueta ${fechada ? "etiqueta--sucesso" : "etiqueta--atencao"}`}>
-                          {fechada ? `Fechada${x.versao > 1 ? ` · adendo ${x.versao - 1}` : ""}` : "Aberta"}
+                          {fechada ? `Fechada${x.versao > 1 ? ` · versão ${x.versao}` : ""}` : "Aberta"}
                         </span>
                         {fechada && <div className="texto-fraco">{formatarDataHora(x.listaFechadaEm)}</div>}
                         {fechada && x.depoisDoFechamento > 0 && <div className="texto-atencao"><strong>{x.depoisDoFechamento}</strong> depois do fechamento</div>}
@@ -179,16 +272,20 @@ export function Fechamento() {
                         <Link className="botao botao--secundario botao--pequeno" to={`/saidas/${x.saidaId}`}>Abrir / imprimir</Link>{" "}
                         <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void verTexto(x.saidaId, x.passeio)}>Texto para o WhatsApp</button>{" "}
                         {x.naoConferidas > 0 && <><Link className="botao botao--secundario botao--pequeno" to="/listas/conferir">Conferir pendências</Link>{" "}</>}
+                        {podeDecidir && !x.confirmacao.confirmadaEm && x.reservas > 0 && (
+                          <><button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado === x.saidaId}
+                            onClick={() => setConfirmarSaida({ saidaId: x.saidaId, passeio: x.passeio, titulares: x.reservas })}>Confirmar saída</button>{" "}</>
+                        )}
                         {podeDecidir && (!fechada || x.depoisDoFechamento > 0) && (
                           <button type="button" className="botao botao--primario botao--pequeno" disabled={ocupado === x.saidaId}
                             onClick={() => setConfirmar({ saidaId: x.saidaId, passeio: x.passeio, adendo: fechada, titulares: fechada ? x.depoisDoFechamento : x.reservas })}>
-                            {fechada ? "Gerar adendo" : "Fechar lista agora"}
+                            {fechada ? "Reenviar lista atualizada" : "Fechar lista agora"}
                           </button>
                         )}{" "}
                         {podeDecidir && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setMensagensDe(x.saidaId)}>Mensagens</button>}
                       </td>
                     </tr>
-                    {aberta === x.saidaId && <tr><td colSpan={7}><PreviaLista saidaId={x.saidaId} /></td></tr>}
+                    {aberta === x.saidaId && <tr><td colSpan={8}><PreviaLista saidaId={x.saidaId} /></td></tr>}
                   </Fragment>
                 );
               })}
@@ -197,17 +294,30 @@ export function Fechamento() {
         </div>
       )}
       {confirmar && (
-        <Modal aberto titulo={confirmar.adendo ? "Gerar adendo da lista?" : "Fechar a lista agora?"} aoFechar={() => setConfirmar(null)}>
+        <Modal aberto titulo={confirmar.adendo ? "Reenviar a lista atualizada?" : "Fechar a lista agora?"} aoFechar={() => setConfirmar(null)}>
           <p>
-            {confirmar.passeio}: {confirmar.adendo ? `${confirmar.titulares} reserva(s) nova(s) ou alterada(s) entram no adendo` : "a lista fecha em ordem de embarque"}
+            {confirmar.passeio}: {confirmar.adendo ? `a lista completa sai de novo, em ordem de embarque, com ${confirmar.titulares} reserva(s) nova(s) ou alterada(s)` : "a lista fecha em ordem de embarque"}
             {s?.whatsapp.envioReal ? " e a confirmação sai pelo WhatsApp para quem ainda não recebeu." : " (WhatsApp em modo simulado: nada é enviado)."}
           </p>
           <div className="modal__acoes">
             <button type="button" className="botao botao--secundario" onClick={() => setConfirmar(null)}>Cancelar</button>
-            <button type="button" className="botao botao--primario" onClick={() => void fechar(confirmar.saidaId, confirmar.passeio)}>{confirmar.adendo ? "Gerar adendo" : "Fechar lista"}</button>
+            <button type="button" className="botao botao--primario" onClick={() => void fechar(confirmar.saidaId, confirmar.passeio)}>{confirmar.adendo ? "Reenviar lista" : "Fechar lista"}</button>
           </div>
         </Modal>
       )}
+      {confirmarSaida && (
+        <Modal aberto titulo="Confirmar a saída agora?" aoFechar={() => setConfirmarSaida(null)}>
+          <p>
+            {confirmarSaida.passeio}: a saída fica confirmada e os titulares que ainda não receberam ganham a confirmação com horário e ponto
+            {s?.whatsapp.envioReal ? " pelo WhatsApp." : " (WhatsApp em modo simulado: nada é enviado)."}
+          </p>
+          <div className="modal__acoes">
+            <button type="button" className="botao botao--secundario" onClick={() => setConfirmarSaida(null)}>Cancelar</button>
+            <button type="button" className="botao botao--primario" onClick={() => void confirmarAgora(confirmarSaida.saidaId)}>Confirmar saída</button>
+          </div>
+        </Modal>
+      )}
+      {editarRegras && s && <RegrasConfirmacaoModal atuais={s.regrasConfirmacao} horaFechamento={s.horaFechamento} aoFechar={() => setEditarRegras(false)} aoSalvar={() => { setEditarRegras(false); void sit.recarregar(); }} />}
       {texto && <TextoLista titulo={texto.titulo} texto={texto.texto} aoFechar={() => setTexto(null)} />}
       {mensagensDe && <Mensagens saidaId={mensagensDe} aoFechar={() => setMensagensDe(null)} />}
     </div>

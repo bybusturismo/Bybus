@@ -419,14 +419,22 @@ export interface ItemConferencia {
 }
 
 /** GET /api/fechamento */
+export interface RegrasConfirmacao {
+  ligado: boolean; contarPor: "RESERVAS" | "PASSAGEIROS"; pagasParaConfirmar: number; totalParaConfirmar: number; pagasMinimasNoTotal: number; horaPrevia: string; horaLimite: string;
+}
+export interface SituacaoConfirmacao {
+  pagas: number; pendentes: number; decisao: "CONFIRMADA" | "CONFIRMAR" | "AGUARDAR" | "DECIDIR"; motivo: string | null; confirmadaEm: string | null; automatica: boolean | null;
+}
 export interface SituacaoFechamento {
   data: string;
   horaFechamento: string;
   automatico: boolean;
   whatsapp: { provedor: string; envioReal: boolean; grupoConfigurado: boolean };
+  regrasConfirmacao: RegrasConfirmacao;
   saidas: Array<{
     saidaId: string; passeio: string; data: string; guia: string | null; motorista: string | null; veiculo: string | null;
     listaFechadaEm: string | null; versao: number; reservas: number; naoConferidas: number; semPonto: number; depoisDoFechamento: number;
+    confirmacao: SituacaoConfirmacao; previasEnviadas: number;
     mensagens: Record<string, number>;
   }>;
 }

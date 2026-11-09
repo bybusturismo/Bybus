@@ -1,12 +1,12 @@
 import { and, eq, gte, inArray, isNull, ne, type SQL } from "drizzle-orm";
-import { textoConfirmacao, textoListaGrupo } from "@bybus/core";
+import { textoListaGrupo } from "@bybus/core";
 import { auditar } from "../auditoria.js";
 import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
-import { fechamentos, mensagens, passeios, pontosEmbarque, reservas, saidas } from "../db/schema.js";
+import { fechamentos, mensagens, passeios, reservas, saidas } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
 import { carregarManifesto } from "./manifesto.js";
-import { gerarLinkEmbarque } from "./linkEmbarque.js";
+import { confirmarSaida, rodarConfirmacaoVespera, situacaoConfirmacao } from "./confirmacao.js";
 import { enviarWhatsapp, normalizarDestino } from "./whatsapp.js";
 import { registrarSaidaFila } from "./whatsappConversas.js";
 import { mensagemDoMotoristaTransfer, sincronizarTransfer, transferNaLista } from "./transfer.js";
@@ -68,20 +68,8 @@ export async function fecharLista(db: Db, cofre: Cofre, config: Config, saidaId:
   const msgTransfer = transferResumo ? await mensagemDoMotoristaTransfer(db, saidaId) : null;
   if (msgTransfer) await enfileirarMensagem(db, config, { tipo: `TRANSFER_V${versao}`, reservaId: null, saidaId, destino: msgTransfer.destino, texto: msgTransfer.texto });
 
-  const pontos = await db.select().from(pontosEmbarque).where(eq(pontosEmbarque.passeioId, passeio.id));
-  // Adendo: quem já recebeu a confirmação não recebe outra (e o link enviado continua valendo).
-  const jaConfirmadas = new Set((await db.select({ id: mensagens.reservaId }).from(mensagens)
-    .where(and(eq(mensagens.saidaId, saidaId), eq(mensagens.tipo, "CONFIRMACAO")))).map((m) => m.id));
-  for (const r of ativas) {
-    if (jaConfirmadas.has(r.id)) continue;
-    const p = pontos.find((x) => x.id === r.pontoEmbarqueId) ?? null;
-    // Sem ponto: a confirmação já leva o link para o cliente informar (só com o endereço público configurado).
-    const link = !p && config.URL_PUBLICA ? `${config.URL_PUBLICA.replace(/\/$/, "")}${(await gerarLinkEmbarque(db, r.id)).caminho}` : null;
-    await enfileirarMensagem(db, config, {
-      tipo: "CONFIRMACAO", reservaId: r.id, saidaId, destino: r.contatoTelefone,
-      texto: textoConfirmacao({ primeiroNome: r.contatoNome.split(/[\s,]+/).filter(Boolean)[0] ?? "", passeio: passeio.nome, data: saida.data, ponto: p, linkEmbarque: link, transfer: viaTransfer?.porReserva[r.id] ?? null }),
-    });
-  }
+  // Fechar a lista confirma a saída (se a véspera ainda não tinha confirmado) e manda a confirmação a quem ainda não recebeu.
+  await confirmarSaida(db, config, saidaId, { usuarioId: quem.usuarioId, motivo: "Fechamento da lista" });
   return { versao, texto, resumo };
 }
 
@@ -93,6 +81,13 @@ export function agendarFechamento(db: Db, cofre: Cofre, config: Config, log: { e
     if (rodando) return;
     rodando = true;
     try {
+      // Véspera: prévia, pedido do ponto e confirmação pelos pontos de corte (da manhã até o fechamento).
+      try {
+        const c = await rodarConfirmacaoVespera(db, config);
+        if (c.confirmadas) log.info({ confirmadas: c.confirmadas }, "Saídas confirmadas pelos pontos de corte");
+      } catch (e) {
+        log.error({ erro: e instanceof Error ? e.message : e }, "Falha na confirmação da véspera");
+      }
       const { hoje, amanha, hora } = agoraSp();
       // Depois das 21h fecha a de amanhã; se o servidor ficou fora nessa hora, ainda fecha a de hoje até as 05h.
       const data = hora >= config.FECHAMENTO_HORA ? amanha : hora < "05:00" ? hoje : null;
@@ -128,6 +123,7 @@ export async function situacaoFechamento(db: Db, data: string, filtro: SQL | und
   const ids = lista.map((l) => l.saida.id);
   const rs = ids.length ? await db.select().from(reservas).where(and(inArray(reservas.saidaId, ids), eq(reservas.status, "CONFIRMADA"))) : [];
   const ms = ids.length ? await db.select({ saidaId: mensagens.saidaId, status: mensagens.status, tipo: mensagens.tipo }).from(mensagens).where(inArray(mensagens.saidaId, ids)) : [];
+  const conf = await situacaoConfirmacao(db, lista.map(({ saida: s }) => s));
   return lista.map(({ saida: s, passeio }) => {
     const minhas = rs.filter((r) => r.saidaId === s.id);
     return {
@@ -138,6 +134,8 @@ export async function situacaoFechamento(db: Db, data: string, filtro: SQL | und
       semPonto: minhas.filter((r) => !r.pontoEmbarqueId).length,
       // Vendas novas ou embarque informado pelo cliente depois da lista: entram no próximo adendo.
       depoisDoFechamento: s.listaFechadaEm ? minhas.filter((r) => r.criadoEm > s.listaFechadaEm! || (r.informadoPeloClienteEm && r.informadoPeloClienteEm > s.listaFechadaEm!)).length : 0,
+      confirmacao: conf.get(s.id)!,
+      previasEnviadas: ms.filter((m) => m.saidaId === s.id && m.tipo === "PREVIA").length,
       mensagens: ms.filter((m) => m.saidaId === s.id).reduce<Record<string, number>>((acc, m) => ({ ...acc, [m.status]: (acc[m.status] ?? 0) + 1 }), {}),
     };
   });

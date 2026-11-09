@@ -212,10 +212,10 @@ describe("Conversas: canal, janela de 24 h e respostas", () => {
 describe("respostas prontas", () => {
   it("carrega as sugestões (idempotente, não revisadas), edita, cria, evita atalho repetido e aplica variáveis", async () => {
     expect((await leitor.req("POST", "/api/whatsapp/respostas-rapidas/sugestoes")).statusCode).toBe(403);
-    expect((await atende.req("POST", "/api/whatsapp/respostas-rapidas/sugestoes")).json().criadas).toBe(18);
+    expect((await atende.req("POST", "/api/whatsapp/respostas-rapidas/sugestoes")).json().criadas).toBe(30);
     expect((await atende.req("POST", "/api/whatsapp/respostas-rapidas/sugestoes")).json().criadas).toBe(0);
     const lista = (await leitor.req("GET", "/api/whatsapp/respostas-rapidas?idioma=EN")).json() as Array<{ id: string; atalho: string; revisada: boolean; texto: string }>;
-    expect(lista).toHaveLength(6);
+    expect(lista).toHaveLength(10);
     expect(lista.every((r) => !r.revisada)).toBe(true);
     const ponto = lista.find((r) => r.atalho === "ponto")!;
     const rev = await atende.req("PATCH", `/api/whatsapp/respostas-rapidas/${ponto.id}`, { revisada: true });

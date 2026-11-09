@@ -174,6 +174,11 @@ export const saidas = pgTable("saidas", {
   /** Fechamento da lista (21h da véspera ou manual); nulo = lista aberta. */
   listaFechadaEm: timestamp({ withTimezone: true }),
   listaVersao: integer().notNull().default(0),
+  /** Saída confirmada na véspera (pelos pontos de corte, pela equipe ou no fechamento); nulo = ainda não confirmada. */
+  confirmadaEm: timestamp({ withTimezone: true }),
+  /** Quem confirmou (nulo = automático). */
+  confirmadaPor: uuid(),
+  confirmadaAutomatica: boolean(),
   criadoEm: agora(),
 }, (t) => [uniqueIndex("saidas_passeio_data_uq").on(t.passeioId, t.data)]);
 
@@ -310,3 +315,4 @@ export * from "./esquemas/vendas.js";
 export * from "./esquemas/transfer.js";
 export * from "./esquemas/instagram.js";
 export * from "./esquemas/marketing2.js";
+export * from "./esquemas/confirmacao.js";

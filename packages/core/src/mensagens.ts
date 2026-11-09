@@ -23,7 +23,7 @@ export function textoListaGrupo(
 ): string {
   const encontro = transfer?.encontro?.nome ? `${transfer.encontro.nome}${transfer.encontro.horario ? ` às ${transfer.encontro.horario}` : ""}` : "ponto de encontro a confirmar";
   const l: string[] = [];
-  l.push(`*RELAÇÃO DE PASSAGEIROS${cab.versao > 1 ? ` — ADENDO ${cab.versao - 1}` : ""}*`);
+  l.push(`*RELAÇÃO DE PASSAGEIROS${cab.versao > 1 ? ` — LISTA ATUALIZADA (versão ${cab.versao})` : ""}*`);
   l.push(`${cab.passeio} — ${semanaBr(cab.data)}, ${dataBr(cab.data)}`);
   l.push(`Guia: ${cab.guia ?? "a definir"} · Motorista: ${cab.motorista ?? "a definir"}${cab.veiculo ? ` · Veículo: ${cab.veiculo}` : ""}`);
   let aPagar = 0;
@@ -53,29 +53,64 @@ export function textoListaGrupo(
   return l.join("\n");
 }
 
-/** Mensagem de confirmação ao titular (véspera, após o fechamento). [A CONFIRMAR] texto oficial com o dono. */
+const AVISO_TRANSITO = "Você está numa região com trânsito intenso pela manhã: saia com folga para chegar a tempo.";
+
+/**
+ * Confirmação ao titular (véspera): sai quando a saída é confirmada (pelos cortes, pela equipe ou no fechamento das 21h).
+ * Regras do gerente (09/11/2026): aguardar em frente ao hotel ou no ponto 10 minutos antes; tolerância zero; quem está em
+ * região de trânsito intenso sai mais cedo; o transfer tem horário padrão e qualquer mudança é avisada pelo WhatsApp.
+ * [A CONFIRMAR] texto oficial com o dono.
+ */
 export function textoConfirmacao(d: {
   primeiroNome: string; passeio: string; data: string; ponto: { horario: string; nome: string; endereco: string | null } | null; linkEmbarque: string | null;
-  /** Quem vem de transfer: horário de busca confirmado no fechamento das 21h, local e taxa a pagar ao motorista. */
+  /** Quem vem de transfer: horário de busca, local e taxa a pagar ao motorista. */
   transfer?: { horario: string | null; local: string | null; taxaACobrarCentavos: number } | null;
+  /** Hospedado em região de trânsito intenso (continente, norte da ilha, Lagoa da Conceição). */
+  transitoIntenso?: boolean;
+  /** O link de embarque já foi na prévia da manhã (gerar outro invalidaria o primeiro). */
+  linkJaEnviado?: boolean;
 }): string {
   const ola = d.primeiroNome ? `Olá, ${d.primeiroNome}!` : "Olá!";
-  const linhas = [`${ola} Seu passeio *${d.passeio}* é amanhã, ${semanaBr(d.data)} (${dataBr(d.data)}).`];
+  const linhas = [`${ola} Seu passeio *${d.passeio}* de amanhã, ${semanaBr(d.data)} (${dataBr(d.data)}), está confirmado! 🚌`];
   if (d.transfer) {
     linhas.push(d.transfer.horario
-      ? `Transfer: vamos buscar você${d.transfer.local ? ` em ${d.transfer.local}` : ""} às *${d.transfer.horario}* (horário confirmado). Esteja pronto(a) na portaria alguns minutos antes: a van é pontual e não há tolerância para atrasos.`
+      ? `Transfer: vamos buscar você${d.transfer.local ? ` em ${d.transfer.local}` : ""} às *${d.transfer.horario}*. Aguarde em frente ao hotel 10 minutos antes: a van é pontual e não há tolerância para atrasos. Se o horário mudar, avisaremos por aqui.`
       : `Transfer: confirmaremos o horário de busca${d.transfer.local ? ` em ${d.transfer.local}` : ""} em breve.`);
     if (d.transfer.taxaACobrarCentavos > 0) linhas.push(`Taxa do transfer: R$ ${(d.transfer.taxaACobrarCentavos / 100).toFixed(2).replace(".", ",")}, paga ao motorista (PIX ou dinheiro).`);
   } else if (d.ponto) {
     linhas.push(`Embarque: *${d.ponto.horario}* — ${d.ponto.nome}${d.ponto.endereco ? ` (${d.ponto.endereco})` : ""}.`);
-    linhas.push("Chegue alguns minutos antes: o ônibus é pontual e não há tolerância para atrasos.");
+    linhas.push("Aguarde no local 10 minutos antes: o ônibus é pontual e não há tolerância para atrasos.");
+    if (d.transitoIntenso) linhas.push(AVISO_TRANSITO);
   } else {
-    linhas.push(d.linkEmbarque ? `Ainda não temos o seu ponto de embarque. Informe aqui: ${d.linkEmbarque}` : "Ainda não temos o seu ponto de embarque: responda esta mensagem com o hotel ou endereço onde está hospedado(a).");
+    linhas.push(d.linkEmbarque
+      ? `Falta só o seu ponto de embarque. Informe onde está hospedado(a) aqui: ${d.linkEmbarque}`
+      : d.linkJaEnviado
+        ? "Falta só o seu ponto de embarque: informe pelo link que enviamos mais cedo ou responda esta mensagem com o hotel onde está hospedado(a)."
+        : "Falta só o seu ponto de embarque: responda esta mensagem com o hotel ou endereço onde está hospedado(a).");
+    linhas.push("Se o seu hotel não tiver embarque, indicaremos o ponto mais próximo.");
   }
-  linhas.push("Pela manhã enviaremos o link para acompanhar o ônibus. Bom passeio! — Equipe By Bus");
+  linhas.push("No dia, enviaremos o link para acompanhar o ônibus. Bom passeio! — Equipe By Bus");
   return linhas.join("\n");
 }
 
+/**
+ * Prévia da véspera (manhã), enquanto a saída ainda não atingiu os cortes de confirmação: acalma o cliente e,
+ * para quem ainda não tem ponto, já pede onde está hospedado (o dia todo para responder). [A CONFIRMAR] texto oficial.
+ */
+export function textoPrevia(d: { primeiroNome: string; passeio: string; data: string; linkEmbarque: string | null; semPonto: boolean }): string {
+  const ola = d.primeiroNome ? `Olá, ${d.primeiroNome}!` : "Olá!";
+  const linhas = [
+    `${ola} Recebemos sua reserva do passeio *${d.passeio}* para amanhã, ${semanaBr(d.data)} (${dataBr(d.data)}).`,
+    "Estamos montando a lista de passageiros e, ao longo do dia, enviaremos a confirmação com o horário e o local de embarque.",
+  ];
+  if (d.semPonto) {
+    linhas.push(d.linkEmbarque
+      ? `Para adiantar, informe onde está hospedado(a): ${d.linkEmbarque}`
+      : "Para adiantar, responda esta mensagem com o hotel ou endereço onde está hospedado(a).");
+  }
+  linhas.push("— Equipe By Bus");
+  return linhas.join("\n");
+}
 
 /** Mensagem enviada quando o motorista inicia o rastreio: o link para acompanhar o ônibus. [A CONFIRMAR] texto oficial com o dono. */
 export function textoRastreio(d: { primeiroNome: string; passeio: string; link: string }): string {
