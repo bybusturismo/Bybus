@@ -34,7 +34,10 @@ Pedido do gerente (avaliação dos textos, 09/11/2026), aprovado pelo dono ("com
 ## Pendências
 - Validar os números dos cortes e os textos com o dono.
 - Foto do ônibus em cada ponto (precisa do provedor de WhatsApp com envio de imagem).
-- Envio automático pelo chat da Viator (sem integração conhecida): por enquanto a equipe copia e cola.
+- Envio automático pelo chat da Viator: **não há integração pública** para isso (pesquisa de 09/11/2026: a API de fornecedores da Viator só cuida de
+  reservas, cancelamentos e alterações; não há envio de mensagem livre ao cliente). Caminho viável sem código: as **mensagens automáticas do Bókun**
+  (por canal, ex.: só reservas da Viator, na confirmação e/ou dias antes do passeio) e o botão "Send Email" da reserva no Bókun, que chega ao cliente
+  pelo e-mail protegido da Viator. Detalhes do plano do Bókun e regras de conteúdo da Viator: a confirmar no painel do Bókun.
 
 ## Viator/Tripadvisor sem resposta (09/11/2026)
 - Cliente da Viator (canal real) **sem ponto de embarque 4 horas** depois da prévia ou da confirmação aparece na lista do dia como
