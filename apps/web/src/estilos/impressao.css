@@ -127,6 +127,9 @@
     padding: 0;
     font-weight: 400;
   }
+  .etiqueta--cobrar {
+    font-weight: 700 !important;
+  }
   .col-check {
     width: 8mm;
     text-align: center;

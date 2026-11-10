@@ -2382,3 +2382,22 @@
   font-size: var(--texto-xs);
   white-space: pre-wrap;
 }
+
+/* Lista de passageiros: colunas com a mesma largura em todos os pontos (tela e impressão). */
+.tabela--manifesto {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 46rem;
+}
+.tabela--manifesto .col-num { width: 6%; }
+.tabela--manifesto .col-pax { width: 25%; }
+.tabela--manifesto .col-cat { width: 9%; }
+.tabela--manifesto .col-doc { width: 17%; }
+.tabela--manifesto .col-tel { width: 14%; }
+.tabela--manifesto .col-canal { width: 10%; }
+.tabela--manifesto .col-pag { width: 14%; }
+.tabela--manifesto .col-check { width: 5%; }
+.tabela--manifesto td { overflow-wrap: anywhere; }
+.tabela--manifesto .col-doc .mono,
+.tabela--manifesto .etiqueta--cobrar { white-space: normal; }
+.tabela--manifesto td.col-doc .mono { white-space: nowrap; }

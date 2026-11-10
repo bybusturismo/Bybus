@@ -76,12 +76,12 @@ export function BlocoPassageiros({ bloco, filtro, transfer }: { bloco: BlocoMani
               <th scope="col" className="col-num">
                 Nº
               </th>
-              <th scope="col">Passageiro</th>
-              <th scope="col">Categoria</th>
-              <th scope="col">Documento</th>
-              <th scope="col">Telefone</th>
-              <th scope="col">Canal</th>
-              <th scope="col">Pagamento</th>
+              <th scope="col" className="col-pax">Passageiro</th>
+              <th scope="col" className="col-cat">Categoria</th>
+              <th scope="col" className="col-doc">Documento</th>
+              <th scope="col" className="col-tel">Telefone</th>
+              <th scope="col" className="col-canal">Canal</th>
+              <th scope="col" className="col-pag">Pagamento</th>
               <th scope="col" className="so-impressao col-check">
                 ✓
               </th>
@@ -540,8 +540,8 @@ export function ListaPassageiros() {
 /** Pagamento da reserva na lista (pedido do dono, 10/11/2026): a guia vê de quem cobrar no embarque. */
 export function SituacaoPagamento({ linha: l }: { linha: LinhaManifesto }) {
   if (l.pagamento === "A_PAGAR") {
-    if (!l.primeiraDaReserva) return <span className="etiqueta etiqueta--atencao">Cobrar (mesma reserva)</span>;
-    return <span className="etiqueta etiqueta--perigo">Cobrar no embarque{l.valorACobrarCentavos != null ? `: ${formatarMoeda(l.valorACobrarCentavos)}` : ""}</span>;
+    if (!l.primeiraDaReserva) return <span className="etiqueta etiqueta--atencao">A pagar (mesma reserva)</span>;
+    return <span className="etiqueta etiqueta--perigo etiqueta--cobrar">A pagar{l.valorACobrarCentavos != null ? <> <strong className="sem-quebra">{formatarMoeda(l.valorACobrarCentavos)}</strong></> : " (valor a conferir)"}</span>;
   }
   if (l.pagamento === "PAGO") return <span className="etiqueta etiqueta--sucesso">Pago</span>;
   if (l.pagamento === "CORTESIA") return <span className="etiqueta etiqueta--neutra">Cortesia</span>;

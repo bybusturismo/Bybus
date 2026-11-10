@@ -65,8 +65,8 @@ describe("Lista de passageiros", () => {
     ];
     render(<><ResumoCobranca blocos={[{ ponto: null, linhas }]} /><BlocoPassageiros bloco={{ ponto: null, linhas }} filtro="" /></>);
     const tabela = within(screen.getByRole("table"));
-    expect(tabela.getByRole("row", { name: /Ana Exemplo/ })).toHaveTextContent(/Cobrar no embarque: R\$\s?380,00/);
-    expect(tabela.getByRole("row", { name: /Bruno Exemplo/ })).toHaveTextContent("Cobrar (mesma reserva)");
+    expect(tabela.getByRole("row", { name: /Ana Exemplo/ })).toHaveTextContent(/A pagar R\$\s?380,00/);
+    expect(tabela.getByRole("row", { name: /Bruno Exemplo/ })).toHaveTextContent("A pagar (mesma reserva)");
     expect(tabela.getByRole("row", { name: /Carla Exemplo/ })).toHaveTextContent("Pago");
     expect(tabela.getByRole("row", { name: /Davi Exemplo/ })).toHaveTextContent("Não informado");
     expect(screen.getByRole("status")).toHaveTextContent(/1 reserva \(nº 1\) · total R\$\s?380,00/);
