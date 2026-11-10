@@ -40,5 +40,5 @@ de senhas (categoria, nome, dados), lida no navegador. Fora da busca, da IA, dos
   documentos; PDF/JPG/PNG até 5 MB). Parte sensível e anexos cifrados; permissão `usuarios:ficha`; abrir/alterar fica na auditoria.
 - Foto de cada usuário (quem gerencia usuários troca).
 - **Esqueci minha senha**: link por e-mail (1 hora, uso único), sem passar pelo administrador. Precisa do e-mail ligado no servidor
-  (`implantacao/ligar-email.sh`, Gmail com senha de app).
+  (`implantacao/ligar-email.sh`, Gmail com senha de app). IA (Turistinha e gestores): `implantacao/ligar-ia.sh` (chave da API do Claude, limite mensal em dólares e avaliação diária opcional; decisão do dono em 10/11/2026: começar com US$ 5 de crédito).
 - Login: errar algumas vezes não trava; 10 erros seguidos pausam 5 minutos (proteção contra robôs).
