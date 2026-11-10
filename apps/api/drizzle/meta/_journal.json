@@ -267,6 +267,13 @@
       "when": 1794280729064,
       "tag": "0037_transfer_sem_santinho",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794329725490,
+      "tag": "0038_importacoes_planilha",
+      "breakpoints": true
     }
   ]
 }

@@ -4,8 +4,10 @@ import { useCarregar } from "../../util/useCarregar";
 import { api, mensagemDeErro } from "../../api/cliente";
 import { Aviso, Carregando, ErroCarga } from "../../componentes/Estados";
 import { useNotificar } from "../../componentes/Notificacoes";
-import { useSessao } from "../../sessao/Sessao";
-import { formatarData, formatarMoeda } from "../../util/formato";
+import { nomePraca, useSessao } from "../../sessao/Sessao";
+import { Confirmar } from "../../componentes/Modal";
+import { Icone } from "../../componentes/Icone";
+import { formatarData, formatarDataHora, formatarMoeda } from "../../util/formato";
 import { useCategorias } from "./dados";
 import { EXEMPLO_PLANILHA } from "./exemploPlanilha";
 import type { PreviaPlanilha } from "./tipos";
@@ -283,6 +285,103 @@ export function ImportarPlanilha() {
           )}
         </>
       )}
+
+      <ImportacoesFeitas atualizar={feito ? 1 : 0} />
     </>
+  );
+}
+
+interface ImportacaoFeita {
+  id: string;
+  unidadeId: string | null;
+  arquivo: string | null;
+  origem: "PLANILHA" | "PENDENCIAS" | "ANTERIOR";
+  lancamentos: number;
+  transferencias: number;
+  criadoEm: string;
+  criadoPor: string | null;
+  desfeitaEm: string | null;
+  resultadoDesfazer: { lancamentosApagados: number; transferenciasApagadas: number; mantidos: number; saldosRestaurados: number } | null;
+  restantes: number;
+}
+
+/** Importações feitas, com "Desfazer" (pedido do dono, 10/11/2026: corrigir uma importação errada sem depender de programação). */
+export function ImportacoesFeitas({ atualizar }: { atualizar: number }) {
+  const { unidades } = useSessao();
+  const notificar = useNotificar();
+  const r = useCarregar((s) => api.get<{ itens: ImportacaoFeita[] }>("/api/financeiro/importacoes", s), [atualizar]);
+  const [desfazer, setDesfazer] = useState<ImportacaoFeita | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function confirmarDesfazer() {
+    if (!desfazer) return;
+    setOcupado(true);
+    setErro(null);
+    try {
+      const x = await api.post<NonNullable<ImportacaoFeita["resultadoDesfazer"]>>(`/api/financeiro/importacoes/${desfazer.id}/desfazer`, {});
+      notificar(`Importação desfeita: ${x.lancamentosApagados} lançamento(s) e ${x.transferenciasApagadas} linha(s) de transferência apagados.${x.mantidos ? ` ${x.mantidos} ficaram por já estarem conciliados.` : ""}`);
+      setDesfazer(null);
+      r.recarregar();
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <section className="cartao" aria-labelledby="titulo-importacoes">
+      <h2 id="titulo-importacoes">Importações feitas</h2>
+      <p className="texto-fraco">Importou errado? Use <strong>Desfazer</strong>: os lançamentos e transferências daquela importação são apagados e o saldo inicial volta ao que era. Depois é só importar de novo, do jeito certo.</p>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      {r.carregando && !r.dados ? <Carregando /> : r.erro ? <ErroCarga mensagem={r.erro} tentarDeNovo={r.recarregar} /> : r.dados && (
+        r.dados.itens.length === 0 ? <p className="texto-fraco">Nenhuma importação ainda.</p> : (
+          <div className="tabela-rolagem">
+            <table className="tabela tabela--compacta">
+              <thead>
+                <tr><th scope="col">Quando</th><th scope="col">Aba / arquivo</th><th scope="col">Praça</th><th scope="col">Quem</th><th scope="col" className="fin-valor">Lançamentos</th><th scope="col" className="fin-valor">Transferências</th><th scope="col">Situação</th></tr>
+              </thead>
+              <tbody>
+                {r.dados.itens.map((i) => (
+                  <tr key={i.id}>
+                    <td className="sem-quebra">{formatarDataHora(i.criadoEm)}</td>
+                    <td>{i.arquivo ?? <span className="texto-fraco">(sem nome)</span>}{i.origem === "PENDENCIAS" && <span className="etiqueta etiqueta--neutra">pendências</span>}{i.origem === "ANTERIOR" && <span className="etiqueta etiqueta--neutra" title="Feita antes do registro de importações; reconstituída pela hora da gravação">anterior</span>}</td>
+                    <td>{i.unidadeId ? nomePraca(unidades, i.unidadeId) : "Empresa toda"}</td>
+                    <td>{i.criadoPor ?? "—"}</td>
+                    <td className="fin-valor">{i.desfeitaEm ? i.lancamentos : `${i.restantes}${i.restantes !== i.lancamentos ? ` de ${i.lancamentos}` : ""}`}</td>
+                    <td className="fin-valor">{i.transferencias}</td>
+                    <td>
+                      {i.desfeitaEm ? (
+                        <span className="etiqueta etiqueta--neutra" title={i.resultadoDesfazer?.mantidos ? `${i.resultadoDesfazer.mantidos} lançamento(s) ficaram por estarem conciliados` : undefined}>Desfeita em {formatarDataHora(i.desfeitaEm)}</span>
+                      ) : (
+                        <button type="button" className="botao botao--perigo-contorno botao--pequeno" onClick={() => setDesfazer(i)} aria-label={`Desfazer a importação de ${formatarDataHora(i.criadoEm)}`}>
+                          <Icone nome="desfazer" /> Desfazer
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+      <Confirmar
+        aberto={desfazer !== null}
+        titulo="Desfazer importação"
+        perigo
+        ocupado={ocupado}
+        textoConfirmar="Desfazer importação"
+        aoFechar={() => setDesfazer(null)}
+        aoConfirmar={() => void confirmarDesfazer()}
+        mensagem={desfazer && (
+          <>
+            <p>Vão ser apagados <strong>{desfazer.restantes} lançamento(s)</strong> e as transferências entre contas desta importação{desfazer.arquivo ? <> ({desfazer.arquivo})</> : null}, de {formatarDataHora(desfazer.criadoEm)}. O saldo inicial das contas volta ao que era antes.</p>
+            <p className="texto-fraco">Lançamentos já conciliados com o extrato ficam (desfaça a conciliação antes, se quiser apagar também). Contas criadas e o dicionário de sinônimos não mudam. Isto não pode ser desfeito, mas você pode importar a aba de novo.</p>
+          </>
+        )}
+      />
+    </section>
   );
 }

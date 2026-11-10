@@ -58,3 +58,12 @@
   (alternador, radiador, toldo) ficam dentro de "Manutenção e peças". Categorias novas: grupos, trenzinho, repasse do trenzinho,
   pró-labore, sistemas, outros impostos, juros, tarifas, compra de veículos, retirada dos sócios.
 - O quadro "Resumo do mês, como na planilha" saiu do Resumo (usava os grupos antigos); a aba DRE o substitui.
+
+## Desfazer importação (pedido do dono, 10/11/2026)
+- Financeiro › Importar planilha › **Importações feitas**: cada importação aparece com data, aba, praça, quem fez e quantos
+  lançamentos/transferências criou, com o botão **Desfazer** (com confirmação e registro na auditoria).
+- Desfazer apaga os lançamentos e as transferências daquela importação e volta o saldo inicial que ela trocou (se ninguém
+  mudou depois). Lançamentos já conciliados com o extrato ou usados numa revenda ficam (aparecem como "mantidos").
+  Contas criadas, fornecedores e sinônimos aprendidos não mudam.
+- As importações feitas antes desta função aparecem como "anterior": foram reconstituídas pela hora em que foram gravadas
+  (migração 0038), e também podem ser desfeitas.

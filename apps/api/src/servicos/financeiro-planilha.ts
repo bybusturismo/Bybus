@@ -2,11 +2,12 @@ import {
   ALVO_APLICACAO, GRUPOS_CUSTO_VEICULO, ALVO_IGNORAR, ALVO_TRANSFERENCIA, CONTAS_PADRAO, ROTULO_COLUNA, classificar, extrairPlaca, lerPlanilhaFinanceira, montarDicionario, normalizarTexto, separarObs,
   type ColunaValor, type ObsSeparada,
 } from "@bybus/core";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { createHash, randomUUID } from "node:crypto";
 import type { Db } from "../db/cliente.js";
-import { finCategorias, finContas, finExtratoLinhas, finFornecedores, finLancamentos, finPlanilhaPendencias, finSinonimos } from "../db/schema.js";
+import { finCategorias, finContas, finExtratoLinhas, finFornecedores, finImportacoes, finLancamentos, finPlanilhaPendencias, finRevendas, finSinonimos, usuarios } from "../db/schema.js";
 import type { Cofre } from "../seguranca/cripto.js";
+import { podeUnidade } from "../seguranca/escopo.js";
 import { ErroHttp, type UsuarioSessao } from "../seguranca/sessao.js";
 import { filtroPraca, garantirPlano, garantirSinonimos, hojeSP, saldosDasContas, validarPracaDoRegistro, type Conta } from "./financeiro.js";
 
@@ -326,10 +327,18 @@ export interface ResultadoImportacao {
 }
 
 /** Grava o plano (tudo numa transação). Nada de CPF/CNPJ/e-mail/telefone vai para descrição, log ou auditoria. */
-export async function executarPlanilha(db: Db, cofre: Cofre, u: UsuarioSessao, plano: PlanoPlanilha, opcoes: { salvarSinonimos: boolean }): Promise<ResultadoImportacao> {
+export async function executarPlanilha(
+  db: Db, cofre: Cofre, u: UsuarioSessao, plano: PlanoPlanilha,
+  opcoes: { salvarSinonimos: boolean; arquivo?: string | null; origem?: "PLANILHA" | "PENDENCIAS" },
+): Promise<ResultadoImportacao> {
   const { existentes, existentesT } = plano;
   const unidadeId = plano.entrada.unidadeId;
   return db.transaction(async (tx) => {
+    // Registro da importação (para "Desfazer importação" na tela).
+    const [imp] = await tx.insert(finImportacoes).values({ unidadeId, arquivo: opcoes.arquivo?.slice(0, 200) ?? null, origem: opcoes.origem ?? "PLANILHA", criadoPor: u.id }).returning({ id: finImportacoes.id });
+    const importacaoId = imp!.id;
+    const saldosTrocados: Array<{ contaId: string; antesCentavos: number | null; antesEm: string | null; depoisCentavos: number; depoisEm: string }> = [];
+    const contasCriadasIds: string[] = [];
     const idConta = new Map<ColunaConta, string>();
     const criadas: string[] = [];
     for (const c of plano.contas) {
@@ -338,12 +347,15 @@ export async function executarPlanilha(db: Db, cofre: Cofre, u: UsuarioSessao, p
       const [nova] = await tx.insert(finContas).values({ nome: padrao.nome, tipo: padrao.tipo, unidadeId }).returning({ id: finContas.id });
       idConta.set(c.coluna, nova!.id);
       criadas.push(padrao.nome);
+      contasCriadasIds.push(nova!.id);
     }
     let saldosAplicados = 0;
     for (const s of plano.saldos) {
       if (!s.aplicar) continue;
       const id = idConta.get(s.coluna);
       if (!id) continue;
+      const [antes] = await tx.select({ v: finContas.saldoInicialCentavos, em: finContas.saldoInicialEm }).from(finContas).where(eq(finContas.id, id));
+      saldosTrocados.push({ contaId: id, antesCentavos: antes?.v ?? null, antesEm: antes?.em ?? null, depoisCentavos: s.valorCentavos, depoisEm: s.data });
       await tx.update(finContas).set({ saldoInicialCentavos: s.valorCentavos, saldoInicialEm: s.data }).where(eq(finContas.id, id));
       saldosAplicados += 1;
     }
@@ -391,7 +403,7 @@ export async function executarPlanilha(db: Db, cofre: Cofre, u: UsuarioSessao, p
           veiculo: x.veiculo, valorCentavos: x.valorCentavos, competencia: x.data, vencimento: x.data,
           situacao: x.aberto ? "ABERTO" : "REALIZADO", pagoEm: x.aberto ? null : x.data, valorPagoCentavos: pago,
           jurosCentavos: diferenca > 0 ? diferenca : 0, descontoCentavos: diferenca < 0 ? -diferenca : 0,
-          observacao: x.observacao, origem: "PLANILHA", fornecedorId: idsFornecedor.get(normalizarTexto(x.fornecedor)) ?? null, chaveImportacao: x.chave, criadoPor: u.id,
+          observacao: x.observacao, origem: "PLANILHA", fornecedorId: idsFornecedor.get(normalizarTexto(x.fornecedor)) ?? null, chaveImportacao: x.chave, criadoPor: u.id, importacaoId,
         };
       });
       const r = await tx.insert(finLancamentos).values(lote).onConflictDoNothing().returning({ id: finLancamentos.id });
@@ -406,7 +418,7 @@ export async function executarPlanilha(db: Db, cofre: Cofre, u: UsuarioSessao, p
       const par = (k: number) => (t.pareada ? (t.lados.length === 2 ? ids[1 - k]! : ids[k % 2 === 0 ? k + 1 : k - 1]!) : null);
       const linhas = t.lados.map((lado, k) => ({
         id: ids[k]!, contaId: idConta.get(lado.coluna)!, idUnico: lado.idUnico, data: t.data, valorCentavos: lado.valorCentavos, descricao: t.descricao,
-        status: "TRANSFERENCIA", parLinhaId: par(k), manual: true, decididoPor: u.id, decididoEm: new Date(),
+        status: "TRANSFERENCIA", parLinhaId: par(k), manual: true, decididoPor: u.id, decididoEm: new Date(), importacaoId,
       })).filter((l, k) => !existentesT.has(t.lados[k]!.idUnico) && l.contaId);
       if (linhas.length) {
         await tx.insert(finExtratoLinhas).values(linhas).onConflictDoNothing();
@@ -424,6 +436,9 @@ export async function executarPlanilha(db: Db, cofre: Cofre, u: UsuarioSessao, p
         sinonimos += 1;
       }
     }
+    // Nada gravado: o registro sai (não há o que desfazer).
+    if (gravados === 0 && transf === 0 && saldosTrocados.length === 0 && contasCriadasIds.length === 0) await tx.delete(finImportacoes).where(eq(finImportacoes.id, importacaoId));
+    else await tx.update(finImportacoes).set({ lancamentos: gravados, transferencias: transf, saldos: saldosTrocados, contasCriadas: contasCriadasIds }).where(eq(finImportacoes.id, importacaoId));
     return { lancamentos: gravados, transferencias: transf, jaExistentes: plano.lancamentos.length - novos.length, contasCriadas: criadas, saldosAplicados, fornecedores: idsFornecedor.size, sinonimosSalvos: sinonimos };
   });
 }
@@ -487,7 +502,7 @@ export async function resolverPendencias(db: Db, cofre: Cofre, u: UsuarioSessao,
     const proprios = Object.fromEntries(Object.entries(mapeamentos).filter(([k]) => r.pendentes.some((p) => p.chave === k)));
     const plano = await planejarPlanilha(db, u, { conteudo, unidadeId: r.unidadeId, mapeamentos: proprios });
     if (plano.erros.length) { total.restantes += r.pendentes.reduce((s, p) => s + p.qtd, 0); continue; }
-    const res = await executarPlanilha(db, cofre, u, plano, { salvarSinonimos });
+    const res = await executarPlanilha(db, cofre, u, plano, { salvarSinonimos, arquivo: r.arquivo, origem: "PENDENCIAS" });
     total.lancamentos += res.lancamentos; total.transferencias += res.transferencias; total.abas += 1;
     const resta = plano.naoReconhecidos;
     total.restantes += resta.reduce((s, p) => s + p.qtd, 0);
@@ -496,4 +511,70 @@ export async function resolverPendencias(db: Db, cofre: Cofre, u: UsuarioSessao,
       : { pendentes: [], conteudoCifrado: null, resolvidoEm: new Date(), atualizadoEm: new Date() }).where(eq(finPlanilhaPendencias.id, r.id));
   }
   return total;
+}
+
+// ---------------------------------------------------------------- desfazer importação (10/11/2026)
+
+/** Importações da planilha (das praças do usuário), mais recentes primeiro, com quantos lançamentos ainda existem. */
+export async function listarImportacoes(db: Db, u: UsuarioSessao) {
+  const lista = await db.select({
+    id: finImportacoes.id, unidadeId: finImportacoes.unidadeId, arquivo: finImportacoes.arquivo, origem: finImportacoes.origem,
+    lancamentos: finImportacoes.lancamentos, transferencias: finImportacoes.transferencias, criadoEm: finImportacoes.criadoEm,
+    criadoPor: usuarios.nome, desfeitaEm: finImportacoes.desfeitaEm, resultadoDesfazer: finImportacoes.resultadoDesfazer,
+    restantes: sql<number>`(select count(*) from ${finLancamentos} where ${finLancamentos.importacaoId} = ${finImportacoes.id})`.mapWith(Number),
+  }).from(finImportacoes).leftJoin(usuarios, eq(usuarios.id, finImportacoes.criadoPor))
+    .where(filtroPraca(u, finImportacoes.unidadeId)).orderBy(desc(finImportacoes.criadoEm)).limit(200);
+  return lista;
+}
+
+export interface ResultadoDesfazer {
+  lancamentosApagados: number;
+  transferenciasApagadas: number;
+  /** Lançamentos que ficaram porque já foram conciliados com o extrato ou usados numa revenda (desfaça a conciliação antes). */
+  mantidos: number;
+  saldosRestaurados: number;
+}
+
+/**
+ * Desfaz uma importação: apaga os lançamentos e as transferências que ela criou e volta os saldos iniciais que ela trocou.
+ * Lançamentos já conciliados com o extrato (ou ligados a uma revenda) ficam, e a contagem aparece no resultado.
+ * Contas criadas, fornecedores e sinônimos aprendidos ficam (podem servir para a importação certa).
+ */
+export async function desfazerImportacao(db: Db, u: UsuarioSessao, id: string): Promise<ResultadoDesfazer> {
+  return db.transaction(async (tx) => {
+    const [imp] = await tx.select().from(finImportacoes).where(eq(finImportacoes.id, id)).for("update");
+    if (!imp) throw new ErroHttp(404, "NAO_ENCONTRADO", "Importação não encontrada.");
+    if (imp.unidadeId ? !podeUnidade(u, imp.unidadeId) : !u.todasUnidades) throw new ErroHttp(403, "SEM_PERMISSAO", "Seu perfil não atua nesta praça.");
+    if (imp.desfeitaEm) throw new ErroHttp(409, "JA_DESFEITA", "Esta importação já foi desfeita.");
+
+    const ids = (await tx.select({ id: finLancamentos.id }).from(finLancamentos).where(eq(finLancamentos.importacaoId, id))).map((x) => x.id);
+    const presos = new Set<string>();
+    if (ids.length) {
+      for (let i = 0; i < ids.length; i += 1000) {
+        const parte = ids.slice(i, i + 1000);
+        const conc = await tx.select({ id: finExtratoLinhas.lancamentoId }).from(finExtratoLinhas)
+          .where(and(inArray(finExtratoLinhas.lancamentoId, parte), or(isNull(finExtratoLinhas.importacaoId), ne(finExtratoLinhas.importacaoId, id))));
+        conc.forEach((c) => c.id && presos.add(c.id));
+        const rev = await tx.select({ a: finRevendas.vendaLancamentoId, b: finRevendas.repasseLancamentoId, c: finRevendas.comissaoLancamentoId }).from(finRevendas)
+          .where(or(inArray(finRevendas.vendaLancamentoId, parte), inArray(finRevendas.repasseLancamentoId, parte), inArray(finRevendas.comissaoLancamentoId, parte)));
+        rev.forEach((r) => [r.a, r.b, r.c].forEach((x) => x && parte.includes(x) && presos.add(x)));
+      }
+    }
+    const transf = await tx.delete(finExtratoLinhas).where(eq(finExtratoLinhas.importacaoId, id)).returning({ id: finExtratoLinhas.id });
+    const apagar = ids.filter((x) => !presos.has(x));
+    let apagados = 0;
+    for (let i = 0; i < apagar.length; i += 1000) {
+      apagados += (await tx.delete(finLancamentos).where(inArray(finLancamentos.id, apagar.slice(i, i + 1000))).returning({ id: finLancamentos.id })).length;
+    }
+    // Saldo inicial: só volta se ninguém mudou depois da importação.
+    let saldos = 0;
+    for (const s of imp.saldos) {
+      const r = await tx.update(finContas).set({ saldoInicialCentavos: s.antesCentavos ?? 0, saldoInicialEm: s.antesEm })
+        .where(and(eq(finContas.id, s.contaId), eq(finContas.saldoInicialCentavos, s.depoisCentavos))).returning({ id: finContas.id });
+      saldos += r.length;
+    }
+    const resultado: ResultadoDesfazer = { lancamentosApagados: apagados, transferenciasApagadas: transf.length, mantidos: presos.size, saldosRestaurados: saldos };
+    await tx.update(finImportacoes).set({ desfeitaEm: new Date(), desfeitaPor: u.id, resultadoDesfazer: resultado }).where(eq(finImportacoes.id, id));
+    return resultado;
+  });
 }

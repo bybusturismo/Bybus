@@ -360,3 +360,27 @@ describe("contas padrão", () => {
     expect((await usuarioFln.req("POST", "/api/financeiro/contas/padrao", {})).json().codigo).toBe("PRACA_OBRIGATORIA");
   });
 });
+
+describe("desfazer importação (pedido do dono, 10/11/2026)", () => {
+  it("lista as importações da praça, desfaz apagando lançamentos e transferências e volta o saldo inicial; não desfaz duas vezes", async () => {
+    const lista = json(await usuarioBc.req("GET", "/api/financeiro/importacoes")).itens as Array<Record<string, any>>; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const imp = lista.find((x) => x.lancamentos === 13 && x.transferencias === 2 && !x.desfeitaEm)!;
+    expect(imp).toMatchObject({ unidadeId: bc, origem: "PLANILHA", restantes: 13, criadoPor: "plan.bc@bybus.test" });
+    // Outra praça não vê nem desfaz; quem só consulta o financeiro também não.
+    expect(json(await usuarioFln.req("GET", "/api/financeiro/importacoes")).itens.some((x: { id: string }) => x.id === imp.id)).toBe(false);
+    expect((await usuarioFln.req("POST", `/api/financeiro/importacoes/${imp.id}/desfazer`)).statusCode).toBe(403);
+    expect((await leitor.req("POST", `/api/financeiro/importacoes/${imp.id}/desfazer`)).statusCode).toBe(403);
+
+    const r = json(await usuarioBc.req("POST", `/api/financeiro/importacoes/${imp.id}/desfazer`));
+    expect(r).toMatchObject({ lancamentosApagados: 13, mantidos: 0 });
+    expect(r.transferenciasApagadas).toBeGreaterThan(0);
+    expect(r.saldosRestaurados).toBeGreaterThan(0);
+    expect((await lancamentos(usuarioBc)).filter((x) => x.origem === "PLANILHA")).toEqual([]);
+    expect((await conta(usuarioBc, "Sicredi")).saldoInicialCentavos).toBe(0);
+    const depois = json(await usuarioBc.req("GET", "/api/financeiro/importacoes")).itens.find((x: { id: string }) => x.id === imp.id);
+    expect(depois).toMatchObject({ restantes: 0, desfeitaEm: expect.any(String) });
+    expect((await usuarioBc.req("POST", `/api/financeiro/importacoes/${imp.id}/desfazer`)).json().codigo).toBe("JA_DESFEITA");
+    // Importar a mesma aba de novo funciona (nada ficou preso).
+    expect(json(await importar(usuarioBc, { conteudo: ANTIGO, unidadeId: bc, confirmar: true })).resultado).toMatchObject({ lancamentos: 13 });
+  });
+});

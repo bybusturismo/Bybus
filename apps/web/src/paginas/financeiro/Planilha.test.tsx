@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { corpoEnviado, FLN, renderizar, sessaoFicticia, simularApi } from "../../teste/ajuda";
 import { Caixa } from "./Caixa";
-import { ImportarPlanilha } from "./ImportarPlanilha";
+import { ImportacoesFeitas, ImportarPlanilha } from "./ImportarPlanilha";
 import { Resumo } from "./Resumo";
 import type { CaixaDia, PreviaPlanilha, RespostaResumo } from "./tipos";
 
@@ -30,6 +30,7 @@ describe("Importar planilha", () => {
   it("mostra a prévia com qualidade, saldos com divergência e o que não foi reconhecido; mapeia e confirma", async () => {
     const spy = simularApi({
       "GET /api/financeiro/categorias": categorias,
+      "GET /api/financeiro/importacoes": { itens: [] },
       "POST /api/financeiro/planilha/importar": (corpo: unknown) => ((corpo as { confirmar?: boolean }).confirmar ? { ...previa(), previa: false, resultado: { lancamentos: 4, transferencias: 1, jaExistentes: 0, contasCriadas: ["Sicredi"], saldosAplicados: 0, fornecedores: 1, sinonimosSalvos: 1 } } : previa()),
     });
     renderizar(<ImportarPlanilha />, { sessao: gerente() });
@@ -52,14 +53,14 @@ describe("Importar planilha", () => {
   });
 
   it("não aceita .xlsx e explica como exportar o CSV", async () => {
-    simularApi({ "GET /api/financeiro/categorias": categorias });
+    simularApi({ "GET /api/financeiro/categorias": categorias, "GET /api/financeiro/importacoes": { itens: [] } });
     renderizar(<ImportarPlanilha />, { sessao: gerente() });
     await userEvent.setup({ applyAccept: false }).upload(screen.getByLabelText("Arquivo CSV da aba"), arquivo("aba.xlsx"));
     expect(await screen.findByRole("alert")).toHaveTextContent(/\.xlsx ainda não/);
   });
 
   it("linhas com valor inválido bloqueiam o botão de importar", async () => {
-    simularApi({ "GET /api/financeiro/categorias": categorias, "POST /api/financeiro/planilha/importar": previa({ naoReconhecidos: [], erros: [{ linha: 9, motivo: "Valor inválido na coluna Sicredi." }], totalErros: 1 }) });
+    simularApi({ "GET /api/financeiro/categorias": categorias, "GET /api/financeiro/importacoes": { itens: [] }, "POST /api/financeiro/planilha/importar": previa({ naoReconhecidos: [], erros: [{ linha: 9, motivo: "Valor inválido na coluna Sicredi." }], totalErros: 1 }) });
     renderizar(<ImportarPlanilha />, { sessao: gerente() });
     await userEvent.setup().upload(screen.getByLabelText("Arquivo CSV da aba"), arquivo());
     await screen.findByText(/1 linha\(s\) com valor inválido/);
@@ -128,5 +129,23 @@ describe("Resumo do mês como na planilha", () => {
     const dre = within(screen.getByRole("region", { name: /DRE gerencial/ }));
     expect(dre.getByRole("row", { name: /Resultado do mês/ })).toHaveTextContent(/831,97/);
     expect(dre.getByRole("link", { name: /DRE completa/ })).toHaveAttribute("href", "/financeiro/dre");
+  });
+});
+
+describe("Importações feitas", () => {
+  it("lista as importações e desfaz uma depois de confirmar", async () => {
+    const item = { id: "i1", unidadeId: FLN.id, arquivo: "OUT2026.csv", origem: "PLANILHA", lancamentos: 13, transferencias: 2, criadoEm: "2026-11-10T13:00:00Z", criadoPor: "Pessoa Fictícia", desfeitaEm: null, resultadoDesfazer: null, restantes: 13 };
+    const spy = simularApi({
+      "GET /api/financeiro/importacoes": { itens: [item] },
+      "POST /api/financeiro/importacoes/i1/desfazer": { lancamentosApagados: 13, transferenciasApagadas: 4, mantidos: 0, saldosRestaurados: 1 },
+    });
+    renderizar(<ImportacoesFeitas atualizar={0} />, { sessao: gerente() });
+    const linha = await screen.findByRole("row", { name: /OUT2026\.csv/ });
+    expect(linha).toHaveTextContent("Pessoa Fictícia");
+    await userEvent.click(within(linha).getByRole("button", { name: /Desfazer a importação/ }));
+    const dialogo = screen.getByRole("dialog", { name: "Desfazer importação" });
+    expect(dialogo).toHaveTextContent(/13 lançamento\(s\)/);
+    await userEvent.click(within(dialogo).getByRole("button", { name: "Desfazer importação" }));
+    expect(spy.mock.calls.some(([u, i]) => String(u).endsWith("/api/financeiro/importacoes/i1/desfazer") && i?.method === "POST")).toBe(true);
   });
 });

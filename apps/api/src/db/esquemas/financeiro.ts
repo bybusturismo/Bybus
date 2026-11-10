@@ -62,6 +62,28 @@ export const finSinonimos = pgTable("fin_sinonimos", {
 }, (t) => [uniqueIndex("fin_sinonimos_uq").on(t.tipo, t.texto)]);
 
 /**
+ * Cada importação da planilha de controle (10/11/2026): permite desfazer pela tela.
+ * ANTERIOR = importações feitas antes deste registro (reconstituídas pela hora da gravação).
+ */
+export const finImportacoes = pgTable("fin_importacoes", {
+  id: uuid().primaryKey().defaultRandom(),
+  unidadeId: uuid().references(() => unidades.id),
+  arquivo: text(),
+  /** PLANILHA, PENDENCIAS (categorias escolhidas depois) ou ANTERIOR. */
+  origem: text().notNull().default("PLANILHA"),
+  lancamentos: integer().notNull().default(0),
+  transferencias: integer().notNull().default(0),
+  /** Saldos iniciais que a importação trocou: { contaId, antes: {valor, em}, depois: {valor, em} } para voltar ao desfazer. */
+  saldos: jsonb().$type<Array<{ contaId: string; antesCentavos: number | null; antesEm: string | null; depoisCentavos: number; depoisEm: string }>>().notNull().default(sql`'[]'::jsonb`),
+  contasCriadas: jsonb().$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  criadoPor: uuid().references(() => usuarios.id),
+  criadoEm: agora(),
+  desfeitaEm: timestamp({ withTimezone: true }),
+  desfeitaPor: uuid().references(() => usuarios.id),
+  resultadoDesfazer: jsonb(),
+}, (t) => [index("fin_importacoes_criado_idx").on(t.criadoEm)]);
+
+/**
  * Contas a pagar e a receber (uma tabela, `tipo` PAGAR|RECEBER). Centro de custo = praça × linha de negócio × veículo.
  * Valores em centavos. Situação ABERTO ou REALIZADO (baixado, com juros/multa/desconto).
  */
@@ -102,6 +124,8 @@ export const finLancamentos = pgTable("fin_lancamentos", {
   fornecedorId: uuid().references(() => finFornecedores.id),
   /** Identificador estável da linha da planilha: reimportar a mesma aba não duplica. */
   chaveImportacao: text(),
+  /** Importação da planilha que criou o lançamento (para "Desfazer importação"). */
+  importacaoId: uuid().references(() => finImportacoes.id, { onDelete: "set null" }),
   criadoPor: uuid().references(() => usuarios.id),
   criadoEm: agora(),
   atualizadoEm: agora(),
@@ -149,6 +173,8 @@ export const finExtratoLinhas = pgTable("fin_extrato_linhas", {
   observacao: text(),
   decididoPor: uuid().references(() => usuarios.id),
   decididoEm: timestamp({ withTimezone: true }),
+  /** Importação da planilha que criou a linha (transferências entre contas), para "Desfazer importação". */
+  importacaoId: uuid().references(() => finImportacoes.id, { onDelete: "set null" }),
   criadoEm: agora(),
 }, (t) => [
   uniqueIndex("fin_linhas_conta_id_uq").on(t.contaId, t.idUnico),

@@ -7,7 +7,7 @@ import type { Contexto } from "../app.js";
 import { finCategorias, finFornecedores, finSinonimos } from "../db/schema.js";
 import { ErroHttp } from "../seguranca/sessao.js";
 import { garantirPlano, garantirSinonimos } from "../servicos/financeiro.js";
-import { criarContasPadrao, executarPlanilha, listarPendencias, planejarPlanilha, registrarPendencias, resolverPendencias, type PlanoPlanilha } from "../servicos/financeiro-planilha.js";
+import { criarContasPadrao, desfazerImportacao, executarPlanilha, listarImportacoes, listarPendencias, planejarPlanilha, registrarPendencias, resolverPendencias, type PlanoPlanilha } from "../servicos/financeiro-planilha.js";
 import { uuid } from "./financeiro-comum.js";
 import { abaEmCsv, abasDaPlanilha, contaDeServico, ErroGoogle, idDaPlanilha } from "../servicos/googlePlanilhas.js";
 
@@ -94,12 +94,23 @@ export async function rotasFinanceiroPlanilha(app: FastifyInstance, { db, cofre,
     const plano = await planejarPlanilha(db, u, { conteudo: corpo.conteudo, unidadeId: corpo.unidadeId ?? null, mapeamentos: corpo.mapeamentos });
     if (!corpo.confirmar) return { previa: true as const, ...resumoDoPlano(plano) };
     if (plano.erros.length) throw new ErroHttp(400, "PLANILHA_COM_ERROS", `Há ${plano.erros.length} linha(s) com valor inválido (ex.: linha ${plano.erros[0]!.linha}). Corrija a planilha e importe de novo.`);
-    const r = await executarPlanilha(db, cofre, u, plano, { salvarSinonimos: corpo.salvarSinonimos });
+    const r = await executarPlanilha(db, cofre, u, plano, { salvarSinonimos: corpo.salvarSinonimos, arquivo: corpo.arquivo ?? null });
     // "Não importar ainda" fica guardado em Financeiro › Pendências (sem precisar importar de novo).
     const pendentes = await registrarPendencias(db, cofre, u, { conteudo: corpo.conteudo, unidadeId: corpo.unidadeId ?? null, arquivo: corpo.arquivo ?? null }, plano);
     // Auditoria só com contagens: nenhum dado do OBS ou de contato.
     await auditar(db, req, "FIN_PLANILHA_IMPORTADA", { tipo: "fin_planilha" }, { arquivo: corpo.arquivo ?? null, lancamentos: r.lancamentos, transferencias: r.transferencias, jaExistentes: r.jaExistentes, contasCriadas: r.contasCriadas.length, saldosAplicados: r.saldosAplicados });
     return { previa: false as const, ...resumoDoPlano(plano), resultado: { ...r, pendentes } };
+  });
+
+  /** Importações feitas (para conferir e desfazer pela tela, sem depender de programação; pedido do dono em 10/11/2026). */
+  app.get("/api/financeiro/importacoes", gerenciar, async (req) => ({ itens: await listarImportacoes(db, req.usuario!) }));
+
+  /** Desfaz uma importação: apaga o que ela criou (menos o que já foi conciliado) e volta os saldos iniciais. */
+  app.post("/api/financeiro/importacoes/:id/desfazer", gerenciar, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const r = await desfazerImportacao(db, req.usuario!, id);
+    await auditar(db, req, "FIN_IMPORTACAO_DESFEITA", { tipo: "fin_importacao", id }, { ...r });
+    return r;
   });
 
   /** Pendências de categoria guardadas das importações ("não importar ainda"). */
