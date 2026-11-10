@@ -89,3 +89,46 @@
     display: none;
   }
 }
+
+/* Aba DRE: primeira coluna fixa ao rolar os meses para o lado. */
+.dre .dre__nome {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--cor-superficie);
+  min-width: 14rem;
+  text-align: left;
+}
+.dre .fin-total .dre__nome {
+  background: var(--cor-superficie-2);
+}
+.dre__subtotal th,
+.dre__subtotal td {
+  border-top: 2px solid var(--cor-borda);
+}
+.dre__acumulado {
+  font-weight: var(--peso-medio);
+}
+.dre__alternar {
+  padding-inline: 0;
+  font-weight: var(--peso-medio);
+  text-align: left;
+}
+.dre__valor {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+.dre .fin-sub .dre__nome {
+  padding-left: var(--esp-6);
+  font-weight: normal;
+}
+.dre .dre__alternar {
+  text-align: left;
+  justify-content: flex-start;
+  white-space: normal;
+}

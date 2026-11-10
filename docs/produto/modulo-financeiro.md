@@ -87,3 +87,8 @@ Observação técnica: para gerar a migração, `drizzle-kit` não resolve impor
 - Orçamento anual; fatura de cartão em PDF; conciliação 1:N; anexos (NF, boletos).
 - A confirmar com o dono: categorias/grupos da DRE; regime tributário; se contas "da empresa toda" devem aparecer para gerentes de praça; limite de tolerância de 10% para sugestão aproximada; perfil padrão "Financeiro" (não criado; ADMIN já recebe tudo).
 - Dados bancários reais nunca em testes/repositório; os testes usam dados fictícios.
+
+## Aba DRE (10/11/2026)
+Estrutura, decisões e o que ficou "a confirmar": ver `docs/conhecimento/financeiro.md` (seção DRE gerencial).
+Cálculo em `packages/core/src/financeiro/dre.ts` (`montarDreGerencial`, `SECOES_DRE`, `GRUPOS_DA_SECAO`); rota `GET /api/financeiro/dre?ano&regime&unidadeId&linha`.
+Categoria nova escolhe o grupo numa lista com as linhas da DRE (não é mais texto livre).

@@ -123,10 +123,10 @@ describe("Resumo do mês como na planilha", () => {
     expect(saldos.getByText("Caixa em dinheiro (quiosque)")).toBeInTheDocument();
     expect(saldos.getByText("Aplicação", { selector: "h3" })).toBeInTheDocument();
     expect(saldos.getByText(/Total disponível/)).toHaveTextContent(/13\.441,97/);
-    const planilha = within(screen.getByRole("region", { name: /Resumo do mês, como na planilha/ }));
-    expect(planilha.getByRole("row", { name: /Receita — Sicredi/ })).toHaveTextContent(/6\.234,56/);
-    expect(planilha.getByRole("row", { name: /Pessoal \(fora do resultado\)/ })).toHaveTextContent(/150,00/);
-    expect(planilha.getByRole("row", { name: /^RESULTADO/ })).toHaveTextContent(/831,97/);
-    expect(planilha.getByRole("row", { name: /após despesas pessoais/ })).toHaveTextContent(/681,97/);
+    // O quadro "como na planilha" saiu em 10/11/2026: a aba DRE substitui (com os grupos novos).
+    expect(screen.queryByRole("region", { name: /como na planilha/ })).not.toBeInTheDocument();
+    const dre = within(screen.getByRole("region", { name: /DRE gerencial/ }));
+    expect(dre.getByRole("row", { name: /Resultado do mês/ })).toHaveTextContent(/831,97/);
+    expect(dre.getByRole("link", { name: /DRE completa/ })).toHaveAttribute("href", "/financeiro/dre");
   });
 });

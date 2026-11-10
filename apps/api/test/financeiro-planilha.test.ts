@@ -91,12 +91,12 @@ describe("importação da planilha (layout novo)", () => {
     expect(r.resultado.contasCriadas.sort()).toEqual(["Cartão", "Quiosque", "Sicredi", "Unilos"]);
     const itens = await lancamentos(usuarioFln);
     const por = (d: string) => itens.find((x) => x.descricao.startsWith(d))!;
-    expect(por("Revisão QJQ2A16")).toMatchObject({ tipo: "PAGAR", situacao: "REALIZADO", valorCentavos: 150000, valorPagoCentavos: 150000, categoriaNome: "Manutenção da frota", contaNome: "Sicredi", veiculo: "QJQ2A16", vencimento: "2026-10-05", origem: "PLANILHA" });
-    expect(por("Diesel ABC-1D23")).toMatchObject({ valorCentavos: 80025, categoriaNome: "Combustível (posto)", veiculo: "ABC1D23" });
+    expect(por("Revisão QJQ2A16")).toMatchObject({ tipo: "PAGAR", situacao: "REALIZADO", valorCentavos: 150000, valorPagoCentavos: 150000, categoriaNome: "Manutenção", contaNome: "Sicredi", veiculo: "QJQ2A16", vencimento: "2026-10-05", origem: "PLANILHA" });
+    expect(por("Diesel ABC-1D23")).toMatchObject({ valorCentavos: 80025, categoriaNome: "Combustível", veiculo: "ABC1D23" });
     expect(por("Parcela de outubro")).toMatchObject({ situacao: "ABERTO", tipo: "PAGAR", valorCentavos: 90000, contaId: null, valorPagoCentavos: null, categoriaNome: "Consórcio" });
-    expect(por("Fretamento de outubro")).toMatchObject({ tipo: "RECEBER", categoriaNome: "Clientes", valorPagoCentavos: 500000 });
+    expect(por("Fretamento de outubro")).toMatchObject({ tipo: "RECEBER", categoriaNome: "Clientes (canal não informado)", valorPagoCentavos: 500000 });
     expect(itens.filter((x) => x.descricao === "Gelo")).toHaveLength(2);
-    expect(por("Folha de outubro")).toMatchObject({ categoriaNome: "Folha CLT", contaNome: "Unilos" });
+    expect(por("Folha de outubro")).toMatchObject({ categoriaNome: "Salários CLT e encargos", contaNome: "Unilos" });
     expect(por("Despesa pessoal")).toMatchObject({ categoriaNome: "Despesa direta (pessoal)" });
     expect(por("Lavagem ABC-1D23")).toMatchObject({ contaNome: "Cartão", valorCentavos: 6000 });
     // Saldos: saldo inicial + movimentos (a transferência move R$ 1.000 do Sicredi para a Unilos)
@@ -143,12 +143,23 @@ describe("importação da planilha (layout novo)", () => {
   it("DRE e resumo do mês: pessoal fora do resultado, receita por conta, transferência fora", async () => {
     const r = json(await usuarioFln.req("GET", `/api/financeiro/resumo?mes=2026-10&unidadeId=${fln}&ref=2026-10-31`));
     expect(r.dre.receitaCentavos).toBe(500000 + 123456 + 25000);
-    expect(r.dre.despesaCentavos).toBe(150000 + 80025 + 200000 + 8000 + 90000 + 30000 + 1234 + 6000);
-    expect(r.dre.resultadoCentavos).toBe(648456 - 565259);
+    // Consórcio (90000) é investimento: fica abaixo da linha desde a DRE de 10/11/2026.
+    expect(r.dre.despesaCentavos).toBe(150000 + 80025 + 200000 + 8000 + 30000 + 1234 + 6000);
+    expect(r.dre.resultadoCentavos).toBe(648456 - 475259);
     expect(r.dre.pessoalCentavos).toBe(15000);
-    expect(r.dre.resultadoAposPessoalCentavos).toBe(648456 - 565259 - 15000);
-    expect(r.dre.foraDoResultado.map((g: { grupo: string }) => g.grupo)).toEqual(["Pessoal (despesas pessoais pagas pela empresa)"]);
-    expect(r.dre.grupos.map((g: { grupo: string }) => g.grupo)).toEqual(["Receita", "Taxas", "Frota", "Posto", "Fixo", "Tributos", "RH", "Administrativo"]);
+    expect(r.dre.resultadoAposPessoalCentavos).toBe(648456 - 475259 - 15000);
+    expect(r.dre.foraDoResultado.map((g: { grupo: string }) => g.grupo).sort()).toEqual(["Investimentos (fora do resultado)", "Pessoal (despesas pessoais pagas pela empresa)"]);
+    expect(r.dre.grupos.map((g: { grupo: string }) => g.grupo)).toEqual(["Passeios regulares", "Impostos sobre o faturamento", "Comissões e taxas de venda", "Combustível", "Manutenção e peças", "Pessoal fixo", "Administrativo e comercial"]);
+    // Aba DRE (12 meses): outubro fecha com o mesmo resultado do resumo; consórcio e pessoal ficam abaixo da linha.
+    const dre = json(await usuarioFln.req("GET", `/api/financeiro/dre?ano=2026&unidadeId=${fln}`));
+    expect(dre.meses).toHaveLength(12);
+    expect(dre.resultadoLiquido[9]).toBe(r.dre.resultadoCentavos);
+    expect(dre.receitaBruta[9]).toBe(r.dre.receitaCentavos);
+    expect(dre.abaixoDaLinha.filter((l: { nivel: string }) => l.nivel === "GRUPO").map((l: { nome: string; total: number }) => [l.nome, l.total])).toEqual([
+      ["Investimentos (fora do resultado)", -90000], ["Pessoal (despesas pessoais pagas pela empresa)", -15000],
+    ]);
+    const caixa = json(await usuarioFln.req("GET", `/api/financeiro/dre?ano=2026&unidadeId=${fln}&regime=CAIXA`));
+    expect(caixa.regime).toBe("CAIXA");
     expect(r.receitaPorConta).toEqual([{ contaId: expect.any(String), nome: "Quiosque", totalCentavos: 25000 }, { contaId: expect.any(String), nome: "Sicredi", totalCentavos: 623456 }]);
     expect(r.saldoCaixaCentavos).toBe(1247197 + 400000 + 47000);
   });
@@ -245,7 +256,7 @@ describe("importação da planilha (layout antigo, praça BC)", () => {
     const emp = d.foraDoResultado.find((g: { grupo: string }) => g.grupo.startsWith("Empréstimos"));
     expect(emp).toMatchObject({ entradasCentavos: 300000, saidasCentavos: 60000 });
     expect(d.pessoalCentavos).toBe(12000);
-    expect(d.grupos.map((g: { grupo: string }) => g.grupo)).toContain("Devoluções e estornos");
+    expect(d.grupos.map((g: { grupo: string }) => g.grupo)).toContain("Cancelamentos e devoluções");
     expect(d.receitaCentavos).toBe(400000 + 5000);
   });
 });
@@ -323,7 +334,7 @@ describe("revenda de serviços de terceiros", () => {
     expect(r.aviso).toMatch(/contador/);
     const itens = (await lancamentos(usuarioBc)).filter((x) => /Ingressos/.test(x.descricao));
     expect(itens.map((x) => [x.tipo, x.categoriaNome, x.valorCentavos, x.vencimento]).sort()).toEqual([
-      ["PAGAR", "Comissões de pessoal", 5000, "2026-08-20"], ["PAGAR", "Revenda de terceiros: repasse ao fornecedor", 80000, "2026-08-20"], ["RECEBER", "Revenda de terceiros: valor recebido do cliente", 100000, "2026-08-10"],
+      ["PAGAR", "Comissões de vendedores", 5000, "2026-08-20"], ["PAGAR", "Revenda de terceiros: repasse ao fornecedor", 80000, "2026-08-20"], ["RECEBER", "Revenda de terceiros: valor recebido do cliente", 100000, "2026-08-10"],
     ]);
     const d = json(await usuarioBc.req("GET", `/api/financeiro/resumo?mes=2026-08&unidadeId=${bc}&ref=2026-08-31`)).dre;
     expect(d.receitaCentavos).toBe(20000);

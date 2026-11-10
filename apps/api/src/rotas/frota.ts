@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql, type SQL } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
-  diasEntre, normalizarPlaca, placaValida, resumirChecklist, situacaoVencimento,
+  GRUPOS_CUSTO_VEICULO, diasEntre, normalizarPlaca, placaValida, resumirChecklist, situacaoVencimento,
   FONTES_KM, SITUACOES_VEICULO, STATUS_ORDEM, TIPOS_DOC_VEICULO, TIPOS_ORDEM, TIPOS_VEICULO,
 } from "@bybus/core";
 import { z } from "zod";
@@ -530,7 +530,7 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
     const lancFin = verFinanceiro && ids.length
       ? await db.select({ veiculo: finLancamentos.veiculo, valor: sql<number>`coalesce(${finLancamentos.valorPagoCentavos}, ${finLancamentos.valorCentavos})`.mapWith(Number) })
         .from(finLancamentos).innerJoin(finCategorias, eq(finCategorias.id, finLancamentos.categoriaId))
-        .where(and(eq(finLancamentos.tipo, "PAGAR"), inArray(finCategorias.grupo, ["Frota", "Posto"]), isNotNull(finLancamentos.veiculo), gte(finLancamentos.competencia, inicio), lte(finLancamentos.competencia, fim)))
+        .where(and(eq(finLancamentos.tipo, "PAGAR"), inArray(finCategorias.grupo, [...GRUPOS_CUSTO_VEICULO]), isNotNull(finLancamentos.veiculo), gte(finLancamentos.competencia, inicio), lte(finLancamentos.competencia, fim)))
       : [];
     const calcAbast = calcularAbastecimentos(abast);
     const abastMes = calcAbast.filter((a) => a.data >= inicio && a.data <= fim);

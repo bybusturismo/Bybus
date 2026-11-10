@@ -1,3 +1,4 @@
+import { GRUPOS_DA_SECAO, SECOES_DRE } from "@bybus/core";
 import { useState, type FormEvent } from "react";
 import { api, mensagemDeErro } from "../../api/cliente";
 import { Aviso, Carregando, ErroCarga } from "../../componentes/Estados";
@@ -115,7 +116,16 @@ function FormCategoria({ aoSalvar, aoCancelar }: { aoSalvar: () => Promise<void>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       <div className="campo"><label htmlFor="cat-nome">Nome</label><input id="cat-nome" value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} /></div>
       <div className="campo"><label htmlFor="cat-tipo">Tipo</label><select id="cat-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as "RECEITA" | "DESPESA")}><option value="DESPESA">Despesa</option><option value="RECEITA">Receita</option></select></div>
-      <div className="campo"><label htmlFor="cat-grupo">Grupo na DRE</label><input id="cat-grupo" value={grupo} maxLength={60} onChange={(e) => setGrupo(e.target.value)} placeholder="Ex.: Custos operacionais" /></div>
+      <div className="campo">
+        <label htmlFor="cat-grupo">Grupo na DRE</label>
+        <select id="cat-grupo" value={grupo} onChange={(e) => setGrupo(e.target.value)}>
+          <option value="">Escolha a linha da DRE</option>
+          {SECOES_DRE.map((s) => (
+            <optgroup key={s.chave} label={s.nome}>{GRUPOS_DA_SECAO[s.chave].map((g) => <option key={g} value={g}>{g}</option>)}</optgroup>
+          ))}
+          <optgroup label="Abaixo da linha (fora do resultado)">{GRUPOS_DA_SECAO.ABAIXO_DA_LINHA.map((g) => <option key={g} value={g}>{g}</option>)}</optgroup>
+        </select>
+      </div>
       <div className="modal__acoes">
         <button type="button" className="botao botao--secundario" onClick={aoCancelar}>Cancelar</button>
         <button type="submit" className="botao botao--primario">Criar categoria</button>

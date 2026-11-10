@@ -204,7 +204,7 @@ export function Escala() {
                         {d.alertas.map((a) => <span key={a} className="etiqueta etiqueta--perigo">{a}</span>)}
                         {d.publicada && podeEditar && !passado && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setTroca(d)}>Trocar</button>}
                       </td>
-                      <td>{d.saida ? <Link to={`/saidas/${d.saida.id}`}>Abrir</Link> : <span className="texto-fraco">—</span>}</td>
+                      <td>{d.saida ? <><SituacaoSaida status={d.saida.status} passado={passado} /> <Link to={`/saidas/${d.saida.id}`}>Abrir</Link></> : <span className="texto-fraco">{passado ? "Sem saída" : "—"}</span>}</td>
                     </tr>
                   );
                 })}
@@ -224,4 +224,12 @@ export function Escala() {
       )}
     </div>
   );
+}
+
+/** Situação da saída do dia na escala (pedido do dono, 10/11/2026): marcar a saída como cancelada já aparece aqui. */
+function SituacaoSaida({ status, passado }: { status: string; passado: boolean }) {
+  if (status === "CANCELADA") return <span className="etiqueta etiqueta--perigo">Não houve saída</span>;
+  if (status === "REALIZADA") return <span className="etiqueta etiqueta--sucesso">Realizada</span>;
+  if (status === "CONFIRMADA") return <span className="etiqueta etiqueta--sucesso">Confirmada</span>;
+  return passado ? <span className="etiqueta etiqueta--atencao">Não confirmada</span> : <span className="etiqueta etiqueta--neutra">Prevista</span>;
 }

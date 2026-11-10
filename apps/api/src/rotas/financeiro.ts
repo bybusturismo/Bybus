@@ -1,7 +1,7 @@
 import {
   CANAIS, FORMAS_PAGAMENTO, LINHAS_FINANCEIRO, TIPOS_CATEGORIA, TIPOS_CONTA_FINANCEIRA,
-  calcularBaixa, faturaDaData, fimDoMes, inicioDaSemana, montarDre, montarFluxoSemanal, parcelar, somarDiasIso, somarMeses,
-  type CategoriaInfo, type LancamentoRelatorio,
+  calcularBaixa, faturaDaData, fimDoMes, inicioDaSemana, montarDre, montarDreGerencial, montarFluxoSemanal, parcelar, somarDiasIso, somarMeses,
+  type CategoriaInfo, type LancamentoDre, type LancamentoRelatorio,
 } from "@bybus/core";
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -465,6 +465,34 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       fluxo, dre, receitaPorConta,
       linhasPendentes: pend?.n ?? 0,
     };
+  });
+
+  // ------------------------------------------------------------------ DRE gerencial (aba DRE, 10/11/2026)
+  app.get("/api/financeiro/dre", ver, async (req) => {
+    const u = req.usuario!;
+    const q = z.object({
+      ano: z.coerce.number().int().min(2000).max(2100).optional(),
+      regime: z.enum(["COMPETENCIA", "CAIXA"]).default("COMPETENCIA"),
+      unidadeId: uuid.optional(),
+      linha: z.enum(LINHAS_FINANCEIRO).optional(),
+    }).parse(req.query);
+    const ano = q.ano ?? Number(hojeSP().slice(0, 4));
+    const meses = Array.from({ length: 12 }, (_, i) => `${ano}-${String(i + 1).padStart(2, "0")}`);
+    const coluna = q.regime === "CAIXA" ? finLancamentos.pagoEm : finLancamentos.competencia;
+    await garantirPlano(db);
+    const cats = await db.select().from(finCategorias);
+    const mapaCats = new Map<string, CategoriaInfo>(cats.map((c) => [c.id, { nome: c.nome, tipo: c.tipo as CategoriaInfo["tipo"], grupo: c.grupo, ordem: c.ordem }]));
+    const lancs = await db.select({
+      tipo: finLancamentos.tipo, situacao: finLancamentos.situacao, valorCentavos: finLancamentos.valorCentavos, valorPagoCentavos: finLancamentos.valorPagoCentavos,
+      jurosCentavos: finLancamentos.jurosCentavos, multaCentavos: finLancamentos.multaCentavos, descontoCentavos: finLancamentos.descontoCentavos,
+      vencimento: finLancamentos.vencimento, pagoEm: finLancamentos.pagoEm, competencia: finLancamentos.competencia,
+      categoriaId: finLancamentos.categoriaId, unidadeId: finLancamentos.unidadeId, linha: finLancamentos.linha,
+    }).from(finLancamentos).where(and(
+      filtroPracaEscolhida(u, finLancamentos.unidadeId, q.unidadeId),
+      q.linha ? eq(finLancamentos.linha, q.linha) : undefined,
+      gte(coluna, `${ano}-01-01`), lte(coluna, `${ano}-12-31`),
+    ));
+    return montarDreGerencial(lancs as LancamentoDre[], mapaCats, meses, q.regime);
   });
 
   // ------------------------------------------------------------------ cartões: faturas por ciclo

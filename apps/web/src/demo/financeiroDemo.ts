@@ -1,6 +1,6 @@
 /** Financeiro da demonstração: contas, lançamentos do mês, extratos com sugestões e cartão. Tudo fictício, em centavos. */
 import {
-  PLANO_CATEGORIAS, SINONIMOS_PADRAO, calcularBaixa, classificar, faturaDaData, lerPlanilhaFinanceira, montarDicionario, montarDre, montarFluxoSemanal, sugerirCategoria, sugerirCorrespondencias,
+  PLANO_CATEGORIAS, SINONIMOS_PADRAO, calcularBaixa, classificar, faturaDaData, lerPlanilhaFinanceira, montarDicionario, montarDre, montarDreGerencial, montarFluxoSemanal, sugerirCategoria, sugerirCorrespondencias,
   type LancamentoCandidato, type LancamentoRelatorio, type RegraCategoria,
 } from "@bybus/core";
 import { NAO, UN_BC, UN_FLN, achar, aplicar, fimDoMes, semAcento, somarDias, type Corpo, type Ctx, type Rotear } from "./comum";
@@ -289,6 +289,17 @@ export const rotearFinanceiro: Rotear = (ctx, metodo, caminho, q, c) => {
       for (const l of grupo) lancs.splice(lancs.indexOf(l), 1);
       return { excluidos: grupo.length };
     }
+  }
+
+  // DRE gerencial (12 meses)
+  if (metodo === "GET" && caminho === "/api/financeiro/dre") {
+    ver();
+    const ano = Number(q.get("ano") || hoje.slice(0, 4));
+    const regime = q.get("regime") === "CAIXA" ? "CAIXA" : "COMPETENCIA";
+    const meses = Array.from({ length: 12 }, (_, i) => `${ano}-${String(i + 1).padStart(2, "0")}`);
+    const mapaCats = new Map(categorias.map((x) => [x.id, { nome: x.nome, tipo: x.tipo, grupo: x.grupo, ordem: x.ordem }]));
+    const nosso = lancs.filter((l) => escopoUnidade(l.unidadeId, q) && (!q.get("linha") || l.linha === q.get("linha")));
+    return montarDreGerencial(nosso.map((l) => ({ ...comoRelatorio(l), competencia: l.competencia })), mapaCats, meses, regime);
   }
 
   // Resumo (a pagar/receber, saldos, fluxo semanal e DRE do mês)

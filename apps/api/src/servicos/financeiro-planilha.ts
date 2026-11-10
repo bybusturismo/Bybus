@@ -1,5 +1,5 @@
 import {
-  ALVO_APLICACAO, ALVO_IGNORAR, ALVO_TRANSFERENCIA, CONTAS_PADRAO, ROTULO_COLUNA, classificar, extrairPlaca, lerPlanilhaFinanceira, montarDicionario, normalizarTexto, separarObs,
+  ALVO_APLICACAO, GRUPOS_CUSTO_VEICULO, ALVO_IGNORAR, ALVO_TRANSFERENCIA, CONTAS_PADRAO, ROTULO_COLUNA, classificar, extrairPlaca, lerPlanilhaFinanceira, montarDicionario, normalizarTexto, separarObs,
   type ColunaValor, type ObsSeparada,
 } from "@bybus/core";
 import { and, eq, inArray, isNull } from "drizzle-orm";
@@ -239,7 +239,7 @@ export async function planejarPlanilha(db: Db, u: UsuarioSessao, entrada: Entrad
     const cat = porCodigo.get(alvo);
     if (!cat) { avisos.push(`Linha ${l.numero}: a categoria "${alvo}" do dicionário não existe.`); continue; }
     const obs = separarObs(l.obs);
-    const veiculo = ["Frota", "Posto"].includes(cat.grupo) ? extrairPlaca(`${l.descricao} ${l.fornecedor} ${obs.texto}`) : null;
+    const veiculo = GRUPOS_CUSTO_VEICULO.includes(cat.grupo) ? extrairPlaca(`${l.descricao} ${l.fornecedor} ${obs.texto}`) : null;
     const novo = (coluna: ColunaValor, tipo: "PAGAR" | "RECEBER", aberto: boolean, devido: number, pago: number | null): ItemLancamento => {
       let categoria = cat;
       if ((tipo === "PAGAR") !== (cat.tipo === "DESPESA")) {

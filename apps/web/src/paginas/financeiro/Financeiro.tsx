@@ -4,6 +4,7 @@ import "./financeiro.css";
 
 const ABAS = [
   { para: "/financeiro", rotulo: "Resumo", fim: true },
+  { para: "/financeiro/dre", rotulo: "DRE" },
   { para: "/financeiro/pagar", rotulo: "A pagar" },
   { para: "/financeiro/receber", rotulo: "A receber" },
   { para: "/financeiro/extrato", rotulo: "Extrato e conciliação" },

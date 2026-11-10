@@ -46,6 +46,21 @@ describe("importação depois da revisão", () => {
     expect(await dataDaReserva("VIA-777000111")).toEqual([{ data: "2026-10-25", status: "CONFIRMADA" }]);
   });
 
+  it("ponto mudado no canal (ex.: passou para o transfer) atualiza a reserva; ajuste feito no sistema fica se o canal repete o ponto", async () => {
+    const c = new Cliente(app);
+    await c.login("atendente@bybus.test");
+    const comPonto = (ponto: string) => `${email("VIA-777000333")}\n| Pick-up | ${ponto} |`;
+    const ponto = async () => (await banco.query("select p.nome from reservas r join pontos_embarque p on p.id = r.ponto_embarque_id where r.codigo_externo = $1", ["VIA-777000333"])).rows[0]?.nome;
+    await importar(c, "New booking", comPonto("Villa Romana Shopping"));
+    expect(await ponto()).toBe("Villa Romana Shopping");
+    await importar(c, "Updated booking", comPonto("7h - Transfer partindo de Canasvieiras (Possui custo adicional)"));
+    expect(await ponto()).toBe("Transfer — Canasvieiras");
+    // Ajuste no sistema (ex.: atendente corrigiu): o canal repetindo o mesmo ponto não desfaz.
+    await banco.query("update reservas set ponto_embarque_id = (select id from pontos_embarque where nome = 'Hotel Ibis' limit 1) where codigo_externo = $1", ["VIA-777000333"]);
+    await importar(c, "Updated booking", comPonto("7h - Transfer partindo de Canasvieiras (Possui custo adicional)"));
+    expect(await ponto()).toBe("Hotel Ibis");
+  });
+
   it("reserva cancelada no sistema não volta sozinha quando o canal ainda a mostra ativa", async () => {
     const c = new Cliente(app);
     await c.login("atendente@bybus.test");

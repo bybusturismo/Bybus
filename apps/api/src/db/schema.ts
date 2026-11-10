@@ -254,6 +254,8 @@ export const reservas = pgTable("reservas", {
   contatoTelefone: text(),
   contatoEmail: text(),
   pontoEmbarqueId: uuid().references(() => pontosEmbarque.id),
+  /** Último ponto que o canal (Paytour etc.) informou: se o canal mudar o ponto, a reserva acompanha; ajuste feito no sistema fica. */
+  pontoCanalId: uuid().references(() => pontosEmbarque.id),
   status: statusReservaEnum().notNull().default("CONFIRMADA"),
   observacoes: text(),
   origem: text().notNull().default("MANUAL"),

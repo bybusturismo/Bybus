@@ -82,7 +82,7 @@ export function Resumo() {
 
             <section className="cartao" aria-labelledby="titulo-dre">
               <h2 id="titulo-dre">DRE gerencial — {nomeMes(d.mes)}</h2>
-              <p className="texto-fraco">Por competência. Juros, multas e descontos das baixas aparecem à parte.</p>
+              <p className="texto-fraco">Por competência. Juros, multas e descontos das baixas aparecem à parte. <Link to="/financeiro/dre">Ver a DRE completa do ano</Link>.</p>
               {d.dre.grupos.length === 0 ? <p className="texto-fraco">Sem lançamentos com competência neste mês.</p> : (
                 <div className="tabela-rolagem">
                   <table className="tabela tabela--compacta">
@@ -132,7 +132,6 @@ export function Resumo() {
           </section>
 
           <QuadroSaldos saldos={d.saldos} total={d.saldoCaixaCentavos} />
-          <ResumoDoMes d={d} />
         </>
       )}
     </>
@@ -162,38 +161,6 @@ function QuadroSaldos({ saldos, total }: { saldos: RespostaResumo["saldos"]; tot
       </div>
       <p className="fin-total" style={{ padding: "var(--esp-2)" }}>Total disponível (bancos + caixa + aplicação): <strong className={`fin-valor ${sinal(total)}`}>{formatarMoeda(total)}</strong></p>
       {cartoes.length > 0 && <p className="texto-fraco">Cartões (fatura em aberto, sinal negativo): {cartoes.map((c) => `${c.nome} ${formatarMoeda(c.saldoCentavos)}`).join("; ")}. Veja o saldo dia a dia em <Link to="/financeiro/caixa">Caixa e saldos</Link>.</p>}
-    </section>
-  );
-}
-
-const ORDEM_PLANILHA = ["Taxas", "Frota", "Fixo", "Tributos", "Posto", "Administrativo", "RH"];
-
-/** Resumo do mês no formato do topo da planilha: receita por conta, despesas por grupo e RESULTADO (recalculado pelo sistema). */
-function ResumoDoMes({ d }: { d: RespostaResumo }) {
-  const grupo = (nome: string) => d.dre.grupos.find((g) => g.grupo === nome)?.totalCentavos ?? 0;
-  const outros = d.dre.grupos.filter((g) => !["Receita", ...ORDEM_PLANILHA].includes(g.grupo));
-  const emprestimos = d.dre.foraDoResultado.find((g) => g.grupo.startsWith("Empréstimos"));
-  const linha = (rotulo: string, v: number, negativo = false) => <tr key={rotulo}><th scope="row">{rotulo}</th><td className={`fin-valor ${negativo ? "fin-valor--saida" : sinal(v)}`}>{negativo && v > 0 ? "−" : ""}{formatarMoeda(v)}</td></tr>;
-  return (
-    <section className="cartao" aria-labelledby="titulo-planilha">
-      <h2 id="titulo-planilha">Resumo do mês, como na planilha — {nomeMes(d.mes)}</h2>
-      <p className="texto-fraco">Calculado pelo sistema a partir dos lançamentos (competência do mês); pessoal e empréstimos ficam fora do resultado operacional.</p>
-      <div className="tabela-rolagem">
-        <table className="tabela tabela--compacta">
-          <tbody>
-            {d.receitaPorConta.map((c) => linha(`Receita — ${c.nome}`, c.totalCentavos))}
-            {linha("Receita (todos os lançamentos do mês)", grupo("Receita"))}
-            {ORDEM_PLANILHA.slice(0, 4).map((g) => linha(g, grupo(g), true))}
-            {linha("Pessoal (fora do resultado)", d.dre.pessoalCentavos, true)}
-            {ORDEM_PLANILHA.slice(4).map((g) => linha(g, grupo(g), true))}
-            {outros.map((g) => linha(g.grupo, g.totalCentavos))}
-            {emprestimos && linha("Empréstimos: entradas (fora do resultado)", emprestimos.entradasCentavos)}
-            {emprestimos && linha("Empréstimos: parcelas pagas (fora do resultado)", emprestimos.saidasCentavos, true)}
-            <tr className="fin-total"><th scope="row">RESULTADO</th><td className={`fin-valor ${sinal(d.dre.resultadoCentavos)}`}>{formatarMoeda(d.dre.resultadoCentavos)}</td></tr>
-            <tr className="fin-total"><th scope="row">Resultado após despesas pessoais</th><td className={`fin-valor ${sinal(d.dre.resultadoAposPessoalCentavos)}`}>{formatarMoeda(d.dre.resultadoAposPessoalCentavos)}</td></tr>
-          </tbody>
-        </table>
-      </div>
     </section>
   );
 }

@@ -146,7 +146,9 @@ export async function importarReservas(
           codigoExterno: item.codigoExterno,
           contatoTelefone: existente!.contatoTelefone ?? item.contatoTelefone,
           contatoEmail: existente!.contatoEmail ?? item.contatoEmail,
-          pontoEmbarqueId: existente!.pontoEmbarqueId ?? ponto?.id ?? null,
+          // O canal mudou o ponto (ex.: o cliente passou para o transfer): a reserva acompanha. Se o canal repete o mesmo
+          // ponto, vale o que está no sistema (ajuste manual ou do link de embarque).
+          ...(ponto && ponto.id !== existente!.pontoCanalId && (existente!.pontoCanalId !== null || !existente!.informadoPeloClienteEm) ? { pontoEmbarqueId: ponto.id, pontoCanalId: ponto.id } : { pontoEmbarqueId: existente!.pontoEmbarqueId ?? ponto?.id ?? null }),
           referencias: [...new Set([...existente!.referencias, ...item.referencias])],
           // Pagamento pode mudar no canal (ex.: "pagar no dia" quitado); só sobrescreve quando o canal informa.
           ...(item.pagamento !== undefined && item.pagamento !== null ? { pagamento: item.pagamento, formaPagamento: item.formaPagamento ?? null } : {}),
@@ -171,6 +173,7 @@ export async function importarReservas(
         contatoTelefone: item.contatoTelefone,
         contatoEmail: item.contatoEmail,
         pontoEmbarqueId: ponto?.id ?? null,
+        pontoCanalId: ponto?.id ?? null,
         observacoes: item.observacoes,
         origem: opcoes.origem,
         pagamento: item.pagamento ?? null,

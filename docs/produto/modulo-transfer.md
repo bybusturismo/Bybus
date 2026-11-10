@@ -51,3 +51,8 @@ UPDATE "perfis" SET "permissoes" = array_append("permissoes", 'transfer:gerencia
 - Os horários são base. O horário de cada busca é calculado pela ordem (nunca volta no tempo; +5 min entre paradas) e pode ser ajustado à mão até o fechamento.
 - No **fechamento das 21h**, a confirmação de cada titular com transfer leva o horário de busca confirmado, o hotel e, se ainda não pagou, a taxa a pagar ao motorista (PIX ou dinheiro). Quem já pagou ou tem a taxa incluída no passeio não recebe a cobrança.
 - **Taxa confirmada pelo dono (05/11/2026): R$ 45,00 por passageiro** (migração 0020 ajusta o padrão e as configurações ainda em R$ 40 "a confirmar").
+
+## Ponto mudado no canal (10/11/2026)
+Antes, a sincronização mantinha o ponto da primeira importação. Agora, quando a Paytour (ou outro canal) **muda** o ponto de
+embarque (ex.: o cliente passou para o transfer de Canasvieiras), a reserva acompanha. O sistema guarda o último ponto informado
+pelo canal (`reservas.ponto_canal_id`): se o canal repetir o mesmo ponto, vale o ajuste feito no sistema (atendente ou link de embarque).
