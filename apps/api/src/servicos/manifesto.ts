@@ -94,15 +94,14 @@ export function manifestoCsv(m: Manifesto): string {
     const seguro = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
     return /[;"\r\n]/.test(seguro) ? `"${seguro.replace(/"/g, '""')}"` : seguro;
   };
-  const linhas = [["Nº", "Horário", "Ponto de embarque", "Passageiro", "Categoria", "Tipo doc.", "Documento", "Titular", "Canal", "Código", "Pagamento", "Embarque"]];
+  const linhas = [["Nº", "Horário", "Ponto de embarque", "Passageiro", "Categoria", "Tipo doc.", "Documento", "Telefone", "Canal", "Pagamento"]];
   for (const b of m.blocos) {
     for (const l of b.linhas) {
       linhas.push([
         String(l.numero), b.ponto?.horario ?? "", b.ponto?.nome ?? "A DEFINIR", l.passageiro.nome || "(a informar)",
-        l.passageiro.categoria, l.passageiro.documentoTipo ?? "", l.passageiro.documento ?? "", l.contatoNome,
-        l.canal, l.codigoExterno ?? "",
+        l.passageiro.categoria, l.passageiro.documentoTipo ?? "", l.passageiro.documento ?? "", l.contatoTelefone ?? "",
+        l.canal,
         l.pagamento === "A_PAGAR" ? (l.primeiraDaReserva ? `COBRAR NO EMBARQUE${l.valorACobrarCentavos != null ? ` R$ ${(l.valorACobrarCentavos / 100).toFixed(2).replace(".", ",")}` : ""}` : "COBRAR (mesma reserva)") : l.pagamento === "PAGO" ? "PAGO" : l.pagamento === "CORTESIA" ? "CORTESIA" : "",
-        l.passageiro.embarque,
       ]);
     }
   }

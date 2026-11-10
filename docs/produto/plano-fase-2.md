@@ -104,3 +104,7 @@ Três revisões (servidor inteiro, telas e as integrações) encontraram e corri
 A lista (tela, impressão, CSV) e a tela de embarque mostram o pagamento de cada reserva: **Cobrar no embarque: R$ X** (o valor
 aparece só na primeira linha da reserva; as outras dizem "mesma reserva"), **Pago**, **Cortesia** ou **Não informado**. No topo,
 o resumo "Cobrar no embarque: N reservas (nº …) · total R$ …". O valor é o do pedido no canal (já com desconto).
+Ajustes do dono no mesmo dia: a lista não mostra mais o código da reserva, o titular nem a coluna "Aguardando" (o embarque fica
+no checkbox da impressão e na etiqueta quando já marcado); mostra o **telefone** de contato e o **documento completo** por padrão
+(exigência da fiscalização de trânsito do turismo). O perfil padrão GUIA ganhou "Ver documentos completos" (migração 0036);
+cada visualização com documento completo continua registrada na auditoria.

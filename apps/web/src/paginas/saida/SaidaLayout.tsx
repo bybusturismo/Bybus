@@ -34,7 +34,8 @@ export function useSaida(): ValorSaida {
 export function SaidaLayout() {
   const { id = "" } = useParams();
   const { pode, unidades } = useSessao();
-  const [documentosCompletos, setDocs] = useState(false);
+  // Documento completo por padrão para quem tem a permissão: a fiscalização exige a lista com o documento inteiro (dono, 10/11/2026).
+  const [documentosCompletos, setDocs] = useState(true);
   const completos = documentosCompletos && pode("manifesto:documentos");
   const carga = useCarregar(
     (s) => api.get<RespostaManifesto>(`/api/saidas/${encodeURIComponent(id)}/manifesto${qs({ documentos: completos ? "completos" : undefined })}`, s),

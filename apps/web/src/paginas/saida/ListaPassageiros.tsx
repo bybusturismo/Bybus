@@ -79,11 +79,9 @@ export function BlocoPassageiros({ bloco, filtro, transfer }: { bloco: BlocoMani
               <th scope="col">Passageiro</th>
               <th scope="col">Categoria</th>
               <th scope="col">Documento</th>
-              <th scope="col">Titular</th>
+              <th scope="col">Telefone</th>
               <th scope="col">Canal</th>
-              <th scope="col">Código</th>
               <th scope="col">Pagamento</th>
-              <th scope="col">Embarque</th>
               <th scope="col" className="so-impressao col-check">
                 ✓
               </th>
@@ -96,7 +94,11 @@ export function BlocoPassageiros({ bloco, filtro, transfer }: { bloco: BlocoMani
               return (
                 <tr key={p.id} className={`${oculto ? "oculto-na-tela" : ""} embarque--${p.embarque.toLowerCase()}`}>
                   <td className="col-num">{l.numero}</td>
-                  <td>{p.nome.trim() ? p.nome : <em className="texto-fraco">(a informar)</em>}</td>
+                  <td>
+                    {p.nome.trim() ? p.nome : <em className="texto-fraco">(a informar)</em>}
+                    {transfer?.reservas[l.reservaId] && <span className="etiqueta etiqueta--info etiqueta--transfer" title="Van busca no hotel e leva ao ponto de encontro"> via transfer{transfer.reservas[l.reservaId]!.bairro ? ` · ${transfer.reservas[l.reservaId]!.bairro}` : ""}</span>}
+                    {p.embarque !== "PENDENTE" && <span className={`etiqueta etiqueta--embarque-${p.embarque.toLowerCase()} nao-imprimir`}>{ROTULO_EMBARQUE[p.embarque]}</span>}
+                  </td>
                   <td>{ROTULO_CATEGORIA[p.categoria]}</td>
                   <td className="col-doc">
                     {p.documento ? (
@@ -109,16 +111,9 @@ export function BlocoPassageiros({ bloco, filtro, transfer }: { bloco: BlocoMani
                       <span className="texto-fraco">—</span>
                     )}
                   </td>
-                  <td>
-                    {l.contatoNome}
-                    {transfer?.reservas[l.reservaId] && <span className="etiqueta etiqueta--info etiqueta--transfer" title="Van busca no hotel e leva ao ponto de encontro"> via transfer{transfer.reservas[l.reservaId]!.bairro ? ` · ${transfer.reservas[l.reservaId]!.bairro}` : ""}</span>}
-                  </td>
+                  <td className="sem-quebra">{l.contatoTelefone ?? <span className="texto-fraco">—</span>}</td>
                   <td>{ROTULO_CANAL[l.canal]}</td>
-                  <td className="mono">{l.codigoExterno ?? "—"}</td>
                   <td><SituacaoPagamento linha={l} /></td>
-                  <td>
-                    <span className={`etiqueta etiqueta--embarque-${p.embarque.toLowerCase()}`}>{ROTULO_EMBARQUE[p.embarque]}</span>
-                  </td>
                   <td className="so-impressao col-check">
                     <span className="caixa-check" />
                   </td>
@@ -132,7 +127,7 @@ export function BlocoPassageiros({ bloco, filtro, transfer }: { bloco: BlocoMani
         <ul className="bloco__obs">
           {[...new Map(bloco.linhas.filter((l) => l.observacoes).map((l) => [l.reservaId, l])).values()].map((l) => (
             <li key={l.reservaId}>
-              <strong>{l.contatoNome}:</strong> {l.observacoes}
+              <strong>Nº {l.numero}:</strong> {l.observacoes}
             </li>
           ))}
         </ul>

@@ -19,13 +19,15 @@ const linha = (numero: number, nome: string, extra: Partial<BlocoManifesto["linh
 });
 
 describe("Lista de passageiros", () => {
-  it("bloco sem ponto aparece como A DEFINIR e passageiro sem nome como (a informar), sem telefone", () => {
+  it("bloco sem ponto aparece como A DEFINIR, passageiro sem nome como (a informar), com telefone e sem titular nem código", () => {
     render(<BlocoPassageiros bloco={{ ponto: null, linhas: [linha(7, "")] }} filtro="" />);
     expect(screen.getByRole("heading", { name: /A DEFINIR/ })).toBeInTheDocument();
     const tabela = screen.getByRole("table");
     expect(within(tabela).getByText("(a informar)")).toBeInTheDocument();
     expect(within(tabela).getByText("•••4725")).toBeInTheDocument();
-    expect(tabela).not.toHaveTextContent("+55");
+    expect(tabela).toHaveTextContent("+55 48 90000-0000");
+    expect(tabela).not.toHaveTextContent("Titular Ficticio");
+    expect(tabela).not.toHaveTextContent("VIA-7");
   });
 
   it("cabeçalho do ponto mostra horário, nome e endereço; busca esconde só na tela", () => {
