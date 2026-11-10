@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Alerta, BlocoManifesto } from "../../api/tipos";
-import { BlocoPassageiros, ordenarAlertas, PainelAlertas } from "./ListaPassageiros";
+import { BlocoPassageiros, ordenarAlertas, PainelAlertas, ResumoCobranca } from "./ListaPassageiros";
 
 const linha = (numero: number, nome: string, extra: Partial<BlocoManifesto["linhas"][number]> = {}): BlocoManifesto["linhas"][number] => ({
   numero,
@@ -11,6 +11,9 @@ const linha = (numero: number, nome: string, extra: Partial<BlocoManifesto["linh
   contatoNome: "Titular Ficticio",
   contatoTelefone: "+55 48 90000-0000",
   observacoes: null,
+  pagamento: null,
+  valorACobrarCentavos: null,
+  primeiraDaReserva: true,
   passageiro: { id: `p${numero}`, nome, categoria: "ADULTO", documentoTipo: "CPF", documento: "•••4725", documentoValido: true, embarque: "PENDENTE" },
   ...extra,
 });
@@ -49,5 +52,21 @@ describe("Lista de passageiros", () => {
     render(<PainelAlertas alertas={alertas} />);
     expect(screen.getByRole("heading", { name: /Alertas \(3\)/ })).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("Crítico");
+  });
+
+  it("mostra de quem cobrar no embarque, com o valor só na primeira linha da reserva, e o resumo da cobrança", () => {
+    const linhas = [
+      linha(1, "Ana Exemplo", { reservaId: "ra", pagamento: "A_PAGAR", valorACobrarCentavos: 38000 }),
+      linha(2, "Bruno Exemplo", { reservaId: "ra", pagamento: "A_PAGAR", valorACobrarCentavos: 38000, primeiraDaReserva: false }),
+      linha(3, "Carla Exemplo", { reservaId: "rb", pagamento: "PAGO" }),
+      linha(4, "Davi Exemplo", { reservaId: "rc" }),
+    ];
+    render(<><ResumoCobranca blocos={[{ ponto: null, linhas }]} /><BlocoPassageiros bloco={{ ponto: null, linhas }} filtro="" /></>);
+    const tabela = within(screen.getByRole("table"));
+    expect(tabela.getByRole("row", { name: /Ana Exemplo/ })).toHaveTextContent(/Cobrar no embarque: R\$\s?380,00/);
+    expect(tabela.getByRole("row", { name: /Bruno Exemplo/ })).toHaveTextContent("Cobrar (mesma reserva)");
+    expect(tabela.getByRole("row", { name: /Carla Exemplo/ })).toHaveTextContent("Pago");
+    expect(tabela.getByRole("row", { name: /Davi Exemplo/ })).toHaveTextContent("Não informado");
+    expect(screen.getByRole("status")).toHaveTextContent(/1 reserva \(nº 1\) · total R\$\s?380,00/);
   });
 });

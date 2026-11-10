@@ -6,6 +6,7 @@ import { Icone } from "../../componentes/Icone";
 import { useSessao } from "../../sessao/Sessao";
 import { ROTULO_CATEGORIA, ROTULO_EMBARQUE } from "../../util/rotulos";
 import { useSaida } from "./SaidaLayout";
+import { SituacaoPagamento } from "./ListaPassageiros";
 
 export function contarBloco(b: BlocoManifesto) {
   const esperados = b.linhas.length;
@@ -146,6 +147,7 @@ export function Embarque() {
                         {ROTULO_CATEGORIA[p.categoria]} · titular {l.contatoNome}
                         {l.codigoExterno ? ` · ${l.codigoExterno}` : ""}
                       </p>
+                      {l.pagamento === "A_PAGAR" && <p className="pax__status"><SituacaoPagamento linha={l} /></p>}
                       {p.embarque !== "PENDENTE" && <p className="pax__status">{ROTULO_EMBARQUE[p.embarque]}</p>}
                     </div>
                   </div>

@@ -49,5 +49,9 @@ export interface ReservaManifesto {
   pontoEmbarqueId?: string | null;
   status: StatusReserva;
   observacoes?: string | null;
+  /** PAGO, A_PAGAR (cobrar no embarque) ou CORTESIA; nulo = não informado pelo canal. */
+  pagamento?: string | null;
+  /** Valor da reserva a cobrar no embarque (centavos), quando A_PAGAR e o canal informou o valor. */
+  valorACobrarCentavos?: number | null;
   passageiros: PassageiroManifesto[];
 }

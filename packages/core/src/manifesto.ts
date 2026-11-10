@@ -47,6 +47,11 @@ export interface LinhaManifesto {
   contatoNome: string;
   contatoTelefone: string | null;
   observacoes: string | null;
+  /** PAGO, A_PAGAR (cobrar no embarque), CORTESIA ou nulo (não informado). Repetido em cada passageiro da reserva. */
+  pagamento: string | null;
+  valorACobrarCentavos: number | null;
+  /** Primeira linha da reserva na lista (o valor a cobrar aparece só nela, para não cobrar por passageiro). */
+  primeiraDaReserva: boolean;
   passageiro: PassageiroManifesto;
 }
 
@@ -120,9 +125,19 @@ export function montarManifesto(
         contatoNome: reserva.contatoNome,
         contatoTelefone: reserva.contatoTelefone ?? null,
         observacoes: reserva.observacoes ?? null,
+        pagamento: reserva.pagamento ?? null,
+        valorACobrarCentavos: reserva.pagamento === "A_PAGAR" ? reserva.valorACobrarCentavos ?? null : null,
+        primeiraDaReserva: false,
         passageiro,
       })),
     });
+  }
+
+  // O valor a cobrar vai só na primeira linha de cada reserva (a cobrança é da reserva, não do passageiro).
+  const vistas = new Set<string>();
+  for (const b of blocos) for (const l of b.linhas) {
+    l.primeiraDaReserva = !vistas.has(l.reservaId);
+    vistas.add(l.reservaId);
   }
 
   const totais = calcularTotais(itens.map((i) => i.passageiro));

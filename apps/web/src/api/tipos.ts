@@ -235,6 +235,10 @@ export interface LinhaManifesto {
   contatoNome: string;
   contatoTelefone: string | null;
   observacoes: string | null;
+  /** PAGO, A_PAGAR (cobrar no embarque), CORTESIA ou nulo (não informado). */
+  pagamento: string | null;
+  valorACobrarCentavos: number | null;
+  primeiraDaReserva: boolean;
   passageiro: PassageiroManifesto;
 }
 

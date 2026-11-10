@@ -99,3 +99,8 @@ Três revisões (servidor inteiro, telas e as integrações) encontraram e corri
 - Rastreamento: construído pelo celular do motorista (sem Khronos). Falta cadastrar as coordenadas dos pontos, ligar o perfil MOTORISTA à permissão nova pela migração e, para rastrear com a tela apagada, o app Android/iOS. Voucher automático após a compra: depende do dono (texto oficial e provedor de WhatsApp).
 - Pedido Paytour que perde um item ou muda a data de um dos itens (pedido com vários passeios): a reserva antiga não é cancelada sozinha — aparece para conferência.
 - Telas de Saídas e Escala ainda usam placa em texto (a lista de veículos da frota já existe na API).
+
+### Lista de passageiros: pagamento no embarque (pedido do dono, 10/11/2026)
+A lista (tela, impressão, CSV) e a tela de embarque mostram o pagamento de cada reserva: **Cobrar no embarque: R$ X** (o valor
+aparece só na primeira linha da reserva; as outras dizem "mesma reserva"), **Pago**, **Cortesia** ou **Não informado**. No topo,
+o resumo "Cobrar no embarque: N reservas (nº …) · total R$ …". O valor é o do pedido no canal (já com desconto).

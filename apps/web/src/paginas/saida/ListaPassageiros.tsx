@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
-import type { Alerta, BlocoManifesto, Pessoa, RespostaManifesto, Saida, StatusSaida } from "../../api/tipos";
+import type { Alerta, BlocoManifesto, LinhaManifesto, Pessoa, RespostaManifesto, Saida, StatusSaida } from "../../api/tipos";
 import { Aviso, Vazio } from "../../componentes/Estados";
 import { Icone } from "../../componentes/Icone";
 import { Confirmar, Modal } from "../../componentes/Modal";
 import { normalizarBusca } from "../../componentes/Tabela";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { useSessao } from "../../sessao/Sessao";
-import { formatarData, formatarDataExtenso, formatarDataHora, hojeIso } from "../../util/formato";
+import { formatarData, formatarDataExtenso, formatarDataHora, formatarMoeda, hojeIso } from "../../util/formato";
 import { ROTULO_CANAL, ROTULO_CATEGORIA, ROTULO_DOCUMENTO, ROTULO_EMBARQUE, ROTULO_NIVEL } from "../../util/rotulos";
 import { useSaida } from "./SaidaLayout";
 
@@ -82,6 +82,7 @@ export function BlocoPassageiros({ bloco, filtro, transfer }: { bloco: BlocoMani
               <th scope="col">Titular</th>
               <th scope="col">Canal</th>
               <th scope="col">Código</th>
+              <th scope="col">Pagamento</th>
               <th scope="col">Embarque</th>
               <th scope="col" className="so-impressao col-check">
                 ✓
@@ -114,6 +115,7 @@ export function BlocoPassageiros({ bloco, filtro, transfer }: { bloco: BlocoMani
                   </td>
                   <td>{ROTULO_CANAL[l.canal]}</td>
                   <td className="mono">{l.codigoExterno ?? "—"}</td>
+                  <td><SituacaoPagamento linha={l} /></td>
                   <td>
                     <span className={`etiqueta etiqueta--embarque-${p.embarque.toLowerCase()}`}>{ROTULO_EMBARQUE[p.embarque]}</span>
                   </td>
@@ -483,6 +485,7 @@ export function ListaPassageiros() {
       {erroStatus && <Aviso tipo="erro">{erroStatus}</Aviso>}
 
       <PainelAlertas alertas={manifesto.alertas} />
+      <ResumoCobranca blocos={manifesto.blocos} />
 
       {manifesto.blocos.length === 0 ? (
         <Vazio titulo="Nenhum passageiro confirmado nesta saída.">Inclua reservas na aba “Reservas” ou importe da Bókun/Paytour.</Vazio>
@@ -536,5 +539,30 @@ export function ListaPassageiros() {
         />
       )}
     </div>
+  );
+}
+
+/** Pagamento da reserva na lista (pedido do dono, 10/11/2026): a guia vê de quem cobrar no embarque. */
+export function SituacaoPagamento({ linha: l }: { linha: LinhaManifesto }) {
+  if (l.pagamento === "A_PAGAR") {
+    if (!l.primeiraDaReserva) return <span className="etiqueta etiqueta--atencao">Cobrar (mesma reserva)</span>;
+    return <span className="etiqueta etiqueta--perigo">Cobrar no embarque{l.valorACobrarCentavos != null ? `: ${formatarMoeda(l.valorACobrarCentavos)}` : ""}</span>;
+  }
+  if (l.pagamento === "PAGO") return <span className="etiqueta etiqueta--sucesso">Pago</span>;
+  if (l.pagamento === "CORTESIA") return <span className="etiqueta etiqueta--neutra">Cortesia</span>;
+  return <span className="texto-fraco" title="O canal não informou a situação do pagamento">Não informado</span>;
+}
+
+/** Quantas reservas cobrar no embarque e o total (um valor por reserva, não por passageiro). */
+export function ResumoCobranca({ blocos }: { blocos: BlocoManifesto[] }) {
+  const cobrar = blocos.flatMap((b) => b.linhas).filter((l) => l.pagamento === "A_PAGAR" && l.primeiraDaReserva);
+  if (cobrar.length === 0) return null;
+  const total = cobrar.reduce((s, l) => s + (l.valorACobrarCentavos ?? 0), 0);
+  const semValor = cobrar.filter((l) => l.valorACobrarCentavos == null).length;
+  return (
+    <p className="aviso aviso--atencao" role="status">
+      <strong>Cobrar no embarque:</strong> {cobrar.length} {cobrar.length === 1 ? "reserva" : "reservas"} ({cobrar.map((l) => `nº ${l.numero}`).join(", ")}) · total {formatarMoeda(total)}
+      {semValor > 0 && ` · ${semValor} sem valor informado (conferir na Paytour)`}
+    </p>
   );
 }
