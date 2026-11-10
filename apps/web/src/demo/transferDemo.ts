@@ -1,5 +1,5 @@
 /**
- * Transfer da demonstração: o transfer FICTÍCIO de amanhã (8 reservas em Ingleses (com Santinho), Cachoeira, Canasvieiras e Jurerê,
+ * Transfer da demonstração: o transfer FICTÍCIO de amanhã (8 reservas em Ingleses, Cachoeira, Canasvieiras e Jurerê,
  * hotéis fictícios, taxas a receber e já recebidas). Usa as mesmas regras do sistema (@bybus/core). Nada sai de verdade.
  */
 import { calcularHorariosBusca, calcularTaxa, moverItem, ordenarBusca, textoListaTransfer, totaisTaxa, type FormaTaxa, type SituacaoBusca, type SituacaoTaxa } from "@bybus/core";
@@ -29,7 +29,7 @@ interface Parada {
 
 const HOTEIS = ["Pousada Mar Azul (fictícia)", "Hotel Sol Nascente (fictício)", "Residencial Brisa do Norte (fictício)", "Apart Praia Grande (fictício)", "Pousada Jurerê Sul (fictícia)", "Hotel Costa Norte (fictício)", "Pousada das Dunas (fictícia)", "Hotel Beira Mar Fictício"];
 const NOVOS = [
-  { titular: "Helena Prado Fictícia", pontoIdx: 0, categorias: ["ADULTO", "ADULTO"], hotel: "Pousada Santinho Azul (fictícia)" },
+  { titular: "Helena Prado Fictícia", pontoIdx: 0, categorias: ["ADULTO", "ADULTO"], hotel: "Pousada Ingleses Azul (fictícia)" },
   { titular: "Otávio Lima Fictício", pontoIdx: 3, categorias: ["ADULTO", "INFANTIL", "COLO"], hotel: "Hotel Jurerê Mar (fictício)" },
   { titular: "Priscila Rocha Fictícia", pontoIdx: 2, categorias: ["ADULTO"], hotel: "Apart Canasvieiras Sol (fictício)" },
   { titular: "Ricardo Alves Fictício", pontoIdx: 0, categorias: ["ADULTO", "SENIOR"], hotel: "Pousada Ingleses do Norte (fictícia)" },
@@ -37,7 +37,7 @@ const NOVOS = [
 
 export function criarTransferDemo(d: DepsTransferDemo) {
   const bairros: Bairro[] = [
-    // Bairros e horários-base do dono (05/11/2026); Santinho fica dentro de Ingleses.
+    // Bairros e horários-base do dono (05/11/2026). Santinho não é mais atendido (10/11/2026).
     { id: "tb-2", nome: "Ingleses", ordemBusca: 1, horarioReferencia: "06:40", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
     { id: "tb-3", nome: "Cachoeira do Bom Jesus", ordemBusca: 2, horarioReferencia: "06:50", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },
     { id: "tb-4", nome: "Canasvieiras", ordemBusca: 3, horarioReferencia: "07:00", horarioAConfirmar: false, pontoEmbarqueId: null, ativo: true },

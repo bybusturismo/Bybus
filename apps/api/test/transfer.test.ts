@@ -74,7 +74,7 @@ describe("configuração do passeio", () => {
     const r = await sup.req("GET", `/api/passeios/${ids.passeio}/transfer`);
     expect(r.statusCode, r.body).toBe(200);
     const j = r.json();
-    expect(j.bairros.map((b: { nome: string }) => b.nome)).toEqual(["Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]); // bairros-base do dono (05/11); Santinho fica dentro de Ingleses
+    expect(j.bairros.map((b: { nome: string }) => b.nome)).toEqual(["Ingleses", "Cachoeira do Bom Jesus", "Canasvieiras", "Jurerê"]); // bairros-base do dono (05/11)
     expect(j.bairros.map((b: { ordemBusca: number }) => b.ordemBusca)).toEqual([1, 2, 3, 4]);
     expect(j.config).toMatchObject({ taxaAConfirmar: false, taxaPorPassageiroCentavos: 4500, pontoEncontroId: ids.pontoVilla });
     expect(j.bairros[0]).not.toHaveProperty("taxaCentavos"); // taxa única, não por bairro

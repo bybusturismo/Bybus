@@ -656,7 +656,7 @@ describe("casamento de pontos de embarque (textos reais da Paytour)", () => {
       ["8h25 - Em frente ao  hotel Ibis (Av. Rio Branco, 37. Próximo ao hotel Lumar, Ecobox Hostel, Farol da Ilha, Valerim e Faial)", "Hotel Ibis"],
       ["8h - No ponto de táxi do Villa Romana Shopping (Rua Santa Mônica), próximo aos hotéis Interclass Trindade, Mercure Convention e Quinta da Bica D'agua", "Villa Romana Shopping"],
       ["8h45 - Em frente a Catedral Metropolitana Nossa Senhora do Desterro - Praça XV de Novembro", "Catedral Metropolitana — Praça XV de Novembro"],
-      ["6h40 - Transfer partindo de Ingleses (Possui custo adicional)", "Transfer — Ingleses e Santinho"],
+      ["6h40 - Transfer partindo de Ingleses (Possui custo adicional)", "Transfer — Ingleses"],
       ["7h10 - Transfer partindo de Jurerê (Possui custo adicional)", "Transfer — Jurerê"],
       ["8h15 - Nos fundos do hotel Majestic (Rua Heitor Luz - Praça Lauro Müller)", "Hotel Majestic (fundos)"],
     ];

@@ -101,13 +101,13 @@ Outros produtos sabidos por documentos internos: **Nascer do Sol** (2021) e **Br
 ## Transfer do Norte da ilha (explicado pelo dono em 04/11/2026)
 - Feito por **van/carro separado**, que busca os passageiros e leva até o ônibus do city tour (ponto de encontro).
 - Os "pontos" de transfer da Paytour (Ingleses 6h40, Cachoeira 6h50, Canasvieiras 7h, Jurerê 7h10) são **bairros**: dão a noção do horário por bairro, mas a busca é **na porta do hotel**.
-- **Ordem de busca:** do mais longe do centro para o mais perto, começando pelo norte — ex.: Santinho → Ingleses → Cachoeira do Bom Jesus → Canasvieiras → Jurerê → … (ordem completa dos bairros a confirmar).
+- **Ordem de busca:** do mais longe do centro para o mais perto, começando pelo norte — ex.: Ingleses → Cachoeira do Bom Jesus → Canasvieiras → Jurerê → … (ordem completa dos bairros a confirmar).
 - **Cobrança:** hoje a taxa (R$ 35–45) é paga **à parte, direto ao motorista**, por PIX ou dinheiro; a empresa está em **transição para cobrar junto com o passeio** (na compra).
 - **Taxa:** **R$ 45,00 por passageiro**, valor único para todos os bairros (bebê de colo não paga) — dono, 05/11/2026.
 - **Ponto de encontro da van com o ônibus:** Villa Romana Shopping, às **7h45** — dono, 05 e 06/11/2026.
 - **Pontualidade:** tolerância **zero** para atrasos; o ônibus e a van são 100% pontuais — dono, 06/11/2026.
 - **Quem faz:** a **van da empresa**, com um **motorista fixo** do transfer (cadastrar em Guias e equipe) — dono, 05/11/2026. Lugares da van: a confirmar.
-- **Bairros e horários-base (dono, 05/11/2026), nesta ordem de busca:** Ingleses a partir das 6h40 → Cachoeira do Bom Jesus 6h50 → Canasvieiras 7h → Jurerê 7h10 (Santinho fica dentro de Ingleses). São uma **base**: o horário real depende da quantidade de pessoas e dos hotéis e é **confirmado até as 21h da véspera** (fechamento da lista), quando cada cliente recebe o horário de busca.
+- **Bairros e horários-base (dono, 05/11/2026), nesta ordem de busca:** Ingleses a partir das 6h40 → Cachoeira do Bom Jesus 6h50 → Canasvieiras 7h → Jurerê 7h10. **Santinho não é mais atendido pelo transfer (dono, 10/11/2026).** São uma **base**: o horário real depende da quantidade de pessoas e dos hotéis e é **confirmado até as 21h da véspera** (fechamento da lista), quando cada cliente recebe o horário de busca.
 
 ## Operação e atendimento (gerente, 09/11/2026)
 - **City Tour Toda Ilha:** sai às **8h** em frente ao ponto de táxi do Villa Romana Shopping; duração aproximada de **8h30**. O **Toda Ilha Ano Novo** sai **1 hora mais cedo**.

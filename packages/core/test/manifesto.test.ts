@@ -38,7 +38,7 @@ describe("ordem de embarque", () => {
       reserva("r6", "Eva Fictícia", id("Jurerê")),
     ]);
     expect(m.blocos.map((b) => b.ponto?.nome ?? "A DEFINIR")).toEqual([
-      "Transfer — Ingleses e Santinho",
+      "Transfer — Ingleses",
       "Transfer — Jurerê",
       "Hotel Majestic (fundos)",
       "Hotel Novotel (fundos)",

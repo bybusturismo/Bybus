@@ -14,7 +14,7 @@ describe("sugerirPontos", () => {
   });
 
   it("bairros dos transfers e o próprio ponto", () => {
-    expect(nome("pousada nos Ingleses")[0]).toBe("Transfer — Ingleses e Santinho");
+    expect(nome("pousada nos Ingleses")[0]).toBe("Transfer — Ingleses");
     expect(nome("Jurerê Internacional")[0]).toBe("Transfer — Jurerê");
     expect(nome("Blue Tree")[0]).toBe("Hotel Blue Tree Towers");
   });

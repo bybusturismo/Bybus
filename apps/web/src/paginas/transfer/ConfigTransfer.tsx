@@ -65,7 +65,7 @@ export function ConfigTransfer({ passeio }: { passeio: Passeio }) {
   return (
     <section className="cartao transfer__config" aria-label="Transfer">
       <h3>Transfer (van que busca no hotel)</h3>
-      <Aviso tipo="info">A taxa é única por passageiro, igual em todos os bairros (valor entre R$ 35 e R$ 45, a confirmar). A ordem de busca vai do bairro mais longe do centro para o mais perto; ordem completa e horários de Santinho: a confirmar.</Aviso>
+      <Aviso tipo="info">A taxa é única por passageiro, igual em todos os bairros (valor entre R$ 35 e R$ 45, a confirmar). A ordem de busca vai do bairro mais longe do centro para o mais perto.</Aviso>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       <div className="filtros">
         <div className="campo"><label htmlFor="cfg-taxa">Taxa por passageiro (R$)</label><input id="cfg-taxa" inputMode="decimal" disabled={!editar} value={taxa} onChange={(e) => setTaxa(e.target.value)} /></div>
