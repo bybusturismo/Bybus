@@ -89,3 +89,4 @@ Integração pela **API oficial da Meta**, "Instagram API com Instagram Login" (
 - Número do WhatsApp: **(48) 99924-8636**, um só para todos os passeios; fica no WhatsApp Business do celular **e** no sistema (coexistência, opção B do dono).
 - Regra do dono: como a Meta cobra por mensagem, **juntar informações numa mensagem só** sempre que possível.
 - Tripadvisor por praça: Floripa by Bus (g303576-d2362697) e BC by Bus (g680306-d10686390) — links cadastrados no sistema.
+- Google (perfil da empresa): Floripa by Bus → https://maps.app.goo.gl/ApHoQ2bE7i17i8QA8 (cadastrado no sistema, 10/11/2026). BC by Bus: a enviar.
