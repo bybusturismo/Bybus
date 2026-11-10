@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { aoErroDeSessao, api, ErroApi, requisitar } from "../api/cliente";
 import type { Pendencia, Permissao, RespostaEu, UnidadeResumo } from "../api/tipos";
@@ -76,13 +77,17 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
     [recarregar],
   );
 
+  const navegar = useNavigate();
   const sair = useCallback(async () => {
     try {
       await api.post("/api/auth/logout");
     } finally {
+      // Quem sai volta para o início: o próximo login (de outra pessoa) abre na tela inicial, não na última tela usada.
+      // Sessão vencida (401) mantém o endereço, para a mesma pessoa voltar onde estava.
+      navegar("/", { replace: true });
       setEstado({ fase: "anonimo", aviso: "Você saiu do sistema." });
     }
-  }, []);
+  }, [navegar]);
 
   const valor = useMemo<ValorSessao>(() => {
     const permissoes = estado.fase === "autenticado" ? estado.permissoes : [];
