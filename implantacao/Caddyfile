@@ -13,6 +13,14 @@
 		reverse_proxy api:3333
 	}
 
+	# Arquivo de instalação do app Android "By Bus" (gerado no servidor por gerar-app-android.sh).
+	handle_path /app/* {
+		root * /srv-app
+		header Content-Disposition "attachment"
+		header Cache-Control "no-cache"
+		file_server
+	}
+
 	# Front-end (aplicação de página única)
 	handle {
 		root * /srv
@@ -27,8 +35,8 @@
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "same-origin"
 		X-Frame-Options "DENY"
-		# Localização só neste site (tela do motorista); câmera e microfone continuam bloqueados.
-		Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+		# Localização (tela do motorista) e câmera (QR Code do voucher no modo embarque, 11/11/2026) só neste site; microfone bloqueado.
+		Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
 		# Só recursos do próprio sistema (fontes e imagens ficam no servidor). Única exceção: os blocos do mapa do rastreio (OpenStreetMap), só imagens.
 		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 		-Server

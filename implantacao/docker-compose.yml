@@ -44,6 +44,8 @@ services:
     volumes:
       - caddy_dados:/data
       - caddy_config:/config
+      # App Android (APK) para baixar em https://<domínio>/app/by-bus.apk
+      - ./app-download:/srv-app:ro
 
   # Cópia diária do banco em implantacao/backups no servidor (guarda 14 dias).
   # Copie também para fora do servidor (ver docs/implantacao.md).

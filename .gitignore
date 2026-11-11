@@ -28,3 +28,6 @@ implantacao/backups/
 
 # Cópias de trabalho dos agentes (git worktree)
 .claude/worktrees/
+implantacao/app-download/
+implantacao/android-chave/
+app-celular/node_modules/

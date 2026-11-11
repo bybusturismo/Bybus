@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">By Bus</string>
+    <string name="title_activity_main">By Bus</string>
+    <string name="package_name">br.com.bybusturismo.app</string>
+    <string name="custom_url_scheme">br.com.bybusturismo.app</string>
+</resources>

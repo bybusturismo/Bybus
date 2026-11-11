@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>By Bus</title>
+  <style>
+    :root { color-scheme: light dark; --fundo: #ffffff; --texto: #1d2433; --fraco: #5b6475; --botao: #0b63ce; }
+    @media (prefers-color-scheme: dark) { :root { --fundo: #11151c; --texto: #eef1f6; --fraco: #a9b1c0; --botao: #4c9bff; } }
+    html, body { height: 100%; margin: 0; }
+    body { background: var(--fundo); color: var(--texto); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); box-sizing: border-box; }
+    main { max-width: 22rem; }
+    img { width: 9rem; height: auto; margin-bottom: 1.5rem; }
+    h1 { font-size: 1.25rem; margin: 0 0 .5rem; }
+    p { color: var(--fraco); margin: 0 0 1.5rem; }
+    button { background: var(--botao); color: #fff; border: 0; border-radius: 10px; font: inherit; font-weight: 600; padding: .85rem 1.5rem; min-width: 12rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="logo.png" alt="By Bus">
+    <h1>Sem conexão com o sistema</h1>
+    <p>Confira a internet do celular (Wi-Fi ou dados móveis) e tente de novo.</p>
+    <button type="button" onclick="location.href='https://gestao.bybusturismo.com.br'">Tentar de novo</button>
+  </main>
+</body>
+</html>

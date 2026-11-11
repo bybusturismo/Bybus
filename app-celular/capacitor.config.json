@@ -1,0 +1,26 @@
+{
+  "appId": "br.com.bybusturismo.app",
+  "appName": "By Bus",
+  "webDir": "www",
+  "server": {
+    "url": "https://gestao.bybusturismo.com.br",
+    "cleartext": false,
+    "errorPath": "index.html"
+  },
+  "android": {
+    "backgroundColor": "#FFFFFF"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#FFFFFF",
+      "showSpinner": false
+    },
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover",
+      "style": "DEFAULT"
+    }
+  }
+}
