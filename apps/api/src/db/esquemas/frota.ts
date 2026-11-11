@@ -21,6 +21,8 @@ export const veiculos = pgTable("veiculos", {
   situacao: text().notNull().default("ATIVO"),
   kmAtual: integer().notNull().default(0),
   observacoes: text(),
+  /** Link da pasta (ou arquivo) do Google Drive com os gabaritos e outros arquivos do veículo (11/11/2026). */
+  driveLink: text(),
   criadoEm: agora(),
   atualizadoEm: agora(),
 }, (t) => [uniqueIndex("veiculos_placa_uq").on(t.placa)]);

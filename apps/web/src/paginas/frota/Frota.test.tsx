@@ -188,3 +188,24 @@ describe("Abastecimento: litros digitados com ponto", () => {
     expect(corpoEnviado(api, "POST", "/api/frota/abastecimentos")).toMatchObject({ km: 121000, litros: 45.5, valorCentavos: 30000 });
   });
 });
+
+describe("Arquivos do Drive do veículo (gabaritos)", () => {
+  it("quem só vê a frota abre a lista por pasta, com Abrir e Baixar", async () => {
+    simularApi({
+      "GET /api/frota/veiculos": [veiculo({ driveLink: "https://drive.google.com/drive/folders/1PastaFicticia0001" })],
+      "GET /api/frota/veiculos/v1/drive": { pasta: "Gabaritos fictícios", email: "x@y", itens: [
+        { id: "1ArqFrente000001", nome: "frente.pdf", tipo: "application/pdf", tamanho: 2_500_000, modificadoEm: null, caminho: "" },
+        { id: "1ArqLado00000002", nome: "lado.png", tipo: "image/png", tamanho: 4000, modificadoEm: null, caminho: "Lateral" },
+      ] },
+    });
+    renderizar(<VeiculosPagina />, { sessao: ver });
+    await userEvent.click(await screen.findByRole("button", { name: "Gabaritos e arquivos de ABC1D23" }));
+    const janela = await screen.findByRole("dialog", { name: /Arquivos de ABC1D23/ });
+    expect(await within(janela).findByText(/Gabaritos fictícios/)).toBeInTheDocument();
+    expect(within(janela).getByRole("heading", { name: "Lateral" })).toBeInTheDocument();
+    const abrir = within(janela).getAllByRole("link", { name: "Abrir" })[0]!;
+    expect(abrir).toHaveAttribute("href", "/api/frota/veiculos/v1/drive/1ArqFrente000001");
+    expect(within(janela).getAllByRole("link", { name: /Baixar/ })[1]).toHaveAttribute("href", "/api/frota/veiculos/v1/drive/1ArqLado00000002?baixar=1");
+    expect(janela).toHaveTextContent("2,4 MB");
+  });
+});

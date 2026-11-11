@@ -38,3 +38,10 @@ Operação Oceanic usa 2–3 ônibus em BC (um guardado no Aquário, outro no Av
 - Drive mostra 5 ônibus + van; trenzinho sem nenhum documento.
 - Alocação por base (3 BC / 1 Floripa) × documentos (QJQ2A16 Floripa; IVP2J64, JJF5I86, IPG8G91, LLE5A67 ligados a BC/Blumenau).
 - Qual ônibus é o publicitário.
+
+## Gabaritos e arquivos no Drive (pedido do dono, 11/11/2026)
+- Os gabaritos dos ônibus ficam no Drive da TOMA (pasta "open bus – gabaritos"), compartilhada como Leitor com a conta técnica
+  do sistema (leitor-planilhas@…iam.gserviceaccount.com). Em Frota › Veículos › Editar, o campo "Pasta do Google Drive" recebe o
+  link da pasta de cada ônibus; o botão **Arquivos** lista os arquivos (com subpastas) para abrir ou baixar. O sistema só lê.
+- O dono tem outra pasta do Drive para a frota (conteúdo a confirmar). Google Drive e Agenda ativados no Google Cloud
+  (11/11/2026), sem uso definido ainda para a Agenda.

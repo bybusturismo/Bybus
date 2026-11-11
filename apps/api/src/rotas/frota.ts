@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql, type SQL } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { arquivosDoDrive, baixarDoDrive, contaDeServico, ErroGoogle, idDoDrive } from "../servicos/googlePlanilhas.js";
 import {
   GRUPOS_CUSTO_VEICULO, diasEntre, normalizarPlaca, placaValida, resumirChecklist, situacaoVencimento,
   FONTES_KM, SITUACOES_VEICULO, STATUS_ORDEM, TIPOS_DOC_VEICULO, TIPOS_ORDEM, TIPOS_VEICULO,
@@ -62,6 +63,9 @@ const corpoVeiculo = z.object({
   situacao: z.enum(SITUACOES_VEICULO).default("ATIVO"),
   kmAtual: z.number().int().min(0).max(5_000_000).default(0),
   observacoes: opcional(500),
+  /** Link da pasta do Google Drive com os gabaritos e outros arquivos do veículo. */
+  driveLink: z.string().trim().max(500).nullish().transform((v) => v || null)
+    .refine((v) => v === null || idDoDrive(v) !== null, "Cole o link de uma pasta ou arquivo do Google Drive."),
 });
 
 export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto) {
@@ -152,6 +156,45 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
     const [v] = await db.update(veiculos).set({ ...resto, atualizadoEm: new Date() }).where(eq(veiculos.id, id)).returning();
     await auditar(db, req, "VEICULO_ALTERADO", { tipo: "veiculo", id }, { campos: Object.keys(resto), situacao: v!.situacao });
     return v;
+  });
+
+  // ---------- Arquivos do Drive (gabaritos e outros, 11/11/2026) ----------
+  const arquivosDoVeiculo = async (u: UsuarioSessao, id: string) => {
+    const v = await garantirVeiculo(db, u, id);
+    const conta = contaDeServico(config);
+    if (!v.driveLink) return { v, conta, lista: null };
+    if (!conta) throw new ErroHttp(409, "GOOGLE_NAO_CONFIGURADO", "A leitura do Google ainda não foi configurada no servidor (ligar-google.sh).");
+    try {
+      return { v, conta, lista: await arquivosDoDrive(conta, idDoDrive(v.driveLink)!) };
+    } catch (e) {
+      if (e instanceof ErroGoogle) throw new ErroHttp(502, "GOOGLE_ERRO", e.message);
+      throw e;
+    }
+  };
+
+  app.get("/api/frota/veiculos/:id/drive", ver, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const { v, conta, lista } = await arquivosDoVeiculo(req.usuario!, id);
+    return { link: v.driveLink, email: conta?.client_email ?? null, pasta: lista?.nome ?? null, itens: lista?.itens ?? [] };
+  });
+
+  /** Abre (ou baixa, com ?baixar=1) um arquivo da pasta do veículo. Só arquivos daquela pasta: o servidor confere na lista. */
+  app.get("/api/frota/veiculos/:id/drive/:arquivoId", ver, async (req, reply) => {
+    const { id, arquivoId } = z.object({ id: uuid, arquivoId: z.string().regex(/^[A-Za-z0-9_-]{10,200}$/) }).parse(req.params);
+    const { baixar } = z.object({ baixar: z.string().optional() }).parse(req.query);
+    const { conta, lista } = await arquivosDoVeiculo(req.usuario!, id);
+    const item = lista?.itens.find((i) => i.id === arquivoId);
+    if (!conta || !item) throw new ErroHttp(404, "NAO_ENCONTRADO", "Arquivo não encontrado na pasta deste veículo.");
+    let arq;
+    try { arq = await baixarDoDrive(conta, item); } catch (e) { if (e instanceof ErroGoogle) throw new ErroHttp(502, "GOOGLE_ERRO", e.message); throw e; }
+    // Imagens e PDF abrem no navegador; o resto baixa. Nome do arquivo seguro para o cabeçalho.
+    const exibir = !baixar && /^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/.test(arq.tipo);
+    const nome = arq.nome.replace(/[^\w.\- ()À-ú]/g, "_").slice(0, 150) || "arquivo";
+    reply.header("Content-Type", exibir ? arq.tipo : "application/octet-stream")
+      .header("Content-Disposition", `${exibir ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(nome)}`)
+      .header("X-Content-Type-Options", "nosniff")
+      .header("Cache-Control", "private, max-age=300");
+    return reply.send(arq.dados);
   });
 
   // ---------- Documentos ----------

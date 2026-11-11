@@ -1,0 +1,1 @@
+ALTER TABLE "veiculos" ADD COLUMN "drive_link" text;

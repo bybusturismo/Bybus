@@ -104,3 +104,29 @@
   padding: var(--esp-3) 0;
   background: var(--cor-fundo);
 }
+
+/* Arquivos do Drive do veículo (gabaritos). */
+.frota-drive {
+  list-style: none;
+  margin: 0 0 var(--esp-4);
+  padding: 0;
+  display: grid;
+  gap: var(--esp-2);
+}
+.frota-drive li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-2) 0;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.frota-drive__nome {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.frota-drive__pasta {
+  font-size: 1rem;
+  margin: var(--esp-3) 0 var(--esp-1);
+}

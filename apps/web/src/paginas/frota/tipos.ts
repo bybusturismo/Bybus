@@ -41,6 +41,8 @@ export interface Veiculo {
   situacao: SituacaoVeiculo;
   kmAtual: number;
   observacoes: string | null;
+  /** Link da pasta do Google Drive com os gabaritos e outros arquivos. */
+  driveLink?: string | null;
   disponivel: boolean;
   motivosBloqueio: string[];
   documentosVencidos: number;
