@@ -18,6 +18,9 @@ Sistema gerencial da **By Bus Turismo** (Florianópolis e Balneário Camboriú/S
 6. Ambientes: desenvolvimento → testes/homologação (dados fictícios) → produção (só com aprovação).
 7. Fatos não confirmados são marcados "a confirmar" — nunca inventar.
 8. Ao aprender algo novo sobre o negócio, atualize o arquivo correspondente em `docs/conhecimento/`.
+9. Comando para o servidor: o dono não programa e usa o PowerShell do Windows. **Sempre** mande o caminho completo para entrar
+   (Iniciar → digitar PowerShell → Enter; `ssh root@92.242.191.131`; senha do root, que não aparece ao digitar; esperar `root@vmi3738293:~#`)
+   antes do comando, e diga o que é rodado no Windows (`ssh`, `scp`) e o que é rodado dentro do servidor (`bash`, `grep`).
 
 ## Estado atual (04/11/2026)
 - Stack: monorepo pnpm — `packages/core` (regras puras), `apps/api` (Fastify + Drizzle + PostgreSQL), `apps/web` (React). Pacote de implantação em `implantacao/` (Docker + Caddy), hospedagem ainda a contratar.
