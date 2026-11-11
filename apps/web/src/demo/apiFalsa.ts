@@ -57,6 +57,8 @@ const CATALOGO: Record<string, string> = {
   "transfer:gerenciar": "Montar e ajustar o transfer do dia (ordem de busca, horários, van, motorista, taxa) e configurar os bairros",
   "usuarios:ficha": "Ver e editar a ficha dos usuários (documentos, contratação, contato de emergência, pagamento e anexos)",
   "transfer:operar": "Operar o transfer pelo celular (motorista): marcar buscado/não apareceu e registrar a taxa recebida",
+  "documentos:ver": "Ver os documentos da empresa das pastas abertas (as restritas só para quem estiver na lista da pasta)",
+  "documentos:gerenciar": "Enviar, editar e apagar documentos da empresa e criar pastas (nas pastas que a pessoa vê)",
 };
 const TODAS = Object.keys(CATALOGO);
 const SENSIVEIS = ["usuarios:gerenciar", "unidades:gerenciar", "manifesto:documentos", "pessoas:gerenciar", "auditoria:ver", "ia:gestores", "financeiro:ver", "financeiro:gerenciar"];

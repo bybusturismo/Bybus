@@ -2437,9 +2437,9 @@
   margin-bottom: var(--esp-3);
   font-size: 1.05rem;
 }
-.leitor-voucher__resultado--ok { background: color-mix(in srgb, var(--cor-sucesso) 14%, transparent); color: var(--cor-sucesso); }
-.leitor-voucher__resultado--aviso { background: var(--cor-primaria-suave); color: var(--cor-texto); }
-.leitor-voucher__resultado--erro { background: color-mix(in srgb, var(--cor-perigo) 14%, transparent); color: var(--cor-perigo); }
+.leitor-voucher__resultado--ok { background: var(--cor-sucesso-fundo); color: var(--cor-sucesso); }
+.leitor-voucher__resultado--aviso { background: var(--cor-atencao-fundo); color: var(--cor-texto); }
+.leitor-voucher__resultado--erro { background: var(--cor-perigo-fundo); color: var(--cor-perigo); }
 .leitor-voucher__cobrar {
   margin-top: var(--esp-1);
   font-weight: 700;
@@ -2453,4 +2453,63 @@
 }
 .leitor-voucher__digitar .campo {
   flex: 1 1 14rem;
+}
+
+/* Documentos da empresa (11/11/2026). */
+.documentos-empresa__grade {
+  display: grid;
+  gap: var(--esp-4);
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .documentos-empresa__grade { grid-template-columns: minmax(0, 1fr); }
+}
+.documentos-empresa__pastas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+.documentos-empresa__pasta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.documentos-empresa__pasta--ativa {
+  background: var(--cor-primaria-suave);
+  border-color: var(--cor-primaria);
+  font-weight: 600;
+}
+.documentos-empresa__cab {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  align-items: flex-start;
+}
+.documentos-empresa__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1);
+}
+.documentos-empresa__acesso {
+  display: grid;
+  gap: var(--esp-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  max-height: 20rem;
+  overflow: auto;
+  margin-top: var(--esp-2);
+}
+.documentos-empresa__acesso > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
 }

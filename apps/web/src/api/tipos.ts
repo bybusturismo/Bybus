@@ -41,6 +41,8 @@ export const PERMISSOES = [
   "whatsapp:responder",
   "transfer:gerenciar",
   "transfer:operar",
+  "documentos:ver",
+  "documentos:gerenciar",
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 

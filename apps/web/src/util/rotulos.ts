@@ -30,6 +30,7 @@ export const AREAS_PERMISSAO: Array<{ area: string; prefixos: string[] }> = [
   { area: "Financeiro", prefixos: ["financeiro"] },
   { area: "Conversas (WhatsApp e Instagram)", prefixos: ["whatsapp"] },
   { area: "Transfer", prefixos: ["transfer"] },
+  { area: "Documentos da empresa", prefixos: ["documentos"] },
 ];
 
 export function areaDaPermissao(p: Permissao | string): string {

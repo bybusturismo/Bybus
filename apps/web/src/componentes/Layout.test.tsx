@@ -25,7 +25,7 @@ describe("Menu por permissão", () => {
       "Listagem de reservas", "Orçamentos", "Conversas", "Importar reservas",
       "Passeios e pontos", "Guias e equipe",
       "Financeiro", "Frota", "Marketing",
-      "Gestores de IA", "Biblioteca",
+      "Gestores de IA", "Biblioteca", "Documentos da empresa",
       "Integrações", "Praças", "Usuários", "Perfis de acesso", "Auditoria", "Meu perfil",
     ]);
     // Módulos planejados só aparecem para quem administra usuários.

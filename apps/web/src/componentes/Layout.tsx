@@ -70,6 +70,7 @@ export const ITENS_MENU: ItemMenu[] = [
   // Gestão
   { para: "/gestores", rotulo: "Gestores de IA", icone: "faisca", area: "Gestão", permissao: "ia:gestores", atalho: "d" },
   { para: "/biblioteca", rotulo: "Biblioteca", icone: "lista", area: "Gestão", permissao: "biblioteca:ver", atalho: "b" },
+  { para: "/documentos", rotulo: "Documentos da empresa", icone: "auditoria", area: "Gestão", permissao: "documentos:ver" },
   // Configurações (página própria, aberta pela engrenagem do topo)
   { para: "/integracoes", rotulo: "Integrações", icone: "conexao", area: "Configurações", permissao: "importacoes:executar", atalho: "n" },
   { para: "/pracas", rotulo: "Praças", icone: "pino", area: "Configurações", permissao: "unidades:gerenciar", atalho: "r" },

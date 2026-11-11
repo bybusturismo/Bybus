@@ -36,6 +36,8 @@ export const CATALOGO_PERMISSOES = {
   "whatsapp:responder": "Conversas (WhatsApp e Instagram): responder mensagens e comentários, etiquetar, atribuir e editar respostas prontas",
   "transfer:gerenciar": "Montar e ajustar o transfer do dia (ordem de busca, horários, van, motorista, taxa) e configurar os bairros",
   "transfer:operar": "Operar o transfer pelo celular (motorista): marcar buscado/não apareceu e registrar a taxa recebida",
+  "documentos:ver": "Ver os documentos da empresa das pastas abertas (as restritas só para quem estiver na lista da pasta)",
+  "documentos:gerenciar": "Enviar, editar e apagar documentos da empresa e criar pastas (nas pastas que a pessoa vê)",
 } as const;
 
 export type Permissao = keyof typeof CATALOGO_PERMISSOES;
@@ -52,6 +54,8 @@ export const PERMISSOES_SENSIVEIS: readonly Permissao[] = [
   "ia:gestores",
   "financeiro:ver",
   "financeiro:gerenciar",
+  "documentos:ver",
+  "documentos:gerenciar",
 ];
 
 export function ehPermissao(valor: string): valor is Permissao {

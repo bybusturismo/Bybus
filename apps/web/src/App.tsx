@@ -38,6 +38,7 @@ import { Caixa } from "./paginas/financeiro/Caixa";
 import { Cartoes } from "./paginas/financeiro/Cartoes";
 import { ImportarPlanilha } from "./paginas/financeiro/ImportarPlanilha";
 import { PendenciasPlanilha } from "./paginas/financeiro/Pendencias";
+import { DocumentosEmpresa } from "./paginas/DocumentosEmpresa";
 import { Dre } from "./paginas/financeiro/Dre";
 import { Revenda } from "./paginas/financeiro/Revenda";
 import { ContasCategorias } from "./paginas/financeiro/ContasCategorias";
@@ -492,6 +493,14 @@ export function Rotas() {
           element={
             <Exige permissao="biblioteca:ver">
               <Biblioteca />
+            </Exige>
+          }
+        />
+        <Route
+          path="documentos"
+          element={
+            <Exige permissao="documentos:ver">
+              <DocumentosEmpresa />
             </Exige>
           }
         />

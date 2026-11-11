@@ -383,3 +383,4 @@ export * from "./esquemas/instagram.js";
 export * from "./esquemas/marketing2.js";
 export * from "./esquemas/confirmacao.js";
 export * from "./esquemas/cofre.js";
+export * from "./esquemas/documentos.js";
