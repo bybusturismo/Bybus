@@ -295,6 +295,13 @@
       "when": 1794412908480,
       "tag": "0041_documentos_empresa",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794413291630,
+      "tag": "0042_rastreio_van_onibus",
+      "breakpoints": true
     }
   ]
 }

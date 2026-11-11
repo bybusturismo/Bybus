@@ -23,11 +23,16 @@ const FILA_MAXIMA = 2000;
 
 interface SaidaMotorista {
   saidaId: string;
+  /** TRANSFER = van (busca nos hotéis); ONIBUS = ônibus (pontos de embarque). Dois momentos do motorista (11/11/2026). */
+  tipo?: "ONIBUS" | "TRANSFER";
   passeio: string;
   data: string;
   veiculo: string | null;
   sessao: { id: string; iniciadaEm: string } | null;
 }
+
+/** Uma saída pode aparecer duas vezes para o mesmo motorista: van e ônibus. */
+const chaveDe = (s: SaidaMotorista) => `${s.saidaId}:${s.tipo ?? "ONIBUS"}`;
 
 const chaveFila = (sessaoId: string) => `bybus.rastreio.fila.${sessaoId}`;
 function lerFila(sessaoId: string): PosicaoGps[] {
@@ -176,17 +181,22 @@ function useTransmissao(aoMudar: () => void) {
   const iniciar = useCallback(
     async (s: SaidaMotorista) => {
       setErro(null);
+      // Da van para o ônibus no mesmo aparelho: o que sobrou da van vai antes; o servidor encerra a van ao iniciar o ônibus.
+      if (sessao.current) {
+        await enviar();
+        pararTudo();
+      }
       setFase("iniciando");
       try {
-        const r = await requisitar<{ sessaoId: string }>(`/api/rastreio/saidas/${s.saidaId}/iniciar`, { metodo: "POST" });
-        comecar(r.sessaoId, s.saidaId);
+        const r = await requisitar<{ sessaoId: string }>(`/api/rastreio/saidas/${s.saidaId}/iniciar`, { metodo: "POST", corpo: { tipo: s.tipo ?? "ONIBUS" } });
+        comecar(r.sessaoId, chaveDe(s));
         aoMudar();
       } catch (e) {
         setErro(mensagemDeErro(e));
         setFase("parado");
       }
     },
-    [aoMudar, comecar],
+    [aoMudar, comecar, enviar, pararTudo],
   );
 
   const encerrar = useCallback(async () => {
@@ -295,13 +305,18 @@ export function Motorista() {
             </Vazio>
           ) : (
             lista.dados.map((s) => {
-              const minha = t.saidaId === s.saidaId && t.fase !== "parado";
-              const outraAtiva = t.fase !== "parado" && !minha;
+              const van = s.tipo === "TRANSFER";
+              const minha = t.saidaId === chaveDe(s) && t.fase !== "parado";
+              // Com a van ligada, o ônibus da mesma saída pode começar (a van encerra sozinha).
+              const vanDaMesmaSaida = !van && t.saidaId === `${s.saidaId}:TRANSFER`;
+              const outraAtiva = t.fase !== "parado" && !minha && !vanDaMesmaSaida;
+              const temVan = !van && lista.dados!.some((x) => x.saidaId === s.saidaId && x.tipo === "TRANSFER");
               const abertaNoServidor = !!s.sessao && !minha;
               return (
-                <section key={s.saidaId} className="cartao motorista__saida" aria-labelledby={`sd-${s.saidaId}`}>
+                <section key={chaveDe(s)} className="cartao motorista__saida" aria-labelledby={`sd-${chaveDe(s)}`}>
                   <div>
-                    <h2 id={`sd-${s.saidaId}`}>{s.passeio}</h2>
+                    <h2 id={`sd-${chaveDe(s)}`}>{van ? `Transfer (van) · ${s.passeio}` : temVan ? `Ônibus · ${s.passeio}` : s.passeio}</h2>
+                    {van && <p className="texto-fraco">Busca nos hotéis. Os clientes recebem “a van chega em 5 minutos” e “a van chegou”. Ao começar o ônibus, a van encerra sozinha.</p>}
                     <p className="texto-fraco">
                       {formatarDataExtenso(s.data)}
                       {s.veiculo ? ` · ${s.veiculo}` : ""}
@@ -309,7 +324,7 @@ export function Motorista() {
                   </div>
                   {minha && (
                     <div className={`motorista__estado${t.semInternet || t.erroGps ? " motorista__estado--alerta" : ""}`} role="status">
-                      <span>{t.fase === "iniciando" ? "Iniciando…" : t.fase === "encerrando" ? "Encerrando…" : t.semInternet ? "Sem internet: guardando as posições" : "Transmitindo a posição do ônibus"}</span>
+                      <span>{t.fase === "iniciando" ? "Iniciando…" : t.fase === "encerrando" ? "Encerrando…" : t.semInternet ? "Sem internet: guardando as posições" : van ? "Transmitindo a posição da van" : "Transmitindo a posição do ônibus"}</span>
                       <small>
                         {t.ultima ? `Última posição às ${hora(t.ultima)}` : "Aguardando o primeiro sinal do GPS…"}
                         {t.naFila > 0 ? ` · ${t.naFila} na fila para enviar` : ""}
@@ -326,7 +341,7 @@ export function Motorista() {
                     </button>
                   ) : (
                     <button type="button" className="botao botao--primario botao--grande" onClick={() => void t.iniciar(s)} disabled={outraAtiva || t.fase === "iniciando"}>
-                      {abertaNoServidor ? "Continuar rastreio" : "Iniciar rastreio"}
+                      {abertaNoServidor ? "Continuar rastreio" : van ? "Iniciar rastreio da van" : temVan ? "Iniciar rastreio do ônibus" : "Iniciar rastreio"}
                     </button>
                   )}
                 </section>

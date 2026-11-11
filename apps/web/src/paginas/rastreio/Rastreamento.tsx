@@ -20,6 +20,8 @@ interface SaidaRastreio {
   veiculo: string | null;
   situacao: Situacao;
   minutosSemSinal: number | null;
+  /** Van do transfer (11/11/2026), à parte do ônibus. */
+  van?: { situacao: Situacao; minutosSemSinal: number | null; ultimaPosicao: { em: string } | null } | null;
   sessao: { id: string; iniciadaEm: string; encerradaEm: string | null } | null;
   ultimaPosicao: { lat: number; lng: number; em: string } | null;
   pontos: { total: number; comCoordenadas: number };
@@ -118,6 +120,7 @@ export function Rastreamento() {
                   <span>
                     <RotuloSituacao situacao={s.situacao} minutos={s.minutosSemSinal} />
                     {s.ultimaPosicao && s.situacao !== "ENCERRADO" ? <span className="texto-fraco"> · última posição às {hora(s.ultimaPosicao.em)}</span> : null}
+                    {s.van && <span className="texto-fraco"> · Van do transfer: <RotuloSituacao situacao={s.van.situacao} minutos={s.van.minutosSemSinal} /></span>}
                   </span>
                 </button>
               </li>

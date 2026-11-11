@@ -37,6 +37,16 @@ export const MODELOS_META: readonly ModeloMeta[] = [
     corpo: "Olá, {{1}}! A lista de passageiros do passeio *{{2}}* de {{3}} está pronta ({{4}}).\nVeja e imprima no sistema: {{5}}\n— Equipe By Bus",
     exemplo: ["Guia", "City Tour Toda Ilha", "sábado (14/11/2026)", "versão 1", "https://gestao.bybusturismo.com.br/saidas/exemplo"],
   },
+  {
+    nome: "bybus_chegando", categoria: "UTILITY", idioma: "pt_BR", descricao: "Van/ônibus chega em cerca de 5 minutos",
+    corpo: "Olá, {{1}}! {{2}} chega em cerca de 5 minutos em {{3}}.\nPor favor, aguarde no local. — Equipe By Bus",
+    exemplo: ["Ana", "A van do transfer da By Bus", "Pousada Exemplo, Canasvieiras"],
+  },
+  {
+    nome: "bybus_chegou", categoria: "UTILITY", idioma: "pt_BR", descricao: "Van/ônibus chegou ao local de embarque",
+    corpo: "Olá, {{1}}! {{2}} chegou em {{3}}.\nEstamos te esperando! — Equipe By Bus",
+    exemplo: ["Ana", "O ônibus do passeio City Tour Toda Ilha", "Villa Romana Shopping"],
+  },
 ];
 
 export interface UsoModelo { nome: string; idioma: string; parametros: string[] }
@@ -66,6 +76,11 @@ export function modeloRastreio(d: { primeiroNome: string; passeio: string; link:
 
 export function modeloListaEquipe(d: { primeiroNome: string; passeio: string; data: string; versao: number; link: string }): UsoModelo {
   return uso("bybus_lista_equipe", [nome(d.primeiroNome), d.passeio, diaComData(d.data), d.versao > 1 ? `lista atualizada, versão ${d.versao}` : "versão 1", d.link]);
+}
+
+/** Aviso de chegada (11/11/2026): `quem` = "A van do transfer da By Bus" ou "O ônibus do passeio X". */
+export function modeloChegada(tipo: "CHEGANDO" | "CHEGOU", d: { primeiroNome: string; quem: string; local: string }): UsoModelo {
+  return uso(tipo === "CHEGANDO" ? "bybus_chegando" : "bybus_chegou", [nome(d.primeiroNome), d.quem, d.local]);
 }
 
 /** Texto final de um modelo com os parâmetros (o que o cliente lê; vai para a conversa na tela). */

@@ -22,6 +22,8 @@ export interface ParadaTransfer {
   recebidoPor: string | null;
   recebidoEm: string | null;
   observacoes: string | null;
+  /** Ponto do hotel no mapa (avisos "a van chega em 5 min"); null = sem ponto. */
+  mapa?: { lat: number; lng: number; origem: string | null } | null;
 }
 
 export interface TotaisTransfer {

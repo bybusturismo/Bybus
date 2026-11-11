@@ -9,6 +9,8 @@ export const rastreioSessoes = pgTable("rastreio_sessoes", {
   id: uuid().primaryKey().defaultRandom(),
   saidaId: uuid().notNull().references(() => saidas.id),
   motoristaUsuarioId: uuid().notNull().references(() => usuarios.id),
+  /** ONIBUS (paradas = pontos de embarque) ou TRANSFER (van; paradas = hotéis do transfer, 11/11/2026). */
+  tipo: text().notNull().default("ONIBUS"),
   iniciadaEm: agora(),
   encerradaEm: timestamp({ withTimezone: true }),
   ultimaPosicaoEm: timestamp({ withTimezone: true }),
@@ -16,7 +18,7 @@ export const rastreioSessoes = pgTable("rastreio_sessoes", {
   ultimoPontoVisitado: integer().notNull().default(-1),
 }, (t) => [
   index("rastreio_sessoes_saida_idx").on(t.saidaId, t.iniciadaEm),
-  uniqueIndex("rastreio_sessoes_aberta_uq").on(t.saidaId).where(sql`${t.encerradaEm} is null`),
+  uniqueIndex("rastreio_sessoes_aberta_tipo_uq").on(t.saidaId, t.tipo).where(sql`${t.encerradaEm} is null`),
 ]);
 
 /** Posições do GPS do motorista, só durante a sessão. Apagadas após 30 dias (LGPD). */

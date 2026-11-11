@@ -168,6 +168,8 @@ export interface ReservaTransferDto {
   bairroId: string | null; bairro: string | null; endereco: string | null; horario: string | null; horarioManual: boolean; ordem: number;
   situacao: SituacaoBusca; taxaCentavos: number; taxaForma: FormaTaxa | null; taxaSituacao: SituacaoTaxa;
   recebidoPor: string | null; recebidoEm: Date | null; observacoes: string | null;
+  /** Ponto do hotel no mapa (avisos da van): OSM (achado pelo endereço) ou MANUAL; null = ainda sem ponto. */
+  mapa: { lat: number; lng: number; origem: string | null } | null;
 }
 
 /** Tudo que a tela do transfer precisa para uma saída (telefone só com `verContatos`). */
@@ -197,6 +199,7 @@ export async function carregarTransfer(db: Db, saidaId: string, opcoes: { verCon
       endereco: tr.enderecoBusca, horario: tr.horarioBusca, horarioManual: tr.editados.includes("horario"), ordem: tr.ordem,
       situacao: tr.situacao as SituacaoBusca, taxaCentavos: tr.taxaCentavos, taxaForma: tr.taxaForma as FormaTaxa | null, taxaSituacao: tr.taxaSituacao as SituacaoTaxa,
       recebidoPor: nomesUsuarios.find((u) => u.id === tr.recebidoPor)?.nome ?? null, recebidoEm: tr.recebidoEm, observacoes: reserva.observacoes,
+      mapa: tr.latitude !== null && tr.longitude !== null ? { lat: tr.latitude, lng: tr.longitude, origem: tr.localOrigem } : null,
     };
   });
 

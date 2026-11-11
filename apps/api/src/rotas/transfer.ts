@@ -10,6 +10,7 @@ import { pode, type Permissao } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { validarPessoaDaPraca } from "../servicos/escala.js";
 import { agoraSp } from "../servicos/fechamento.js";
+import { localizarHoteisTransfer } from "../servicos/rastreio.js";
 import {
   aplicarOrdem, bairrosDoPasseio, carregarTransfer, configDoPasseio, moverParada, recalcularOrdem, sincronizarTransfer, textoDoTransfer,
 } from "../servicos/transfer.js";
@@ -137,6 +138,16 @@ export async function rotasTransfer(app: FastifyInstance, { db, config }: Contex
     return dto(req, dia.saidaId);
   });
 
+  /** Acha no mapa (OpenStreetMap) os hotéis do transfer que ainda não têm ponto: base dos avisos "a van chega em 5 min". */
+  app.post("/api/transfer/dias/:id/localizar", gerenciar, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const [d] = await db.select({ saidaId: transferDias.saidaId, cidade: passeios.cidade }).from(transferDias)
+      .innerJoin(saidas, eq(saidas.id, transferDias.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId)).where(eq(transferDias.id, id));
+    if (!d) throw naoEncontrado("Transfer");
+    await garantirSaida(db, req.usuario!, d.saidaId);
+    return localizarHoteisTransfer(db, d.saidaId, d.cidade);
+  });
+
   app.post("/api/transfer/dias/:id/recalcular-ordem", gerenciar, async (req) => {
     const { id } = z.object({ id: uuid }).parse(req.params);
     const dia = await diaDoUsuario(req, id);
@@ -158,6 +169,8 @@ export async function rotasTransfer(app: FastifyInstance, { db, config }: Contex
     const { id } = z.object({ id: uuid }).parse(req.params);
     const c = z.object({
       enderecoBusca: z.string().trim().max(300).nullable().optional(),
+      /** Ponto no mapa corrigido à mão: "lat, lng" (como o Google Maps copia); null apaga e deixa o sistema procurar de novo. */
+      localMapa: z.string().trim().max(60).nullable().optional(),
       horarioBusca: hora.nullable().optional(),
       bairroId: uuid.nullable().optional(),
       taxaCentavos: z.number().int().min(0).max(1_000_000).optional(),
@@ -174,6 +187,19 @@ export async function rotasTransfer(app: FastifyInstance, { db, config }: Contex
     if (c.enderecoBusca !== undefined) {
       mud.enderecoBusca = c.enderecoBusca || res!.hospedagemInformada || null;
       marcar("endereco", !!c.enderecoBusca);
+      // Endereço mudou: o ponto no mapa antigo não vale mais (salvo se a equipe mandar outro agora).
+      if (mud.enderecoBusca !== tr.enderecoBusca) Object.assign(mud, { latitude: null, longitude: null, localOrigem: null });
+    }
+    if (c.localMapa !== undefined) {
+      if (c.localMapa === null || c.localMapa === "") Object.assign(mud, { latitude: null, longitude: null, localOrigem: null });
+      else {
+        const m = /^\s*(-?\d{1,2}(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:[.,]\d+)?)\s*$/.exec(c.localMapa);
+        const lat = m ? Number(m[1]!.replace(",", ".")) : NaN;
+        const lng = m ? Number(m[2]!.replace(",", ".")) : NaN;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) throw new ErroHttp(400, "LOCAL_INVALIDO", "Cole as coordenadas como o Google Maps copia, por exemplo: -27.4376, -48.4977");
+        Object.assign(mud, { latitude: lat, longitude: lng, localOrigem: "MANUAL" });
+      }
+      auditoriaDados.localMapa = c.localMapa ? "corrigido" : "apagado";
     }
     if (c.horarioBusca !== undefined) {
       marcar("horario", c.horarioBusca !== null);

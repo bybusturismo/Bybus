@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, inArray, isNull, lt } from "drizzle-orm";
-import { compararPontos, modeloRastreio, textoRastreio } from "@bybus/core";
+import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { avisosDeChegada, compararPontos, modeloChegada, modeloRastreio, quemChega, renderizarModeloMeta, textoRastreio, type TipoRastreio } from "@bybus/core";
 import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
-import { mensagens, pontosEmbarque, rastreioLinks, rastreioPosicoes, rastreioSessoes, reservas, saidas } from "../db/schema.js";
+import { mensagens, passageiros, pontosEmbarque, rastreioLinks, rastreioPosicoes, rastreioSessoes, reservas, saidas, transferDias, transferReservas } from "../db/schema.js";
 import { agoraSp, enfileirarMensagem } from "./fechamento.js";
 import { hashToken } from "./linkEmbarque.js";
 
@@ -21,9 +21,98 @@ export async function pontosDaRota(db: Db, passeioId: string) {
 
 export const coordenadaDe = (p: { latitude: number | null; longitude: number | null }) => (p.latitude !== null && p.longitude !== null ? { lat: p.latitude, lng: p.longitude } : null);
 
-export async function ultimaSessao(db: Db, saidaId: string) {
-  const [s] = await db.select().from(rastreioSessoes).where(eq(rastreioSessoes.saidaId, saidaId)).orderBy(desc(rastreioSessoes.iniciadaEm)).limit(1);
+/** Sessão mais recente da saída, do ônibus (padrão) ou da van do transfer. */
+export async function ultimaSessao(db: Db, saidaId: string, tipo: TipoRastreio = "ONIBUS") {
+  const [s] = await db.select().from(rastreioSessoes).where(and(eq(rastreioSessoes.saidaId, saidaId), eq(rastreioSessoes.tipo, tipo))).orderBy(desc(rastreioSessoes.iniciadaEm)).limit(1);
   return s ?? null;
+}
+
+// ---------------------------------------------------------------- van do transfer e avisos de chegada (11/11/2026)
+
+/** Paradas da van: as reservas do transfer do dia, na ordem de busca, com o local e o ponto no mapa. */
+export async function paradasDoTransfer(db: Db, saidaId: string) {
+  return db.select({
+    id: transferReservas.id, reservaId: transferReservas.reservaId, situacao: transferReservas.situacao,
+    local: sql<string | null>`coalesce(${transferReservas.enderecoBusca}, ${reservas.hospedagemInformada})`,
+    latitude: transferReservas.latitude, longitude: transferReservas.longitude,
+  }).from(transferReservas).innerJoin(transferDias, eq(transferDias.id, transferReservas.transferDiaId)).innerJoin(reservas, eq(reservas.id, transferReservas.reservaId))
+    .where(and(eq(transferDias.saidaId, saidaId), eq(reservas.status, "CONFIRMADA"))).orderBy(asc(transferReservas.ordem));
+}
+
+const NOMINATIM = "https://nominatim.openstreetmap.org/search";
+const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Acha no mapa (OpenStreetMap/Nominatim, gratuito) os hotéis do transfer que ainda não têm ponto. Política do Nominatim: no máximo
+ * 1 pedido por segundo, identificação do sistema e cache (o resultado fica gravado; só busca de novo se o endereço mudar).
+ * Os endereços vêm dos clientes: vão só o texto do hotel/endereço e a cidade, nunca nome ou telefone.
+ */
+export async function localizarHoteisTransfer(db: Db, saidaId: string, cidade: string, buscar: typeof fetch = fetch, intervaloMs = 1100) {
+  const faltam = (await paradasDoTransfer(db, saidaId)).filter((p) => p.local && (p.latitude === null || p.longitude === null));
+  let achados = 0;
+  for (const [i, p] of faltam.entries()) {
+    if (i > 0) await espera(intervaloMs);
+    try {
+      const url = `${NOMINATIM}?format=jsonv2&limit=1&countrycodes=br&accept-language=pt-BR&q=${encodeURIComponent(`${p.local}, ${cidade}, SC`)}`;
+      const r = await buscar(url, { headers: { "User-Agent": "BybusGestao/1.0 (+https://gestao.bybusturismo.com.br)" }, signal: AbortSignal.timeout(15_000) });
+      if (!r.ok) continue;
+      const [achado] = (await r.json()) as Array<{ lat?: string; lon?: string }>;
+      const lat = Number(achado?.lat);
+      const lng = Number(achado?.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      await db.update(transferReservas).set({ latitude: lat, longitude: lng, localOrigem: "OSM" }).where(and(eq(transferReservas.id, p.id), isNull(transferReservas.latitude)));
+      achados++;
+    } catch {
+      /* sem internet ou endereço não achado: a equipe corrige à mão */
+    }
+  }
+  return { procurados: faltam.length, achados };
+}
+
+const TIPO_MENSAGEM = { ONIBUS: { CHEGANDO: "ONIBUS_CHEGANDO", CHEGOU: "ONIBUS_CHEGOU" }, TRANSFER: { CHEGANDO: "VAN_CHEGANDO", CHEGOU: "VAN_CHEGOU" } } as const;
+/** Posições mais velhas que isto (ex.: fila que estava sem internet) não disparam aviso. */
+const IDADE_MAXIMA_AVISO_MS = 2 * 60_000;
+
+/**
+ * Depois de gravar posições: manda "chega em ~5 min" e "chegou" para os clientes das paradas certas (uma vez por reserva e tipo).
+ * Ônibus: clientes de cada ponto de embarque, menos os do transfer (estão na van) e quem já embarcou.
+ * Van: cada hotel do transfer, menos quem já foi buscado ou não apareceu.
+ */
+export async function avisarChegadas(db: Db, config: Config, p: {
+  tipo: TipoRastreio; saida: { id: string; passeioId: string }; passeio: string;
+  visitadoAntes: number; visitadoAgora: number; posicao: { lat: number; lng: number; em: Date }; velocidadeKmh: number;
+}) {
+  if (Date.now() - p.posicao.em.getTime() > IDADE_MAXIMA_AVISO_MS) return { enfileiradas: 0 };
+  // Cada parada → reservas a avisar e o nome do local.
+  let paradas: Array<{ coord: { lat: number; lng: number } | null; local: string; reservas: string[] }>;
+  if (p.tipo === "TRANSFER") {
+    paradas = (await paradasDoTransfer(db, p.saida.id)).map((x) => ({
+      coord: x.latitude !== null && x.longitude !== null ? { lat: x.latitude, lng: x.longitude } : null,
+      local: x.local ?? "seu hotel", reservas: x.situacao === "BUSCADO" || x.situacao === "NAO_APARECEU" ? [] : [x.reservaId],
+    }));
+  } else {
+    const rota = await pontosDaRota(db, p.saida.passeioId);
+    const daSaida = await db.select({ id: reservas.id, ponto: reservas.pontoEmbarqueId }).from(reservas).where(and(eq(reservas.saidaId, p.saida.id), eq(reservas.status, "CONFIRMADA")));
+    const naVan = new Set((await paradasDoTransfer(db, p.saida.id)).map((x) => x.reservaId));
+    const ids = daSaida.map((r) => r.id);
+    const embarcadas = new Set(ids.length ? (await db.selectDistinct({ id: passageiros.reservaId }).from(passageiros).where(and(inArray(passageiros.reservaId, ids), eq(passageiros.embarque, "EMBARCOU")))).map((x) => x.id) : []);
+    paradas = rota.map((pt) => ({ coord: coordenadaDe(pt), local: pt.nome, reservas: daSaida.filter((r) => r.ponto === pt.id && !naVan.has(r.id) && !embarcadas.has(r.id)).map((r) => r.id) }));
+  }
+  const a = avisosDeChegada({ paradas: paradas.map((x) => x.coord), visitadoAntes: p.visitadoAntes, visitadoAgora: p.visitadoAgora, posicao: p.posicao, velocidadeKmh: p.velocidadeKmh });
+  const alvo = [...a.chegou.map((i) => ({ i, tipo: "CHEGOU" as const })), ...a.chegando.map((i) => ({ i, tipo: "CHEGANDO" as const }))];
+  const quem = quemChega(p.tipo, p.passeio);
+  let enfileiradas = 0;
+  for (const { i, tipo } of alvo) {
+    const parada = paradas[i]!;
+    if (!parada.reservas.length) continue;
+    const lista = await db.select({ id: reservas.id, nome: reservas.contatoNome, telefone: reservas.contatoTelefone }).from(reservas).where(inArray(reservas.id, parada.reservas));
+    for (const r of lista) {
+      const modelo = modeloChegada(tipo, { primeiroNome: r.nome.split(/[\s,]+/).filter(Boolean)[0] ?? "", quem, local: parada.local });
+      const m = await enfileirarMensagem(db, config, { tipo: TIPO_MENSAGEM[p.tipo][tipo], reservaId: r.id, saidaId: p.saida.id, destino: r.telefone, texto: renderizarModeloMeta(modelo), modelo });
+      if (m) enfileiradas++;
+    }
+  }
+  return { enfileiradas };
 }
 
 /**

@@ -88,6 +88,8 @@ function EditarDia({ dia, resposta, aoFechar, aoSalvar }: { dia: DiaTransfer; re
 
 function EditarParada({ parada, resposta, aoFechar, aoSalvar }: { parada: ParadaTransfer; resposta: RespostaTransfer; aoFechar: () => void; aoSalvar: (r: RespostaTransfer) => void }) {
   const [endereco, setEndereco] = useState(parada.endereco ?? "");
+  const mapaAtual = parada.mapa ? `${parada.mapa.lat}, ${parada.mapa.lng}` : "";
+  const [mapa, setMapa] = useState(mapaAtual);
   const [horario, setHorario] = useState(parada.horarioManual ? parada.horario ?? "" : "");
   const [bairroId, setBairroId] = useState(parada.bairroId ?? "");
   const [taxa, setTaxa] = useState(textoDeCentavos(parada.taxaCentavos));
@@ -101,6 +103,7 @@ function EditarParada({ parada, resposta, aoFechar, aoSalvar }: { parada: Parada
     setErro(null);
     const corpo: Record<string, unknown> = {};
     if (endereco.trim() !== (parada.endereco ?? "")) corpo.enderecoBusca = endereco.trim() || null;
+    if (mapa.trim() !== mapaAtual) corpo.localMapa = mapa.trim() || null;
     if (horario !== (parada.horarioManual ? parada.horario ?? "" : "")) corpo.horarioBusca = horario || null;
     if (bairroId !== (parada.bairroId ?? "")) corpo.bairroId = bairroId || null;
     if (!recebida) {
@@ -126,6 +129,14 @@ function EditarParada({ parada, resposta, aoFechar, aoSalvar }: { parada: Parada
         <div className="campo">
           <label htmlFor="pa-endereco">Hotel ou endereço de busca</label>
           <input id="pa-endereco" maxLength={300} value={endereco} onChange={(e) => setEndereco(e.target.value)} />
+        </div>
+        <div className="campo">
+          <label htmlFor="pa-mapa">Ponto no mapa (para o aviso "a van chega em 5 minutos")</label>
+          <input id="pa-mapa" value={mapa} maxLength={60} onChange={(e) => setMapa(e.target.value)} placeholder="-27.4376, -48.4977" />
+          <p className="campo__ajuda">
+            {parada.mapa ? (parada.mapa.origem === "MANUAL" ? "Corrigido à mão." : "Achado pelo endereço (OpenStreetMap): confira se está certo.") : "Sem ponto: o sistema procura pelo endereço."}{" "}
+            Para corrigir: no Google Maps, toque e segure no local do hotel e copie os números que aparecem.
+          </p>
         </div>
         <div className="campo">
           <label htmlFor="pa-bairro">Bairro</label>
@@ -203,6 +214,21 @@ export function Transfer() {
       setOcupado(false);
     }
   }
+  /** Acha os hotéis no mapa (OpenStreetMap, 1 por segundo) e recarrega. */
+  async function localizar() {
+    if (!r?.dia || ocupado) return;
+    setOcupado(true);
+    setErro(null);
+    try {
+      const x = await api.post<{ procurados: number; achados: number }>(`/api/transfer/dias/${r.dia.id}/localizar`);
+      notificar(x.procurados === 0 ? "Todos os hotéis já estão no mapa." : `${x.achados} de ${x.procurados} hotel(is) localizados no mapa.${x.achados < x.procurados ? " Corrija os outros em Editar." : ""}`);
+      await carga.recarregar();
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setOcupado(false);
+    }
+  }
   const lista = r?.reservas ?? [];
   const mover = (p: ParadaTransfer, posicao: number) => agir(() => api.post<RespostaTransfer>(`/api/transfer/reservas/${p.id}/mover`, { posicao }));
   async function copiar() {
@@ -272,6 +298,7 @@ export function Transfer() {
                 {gerenciar && <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setEditandoDia(true)}>Editar van e encontro</button>}
                 {gerenciar && <button type="button" className="botao botao--secundario botao--pequeno" disabled={ocupado} onClick={() => void agir(() => api.post<RespostaTransfer>("/api/transfer/montar", { saidaId: r.saida!.id }), "Transfer atualizado com as reservas.")}>Atualizar com as reservas{r.candidatas ? ` (${r.candidatas} nova${r.candidatas > 1 ? "s" : ""})` : ""}</button>}
                 {gerenciar && <button type="button" className="botao botao--secundario botao--pequeno" disabled={ocupado} onClick={() => void agir(() => api.post<RespostaTransfer>(`/api/transfer/dias/${r.dia!.id}/recalcular-ordem`), "Ordem recalculada pelos bairros.")}><Icone nome="desfazer" tamanho={16} /> Recalcular ordem</button>}
+                {gerenciar && <button type="button" className="botao botao--secundario botao--pequeno" disabled={ocupado} onClick={() => void localizar()}><Icone nome="pino" tamanho={16} /> Localizar hotéis no mapa</button>}
                 <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void copiar()}><Icone nome="lista" tamanho={16} /> Copiar texto</button>
                 <Link className="botao botao--fantasma botao--pequeno" to={`/saidas/${r.saida.id}`}>Lista de passageiros</Link>
               </div>
@@ -300,7 +327,10 @@ export function Transfer() {
                       <td className="sem-quebra">{i + 1}</td>
                         <td className="sem-quebra"><strong>{p.horario ?? "--:--"}</strong>{p.horarioManual && <span className="texto-fraco" title="Horário ajustado à mão"> ✎</span>}</td>
                         <td>{p.bairro ?? <span className="texto-atencao">definir</span>}</td>
-                        <td>{p.endereco ?? <span className="texto-atencao">a informar</span>}</td>
+                        <td>
+                          {p.endereco ?? <span className="texto-atencao">a informar</span>}
+                          {p.endereco && (p.mapa ? <div className="texto-fraco" title={p.mapa.origem === "MANUAL" ? "Ponto corrigido à mão" : "Achado pelo endereço"}><Icone nome="pino" tamanho={12} /> no mapa</div> : <div className="texto-atencao">sem ponto no mapa</div>)}
+                        </td>
                         <td>{p.titular}{verContatos && p.telefone && <div className="texto-fraco">{p.telefone}</div>}</td>
                         <td className="sem-quebra">{p.pax}{p.pax !== p.assentos ? <span className="texto-fraco"> ({p.assentos} lug.)</span> : ""}</td>
                         <td>

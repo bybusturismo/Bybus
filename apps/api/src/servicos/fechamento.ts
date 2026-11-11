@@ -21,7 +21,7 @@ export function agoraSp(agora = new Date()) {
   return { hoje, amanha, hora: `${v("hour")}:${v("minute")}` };
 }
 
-const JUNTAVEIS = new Set(["PREVIA", "CONFIRMACAO", "RASTREIO", "POS_PASSEIO", "COMPRA", "AVALIACAO"]);
+const JUNTAVEIS = new Set(["PREVIA", "CONFIRMACAO", "RASTREIO", "POS_PASSEIO", "COMPRA", "AVALIACAO", "ONIBUS_CHEGANDO", "ONIBUS_CHEGOU", "VAN_CHEGANDO", "VAN_CHEGOU"]);
 const semLinkDoMapa = (t: string) => t.replace(/https?:\/\/\S+\/rastreio\/[\w-]+/g, "<mapa>");
 
 /** Coloca a mensagem na fila (uma por reserva e tipo) e tenta enviar já. `modelo`: o modelo da Meta usado fora da janela de 24 h. */

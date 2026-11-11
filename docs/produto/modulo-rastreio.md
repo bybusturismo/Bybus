@@ -81,3 +81,19 @@ Enfileirada ao iniciar o rastreio, **uma por reserva confirmada** (índice únic
 - Texto oficial da mensagem RASTREIO e provedor real de WhatsApp.
 - App Android/iOS com rastreio em segundo plano.
 - Provedor de mapas se o volume crescer; avisos de 10 e 5 minutos e "o ônibus está no ponto" (ideia original; precisa de WhatsApp real).
+
+## Dois momentos: van do transfer e ônibus (dono, 11/11/2026)
+- O motorista vê, na tela dele, um cartão para a **van** (se for o motorista do transfer do dia) e outro para o **ônibus**. Cada um
+  abre a sua sessão (`rastreio_sessoes.tipo` = TRANSFER ou ONIBUS; uma aberta por saída e tipo). Iniciar o ônibus encerra a van
+  aberta do mesmo motorista. O link do mapa (RASTREIO) só sai com o ônibus.
+- **Paradas da van:** os hotéis do transfer na ordem de busca, com ponto no mapa (`transfer_reservas.latitude/longitude`): achado
+  pelo endereço no **OpenStreetMap/Nominatim** (gratuito; 1 pedido por segundo; só o texto do endereço e a cidade, nunca nome ou
+  telefone) ao iniciar a van ou pelo botão "Localizar hotéis no mapa"; a equipe corrige colando as coordenadas do Google Maps.
+  Endereço novo apaga o ponto antigo.
+- **Avisos pelo WhatsApp** (`avisosDeChegada` no core): "chega em cerca de 5 minutos" (previsão ≤ 5 min) e "chegou" (a até
+  150 m), **uma vez por reserva e tipo** (VAN_CHEGANDO, VAN_CHEGOU, ONIBUS_CHEGANDO, ONIBUS_CHEGOU). Ônibus: clientes de cada
+  ponto, menos os do transfer (estão na van) e quem já embarcou. Van: cada hotel, menos buscado/não apareceu. Posições com mais
+  de 2 min (fila que estava sem internet) não disparam aviso. Mesmo telefone em duas reservas: uma mensagem só.
+- **Modelos da Meta novos:** `bybus_chegando` e `bybus_chegou` (enviar para aprovação em Integrações). Custo: 2 mensagens por
+  reserva em cada trajeto (valor por mensagem na tabela da Meta, a confirmar). Até o WhatsApp oficial estar ligado, ficam na fila.
+- Equipe: Rastreamento mostra também a situação da van.

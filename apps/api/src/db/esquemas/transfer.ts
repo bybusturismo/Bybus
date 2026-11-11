@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { passeios, pessoas, pontosEmbarque, reservas, saidas, usuarios, veiculos } from "../schema.js";
 
 const agora = () => timestamp({ withTimezone: true }).notNull().defaultNow();
@@ -65,6 +65,10 @@ export const transferReservas = pgTable("transfer_reservas", {
   bairroId: uuid().references(() => transferBairros.id),
   /** Hotel/endereço de busca (começa com o que o cliente informou no link de embarque). */
   enderecoBusca: text(),
+  /** Ponto no mapa do hotel/endereço (avisos da van "chega em 5 min"/"chegou"): OSM = achado pelo endereço; MANUAL = corrigido pela equipe. */
+  latitude: doublePrecision(),
+  longitude: doublePrecision(),
+  localOrigem: text(),
   /** Horário "HH:MM" de busca (calculado, ou digitado à mão quando "horario" está em `editados`). */
   horarioBusca: text(),
   /** Posição na ordem de busca (0 = primeiro). */

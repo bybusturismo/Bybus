@@ -186,4 +186,30 @@ describe("Tela do motorista", () => {
       Reflect.deleteProperty(globalThis, "Capacitor");
     }
   });
+
+  it("dois momentos: van do transfer e depois o ônibus da mesma saída (a van para sozinha)", async () => {
+    gpsFalso();
+    const corpos: Array<{ url: string; corpo: unknown }> = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (entrada, init) => {
+      const url = String(entrada).split("?")[0]!;
+      if (url === "/api/rastreio/minhas-saidas") return respostaJson(200, [{ ...saida, tipo: "TRANSFER", veiculo: "Van fictícia" }, { ...saida, tipo: "ONIBUS" }]);
+      if (url.endsWith("/iniciar")) {
+        const corpo = JSON.parse(String(init!.body));
+        corpos.push({ url, corpo });
+        return respostaJson(201, { sessaoId: corpo.tipo === "TRANSFER" ? "sess-van" : "sess-bus", retomada: false });
+      }
+      return respostaJson(200, { aceitas: 0, descartadas: {} });
+    });
+    renderizar(<Motorista />, { sessao: sessaoMotorista() });
+    const u = userEvent.setup();
+    expect(await screen.findByRole("heading", { name: "Transfer (van) · Toda a Ilha" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ônibus · Toda a Ilha" })).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Iniciar rastreio da van" }));
+    expect(await screen.findByText("Transmitindo a posição da van")).toBeInTheDocument();
+    const onibus = screen.getByRole("button", { name: "Iniciar rastreio do ônibus" });
+    expect(onibus).toBeEnabled();
+    await u.click(onibus);
+    expect(await screen.findByText("Transmitindo a posição do ônibus")).toBeInTheDocument();
+    expect(corpos.map((c) => c.corpo)).toEqual([{ tipo: "TRANSFER" }, { tipo: "ONIBUS" }]);
+  });
 });

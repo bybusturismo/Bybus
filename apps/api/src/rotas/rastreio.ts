@@ -4,13 +4,13 @@ import { atualizarVisitado, preverChegada, PRECISAO_MAXIMA_M, situacaoSinal, vel
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
-import { passeios, pessoas, rastreioLinks, rastreioPosicoes, rastreioSessoes, reservas, saidas } from "../db/schema.js";
+import { passeios, pessoas, rastreioLinks, rastreioPosicoes, rastreioSessoes, reservas, saidas, transferDias } from "../db/schema.js";
 import { filtroUnidade, garantirSaida } from "../seguranca/escopo.js";
 import { pode, type Permissao } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { agoraSp } from "../servicos/fechamento.js";
 import { hashToken } from "../servicos/linkEmbarque.js";
-import { coordenadaDe, enviarLinksRastreio, pontosDaRota, ultimaSessao } from "../servicos/rastreio.js";
+import { avisarChegadas, coordenadaDe, enviarLinksRastreio, localizarHoteisTransfer, paradasDoTransfer, pontosDaRota, ultimaSessao } from "../servicos/rastreio.js";
 
 const uuid = z.string().uuid();
 const dataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -47,40 +47,70 @@ export async function rotasRastreio(app: FastifyInstance, { db, config }: Contex
     return r;
   }
 
+  /** Transfer de hoje com o usuário logado como motorista da van. */
+  async function transferDoMotorista(usuarioId: string, saidaId: string) {
+    const [r] = await db.select({ saida: saidas, passeio: passeios, dia: transferDias, motoristaUsuarioId: pessoas.usuarioId }).from(transferDias)
+      .innerJoin(saidas, eq(saidas.id, transferDias.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId))
+      .leftJoin(pessoas, eq(pessoas.id, transferDias.motoristaId)).where(eq(transferDias.saidaId, saidaId));
+    if (!r) throw new ErroHttp(404, "NAO_ENCONTRADO", "Esta saída não tem transfer.");
+    if (r.motoristaUsuarioId !== usuarioId) throw new ErroHttp(403, "NAO_E_O_MOTORISTA", "Só o motorista do transfer pode transmitir a posição da van.");
+    return r;
+  }
+
   // ---------- Motorista (celular) ----------
+  // Dois momentos (dono, 11/11/2026): a VAN do transfer (de manhã, buscando nos hotéis) e o ÔNIBUS (pontos de embarque).
   app.get("/api/rastreio/minhas-saidas", motorista, async (req) => {
     const hoje = agoraSp().hoje;
-    const lista = await db.select({ saida: saidas, passeio: passeios }).from(saidas)
+    const daVan = await db.select({ saida: saidas, passeio: passeios, veiculo: transferDias.veiculoTexto }).from(transferDias)
+      .innerJoin(saidas, eq(saidas.id, transferDias.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId)).innerJoin(pessoas, eq(pessoas.id, transferDias.motoristaId))
+      .where(and(eq(saidas.data, hoje), eq(pessoas.usuarioId, req.usuario!.id), ne(saidas.status, "CANCELADA"))).orderBy(asc(passeios.nome));
+    const doOnibus = await db.select({ saida: saidas, passeio: passeios }).from(saidas)
       .innerJoin(passeios, eq(passeios.id, saidas.passeioId)).innerJoin(pessoas, eq(pessoas.id, saidas.motoristaId))
       .where(and(eq(saidas.data, hoje), eq(pessoas.usuarioId, req.usuario!.id), ne(saidas.status, "CANCELADA"))).orderBy(asc(passeios.nome));
     const resultado = [];
-    for (const { saida, passeio } of lista) {
-      const s = await ultimaSessao(db, saida.id);
-      resultado.push({
-        saidaId: saida.id, passeio: passeio.nome, data: saida.data, veiculo: saida.veiculo,
-        sessao: s && !s.encerradaEm ? { id: s.id, iniciadaEm: s.iniciadaEm } : null,
-      });
+    for (const [tipo, lista] of [["TRANSFER", daVan], ["ONIBUS", doOnibus]] as const) {
+      for (const x of lista) {
+        const s = await ultimaSessao(db, x.saida.id, tipo);
+        resultado.push({
+          saidaId: x.saida.id, tipo, passeio: x.passeio.nome, data: x.saida.data,
+          veiculo: tipo === "TRANSFER" ? ("veiculo" in x ? x.veiculo : null) : x.saida.veiculo,
+          sessao: s && !s.encerradaEm ? { id: s.id, iniciadaEm: s.iniciadaEm } : null,
+        });
+      }
     }
     return resultado;
   });
 
   app.post("/api/rastreio/saidas/:saidaId/iniciar", motorista, async (req, reply) => {
     const { saidaId } = z.object({ saidaId: uuid }).parse(req.params);
-    const { saida, passeio } = await saidaDoMotorista(req.usuario!.id, saidaId);
+    const { tipo } = z.object({ tipo: z.enum(["ONIBUS", "TRANSFER"]).default("ONIBUS") }).parse(req.body ?? {});
+    const { saida, passeio } = tipo === "TRANSFER" ? await transferDoMotorista(req.usuario!.id, saidaId) : await saidaDoMotorista(req.usuario!.id, saidaId);
     if (saida.status === "CANCELADA") throw new ErroHttp(409, "SAIDA_CANCELADA", "Esta saída foi cancelada.");
     if (saida.data !== agoraSp().hoje) throw new ErroHttp(409, "FORA_DO_DIA", "O rastreio só pode ser iniciado no dia do passeio.");
-    const aberta = (await ultimaSessao(db, saidaId));
+    const aberta = (await ultimaSessao(db, saidaId, tipo));
     if (aberta && !aberta.encerradaEm) {
       if (aberta.motoristaUsuarioId !== req.usuario!.id) throw new ErroHttp(409, "RASTREIO_ABERTO", "Já há um rastreio aberto nesta saída. Peça à supervisão para encerrá-lo.");
       return { sessaoId: aberta.id, iniciadaEm: aberta.iniciadaEm, retomada: true, linksEnfileirados: 0 };
     }
     let sessao;
     try {
-      [sessao] = await db.insert(rastreioSessoes).values({ saidaId, motoristaUsuarioId: req.usuario!.id }).returning();
+      [sessao] = await db.insert(rastreioSessoes).values({ saidaId, motoristaUsuarioId: req.usuario!.id, tipo }).returning();
     } catch {
       throw new ErroHttp(409, "RASTREIO_ABERTO", "Já há um rastreio aberto nesta saída.");
     }
-    await auditar(db, req, "RASTREIO_INICIADO", { tipo: "saida", id: saidaId }, { sessaoId: sessao!.id });
+    await auditar(db, req, "RASTREIO_INICIADO", { tipo: "saida", id: saidaId }, { sessaoId: sessao!.id, veiculo: tipo });
+    if (tipo === "TRANSFER") {
+      // Acha no mapa os hotéis que ainda não têm ponto (devagar, 1 por segundo; não segura a resposta).
+      if (config.AMBIENTE !== "testes") void localizarHoteisTransfer(db, saidaId, passeio.cidade).catch(() => undefined);
+      reply.status(201);
+      return { sessaoId: sessao!.id, iniciadaEm: sessao!.iniciadaEm, retomada: false, linksEnfileirados: 0 };
+    }
+    // Ônibus: o rastreio da van deste motorista termina aqui (os clientes do transfer já estão a bordo).
+    const van = await ultimaSessao(db, saidaId, "TRANSFER");
+    if (van && !van.encerradaEm && van.motoristaUsuarioId === req.usuario!.id) {
+      await db.update(rastreioSessoes).set({ encerradaEm: new Date() }).where(eq(rastreioSessoes.id, van.id));
+      await auditar(db, req, "RASTREIO_ENCERRADO", { tipo: "saida", id: saidaId }, { sessaoId: van.id, porInicioDoOnibus: true });
+    }
     const envio = await enviarLinksRastreio(db, config, saida, passeio.nome);
     reply.status(201);
     return { sessaoId: sessao!.id, iniciadaEm: sessao!.iniciadaEm, retomada: false, linksEnfileirados: envio.enfileiradas, semUrlPublica: envio.semUrlPublica };
@@ -106,8 +136,8 @@ export async function rotasRastreio(app: FastifyInstance, { db, config }: Contex
   app.post("/api/rastreio/sessoes/:id/posicoes", { preHandler: exigir(config, "rastreio:transmitir"), config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
     const { id } = z.object({ id: uuid }).parse(req.params);
     const { posicoes } = z.object({ posicoes: z.array(posicaoZ).min(1).max(20) }).parse(req.body);
-    const [s] = await db.select({ sessao: rastreioSessoes, saidaData: saidas.data, passeioId: saidas.passeioId }).from(rastreioSessoes)
-      .innerJoin(saidas, eq(saidas.id, rastreioSessoes.saidaId)).where(eq(rastreioSessoes.id, id));
+    const [s] = await db.select({ sessao: rastreioSessoes, saidaData: saidas.data, passeioId: saidas.passeioId, passeio: passeios.nome }).from(rastreioSessoes)
+      .innerJoin(saidas, eq(saidas.id, rastreioSessoes.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId)).where(eq(rastreioSessoes.id, id));
     if (!s || s.sessao.motoristaUsuarioId !== req.usuario!.id) throw new ErroHttp(403, "NAO_E_O_MOTORISTA", "Só o motorista que iniciou o rastreio pode enviar posições.");
     if (s.sessao.encerradaEm) throw new ErroHttp(409, "SESSAO_ENCERRADA", "Este rastreio já foi encerrado.");
     const agora = new Date();
@@ -129,13 +159,29 @@ export async function rotasRastreio(app: FastifyInstance, { db, config }: Contex
       descartadas.duplicadas = boas.length - novas.length;
       if (novas.length) {
         const maisRecente = new Date(Math.max(...novas.map((n) => n.registradaEm.getTime())));
-        const rota = await pontosDaRota(db, s.passeioId);
-        const visitado = atualizarVisitado(s.sessao.ultimoPontoVisitado, rota.map(coordenadaDe),
-          boas.filter((b) => novas.some((n) => n.registradaEm.getTime() === b.registradaEm.getTime())).sort((a, b) => a.registradaEm.getTime() - b.registradaEm.getTime()).map((b) => ({ lat: b.lat, lng: b.lng })));
+        const tipo = s.sessao.tipo === "TRANSFER" ? "TRANSFER" : "ONIBUS";
+        // Paradas: hotéis do transfer (van) ou pontos de embarque (ônibus).
+        const paradas = tipo === "TRANSFER"
+          ? (await paradasDoTransfer(db, s.sessao.saidaId)).map((x) => (x.latitude !== null && x.longitude !== null ? { lat: x.latitude, lng: x.longitude } : null))
+          : (await pontosDaRota(db, s.passeioId)).map(coordenadaDe);
+        const ordenadas = boas.filter((b) => novas.some((n) => n.registradaEm.getTime() === b.registradaEm.getTime())).sort((a, b) => a.registradaEm.getTime() - b.registradaEm.getTime());
+        const visitado = Math.max(atualizarVisitado(s.sessao.ultimoPontoVisitado, paradas, ordenadas.map((b) => ({ lat: b.lat, lng: b.lng }))), s.sessao.ultimoPontoVisitado);
         await db.update(rastreioSessoes).set({
           ultimaPosicaoEm: s.sessao.ultimaPosicaoEm && s.sessao.ultimaPosicaoEm > maisRecente ? s.sessao.ultimaPosicaoEm : maisRecente,
-          ultimoPontoVisitado: Math.max(visitado, s.sessao.ultimoPontoVisitado),
+          ultimoPontoVisitado: visitado,
         }).where(eq(rastreioSessoes.id, id));
+        // Avisos "chega em ~5 min" e "chegou" (WhatsApp; uma vez por reserva). Falha aqui não perde as posições.
+        const ultimaBoa = ordenadas.at(-1)!;
+        try {
+          await avisarChegadas(db, config, {
+            tipo, saida: { id: s.sessao.saidaId, passeioId: s.passeioId }, passeio: s.passeio,
+            visitadoAntes: s.sessao.ultimoPontoVisitado, visitadoAgora: visitado,
+            posicao: { lat: ultimaBoa.lat, lng: ultimaBoa.lng, em: ultimaBoa.registradaEm },
+            velocidadeKmh: velocidadeMediaKmh(ordenadas.slice(-5).map((b) => b.velocidade)),
+          });
+        } catch (e) {
+          req.log.error({ erro: e instanceof Error ? e.message : e }, "Falha nos avisos de chegada");
+        }
       }
     }
     return { aceitas, descartadas };
@@ -164,9 +210,13 @@ export async function rotasRastreio(app: FastifyInstance, { db, config }: Contex
         const pts = await pontosDaRota(db, passeio.id);
         cobertura.set(passeio.id, { total: pts.length, comCoordenadas: pts.filter((p) => coordenadaDe(p)).length });
       }
+      const van = await ultimaSessao(db, saida.id, "TRANSFER");
+      const sinalVan = van ? situacaoSinal(van, agora) : null;
       return {
         saidaId: saida.id, passeio: passeio.nome, data: saida.data, motorista: saida.motorista, veiculo: saida.veiculo,
         situacao: sinal.situacao, minutosSemSinal: sinal.minutosSemSinal,
+        // Van do transfer (11/11/2026): situação e última posição, à parte do ônibus.
+        van: van && sinalVan ? { situacao: sinalVan.situacao, minutosSemSinal: sinalVan.minutosSemSinal, ultimaPosicao: (await recentes(van.id))[0] ?? null } : null,
         sessao: sessao ? { id: sessao.id, iniciadaEm: sessao.iniciadaEm, encerradaEm: sessao.encerradaEm } : null,
         ultimaPosicao: ultima ? { lat: ultima.lat, lng: ultima.lng, velocidade: ultima.velocidade, em: ultima.em } : null,
         pontos: cobertura.get(passeio.id)!,
