@@ -231,6 +231,11 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       de: dataIso.optional(), ate: dataIso.optional(),
       unidadeId: uuid.optional(), contaId: uuid.optional(), categoriaId: uuid.optional(), linha: z.enum(LINHAS_FINANCEIRO).optional(),
       q: z.string().trim().max(100).optional(),
+      /** Fornecedor/cliente (texto, parte do nome). */
+      fornecedor: z.string().trim().max(100).optional(),
+      /** Faixa de valor em centavos. */
+      valorMin: z.coerce.number().int().min(0).optional(),
+      valorMax: z.coerce.number().int().min(0).optional(),
       pagina: z.coerce.number().int().min(1).max(10_000).default(1),
       limite: z.coerce.number().int().min(1).max(500).default(200),
     }).parse(req.query);
@@ -246,6 +251,9 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       q.categoriaId ? eq(finLancamentos.categoriaId, q.categoriaId) : undefined,
       q.linha ? eq(finLancamentos.linha, q.linha) : undefined,
       busca ? or(ilike(finLancamentos.descricao, busca), ilike(finLancamentos.contraparte, busca)) : undefined,
+      q.fornecedor ? ilike(finLancamentos.contraparte, `%${q.fornecedor.replace(/[\\%_]/g, (c) => `\\${c}`)}%`) : undefined,
+      q.valorMin !== undefined ? gte(finLancamentos.valorCentavos, q.valorMin) : undefined,
+      q.valorMax !== undefined ? lte(finLancamentos.valorCentavos, q.valorMax) : undefined,
     );
     const itens = await baseLista().where(where).orderBy(asc(finLancamentos.vencimento), asc(finLancamentos.criadoEm), asc(finLancamentos.id)).limit(q.limite).offset((q.pagina - 1) * q.limite);
     const [tot] = await db.select({
@@ -253,8 +261,13 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       devido: sql<number>`coalesce(sum(${finLancamentos.valorCentavos}), 0)`.mapWith(Number),
       aberto: sql<number>`coalesce(sum(case when ${finLancamentos.situacao} = 'ABERTO' then ${finLancamentos.valorCentavos} else 0 end), 0)`.mapWith(Number),
       realizado: sql<number>`coalesce(sum(case when ${finLancamentos.situacao} = 'REALIZADO' then ${finLancamentos.valorPagoCentavos} else 0 end), 0)`.mapWith(Number),
+      vencido: sql<number>`coalesce(sum(case when ${finLancamentos.situacao} = 'ABERTO' and ${finLancamentos.vencimento} < ${hoje} then ${finLancamentos.valorCentavos} else 0 end), 0)`.mapWith(Number),
+      qtdVencido: sql<number>`count(*) filter (where ${finLancamentos.situacao} = 'ABERTO' and ${finLancamentos.vencimento} < ${hoje})`.mapWith(Number),
     }).from(finLancamentos).where(where);
-    return { hoje, itens: itens.map((i) => ({ ...i, vencido: i.situacao === "ABERTO" && i.vencimento < hoje })), total: tot!.qtd, somaDevidoCentavos: tot!.devido, somaAbertoCentavos: tot!.aberto, somaRealizadoCentavos: tot!.realizado };
+    return {
+      hoje, itens: itens.map((i) => ({ ...i, vencido: i.situacao === "ABERTO" && i.vencimento < hoje })), total: tot!.qtd,
+      somaDevidoCentavos: tot!.devido, somaAbertoCentavos: tot!.aberto, somaRealizadoCentavos: tot!.realizado, somaVencidoCentavos: tot!.vencido, qtdVencido: tot!.qtdVencido,
+    };
   });
 
   app.post("/api/financeiro/lancamentos", gerenciar, async (req) => {

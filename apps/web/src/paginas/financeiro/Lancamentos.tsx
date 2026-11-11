@@ -5,6 +5,8 @@ import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
 import { EtiquetaLinha } from "../../componentes/Etiquetas";
 import { Modal } from "../../componentes/Modal";
 import { useNotificar } from "../../componentes/Notificacoes";
+import { Icone } from "../../componentes/Icone";
+import { Indicador, Indicadores } from "../../componentes/Indicador";
 import { nomePraca, useSessao } from "../../sessao/Sessao";
 import { centavosDeTexto, formatarData, formatarMoeda, hojeIso, nomeMes, somarMes, textoDeCentavos, ultimoDiaDoMes } from "../../util/formato";
 import { ROTULO_LINHA } from "../../util/rotulos";
@@ -267,6 +269,18 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
   const [situacao, setSituacao] = useState<"" | "ABERTO" | "VENCIDO" | "REALIZADO">("");
   const [texto, setTexto] = useState("");
   const busca = useAtraso(texto.trim(), 300);
+  // Filtros (pedido do dono, 11/11/2026): banco/conta, fornecedor, categoria e faixa de valor.
+  const [contaFiltro, setContaFiltro] = useState("");
+  const [categoriaFiltro, setCategoriaFiltro] = useState("");
+  const [fornecedorTexto, setFornecedorTexto] = useState("");
+  const fornecedor = useAtraso(fornecedorTexto.trim(), 300);
+  const [valorDe, setValorDe] = useState("");
+  const [valorAte, setValorAte] = useState("");
+  const valorMin = useAtraso(centavosDeTexto(valorDe) ?? null, 400);
+  const valorMax = useAtraso(centavosDeTexto(valorAte) ?? null, 400);
+  const [maisFiltros, setMaisFiltros] = useState(false);
+  const filtrosAtivos = [contaFiltro, categoriaFiltro, fornecedorTexto.trim(), valorDe.trim(), valorAte.trim()].filter(Boolean).length;
+  const fornecedores = useCarregar((s) => api.get<Array<{ id: string; nome: string }>>("/api/financeiro/fornecedores", s), []);
   const [edicao, setEdicao] = useState<LancamentoFin | "novo" | null>(null);
   const [baixando, setBaixando] = useState<LancamentoFin | null>(null);
   const [excluindo, setExcluindo] = useState<LancamentoFin | null>(null);
@@ -277,7 +291,9 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
   const lista = useCarregar((s) => api.get<RespostaLancamentos>(`/api/financeiro/lancamentos${qs({
     tipo, situacao, unidadeId: praca, q: busca, limite: 300,
     de: situacao === "VENCIDO" ? "" : `${mes}-01`, ate: situacao === "VENCIDO" ? "" : ultimoDiaDoMes(mes),
-  })}`, s), [tipo, mes, situacao, praca, busca]);
+    contaId: contaFiltro || undefined, categoriaId: categoriaFiltro || undefined, fornecedor: fornecedor || undefined,
+    valorMin: valorMin === null ? undefined : String(valorMin), valorMax: valorMax === null ? undefined : String(valorMax),
+  })}`, s), [tipo, mes, situacao, praca, busca, contaFiltro, categoriaFiltro, fornecedor, valorMin, valorMax]);
 
   const rotulos = tipo === "PAGAR"
     ? { titulo: "Contas a pagar", novo: "Nova conta a pagar", baixa: "Pagar", realizado: "Pago", descricao: "Despesas com vencimento, categoria e centro de custo (praça, linha e veículo)." }
@@ -340,8 +356,11 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
         </div>
         <div className="campo campo--linha campo--busca">
           <label htmlFor="fil-busca">Buscar</label>
-          <input id="fil-busca" type="search" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Descrição ou fornecedor" />
+          <input id="fil-busca" type="search" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Nome, descrição ou fornecedor" />
         </div>
+        <button type="button" className="botao botao--secundario" aria-expanded={maisFiltros} onClick={() => setMaisFiltros(!maisFiltros)}>
+          <Icone nome="lista" /> Filtros{filtrosAtivos ? ` (${filtrosAtivos})` : ""}
+        </button>
       </div>
         {podeEditar && (
           <div className="barra-acoes">
@@ -349,6 +368,50 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
           </div>
         )}
       </div>
+
+      {maisFiltros && (
+        <div className="filtros fin-filtros" role="search" aria-label="Mais filtros">
+          <div className="campo">
+            <label htmlFor="fil-conta">Banco / conta</label>
+            <select id="fil-conta" value={contaFiltro} onChange={(e) => setContaFiltro(e.target.value)}>
+              <option value="">Todas</option>
+              {(contas.dados ?? []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </div>
+          <div className="campo">
+            <label htmlFor="fil-fornecedor">{tipo === "PAGAR" ? "Fornecedor" : "Cliente / canal"}</label>
+            <input id="fil-fornecedor" type="search" list="fil-fornecedores" value={fornecedorTexto} onChange={(e) => setFornecedorTexto(e.target.value)} placeholder="Nome" />
+            <datalist id="fil-fornecedores">{(fornecedores.dados ?? []).map((f) => <option key={f.id} value={f.nome} />)}</datalist>
+          </div>
+          <div className="campo">
+            <label htmlFor="fil-categoria">Categoria</label>
+            <select id="fil-categoria" value={categoriaFiltro} onChange={(e) => setCategoriaFiltro(e.target.value)}>
+              <option value="">Todas</option>
+              {(categorias.dados ?? []).filter((c) => c.tipo === (tipo === "PAGAR" ? "DESPESA" : "RECEITA")).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </div>
+          <div className="campo">
+            <label htmlFor="fil-valor-de">Valor de (R$)</label>
+            <input id="fil-valor-de" inputMode="decimal" value={valorDe} onChange={(e) => setValorDe(e.target.value)} placeholder="0,00" />
+          </div>
+          <div className="campo">
+            <label htmlFor="fil-valor-ate">Valor até (R$)</label>
+            <input id="fil-valor-ate" inputMode="decimal" value={valorAte} onChange={(e) => setValorAte(e.target.value)} placeholder="0,00" />
+          </div>
+          {filtrosAtivos > 0 && (
+            <button type="button" className="botao botao--fantasma" onClick={() => { setContaFiltro(""); setCategoriaFiltro(""); setFornecedorTexto(""); setValorDe(""); setValorAte(""); }}>Limpar filtros</button>
+          )}
+        </div>
+      )}
+
+      {d && (
+        <Indicadores rotulo="Totais do filtro">
+          <Indicador tinta="azul" icone="lista" rotulo="Lançamentos" valor={String(d.total)} detalhe={`Total ${formatarMoeda(d.somaDevidoCentavos)}`} />
+          <Indicador tinta="ambar" icone="calendario" rotulo="Em aberto" valor={formatarMoeda(d.somaAbertoCentavos)} />
+          <Indicador tinta="rosa" icone="alerta" rotulo="Vencidas" valor={formatarMoeda(d.somaVencidoCentavos ?? 0)} detalhe={`${d.qtdVencido ?? 0} conta(s)`} />
+          <Indicador tinta="verde" icone="check" rotulo={rotulos.realizado} valor={formatarMoeda(d.somaRealizadoCentavos)} />
+        </Indicadores>
+      )}
 
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       {lista.carregando && !d ? <Carregando /> : lista.erro ? <ErroCarga mensagem={lista.erro} tentarDeNovo={lista.recarregar} /> : d && (d.itens.length === 0 ? <Vazio titulo="Nenhum lançamento neste filtro." /> : (

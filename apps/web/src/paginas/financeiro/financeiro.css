@@ -132,3 +132,16 @@
   justify-content: flex-start;
   white-space: normal;
 }
+
+/* Filtros extras de A pagar / A receber (11/11/2026). */
+.fin-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-3);
+  align-items: flex-end;
+  margin-bottom: var(--esp-4);
+}
+.fin-filtros .campo {
+  min-width: min(100%, 11rem);
+  flex: 1 1 11rem;
+}

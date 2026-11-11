@@ -12,6 +12,7 @@ import { useCategorias } from "./dados";
 import { EXEMPLO_PLANILHA } from "./exemploPlanilha";
 import type { PreviaPlanilha } from "./tipos";
 import { decodificarArquivo } from "./util";
+import { abrirExcel, type PastaExcel } from "./excel";
 
 type Mapeamentos = Record<string, string>;
 
@@ -81,12 +82,40 @@ export function ImportarPlanilha() {
     setMapeamentos({});
     setConteudo(null);
     if (!f) return;
-    if (/\.xlsx?$/i.test(f.name)) return setErro("Arquivos .xlsx ainda não são lidos aqui. No Google Sheets, use Arquivo › Fazer download › Valores separados por vírgula (.csv), uma aba por vez.");
-    if (!/\.(csv|txt)$/i.test(f.name)) return setErro("Escolha o arquivo .csv exportado da aba da planilha.");
+    setExcel(null);
+    if (/\.xls$/i.test(f.name)) return setErro("Este é o formato antigo do Excel (.xls). Abra o arquivo no Excel e use Arquivo › Salvar como › Pasta de Trabalho do Excel (.xlsx), ou no Google Sheets: Arquivo › Fazer download › Microsoft Excel (.xlsx). Depois escolha o arquivo .xlsx aqui.");
+    if (/\.xlsx$/i.test(f.name)) {
+      if (f.size > 15_000_000) return setErro("Arquivo grande demais (máximo 15 MB).");
+      setOcupado(true);
+      try {
+        const pasta = await abrirExcel(await f.arrayBuffer());
+        if (pasta.abas.length === 0) return setErro("Não encontrei abas neste arquivo.");
+        setExcel({ nome: f.name, pasta });
+        if (pasta.abas.length === 1) await lerAbaExcel(f.name, pasta, pasta.abas[0]!);
+      } catch {
+        setErro("Não consegui abrir este arquivo do Excel. Confira se ele abre no Excel e tente de novo, ou exporte a aba em .csv.");
+      } finally {
+        setOcupado(false);
+      }
+      return;
+    }
+    if (!/\.(csv|txt)$/i.test(f.name)) return setErro("Escolha o arquivo .xlsx (Excel) ou o .csv exportado da aba da planilha.");
     if (f.size > 5_000_000) return setErro("Arquivo grande demais (máximo 5 MB). Exporte uma aba por vez.");
     const texto = decodificarArquivo(await f.arrayBuffer());
     setConteudo({ nome: f.name, texto });
     await ler(texto, f.name, {});
+  }
+
+  // Excel (.xlsx, 11/11/2026): escolher a aba; ela vira o mesmo texto .csv e segue a mesma prévia.
+  const [excel, setExcel] = useState<{ nome: string; pasta: PastaExcel } | null>(null);
+  async function lerAbaExcel(nomeArquivo: string, pasta: PastaExcel, aba: string) {
+    if (!aba) return;
+    setPrevia(null);
+    setMapeamentos({});
+    const nome = `${nomeArquivo.replace(/\.xlsx$/i, "")} — ${aba}`;
+    const texto = pasta.csvDaAba(aba);
+    setConteudo({ nome, texto });
+    await ler(texto, nome, {});
   }
 
   // Importar pelo link do Google (conta de serviço, 09/11/2026): o servidor lê a aba e a tela segue o mesmo caminho do .csv.
@@ -149,7 +178,7 @@ export function ImportarPlanilha() {
       <section className="cartao" aria-labelledby="titulo-passos">
         <h2 id="titulo-passos">Como importar</h2>
         <ol>
-          <li>Na planilha (Google Sheets), abra uma aba por vez e use <em>Arquivo › Fazer download › Valores separados por vírgula (.csv)</em>.</li>
+          <li>Escolha o arquivo do <strong>Excel (.xlsx)</strong> e depois a aba. Também vale o .csv de uma aba (Google Sheets: <em>Arquivo › Fazer download › Valores separados por vírgula (.csv)</em>).</li>
           <li>Escolha a praça e o arquivo abaixo. O sistema acha o cabeçalho sozinho e ignora o resumo do topo (ele recalcula tudo).</li>
           <li>Confira a prévia: contas, saldos, qualidade dos dados e o que não foi reconhecido. Mapeie as combinações desconhecidas ou ignore essas linhas.</li>
           <li>Confirme. Dados de contato do favorecido (CPF/CNPJ, e-mail, telefone) vão para o cadastro de favorecidos, nunca para a descrição.</li>
@@ -163,9 +192,19 @@ export function ImportarPlanilha() {
             </select>
           </div>
           <div className="campo">
-            <label htmlFor="pl-arquivo">Arquivo CSV da aba</label>
-            <input id="pl-arquivo" type="file" accept=".csv,.txt,.xlsx" disabled={ocupado || faltaPraca} onChange={(e) => void escolher(e.target.files?.[0])} />
+            <label htmlFor="pl-arquivo">Arquivo do Excel (.xlsx) ou CSV da aba</label>
+            <input id="pl-arquivo" type="file" accept=".csv,.txt,.xlsx,.xls" disabled={ocupado || faltaPraca} onChange={(e) => void escolher(e.target.files?.[0])} />
           </div>
+          {excel && excel.pasta.abas.length > 1 && (
+            <div className="campo">
+              <label htmlFor="pl-aba-excel">Aba do Excel</label>
+              <select id="pl-aba-excel" defaultValue="" disabled={ocupado} onChange={(e) => void lerAbaExcel(excel.nome, excel.pasta, e.target.value)}>
+                <option value="" disabled>Escolha a aba</option>
+                {excel.pasta.abas.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <span className="campo__ajuda">Uma aba por vez: importe uma, confira e depois escolha a próxima.</span>
+            </div>
+          )}
         </div>
         {google.dados?.configurado && (
           <div className="grade-campos">

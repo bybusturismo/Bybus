@@ -164,6 +164,19 @@ describe("importação da planilha (layout novo)", () => {
     expect(r.saldoCaixaCentavos).toBe(1247197 + 400000 + 47000);
   });
 
+  it("filtros da lista (11/11/2026): fornecedor, banco, faixa de valor e totais com vencidas", async () => {
+    const lista = async (q: string) => json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?limite=500&${q}`));
+    const porForn = await lista("fornecedor=oficina");
+    expect(porForn.itens.map((x: { descricao: string }) => x.descricao)).toEqual(["Revisão QJQ2A16"]);
+    const faixa = await lista("tipo=PAGAR&valorMin=100000&valorMax=150000");
+    expect(faixa.itens.every((x: { valorCentavos: number }) => x.valorCentavos >= 100000 && x.valorCentavos <= 150000)).toBe(true);
+    expect(faixa.itens.length).toBeGreaterThan(0);
+    const sic = (await conta(usuarioFln, "Sicredi")).id;
+    const doBanco = await lista(`contaId=${sic}`);
+    expect(doBanco.itens.every((x: { contaId: string }) => x.contaId === sic)).toBe(true);
+    expect(doBanco).toMatchObject({ somaVencidoCentavos: expect.any(Number), qtdVencido: expect.any(Number) });
+  });
+
   it("saldos: a linha AAA SALDO de uma aba seguinte só confere com o saldo calculado e mostra a divergência, sem sobrescrever", async () => {
     const aba = `MÊS,CONTA,DATA,,CAT,FORNECEDOR,DESCRIÇÃO, A PAGAR , SICREDI , UNILOS , QUIOSQUE , CARTÃO ,OBS\nNOV,,01/11/2026,,AAA SALDO,,,," R$  12.500,00 "," R$  4.000,00 ",,,\n`;
     const r = json(await importar(usuarioFln, { conteudo: aba, unidadeId: fln }));

@@ -89,6 +89,8 @@ export interface RespostaLancamentos {
   somaDevidoCentavos: number;
   somaAbertoCentavos: number;
   somaRealizadoCentavos: number;
+  somaVencidoCentavos?: number;
+  qtdVencido?: number;
 }
 
 export interface SugestaoConc {

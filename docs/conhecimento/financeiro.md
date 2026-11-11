@@ -67,3 +67,10 @@
   Contas criadas, fornecedores e sinônimos aprendidos não mudam.
 - As importações feitas antes desta função aparecem como "anterior": foram reconstituídas pela hora em que foram gravadas
   (migração 0038), e também podem ser desfeitas.
+
+## Filtros, totais, Excel e recomeço do zero (pedido do dono, 11/11/2026)
+- A pagar / A receber: botão **Filtros** com banco/conta, fornecedor (ou cliente/canal), categoria e faixa de valor; a busca
+  continua por nome/descrição. No topo, os totais do filtro: quantidade, em aberto, vencidas e pago/recebido.
+- Importar planilha aceita **Excel (.xlsx)**: escolhe-se a aba e ela segue a mesma prévia do .csv. O .xls antigo (Excel 97-2003)
+  não é lido: salvar como .xlsx (a biblioteca que lê .xls tem falhas de segurança conhecidas na versão do npm).
+- Para recomeçar do zero: `implantacao/limpar-financeiro.sh` no servidor (faz cópia do banco antes e pede para digitar APAGAR).

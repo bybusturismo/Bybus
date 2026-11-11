@@ -35,7 +35,7 @@ describe("Importar planilha", () => {
     });
     renderizar(<ImportarPlanilha />, { sessao: gerente() });
     const u = userEvent.setup();
-    await u.upload(screen.getByLabelText("Arquivo CSV da aba"), arquivo());
+    await u.upload(screen.getByLabelText(/Arquivo do Excel/), arquivo());
     expect(await screen.findByText(/layout novo, cabeçalho na linha 3/)).toBeInTheDocument();
     expect(screen.getByText(/divergência de/)).toBeInTheDocument();
     const qualidade = within(screen.getByRole("list", { name: "Conferência de qualidade" }));
@@ -52,17 +52,17 @@ describe("Importar planilha", () => {
     expect(corpoEnviado(spy, "POST", "/api/financeiro/planilha/importar", 2)).toMatchObject({ confirmar: true, salvarSinonimos: true, mapeamentos: { "AGENDA|LEMBRETE": "c-outras" } });
   });
 
-  it("não aceita .xlsx e explica como exportar o CSV", async () => {
+  it("não aceita o .xls antigo e explica como salvar em .xlsx", async () => {
     simularApi({ "GET /api/financeiro/categorias": categorias, "GET /api/financeiro/importacoes": { itens: [] } });
     renderizar(<ImportarPlanilha />, { sessao: gerente() });
-    await userEvent.setup({ applyAccept: false }).upload(screen.getByLabelText("Arquivo CSV da aba"), arquivo("aba.xlsx"));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/\.xlsx ainda não/);
+    await userEvent.setup({ applyAccept: false }).upload(screen.getByLabelText(/Arquivo do Excel/), arquivo("aba.xls"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/formato antigo do Excel \(\.xls\).*Salvar como/);
   });
 
   it("linhas com valor inválido bloqueiam o botão de importar", async () => {
     simularApi({ "GET /api/financeiro/categorias": categorias, "GET /api/financeiro/importacoes": { itens: [] }, "POST /api/financeiro/planilha/importar": previa({ naoReconhecidos: [], erros: [{ linha: 9, motivo: "Valor inválido na coluna Sicredi." }], totalErros: 1 }) });
     renderizar(<ImportarPlanilha />, { sessao: gerente() });
-    await userEvent.setup().upload(screen.getByLabelText("Arquivo CSV da aba"), arquivo());
+    await userEvent.setup().upload(screen.getByLabelText(/Arquivo do Excel/), arquivo());
     await screen.findByText(/1 linha\(s\) com valor inválido/);
     expect(screen.getByRole("button", { name: /Importar/ })).toBeDisabled();
   });
