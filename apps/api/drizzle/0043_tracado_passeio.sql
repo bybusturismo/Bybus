@@ -1,0 +1,1 @@
+ALTER TABLE "passeios" ADD COLUMN "tracado" jsonb;

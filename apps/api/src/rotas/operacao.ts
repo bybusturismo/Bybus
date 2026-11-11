@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import { CANAIS, CATEGORIAS, STATUS_EMBARQUE, TIPOS_DOCUMENTO, validarSequenciaTransfer } from "@bybus/core";
+import { CANAIS, CATEGORIAS, STATUS_EMBARQUE, TIPOS_DOCUMENTO, compararPontos, comprimentoKm, lerKml, tracadoDaRota, validarSequenciaTransfer } from "@bybus/core";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
@@ -9,6 +9,7 @@ import { filtroUnidade, garantirPassageiro, garantirPasseio, garantirPonto, gara
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { camposDocumento, documentoMascarado } from "../servicos/passageiro.js";
+import { casarPonto } from "../servicos/importacao.js";
 import { aplicarEscalaNaSaida } from "../servicos/escala.js";
 import { atualizarTransferDaReserva, sincronizarTransfer } from "../servicos/transfer.js";
 
@@ -137,6 +138,46 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     const [p] = await db.update(pontosEmbarque).set(corpo).where(eq(pontosEmbarque.id, id)).returning();
     await auditar(db, req, "PONTO_ALTERADO", { tipo: "ponto", id }, "latitude" in corpo || "longitude" in corpo ? { ...corpo, antes: { latitude: atual.latitude, longitude: atual.longitude } } : corpo);
     return p;
+  });
+
+  /**
+   * Rota do mapa (pedido do dono, 11/11/2026): arquivo .kml exportado do Google My Maps com os pontos de embarque e o traçado
+   * do ônibus. Prévia primeiro (o que casou com cada ponto do sistema); com `confirmar`, grava as coordenadas e o traçado.
+   */
+  app.post("/api/passeios/:id/rota-kml", { preHandler: exigir(config, "pontos:gerenciar"), bodyLimit: 6 * 1024 * 1024 }, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const corpo = z.object({ conteudo: z.string().min(20).max(5_500_000), confirmar: z.boolean().default(false) }).parse(req.body);
+    await garantirPasseio(db, req.usuario!, id);
+    const kml = lerKml(corpo.conteudo);
+    if (!kml.pontos.length && !kml.linhas.length) throw new ErroHttp(400, "KML_VAZIO", "Não achei pontos nem rota no arquivo. No Google My Maps, exporte o mapa inteiro em .KML (sem \"manter os dados atualizados\").");
+    const pontos = (await db.select().from(pontosEmbarque).where(and(eq(pontosEmbarque.passeioId, id), eq(pontosEmbarque.ativo, true)))).filter((p) => !p.ehTransfer);
+    // Pontos das pastas de embarque primeiro; cada ponto do sistema recebe o primeiro do mapa que casar com o nome.
+    const doMapa = [...kml.pontos].sort((a, b) => Number(/embarque/i.test(b.pasta)) - Number(/embarque/i.test(a.pasta)));
+    const casados = new Map<string, (typeof doMapa)[number]>();
+    const naoUsados: string[] = [];
+    for (const m of doMapa) {
+      const alvo = casarPonto(m.nome, pontos.filter((p) => !casados.has(p.id)));
+      if (alvo) casados.set(alvo.id, m); else naoUsados.push(m.nome);
+    }
+    const tracado = tracadoDaRota(kml.linhas);
+    const previa = {
+      pontos: pontos.sort(compararPontos).map((p) => ({
+        id: p.id, nome: p.nome, horario: p.horario,
+        atual: p.latitude !== null && p.longitude !== null ? { lat: p.latitude, lng: p.longitude } : null,
+        novo: casados.has(p.id) ? { lat: casados.get(p.id)!.lat, lng: casados.get(p.id)!.lng, nomeNoMapa: casados.get(p.id)!.nome } : null,
+      })),
+      tracado: { pontos: tracado.length, km: Math.round(comprimentoKm(tracado) * 10) / 10 },
+      naoUsados,
+    };
+    if (!corpo.confirmar) return { ...previa, gravado: false };
+    for (const p of previa.pontos) {
+      if (!p.novo) continue;
+      await db.update(pontosEmbarque).set({ latitude: p.novo.lat, longitude: p.novo.lng }).where(eq(pontosEmbarque.id, p.id));
+      await auditar(db, req, "PONTO_ALTERADO", { tipo: "ponto", id: p.id }, { latitude: p.novo.lat, longitude: p.novo.lng, antes: p.atual, origem: "rota do mapa (.kml)" });
+    }
+    if (tracado.length >= 2) await db.update(passeios).set({ tracado: tracado.map((c) => [c.lat, c.lng] as [number, number]) }).where(eq(passeios.id, id));
+    await auditar(db, req, "PASSEIO_ROTA_IMPORTADA", { tipo: "passeio", id }, { pontos: previa.pontos.filter((p) => p.novo).length, tracado: previa.tracado });
+    return { ...previa, gravado: true };
   });
 
   // ---------- Saídas ----------

@@ -16,6 +16,8 @@ export function avisosDeChegada(p: {
   posicao: Coordenada;
   velocidadeKmh?: number;
   minutosAviso?: number;
+  /** Traçado real (importado do mapa), se houver: distância pelo caminho. */
+  rota?: { tracado: readonly Coordenada[]; indices: ReadonlyArray<number | null> } | null;
 }): { chegando: number[]; chegou: number[] } {
   const limite = p.minutosAviso ?? MINUTOS_AVISO_CHEGANDO;
   // "Chegou" só para as paradas alcançadas agora (não manda "chegou" de uma parada de horas atrás).
@@ -23,7 +25,7 @@ export function avisosDeChegada(p: {
   for (let i = Math.max(0, p.visitadoAntes + 1); i <= p.visitadoAgora && i < p.paradas.length; i++) if (p.paradas[i]) chegou.push(i);
   const chegando: number[] = [];
   for (let i = p.visitadoAgora + 1; i < p.paradas.length; i++) {
-    const prev = preverChegada({ posicao: p.posicao, pontos: p.paradas, visitado: p.visitadoAgora, alvo: i, velocidadeKmh: p.velocidadeKmh });
+    const prev = preverChegada({ posicao: p.posicao, pontos: p.paradas, visitado: p.visitadoAgora, alvo: i, velocidadeKmh: p.velocidadeKmh, rota: p.rota });
     if (prev.situacao === "NO_PONTO") { chegou.push(i); continue; }
     if (prev.situacao !== "A_CAMINHO" || prev.minutos === null) break; // sem coordenadas no caminho: não dá para prever as seguintes
     if (prev.minutos <= limite) chegando.push(i);

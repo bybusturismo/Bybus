@@ -83,6 +83,7 @@ export function PontosDoPasseio({ passeio }: { passeio: Passeio }) {
   const semCoordenadas = pontos.filter((p) => p.latitude == null).length;
   return (
     <div>
+      {podeEditar && <ImportarRotaKml passeioId={passeio.id} aoGravar={() => void lista.recarregar()} />}
       <Aviso tipo="info" titulo="Como pegar as coordenadas">
         Copie do Google Maps: clique com o botão direito no local do ponto e clique nos números que aparecem (ex.: -27.5954, -48.5480). Depois cole no campo de latitude: os dois campos são preenchidos.
         As coordenadas servem para mostrar o ponto no mapa e calcular quando o ônibus chega; sem elas, o cliente vê o ônibus mas não a previsão. [A confirmar: coordenadas oficiais com o dono]
@@ -115,5 +116,77 @@ export function PontosDoPasseio({ passeio }: { passeio: Passeio }) {
         </>
       )}
     </div>
+  );
+}
+
+interface PreviaRota {
+  gravado: boolean;
+  pontos: Array<{ id: string; nome: string; horario: string; atual: { lat: number; lng: number } | null; novo: { lat: number; lng: number; nomeNoMapa: string } | null }>;
+  tracado: { pontos: number; km: number };
+  naoUsados: string[];
+}
+
+/** Importa a rota do Google My Maps (.kml): coordenadas dos pontos e o traçado real do ônibus (11/11/2026). */
+function ImportarRotaKml({ passeioId, aoGravar }: { passeioId: string; aoGravar: () => void }) {
+  const notificar = useNotificar();
+  const [conteudo, setConteudo] = useState<string | null>(null);
+  const [previa, setPrevia] = useState<PreviaRota | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+
+  async function enviar(texto: string, confirmar: boolean) {
+    setErro(null);
+    setOcupado(true);
+    try {
+      const r = await api.post<PreviaRota>(`/api/passeios/${passeioId}/rota-kml`, { conteudo: texto, confirmar });
+      setPrevia(r);
+      if (r.gravado) {
+        notificar(`Rota gravada: ${r.pontos.filter((p) => p.novo).length} ponto(s) no mapa e traçado de ${r.tracado.km.toLocaleString("pt-BR")} km.`);
+        aoGravar();
+      }
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function escolher(f: File | undefined) {
+    setPrevia(null);
+    setConteudo(null);
+    if (!f) return;
+    if (!/\.kml$/i.test(f.name)) return setErro("Escolha o arquivo .kml exportado do Google My Maps (opção \"Exportar para um arquivo .KML\").");
+    const texto = await f.text();
+    setConteudo(texto);
+    await enviar(texto, false);
+  }
+
+  return (
+    <section className="cartao" aria-labelledby="titulo-rota-kml">
+      <h3 id="titulo-rota-kml">Importar a rota do mapa (Google My Maps)</h3>
+      <p className="texto-fraco">No My Maps: ⋮ › Exportar para KML/KMZ › desmarque "manter os dados atualizados" e marque "arquivo .KML". O sistema grava as coordenadas dos pontos de embarque e o traçado do ônibus (previsão de chegada pelo caminho real).</p>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      <input type="file" accept=".kml" aria-label="Arquivo .kml da rota" disabled={ocupado} onChange={(e) => void escolher(e.target.files?.[0])} />
+      {previa && (
+        <>
+          <div className="tabela-rolagem">
+            <table className="tabela tabela--compacta">
+              <thead><tr><th scope="col">Ponto do sistema</th><th scope="col">No mapa</th></tr></thead>
+              <tbody>
+                {previa.pontos.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.horario} — {p.nome}</td>
+                    <td>{p.novo ? <>{p.novo.nomeNoMapa} <span className="texto-fraco">({p.novo.lat.toFixed(5)}, {p.novo.lng.toFixed(5)})</span></> : <span className="texto-atencao">não achado no mapa{p.atual ? " (mantém o atual)" : ""}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="texto-fraco">Traçado: {previa.tracado.pontos} pontos, {previa.tracado.km.toLocaleString("pt-BR")} km.{previa.naoUsados.length ? ` Marcações do mapa sem ponto correspondente (paradas, etc.): ${previa.naoUsados.join("; ")}.` : ""}</p>
+          {!previa.gravado && <button type="button" className="botao botao--primario" disabled={ocupado || !conteudo} onClick={() => conteudo && void enviar(conteudo, true)}>Gravar coordenadas e traçado</button>}
+          {previa.gravado && <Aviso tipo="sucesso">Rota gravada.</Aviso>}
+        </>
+      )}
+    </section>
   );
 }

@@ -10,7 +10,7 @@ import { pode, type Permissao } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { agoraSp } from "../servicos/fechamento.js";
 import { hashToken } from "../servicos/linkEmbarque.js";
-import { avisarChegadas, coordenadaDe, enviarLinksRastreio, localizarHoteisTransfer, paradasDoTransfer, pontosDaRota, ultimaSessao } from "../servicos/rastreio.js";
+import { avisarChegadas, coordenadaDe, rotaDoPasseio, enviarLinksRastreio, localizarHoteisTransfer, paradasDoTransfer, pontosDaRota, ultimaSessao } from "../servicos/rastreio.js";
 
 const uuid = z.string().uuid();
 const dataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -268,7 +268,7 @@ export async function rotasRastreio(app: FastifyInstance, { db, config }: Contex
 
     const emServico = sinal.situacao === "TRANSMITINDO" || sinal.situacao === "SEM_SINAL";
     const previsao = ultima && sinal.situacao === "TRANSMITINDO"
-      ? preverChegada({ posicao: ultima, pontos: rota.map(coordenadaDe), visitado, alvo: alvo >= 0 ? alvo : null, velocidadeKmh: velocidadeMediaKmh(ultimas.map((u) => u.velocidade)) })
+      ? preverChegada({ posicao: ultima, pontos: rota.map(coordenadaDe), visitado, alvo: alvo >= 0 ? alvo : null, velocidadeKmh: velocidadeMediaKmh(ultimas.map((u) => u.velocidade)), rota: await rotaDoPasseio(db, l.passeio.id, rota.map(coordenadaDe)) })
       : null;
     return {
       passeio: l.passeio.nome, cidade: l.passeio.cidade, data: l.saida.data,

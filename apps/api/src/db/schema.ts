@@ -164,6 +164,8 @@ export const passeios = pgTable("passeios", {
   /** Motorista e veículo de sempre (em Florianópolis o motorista costuma ser o mesmo). */
   motoristaPadraoId: uuid().references(() => pessoas.id),
   veiculoPadrao: text(),
+  /** Traçado real do ônibus ([lat, lng]...), importado do mapa (.kml do Google My Maps, 11/11/2026): previsão pelo caminho. */
+  tracado: jsonb().$type<Array<[number, number]>>(),
 });
 
 /**

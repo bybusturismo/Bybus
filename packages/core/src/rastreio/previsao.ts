@@ -1,3 +1,4 @@
+import { kmPeloTracado } from "./kml.js";
 /**
  * Rastreio do ônibus: regras puras (sem banco, sem rede).
  *
@@ -73,7 +74,11 @@ export interface Previsao {
  * Previsão de chegada ao ponto de índice `alvo`.
  * `pontos` na ordem da rota; `visitado` = último índice já alcançado (-1 se nenhum).
  */
-export function preverChegada(p: { posicao: Coordenada; pontos: ReadonlyArray<Coordenada | null>; visitado: number; alvo: number | null; velocidadeKmh?: number }): Previsao {
+export function preverChegada(p: {
+  posicao: Coordenada; pontos: ReadonlyArray<Coordenada | null>; visitado: number; alvo: number | null; velocidadeKmh?: number;
+  /** Traçado real da rota (importado do mapa) e o índice de cada ponto nele: com eles, a distância é pelo caminho, não em linha reta. */
+  rota?: { tracado: readonly Coordenada[]; indices: ReadonlyArray<number | null> } | null;
+}): Previsao {
   const sem = (motivo: "SEM_PONTO" | "SEM_COORDENADAS"): Previsao => ({ situacao: "SEM_PREVISAO", minutos: null, distanciaKm: null, paradasIntermediarias: 0, motivo });
   if (p.alvo === null || p.alvo < 0 || p.alvo >= p.pontos.length) return sem("SEM_PONTO");
   if (p.alvo <= p.visitado) return { situacao: "JA_PASSOU", minutos: null, distanciaKm: null, paradasIntermediarias: 0 };
@@ -84,7 +89,14 @@ export function preverChegada(p: { posicao: Coordenada; pontos: ReadonlyArray<Co
   if (distanciaKm(p.posicao, alvo) * 1000 <= RAIO_PONTO_M) return { situacao: "NO_PONTO", minutos: 0, distanciaKm: 0, paradasIntermediarias: 0 };
   let retas = distanciaKm(p.posicao, pontos[0]!);
   for (let i = 1; i < pontos.length; i++) retas += distanciaKm(pontos[i - 1]!, pontos[i]!);
-  const km = retas * FATOR_ROTA;
+  let km = retas * FATOR_ROTA;
+  // Pelo traçado real, se o ônibus está nele (entre o último ponto alcançado e o ponto do cliente).
+  const ate = p.rota?.indices[p.alvo];
+  if (p.rota && ate !== null && ate !== undefined) {
+    const de = p.visitado >= 0 ? p.rota.indices[p.visitado] ?? 0 : 0;
+    const pelaRota = kmPeloTracado(p.rota.tracado, p.posicao, de, ate);
+    if (pelaRota !== null) km = pelaRota;
+  }
   const paradas = pontos.length - 1;
   const v = Math.max(VELOCIDADE_MINIMA_KMH, p.velocidadeKmh ?? VELOCIDADE_PADRAO_KMH);
   const minutos = Math.max(1, Math.ceil((km / v) * 60 + paradas * MINUTOS_POR_PARADA));

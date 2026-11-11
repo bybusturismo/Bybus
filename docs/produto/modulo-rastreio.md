@@ -97,3 +97,11 @@ Enfileirada ao iniciar o rastreio, **uma por reserva confirmada** (índice únic
 - **Modelos da Meta novos:** `bybus_chegando` e `bybus_chegou` (enviar para aprovação em Integrações). Custo: 2 mensagens por
   reserva em cada trajeto (valor por mensagem na tabela da Meta, a confirmar). Até o WhatsApp oficial estar ligado, ficam na fila.
 - Equipe: Rastreamento mostra também a situação da van.
+
+## Rota do mapa (.kml do Google My Maps, 11/11/2026)
+- O dono mandou o mapa do **City Tour Toda Ilha** (9 pontos de embarque, 6 paradas e o traçado de ~105 km). Em **Passeios ›
+  Pontos › Importar a rota do mapa**, o arquivo .kml (exportado sem "manter os dados atualizados") grava as coordenadas dos pontos
+  (casados pelo nome, com prévia antes) e o **traçado** (`passeios.tracado`).
+- Com o traçado, a previsão (página do cliente e avisos do ônibus) mede a distância **pelo caminho**, do ônibus até o ponto do
+  cliente; se o ônibus estiver a mais de 300 m do traçado (desvio), volta para a linha reta × 1,3. Código: `rastreio/kml.ts`.
+- Serve para BC e outros passeios: é só exportar o mapa de cada um.

@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
-import { avisosDeChegada, compararPontos, modeloChegada, modeloRastreio, quemChega, renderizarModeloMeta, textoRastreio, type TipoRastreio } from "@bybus/core";
+import { avisosDeChegada, compararPontos, indicesNoTracado, modeloChegada, modeloRastreio, quemChega, renderizarModeloMeta, textoRastreio, type TipoRastreio } from "@bybus/core";
 import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
-import { mensagens, passageiros, pontosEmbarque, rastreioLinks, rastreioPosicoes, rastreioSessoes, reservas, saidas, transferDias, transferReservas } from "../db/schema.js";
+import { mensagens, passageiros, passeios, pontosEmbarque, rastreioLinks, rastreioPosicoes, rastreioSessoes, reservas, saidas, transferDias, transferReservas } from "../db/schema.js";
 import { agoraSp, enfileirarMensagem } from "./fechamento.js";
 import { hashToken } from "./linkEmbarque.js";
 
@@ -17,6 +17,14 @@ export const fimDoDia = (data: string) => new Date(new Date(`${data}T03:00:00Z`)
 export async function pontosDaRota(db: Db, passeioId: string) {
   const lista = await db.select().from(pontosEmbarque).where(and(eq(pontosEmbarque.passeioId, passeioId), eq(pontosEmbarque.ativo, true))).orderBy(asc(pontosEmbarque.ordem));
   return lista.sort(compararPontos);
+}
+
+/** Traçado real do passeio (importado do mapa) com o índice de cada parada nele; null sem traçado. */
+export async function rotaDoPasseio(db: Db, passeioId: string, paradas: ReadonlyArray<{ lat: number; lng: number } | null>) {
+  const [p] = await db.select({ tracado: passeios.tracado }).from(passeios).where(eq(passeios.id, passeioId));
+  if (!p?.tracado || p.tracado.length < 2) return null;
+  const tracado = p.tracado.map(([lat, lng]) => ({ lat, lng }));
+  return { tracado, indices: indicesNoTracado(tracado, paradas) };
 }
 
 export const coordenadaDe = (p: { latitude: number | null; longitude: number | null }) => (p.latitude !== null && p.longitude !== null ? { lat: p.latitude, lng: p.longitude } : null);
@@ -98,7 +106,9 @@ export async function avisarChegadas(db: Db, config: Config, p: {
     const embarcadas = new Set(ids.length ? (await db.selectDistinct({ id: passageiros.reservaId }).from(passageiros).where(and(inArray(passageiros.reservaId, ids), eq(passageiros.embarque, "EMBARCOU")))).map((x) => x.id) : []);
     paradas = rota.map((pt) => ({ coord: coordenadaDe(pt), local: pt.nome, reservas: daSaida.filter((r) => r.ponto === pt.id && !naVan.has(r.id) && !embarcadas.has(r.id)).map((r) => r.id) }));
   }
-  const a = avisosDeChegada({ paradas: paradas.map((x) => x.coord), visitadoAntes: p.visitadoAntes, visitadoAgora: p.visitadoAgora, posicao: p.posicao, velocidadeKmh: p.velocidadeKmh });
+  const coords = paradas.map((x) => x.coord);
+  const rota = p.tipo === "ONIBUS" ? await rotaDoPasseio(db, p.saida.passeioId, coords) : null;
+  const a = avisosDeChegada({ paradas: coords, visitadoAntes: p.visitadoAntes, visitadoAgora: p.visitadoAgora, posicao: p.posicao, velocidadeKmh: p.velocidadeKmh, rota });
   const alvo = [...a.chegou.map((i) => ({ i, tipo: "CHEGOU" as const })), ...a.chegando.map((i) => ({ i, tipo: "CHEGANDO" as const }))];
   const quem = quemChega(p.tipo, p.passeio);
   let enfileiradas = 0;
