@@ -7,8 +7,12 @@ import { useSessao } from "../../sessao/Sessao";
 import { formatarDataExtenso } from "../../util/formato";
 import { MENSAGEM_ERRO_GPS, observarPosicao, type ErroGps, type PosicaoGps } from "../../util/geolocalizacao";
 import { useCarregar } from "../../util/useCarregar";
+import { gpsDoApp, noApp, postarPeloApp } from "../../util/appCelular";
 
 export const AVISO_TELA_ABERTA = "Mantenha esta tela aberta e o celular no carregador; se a tela apagar ou outro app abrir, o rastreio para.";
+/** No app By Bus o GPS segue em segundo plano (11/11/2026). */
+export const AVISO_APP = "Pode apagar a tela ou abrir outros apps: o rastreio continua (aparece o aviso “By Bus — rastreio ligado”). Deixe o celular no carregador e toque em Encerrar ao terminar o passeio.";
+const MENSAGEM_GPS_NEGADO_APP = "O app By Bus está sem permissão de localização. Toque em “Abrir configurações”, vá em Permissões › Localização e escolha “Permitir”.";
 /** Intervalo entre os envios e tamanho do lote (a API aceita até 20 posições por envio). */
 export const INTERVALO_ENVIO_MS = 15_000;
 const LOTE = 20;
@@ -43,6 +47,24 @@ function gravarFila(sessaoId: string, fila: PosicaoGps[]) {
   }
 }
 
+/** Envia um lote de posições: no app pelo HTTP nativo (não fica lento em segundo plano); no navegador pelo fetch. */
+async function enviarLote(sessaoId: string, lote: PosicaoGps[]) {
+  const url = `/api/rastreio/sessoes/${sessaoId}/posicoes`;
+  let r: Awaited<ReturnType<typeof postarPeloApp>>;
+  try {
+    r = await postarPeloApp(url, { posicoes: lote });
+  } catch {
+    throw new ErroApi(0, "SEM_CONEXAO", "Sem conexão com o servidor.");
+  }
+  if (r === null) {
+    await requisitar(url, { metodo: "POST", corpo: { posicoes: lote } });
+    return;
+  }
+  if (r.status >= 200 && r.status < 300) return;
+  const d = (r.data && typeof r.data === "object" ? r.data : {}) as { codigo?: string; mensagem?: string };
+  throw new ErroApi(r.status, d.codigo ?? "ERRO", d.mensagem ?? `Erro ${r.status} ao enviar as posições.`);
+}
+
 const hora = (d: Date) => d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 type Fase = "parado" | "iniciando" | "transmitindo" | "encerrando";
@@ -62,6 +84,7 @@ function useTransmissao(aoMudar: () => void) {
   const sessao = useRef<string | null>(null);
   const fila = useRef<PosicaoGps[]>([]);
   const enviando = useRef(false);
+  const ultimoEnvio = useRef(0);
   const ultimaAmostra = useRef(0);
   const parar = useRef<() => void>(() => {});
   const temporizador = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -99,7 +122,8 @@ function useTransmissao(aoMudar: () => void) {
     try {
       while (fila.current.length && sessao.current === id) {
         const lote = fila.current.slice(0, LOTE);
-        await requisitar(`/api/rastreio/sessoes/${id}/posicoes`, { metodo: "POST", corpo: { posicoes: lote } });
+        await enviarLote(id, lote);
+        ultimoEnvio.current = Date.now();
         fila.current.splice(0, lote.length);
         gravarFila(id, fila.current);
         setSemInternet(false);
@@ -139,6 +163,8 @@ function useTransmissao(aoMudar: () => void) {
           gravarFila(id, fila.current);
           setNaFila(fila.current.length);
           setUltima(new Date(p.registradaEm));
+          // No app, com a tela apagada o relógio da página pode parar: cada posição nova também dispara o envio.
+          if (noApp() && Date.now() - ultimoEnvio.current >= INTERVALO_ENVIO_MS) void enviar();
         },
         (e) => setErroGps(e),
       );
@@ -184,7 +210,7 @@ function useTransmissao(aoMudar: () => void) {
   useEffect(() => {
     const aoMudarVisibilidade = () => {
       if (!sessao.current) return;
-      if (document.visibilityState === "hidden") setSaiuDaTela(true);
+      if (document.visibilityState === "hidden") { if (!noApp()) setSaiuDaTela(true); }
       else {
         void pedirTela();
         void enviar();
@@ -239,10 +265,17 @@ export function Motorista() {
       {rastreia && (
         <>
           <Aviso tipo="atencao" titulo="Antes de sair">
-            {AVISO_TELA_ABERTA}
+            {noApp() ? AVISO_APP : AVISO_TELA_ABERTA}
           </Aviso>
           {t.erro && <Aviso tipo="erro">{t.erro}</Aviso>}
-          {t.erroGps && <Aviso tipo="erro">{MENSAGEM_ERRO_GPS[t.erroGps]}</Aviso>}
+          {t.erroGps && (
+            <Aviso tipo="erro">
+              {noApp() && t.erroGps === "NEGADO" ? MENSAGEM_GPS_NEGADO_APP : MENSAGEM_ERRO_GPS[t.erroGps]}
+              {noApp() && t.erroGps === "NEGADO" && (
+                <> <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void gpsDoApp()?.openSettings()}>Abrir configurações</button></>
+              )}
+            </Aviso>
+          )}
           {t.saiuDaTela && t.fase === "transmitindo" && (
             <Aviso tipo="atencao" titulo="Você saiu desta tela">
               O rastreio pode ter parado enquanto a tela estava apagada ou outro app aberto. Se o ônibus não aparece para a equipe, encerre e inicie de novo.{" "}
@@ -280,7 +313,7 @@ export function Motorista() {
                       <small>
                         {t.ultima ? `Última posição às ${hora(t.ultima)}` : "Aguardando o primeiro sinal do GPS…"}
                         {t.naFila > 0 ? ` · ${t.naFila} na fila para enviar` : ""}
-                        {t.telaAcesa === false ? " · Não consegui manter a tela acesa: não deixe o celular apagar." : ""}
+                        {t.telaAcesa === false && !noApp() ? " · Não consegui manter a tela acesa: não deixe o celular apagar." : ""}
                       </small>
                     </div>
                   )}

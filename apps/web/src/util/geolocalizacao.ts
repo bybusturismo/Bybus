@@ -1,3 +1,4 @@
+import { gpsDoApp } from "./appCelular";
 /** Posição do GPS do celular, no formato que a API de rastreio recebe. */
 export interface PosicaoGps {
   lat: number;
@@ -34,6 +35,40 @@ export function observarPosicao(aoPosicao: (p: PosicaoGps) => void, aoErro: (e: 
     return () => {
       cancelado = true;
       parar();
+    };
+  }
+  // App By Bus: GPS em segundo plano (aviso fixo "By Bus — rastreio ligado"; continua com a tela apagada).
+  const nativo = gpsDoApp();
+  if (nativo) {
+    let id: string | null = null;
+    let parado = false;
+    void nativo.addWatcher(
+      {
+        backgroundTitle: "By Bus — rastreio ligado",
+        backgroundMessage: "Enviando a posição do ônibus para os passageiros. Encerre no app ao terminar o passeio.",
+        requestPermissions: true,
+        stale: false,
+        distanceFilter: 10,
+      },
+      (l, e) => {
+        if (e) return aoErro(e.code === "NOT_AUTHORIZED" ? "NEGADO" : "INDISPONIVEL");
+        if (!l) return;
+        aoPosicao({
+          lat: l.latitude,
+          lng: l.longitude,
+          precisaoM: Number.isFinite(l.accuracy) ? l.accuracy : null,
+          velocidade: l.speed != null && Number.isFinite(l.speed) && l.speed >= 0 ? l.speed : null,
+          direcao: l.bearing != null && Number.isFinite(l.bearing) && l.bearing >= 0 ? l.bearing : null,
+          registradaEm: new Date(l.time ?? Date.now()).toISOString(),
+        });
+      },
+    ).then((x) => {
+      id = x;
+      if (parado) void nativo.removeWatcher({ id: x });
+    }).catch(() => aoErro("INDISPONIVEL"));
+    return () => {
+      parado = true;
+      if (id) void nativo.removeWatcher({ id });
     };
   }
   if (typeof navigator === "undefined" || !navigator.geolocation) {

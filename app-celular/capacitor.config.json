@@ -8,7 +8,8 @@
     "errorPath": "index.html"
   },
   "android": {
-    "backgroundColor": "#FFFFFF"
+    "backgroundColor": "#FFFFFF",
+    "useLegacyBridge": true
   },
   "plugins": {
     "SplashScreen": {

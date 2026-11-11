@@ -14,6 +14,10 @@ Google Play depois, como empresa (US$ 25, uma vez; precisa do D-U-N-S, que dispe
   Sem ela os celulares não aceitam atualizar o app: não apagar; fazer cópia fora do servidor (a confirmar com o dono).
 - A versão é a data/hora da montagem (sempre maior que a anterior).
 
+## Rastreio em segundo plano (11/11/2026)
+O app tem o GPS em segundo plano para o motorista (ver `modulo-rastreio.md`). Depois de cada mudança na parte nativa, rodar de novo
+`gerar-app-android.sh` e os motoristas instalam por cima (mesmo link, sem desinstalar).
+
 ## Não feito ainda
 - Baixar arquivos dentro do app (CSV da lista, "Baixar" dos gabaritos): no Android o WebView não baixa sozinho; fase 2
   (mandar para o "Compartilhar" do celular, como no APP TOMA).

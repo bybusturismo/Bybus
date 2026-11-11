@@ -2,7 +2,7 @@ import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderizar, respostaJson, sessaoFicticia } from "../../teste/ajuda";
-import { AVISO_TELA_ABERTA, INTERVALO_ENVIO_MS, Motorista } from "./Motorista";
+import { AVISO_APP, AVISO_TELA_ABERTA, INTERVALO_ENVIO_MS, Motorista } from "./Motorista";
 
 const saida = { saidaId: "s1", passeio: "Toda a Ilha", data: "2026-11-05", veiculo: "ZZZ0Z00 (fictício)", sessao: null };
 const sessaoMotorista = () => sessaoFicticia("MOTORISTA", ["manifesto:ver", "rastreio:transmitir"]);
@@ -157,5 +157,33 @@ describe("Tela do motorista", () => {
     renderizar(<Motorista />, { sessao: sessaoFicticia("MOTORISTA", ["frota:checklist"]) });
     expect(await screen.findByRole("link", { name: /Checklist do veículo/ })).toHaveAttribute("href", "/frota/checklist");
     expect(screen.queryByText(AVISO_TELA_ABERTA)).not.toBeInTheDocument();
+  });
+
+  it("no app By Bus: GPS em segundo plano (aviso fixo), envio pelo HTTP nativo e sem pedir tela acesa", async () => {
+    let entregar: ((l: unknown, e?: unknown) => void) | null = null;
+    const addWatcher = vi.fn(async (_o: unknown, cb: (l: unknown, e?: unknown) => void) => { entregar = cb; return "w1"; });
+    const removeWatcher = vi.fn(async () => undefined);
+    const enviados: Array<{ url: string; headers: Record<string, string>; data: { posicoes: unknown[] } }> = [];
+    const request = vi.fn(async (o: { url: string; headers: Record<string, string>; data: { posicoes: unknown[] } }) => { enviados.push(o); return { status: 200, data: { aceitas: 1 } }; });
+    (globalThis as unknown as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true, Plugins: { BackgroundGeolocation: { addWatcher, removeWatcher, openSettings: vi.fn() }, CapacitorHttp: { request } } };
+    try {
+      servidor();
+      renderizar(<Motorista />, { sessao: sessaoMotorista() });
+      expect(await screen.findByText(AVISO_APP)).toBeInTheDocument();
+      const u = userEvent.setup();
+      await u.click(await screen.findByRole("button", { name: "Iniciar rastreio" }));
+      await waitFor(() => expect(addWatcher).toHaveBeenCalled());
+      expect(addWatcher.mock.calls[0]![0]).toMatchObject({ backgroundTitle: "By Bus — rastreio ligado", requestPermissions: true });
+      await act(async () => { entregar!({ latitude: -27.6, longitude: -48.5, accuracy: 9, speed: 4, bearing: 180, time: Date.now() }); });
+      // A primeira posição já dispara o envio (o relógio da página pode parar com a tela apagada).
+      await waitFor(() => expect(enviados).toHaveLength(1));
+      expect(enviados[0]!.url).toMatch(/\/api\/rastreio\/sessoes\/sess-1\/posicoes$/);
+      expect(enviados[0]!.headers["X-Bybus"]).toBe("1");
+      expect(enviados[0]!.data.posicoes[0]).toMatchObject({ lat: -27.6, lng: -48.5, precisaoM: 9, velocidade: 4, direcao: 180 });
+      await u.click(screen.getByRole("button", { name: "Encerrar rastreio" }));
+      await waitFor(() => expect(removeWatcher).toHaveBeenCalledWith({ id: "w1" }));
+    } finally {
+      Reflect.deleteProperty(globalThis, "Capacitor");
+    }
   });
 });

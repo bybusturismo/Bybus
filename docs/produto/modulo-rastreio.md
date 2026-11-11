@@ -57,6 +57,11 @@ Enfileirada ao iniciar o rastreio, **uma por reserva confirmada** (índice únic
 - Dados fictícios em todos os testes e na demonstração.
 
 ## Limitações conhecidas
+- **No app By Bus (Android, 11/11/2026) o GPS segue em segundo plano:** plugin `@capacitor-community/background-geolocation` 1.3.1
+  (serviço em primeiro plano com o aviso fixo "By Bus — rastreio ligado", `android.useLegacyBridge`), envio das posições pelo HTTP
+  nativo (`CapacitorHttp`, com os cookies da sessão e o cabeçalho X-Bybus) a cada posição nova depois de 15 s, porque o relógio
+  da página para com a tela apagada. Permissão de localização "Permitir" (enquanto o app está em uso basta, por causa do serviço);
+  Android 13+ pede também a de notificações. Código: `apps/web/src/util/appCelular.ts`, `geolocalizacao.ts`, `Motorista.tsx`.
 - **GPS no navegador para com a tela apagada ou outro app em primeiro plano.** Por isso a tela do motorista mostra sempre: "Mantenha esta tela aberta e o celular no carregador; se a tela apagar ou outro app abrir, o rastreio para." e usa Wake Lock (nem todo navegador oferece). A equipe vê "sem sinal há X min". **O definitivo é o app Android/iOS com rastreio em segundo plano — a fazer.**
 - **Bateria e dados:** GPS de alta precisão com a tela acesa gasta bateria (carregador no carro); o envio é pequeno (algumas centenas de bytes por posição, 1 lote a cada 15 s).
 - **Coordenadas dos pontos a cadastrar** (a confirmar com o dono; ver `docs/produto/plano-fase-2.md`). Sem elas não há previsão nem pontos no mapa.
