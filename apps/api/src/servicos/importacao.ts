@@ -1,4 +1,4 @@
-import { and, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, eq, like, or, sql } from "drizzle-orm";
 import { anonimizarReserva, type ReservaImportada, type VendaImportada } from "@bybus/core";
 import type { Db } from "../db/cliente.js";
 import { passageiros, passeios, pontosEmbarque, reservas, saidas, vendas } from "../db/schema.js";
@@ -159,6 +159,15 @@ export async function importarReservas(
           status: "CONFIRMADA",
           atualizadoEm: new Date(),
         }).where(eq(reservas.id, existente!.id));
+        // Vouchers por passageiro (para o QR Code no embarque): preenche quem ainda não tem, na ordem de cadastro.
+        const vouchers = item.passageiros.map((p) => p.voucher ?? null);
+        if (vouchers.some(Boolean)) {
+          const atuais = await tx.select({ id: passageiros.id, voucher: passageiros.voucher }).from(passageiros).where(eq(passageiros.reservaId, existente!.id)).orderBy(asc(passageiros.seq));
+          for (const [i, p] of atuais.entries()) {
+            const v = vouchers[i];
+            if (!p.voucher && v) await tx.update(passageiros).set({ voucher: v }).where(eq(passageiros.id, p.id));
+          }
+        }
         continue;
       }
 
@@ -185,7 +194,7 @@ export async function importarReservas(
       }).returning();
       if (item.passageiros.length) {
         await tx.insert(passageiros).values(
-          item.passageiros.map((p) => ({ reservaId: nova!.id, nome: p.nome, categoria: p.categoria, ...camposDocumento(cofre, p.documentoTipo, p.documento) })),
+          item.passageiros.map((p) => ({ reservaId: nova!.id, nome: p.nome, categoria: p.categoria, voucher: p.voucher ?? null, ...camposDocumento(cofre, p.documentoTipo, p.documento) })),
         );
       }
     }

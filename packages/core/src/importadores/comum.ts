@@ -37,6 +37,8 @@ export interface ReservaImportada {
     categoria: Categoria;
     documentoTipo: TipoDocumento | null;
     documento: string | null;
+    /** Código do voucher/ticket do passageiro no canal (é o que o QR Code do voucher da Paytour contém). */
+    voucher?: string | null;
   }>;
   avisos: string[];
 }

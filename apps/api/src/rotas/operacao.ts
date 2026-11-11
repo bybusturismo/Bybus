@@ -377,4 +377,43 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     await auditar(db, req, "EMBARQUE_REGISTRADO", { tipo: "passageiro", id }, { status });
     return p;
   });
+
+  /**
+   * Check-in pelo QR Code do voucher (pedido do dono, 11/11/2026): o QR da Paytour contém o número do ticket.
+   * Marca "Embarcou" todos os passageiros desta saída com aquele voucher (com quantidade > 1, o voucher é do grupo).
+   * Voucher de outra saída: avisa o passeio e a data, sem marcar nada.
+   */
+  app.post("/api/saidas/:id/embarque/voucher", { preHandler: exigir(config, "embarque:registrar") }, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const bruto = z.object({ codigo: z.string().trim().min(3).max(300) }).parse(req.body).codigo;
+    // O QR pode vir como número puro ou dentro de um link: fica o maior trecho de letras/números.
+    const codigo = (bruto.match(/[A-Za-z0-9-]{6,}/g) ?? [bruto]).sort((a, b) => b.length - a.length)[0]!;
+    await garantirSaida(db, req.usuario!, id);
+    const daSaida = await db.select({ p: passageiros, r: { id: reservas.id, pagamento: reservas.pagamento, valorCentavos: reservas.valorCentavos, contatoNome: reservas.contatoNome } })
+      .from(passageiros).innerJoin(reservas, eq(reservas.id, passageiros.reservaId))
+      .where(and(eq(reservas.saidaId, id), eq(reservas.status, "CONFIRMADA"), sql`(${passageiros.voucher} = ${codigo} or ${codigo} = any(${reservas.referencias}))`))
+      .orderBy(asc(passageiros.seq));
+    if (daSaida.length === 0) {
+      const [outra] = await db.select({ passeio: passeios.nome, data: saidas.data, status: reservas.status })
+        .from(passageiros).innerJoin(reservas, eq(reservas.id, passageiros.reservaId)).innerJoin(saidas, eq(saidas.id, reservas.saidaId)).innerJoin(passeios, eq(passeios.id, saidas.passeioId))
+        .where(sql`(${passageiros.voucher} = ${codigo} or ${codigo} = any(${reservas.referencias}))`).limit(1);
+      if (outra) throw new ErroHttp(409, "VOUCHER_DE_OUTRA_SAIDA", outra.status === "CANCELADA" ? "Este voucher é de uma reserva cancelada." : `Este voucher é de outra saída: ${outra.passeio}, ${outra.data.split("-").reverse().join("/")}.`);
+      throw new ErroHttp(404, "VOUCHER_NAO_ENCONTRADO", "Voucher não encontrado nesta saída. Confira o número ou procure o passageiro na lista.");
+    }
+    // Só os passageiros com aquele voucher; se o voucher é da reserva (OTA), a reserva toda.
+    const comVoucher = daSaida.filter((x) => x.p.voucher === codigo);
+    const alvo = comVoucher.length ? comVoucher : daSaida;
+    const pendentes = alvo.filter((x) => x.p.embarque !== "EMBARCOU");
+    if (pendentes.length) {
+      await db.update(passageiros).set({ embarque: "EMBARCOU", embarqueEm: new Date(), embarquePor: req.usuario!.id }).where(inArray(passageiros.id, pendentes.map((x) => x.p.id)));
+      await auditar(db, req, "EMBARQUE_VOUCHER", { tipo: "saida", id }, { passageiros: pendentes.length });
+    }
+    const r = alvo[0]!.r;
+    return {
+      embarcados: pendentes.map((x) => ({ id: x.p.id, nome: x.p.nome || r.contatoNome })),
+      jaEmbarcados: alvo.length - pendentes.length,
+      pagamento: r.pagamento,
+      valorACobrarCentavos: r.pagamento === "A_PAGAR" ? r.valorCentavos : null,
+    };
+  });
 }

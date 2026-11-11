@@ -308,8 +308,10 @@ export const passageiros = pgTable("passageiros", {
   embarque: statusEmbarqueEnum().notNull().default("PENDENTE"),
   embarqueEm: timestamp({ withTimezone: true }),
   embarquePor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  /** Código do voucher/ticket no canal (o QR Code do voucher da Paytour), para o check-in pela câmera (11/11/2026). */
+  voucher: text(),
   criadoEm: agora(),
-}, (t) => [index("passageiros_reserva_idx").on(t.reservaId)]);
+}, (t) => [index("passageiros_reserva_idx").on(t.reservaId), index("passageiros_voucher_idx").on(t.voucher)]);
 
 /** Estado de cada integração automática (ex.: até quando os pedidos da Paytour já foram lidos). */
 export const integracoesEstado = pgTable("integracoes_estado", {

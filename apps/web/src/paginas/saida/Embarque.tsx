@@ -7,6 +7,7 @@ import { useSessao } from "../../sessao/Sessao";
 import { ROTULO_CATEGORIA, ROTULO_EMBARQUE } from "../../util/rotulos";
 import { useSaida } from "./SaidaLayout";
 import { SituacaoPagamento } from "./ListaPassageiros";
+import { LeitorVoucher } from "./LeitorVoucher";
 
 export function contarBloco(b: BlocoManifesto) {
   const esperados = b.linhas.length;
@@ -45,7 +46,7 @@ export function comEmbarque(dados: RespostaManifesto, passageiroId: string, stat
  * Telefone dos clientes não aparece nesta tela.
  */
 export function Embarque() {
-  const { dados, carga } = useSaida();
+  const { id, dados, carga } = useSaida();
   const { pode } = useSessao();
   const podeRegistrar = pode("embarque:registrar");
   const blocos = dados.manifesto.blocos;
@@ -55,6 +56,7 @@ export function Embarque() {
   });
   const [enviando, setEnviando] = useState<Set<string>>(new Set());
   const [erro, setErro] = useState<string | null>(null);
+  const [lendoQr, setLendoQr] = useState(false);
 
   const total = dados.manifesto.totais;
   const bloco = blocos.find((b) => chaveBloco(b) === ativo) ?? blocos[0];
@@ -96,6 +98,12 @@ export function Embarque() {
         </button>
       </div>
 
+      {podeRegistrar && (
+        <button type="button" className="botao botao--primario embarque__qr" onClick={() => setLendoQr(true)}>
+          <Icone nome="camera" tamanho={22} /> Ler QR Code do voucher
+        </button>
+      )}
+      {lendoQr && <LeitorVoucher saidaId={id} aoFechar={() => { setLendoQr(false); void carga.recarregar(); }} aoRegistrar={() => void carga.recarregar()} />}
       {!podeRegistrar && <Aviso tipo="info">Seu perfil pode ver o embarque, mas não registrá-lo.</Aviso>}
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
 

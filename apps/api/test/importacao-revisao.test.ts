@@ -61,6 +61,29 @@ describe("importação depois da revisão", () => {
     expect(await ponto()).toBe("Hotel Ibis");
   });
 
+  it("check-in pelo QR Code do voucher: marca o embarque, avisa a cobrança e recusa voucher de outra saída", async () => {
+    const c = new Cliente(app);
+    await c.login("atendente@bybus.test");
+    await importar(c, "New booking", email("VIA-777000555", "Mon 26.Oct '26"));
+    await importar(c, "New booking", email("VIA-777000666", "Tue 27.Oct '26"));
+    await banco.query("update passageiros set voucher = '924074225171781496807' where reserva_id = (select id from reservas where codigo_externo = 'VIA-777000555')");
+    await banco.query("update reservas set pagamento = 'A_PAGAR', valor_centavos = 17000 where codigo_externo = 'VIA-777000555'");
+    const saida = async (cod: string) => (await banco.query("select saida_id from reservas where codigo_externo = $1", [cod])).rows[0].saida_id as string;
+    const s1 = await saida("VIA-777000555");
+    const s2 = await saida("VIA-777000666");
+    const guia = new Cliente(app);
+    await guia.login("guia@bybus.test");
+    const r = await guia.req("POST", `/api/saidas/${s1}/embarque/voucher`, { codigo: "924074225171781496807" });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toMatchObject({ jaEmbarcados: 0, pagamento: "A_PAGAR", valorACobrarCentavos: 17000 });
+    expect(r.json().embarcados).toHaveLength(2);
+    expect((await guia.req("POST", `/api/saidas/${s1}/embarque/voucher`, { codigo: "924074225171781496807" })).json()).toMatchObject({ embarcados: [], jaEmbarcados: 2 });
+    const outra = await guia.req("POST", `/api/saidas/${s2}/embarque/voucher`, { codigo: "924074225171781496807" });
+    expect(outra.statusCode).toBe(409);
+    expect(outra.json().mensagem).toMatch(/outra saída.*26\/10\/2026/);
+    expect((await guia.req("POST", `/api/saidas/${s2}/embarque/voucher`, { codigo: "000000000000" })).statusCode).toBe(404);
+  });
+
   it("reserva cancelada no sistema não volta sozinha quando o canal ainda a mostra ativa", async () => {
     const c = new Cliente(app);
     await c.login("atendente@bybus.test");

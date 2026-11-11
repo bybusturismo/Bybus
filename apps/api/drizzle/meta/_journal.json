@@ -281,6 +281,13 @@
       "when": 1794405888496,
       "tag": "0039_drive_veiculos",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794406736192,
+      "tag": "0040_voucher_passageiro",
+      "breakpoints": true
     }
   ]
 }

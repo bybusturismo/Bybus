@@ -37,9 +37,9 @@ describe("pedidoPaytourParaReservas", () => {
       contatoNome: "Cliente Fictício", pontoEmbarqueTexto: "Hotel Majestic", cancelada: false,
     });
     expect(r!.passageiros).toEqual([
-      { nome: "Pessoa Um Fictícia", categoria: "ADULTO", documentoTipo: "CPF", documento: "529.982.247-25" },
-      { nome: "", categoria: "INFANTIL", documentoTipo: null, documento: null },
-      { nome: "", categoria: "INFANTIL", documentoTipo: null, documento: null },
+      { nome: "Pessoa Um Fictícia", categoria: "ADULTO", documentoTipo: "CPF", documento: "529.982.247-25", voucher: "59525165252" },
+      { nome: "", categoria: "INFANTIL", documentoTipo: null, documento: null, voucher: null },
+      { nome: "", categoria: "INFANTIL", documentoTipo: null, documento: null, voucher: null },
     ]);
     expect(r!.referencias).toEqual(expect.arrayContaining(["VIA-107000001", "59525165252"]));
     expect(r!.avisos).toEqual([]);

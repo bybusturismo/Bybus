@@ -244,6 +244,8 @@ export function pedidoPaytourParaReservas(pedido: PedidoPaytour, afiliados: Reco
           categoria: categoria ?? "ADULTO",
           documentoTipo: q === 0 && documentoBruto && !ficticio ? tipoDocumentoPorValor(documentoBruto) : null,
           documento: q === 0 && documentoBruto && !ficticio ? documentoBruto : null,
+          // O voucher é do item: com quantidade > 1, todas as pessoas do item têm o mesmo código.
+          voucher: texto(item.voucher_code),
         });
       }
     }

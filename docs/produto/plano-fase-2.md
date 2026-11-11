@@ -108,3 +108,11 @@ Ajustes do dono no mesmo dia: a lista não mostra mais o código da reserva, o t
 no checkbox da impressão e na etiqueta quando já marcado); mostra o **telefone** de contato e o **documento completo** por padrão
 (exigência da fiscalização de trânsito do turismo). O perfil padrão GUIA ganhou "Ver documentos completos" (migração 0036);
 cada visualização com documento completo continua registrada na auditoria.
+
+### Check-in pelo QR Code do voucher (pedido do dono, 11/11/2026)
+O QR Code do voucher da Paytour contém só o número do **Ticket** (conferido num voucher de teste). No **Modo embarque**, o botão
+"Ler QR Code do voucher" abre a câmera (BarcodeDetector quando existe; jsQR 1.4.0 no iPhone) ou aceita o número digitado. O
+sistema marca "Embarcou" os passageiros daquele voucher (com quantidade > 1, o voucher é do grupo), avisa se é preciso cobrar e
+recusa voucher de outra saída (mostra passeio e data). Cada passageiro guarda o seu voucher (`passageiros.voucher`); as reservas
+antigas ganham o voucher na próxima leitura da Paytour ("Reler a partir da data"). O voucher da reserva (referências) também vale.
+A gravação do check-in na própria Paytour (ADR 0009) segue pendente da API.
