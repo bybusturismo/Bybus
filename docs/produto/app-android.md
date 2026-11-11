@@ -18,7 +18,7 @@ Google Play depois, como empresa (US$ 25, uma vez; precisa do D-U-N-S, que dispe
 - Baixar arquivos dentro do app (CSV da lista, "Baixar" dos gabaritos): no Android o WebView não baixa sozinho; fase 2
   (mandar para o "Compartilhar" do celular, como no APP TOMA).
 - iPhone (conta Apple de US$ 99/ano), avisos no celular, Google Play.
-- A montagem não foi testada nesta sessão (as ferramentas do Google são bloqueadas aqui); o primeiro teste é no servidor.
+- Montagem no servidor funcionou em 11/11/2026 (segunda tentativa, depois de corrigir a linha da versão no build.gradle).
 
 ## Câmera no site
 O cabeçalho `Permissions-Policy` do Caddy bloqueava a câmera (`camera=()`); desde 11/11/2026 é `camera=(self)`, para o QR Code
