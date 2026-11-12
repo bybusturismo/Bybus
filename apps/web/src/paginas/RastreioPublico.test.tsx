@@ -32,7 +32,7 @@ afterEach(() => vi.useRealTimers());
 describe("Página pública do rastreio", () => {
   it("mostra o ônibus no mapa, o ponto do cliente e quanto falta", async () => {
     render(<RastreioPublico token={TOKEN} />);
-    expect(await screen.findByText("O ônibus chega ao seu ponto em")).toBeInTheDocument();
+    expect(await screen.findByText("O City Tour chega ao seu ponto em")).toBeInTheDocument();
     expect(screen.getByText("~12 min")).toBeInTheDocument();
     expect(screen.getByText(/08:15 — Hotel Fictício/)).toBeInTheDocument();
     const mapa = await screen.findByTestId("mapa");
@@ -54,7 +54,7 @@ describe("Página pública do rastreio", () => {
   it("antes de sair não mostra ônibus nem previsão", async () => {
     corpo = { ...base, situacao: "NAO_INICIADO", onibus: null, previsao: null };
     render(<RastreioPublico token={TOKEN} />);
-    expect(await screen.findByText(/O ônibus ainda não saiu/)).toBeInTheDocument();
+    expect(await screen.findByText(/O City Tour ainda não saiu/)).toBeInTheDocument();
     expect(screen.getByTestId("mapa")).toHaveAttribute("data-onibus", "nao");
     expect(screen.queryByText(/min$/)).not.toBeInTheDocument();
   });
@@ -68,7 +68,7 @@ describe("Página pública do rastreio", () => {
   it("sem sinal avisa há quantos minutos e mostra a última posição", async () => {
     corpo = { ...base, situacao: "SEM_SINAL", minutosSemSinal: 6, previsao: null };
     render(<RastreioPublico token={TOKEN} />);
-    expect(await screen.findByText(/Sem sinal do ônibus há 6 min/)).toBeInTheDocument();
+    expect(await screen.findByText(/Sem sinal do City Tour há 6 min/)).toBeInTheDocument();
     expect(screen.getByTestId("mapa")).toHaveAttribute("data-onibus", "sim");
   });
 
@@ -95,6 +95,6 @@ describe("Página pública do rastreio", () => {
     expect(mensagemPrincipal(i).texto).toMatch(/Não temos o seu ponto/);
     const j = { ...base, previsao: { situacao: "SEM_PREVISAO", minutos: null, motivo: "SEM_COORDENADAS", estimativa: true } } as never;
     expect(mensagemPrincipal(j).texto).toMatch(/previsão para o seu ponto ainda não está disponível/);
-    expect(mensagemPrincipal({ ...base, previsao: { situacao: "NO_PONTO", minutos: 0, motivo: null, estimativa: true } } as never).texto).toBe("O ônibus está no seu ponto!");
+    expect(mensagemPrincipal({ ...base, previsao: { situacao: "NO_PONTO", minutos: 0, motivo: null, estimativa: true } } as never).texto).toBe("O City Tour está no seu ponto!");
   });
 });

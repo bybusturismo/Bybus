@@ -8,6 +8,29 @@ import { NAO, type Rotear } from "./comum";
 export const TOKEN_DEMO = "demonstracao-rastreio-ficticio-0000";
 const SAIDA_1 = "rastreio-saida-1";
 const SAIDA_2 = "rastreio-saida-2";
+const SAIDA_ONTEM = "rastreio-saida-ontem";
+
+/** Histórico fictício de ontem: horários reais de passagem (minutos de diferença do previsto; null = pulou). */
+const ATRASOS_ONTEM = [2, 4, null, 7, 5, 3];
+function historicoDeOntem(dia: string) {
+  const em = (horario: string, min: number) => new Date(new Date(`${dia}T${horario}:00-03:00`).getTime() + min * 60_000).toISOString();
+  const pontos = PONTOS.map((x, i) => {
+    const d = ATRASOS_ONTEM[i];
+    return { id: x.id, nome: x.nome, horario: x.horario, lat: x.lat, lng: x.lng, passou: d !== null, passouEm: d === null || d === undefined ? null : em(x.horario, d), pulou: d === null };
+  });
+  const inicio = pontos[0]!.passouEm!;
+  const fim = pontos[pontos.length - 1]!.passouEm!;
+  const t0 = new Date(inicio).getTime();
+  const t1 = new Date(fim).getTime();
+  const trajeto: Array<{ lat: number; lng: number; em: string }> = [];
+  for (let k = 0; k <= 120; k++) {
+    const p = pontoNaRota((TOTAL * k) / 120);
+    trajeto.push({ lat: p.lat, lng: p.lng, em: new Date(t0 + ((t1 - t0) * k) / 120).toISOString() });
+  }
+  const km = Math.round(TOTAL / 100) / 10;
+  const duracaoMin = Math.round((t1 - t0) / 60_000);
+  return { pontos, trajeto, resumo: { inicio, fim, duracaoMin, km, velocidadeMediaKmh: Math.round((km / duracaoMin) * 60), velocidadeMaximaKmh: 62 } };
+}
 /** Metros por segundo do ônibus fictício (108 km/h: simulação acelerada para a demonstração ser visível). */
 const VELOCIDADE_MS = 30;
 const PONTO_DO_CLIENTE = 3;
@@ -101,7 +124,10 @@ export const rotearRastreio: Rotear = (ctx, metodo, caminho, q, c) => {
   if (metodo === "GET" && caminho === "/api/rastreio/minhas-saidas") {
     ctx.exigir("rastreio:transmitir");
     percorrido(agora);
-    return [{ saidaId: SAIDA_1, passeio: "Toda a Ilha (demonstração)", data: ctx.dataMais(0), veiculo: "DEM1A23", sessao: aberta }];
+    return [
+      { saidaId: SAIDA_1, tipo: "TRANSFER", passeio: "Toda a Ilha (demonstração)", data: ctx.dataMais(0), veiculo: "DEM1A23", sessao: null },
+      { saidaId: SAIDA_1, tipo: "ONIBUS", passeio: "Toda a Ilha (demonstração)", data: ctx.dataMais(0), veiculo: "DEM1A23", sessao: aberta },
+    ];
   }
   if (metodo === "POST" && r(/^\/api\/rastreio\/saidas\/([^/]+)\/iniciar$/)) {
     ctx.exigir("rastreio:transmitir");
@@ -130,6 +156,11 @@ export const rotearRastreio: Rotear = (ctx, metodo, caminho, q, c) => {
   // ---------- Equipe ----------
   if (metodo === "GET" && caminho === "/api/rastreio/saidas") {
     ctx.exigir("manifesto:ver");
+    if (q.get("data") === ctx.dataMais(-1)) {
+      const h = historicoDeOntem(ctx.dataMais(-1));
+      return [{ saidaId: SAIDA_ONTEM, passeio: "Toda a Ilha (demonstração)", data: ctx.dataMais(-1), motorista: "Motorista Fictício Davi", veiculo: "DEM1A23", situacao: "ENCERRADO", minutosSemSinal: null,
+        sessao: { id: "rastreio-sessao-ontem", iniciadaEm: h.resumo.inicio, encerradaEm: h.resumo.fim }, ultimaPosicao: h.trajeto[h.trajeto.length - 1], pontos: { total: PONTOS.length, comCoordenadas: PONTOS.length } }];
+    }
     if ((q.get("data") ?? ctx.dataMais(0)) !== ctx.dataMais(0)) return [];
     percorrido(agora);
     const s = situacao(agora);
@@ -142,6 +173,11 @@ export const rotearRastreio: Rotear = (ctx, metodo, caminho, q, c) => {
   }
   if (metodo === "GET" && r(/^\/api\/rastreio\/saidas\/([^/]+)$/)) {
     ctx.exigir("manifesto:ver");
+    if (m![1] === SAIDA_ONTEM) {
+      const h = historicoDeOntem(ctx.dataMais(-1));
+      return { saidaId: SAIDA_ONTEM, passeio: "Toda a Ilha (demonstração)", data: ctx.dataMais(-1), motorista: "Motorista Fictício Davi", veiculo: "DEM1A23", situacao: "ENCERRADO", minutosSemSinal: null,
+        sessao: { id: "rastreio-sessao-ontem", iniciadaEm: h.resumo.inicio, encerradaEm: h.resumo.fim }, ultimaPosicao: h.trajeto[h.trajeto.length - 1], ...h };
+    }
     if (m![1] === SAIDA_2) {
       return { saidaId: SAIDA_2, passeio: "City Tour Balneário Camboriú (demonstração)", data: ctx.dataMais(0), motorista: "Motorista Fictício Edu", veiculo: "DEM2B34", situacao: "NAO_INICIADO", minutosSemSinal: null, sessao: null, ultimaPosicao: null,
         pontos: PONTOS_BC.map((p) => ({ ...p, lat: null, lng: null, passou: false })), trajeto: [] };

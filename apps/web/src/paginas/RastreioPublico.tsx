@@ -23,15 +23,15 @@ interface InfoRastreio {
 /** Texto principal da página, conforme a situação. */
 export function mensagemPrincipal(i: InfoRastreio): { texto: string; minutos?: number; tom: "info" | "ok" | "alerta" } {
   if (i.situacao === "ENCERRADO") return { texto: "O acompanhamento deste passeio foi encerrado.", tom: "info" };
-  if (i.situacao === "NAO_INICIADO") return { texto: "O ônibus ainda não saiu. Esta página atualiza sozinha.", tom: "info" };
-  if (i.situacao === "AGUARDANDO_SINAL") return { texto: "O ônibus está saindo e ainda não temos a posição. Esta página atualiza sozinha.", tom: "info" };
-  const sem = i.situacao === "SEM_SINAL" ? ` Sem sinal do ônibus há ${i.minutosSemSinal ?? "alguns"} min; mostramos a última posição.` : "";
-  if (i.jaPassou || i.previsao?.situacao === "JA_PASSOU") return { texto: `O ônibus já passou pelo seu ponto.${sem}`, tom: "alerta" };
-  if (i.previsao?.situacao === "NO_PONTO") return { texto: "O ônibus está no seu ponto!", tom: "ok" };
-  if (i.previsao?.situacao === "A_CAMINHO" && i.previsao.minutos != null) return { texto: "O ônibus chega ao seu ponto em", minutos: i.previsao.minutos, tom: "ok" };
-  if (i.situacao === "SEM_SINAL") return { texto: `Sem sinal do ônibus há ${i.minutosSemSinal ?? "alguns"} min. Mostramos a última posição.`, tom: "alerta" };
-  if (!i.ponto) return { texto: "O ônibus está a caminho. Não temos o seu ponto de embarque: fale com a nossa equipe para ver a previsão.", tom: "info" };
-  return { texto: "O ônibus está a caminho. A previsão para o seu ponto ainda não está disponível.", tom: "info" };
+  if (i.situacao === "NAO_INICIADO") return { texto: "O City Tour ainda não saiu. Esta página atualiza sozinha.", tom: "info" };
+  if (i.situacao === "AGUARDANDO_SINAL") return { texto: "O City Tour está saindo e ainda não temos a posição. Esta página atualiza sozinha.", tom: "info" };
+  const sem = i.situacao === "SEM_SINAL" ? ` Sem sinal do City Tour há ${i.minutosSemSinal ?? "alguns"} min; mostramos a última posição.` : "";
+  if (i.jaPassou || i.previsao?.situacao === "JA_PASSOU") return { texto: `O City Tour já passou pelo seu ponto.${sem}`, tom: "alerta" };
+  if (i.previsao?.situacao === "NO_PONTO") return { texto: "O City Tour está no seu ponto!", tom: "ok" };
+  if (i.previsao?.situacao === "A_CAMINHO" && i.previsao.minutos != null) return { texto: "O City Tour chega ao seu ponto em", minutos: i.previsao.minutos, tom: "ok" };
+  if (i.situacao === "SEM_SINAL") return { texto: `Sem sinal do City Tour há ${i.minutosSemSinal ?? "alguns"} min. Mostramos a última posição.`, tom: "alerta" };
+  if (!i.ponto) return { texto: "O City Tour está a caminho. Não temos o seu ponto de embarque: fale com a nossa equipe para ver a previsão.", tom: "info" };
+  return { texto: "O City Tour está a caminho. A previsão para o seu ponto ainda não está disponível.", tom: "info" };
 }
 
 /** Página do link de rastreio (sem login): ônibus no mapa, ponto do cliente e previsão. Atualiza a cada 20 s. */
@@ -99,7 +99,12 @@ export function RastreioPublico({ token, incorporado = false }: { token: string;
               Seu ponto de embarque: <strong>{info.ponto.horario} — {info.ponto.nome}</strong>
             </p>
           )}
-          {(info.onibus || todosPontos.length > 0) && <MapaRastreio rotulo="Mapa com o ônibus e o seu ponto de embarque" onibus={info.onibus} pontos={todosPontos} altura="20rem" />}
+          {info.ponto && (
+            <p className="rastreio-publico__nota">
+              <strong>Não há tolerância para atrasos.</strong> Esteja no ponto alguns minutos antes. Se perder o embarque, dirija-se ao próximo ponto de embarque.
+            </p>
+          )}
+          {(info.onibus || todosPontos.length > 0) && <MapaRastreio rotulo="Mapa com o City Tour e o seu ponto de embarque" onibus={info.onibus} pontos={todosPontos} altura="20rem" />}
           {falhaTemporaria && <p className="rastreio-publico__nota">Sem conexão no momento. Mostrando a última informação; tentamos de novo em instantes.</p>}
           <p className="rastreio-publico__nota">
             O horário é uma estimativa e pode mudar com o trânsito. A página atualiza sozinha a cada 20 segundos.
@@ -115,7 +120,7 @@ export function RastreioPublico({ token, incorporado = false }: { token: string;
       <main className="cartao-acesso cartao-acesso--largo rastreio-publico" id="conteudo">
         <div className="cartao-acesso__marca cartao-acesso__marca--centro">
           <img className="cartao-acesso__logo" src={logoVertical} alt="By Bus Turismo" width={66} height={96} />
-          <h1>Acompanhe o ônibus</h1>
+          <h1>Acompanhe o City Tour</h1>
         </div>
         {conteudo}
       </main>

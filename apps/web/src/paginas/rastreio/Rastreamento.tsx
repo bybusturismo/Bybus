@@ -103,7 +103,7 @@ export function Rastreamento() {
       <div className="pagina__cabecalho">
         <div>
           <h1>Rastreamento</h1>
-          <p className="pagina__descricao">Onde está o ônibus de cada saída, vindo do celular do motorista. Atualiza sozinho a cada 15 segundos.</p>
+          <p className="pagina__descricao">Onde está cada saída (transfer e City Tour), pelo celular do motorista. Atualiza sozinho a cada 15 segundos. Escolha um dia passado para ver o histórico do trajeto.</p>
         </div>
       </div>
       <div className="filtros" role="search" aria-label="Escolher o dia">
@@ -152,9 +152,9 @@ export function Rastreamento() {
                 {d.situacao === "NAO_INICIADO" && <Aviso tipo="info">O motorista ainda não iniciou o rastreio desta saída.</Aviso>}
                 {d.situacao === "SEM_SINAL" && <Aviso tipo="atencao">Sem sinal do celular do motorista há {d.minutosSemSinal} min. A tela pode ter apagado, o app ter sido trocado ou o celular estar sem internet.</Aviso>}
                 {erroAcao && <Aviso tipo="erro">{erroAcao}</Aviso>}
-                <MapaRastreio rotulo={`Mapa do ônibus de ${d.passeio}`} onibus={onibus} pontos={pontosMapa} trajeto={trajeto} />
+                <MapaRastreio rotulo={`Mapa de ${d.passeio}`} onibus={onibus} pontos={pontosMapa} trajeto={trajeto} />
                 <p className="texto-fraco">
-                  {onibus && d.ultimaPosicao ? `Última posição às ${hora(d.ultimaPosicao.em)}.` : "Sem posição para mostrar."}{" "}
+                  {onibus && d.ultimaPosicao ? `Última posição às ${hora(d.ultimaPosicao.em)}.` : d.situacao === "ENCERRADO" && trajeto.length > 1 ? "Rastreio encerrado. A linha azul mostra o caminho feito." : "Sem posição para mostrar."}{" "}
                   {d.sessao && !d.sessao.encerradaEm ? `Rastreio iniciado às ${hora(d.sessao.iniciadaEm)}.` : ""}
                 </p>
               </div>
