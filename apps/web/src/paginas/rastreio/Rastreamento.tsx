@@ -28,8 +28,17 @@ interface SaidaRastreio {
 }
 interface Detalhe extends Omit<SaidaRastreio, "pontos" | "ultimaPosicao"> {
   ultimaPosicao: { lat: number; lng: number; em: string } | null;
-  pontos: Array<{ id: string; nome: string; horario: string; lat: number | null; lng: number | null; passou: boolean }>;
+  pontos: Array<{ id: string; nome: string; horario: string; lat: number | null; lng: number | null; passou: boolean; passouEm?: string | null; pulou?: boolean }>;
   trajeto: Array<{ lat: number; lng: number; em: string }>;
+  resumo?: { inicio: string | null; fim: string | null; duracaoMin: number; km: number; velocidadeMediaKmh: number | null; velocidadeMaximaKmh: number | null };
+}
+
+/** Diferença em minutos entre o horário previsto ("HH:MM") e o real (Brasília). */
+function atraso(previsto: string, real: string): number | null {
+  const m = /^(\d{2}):(\d{2})$/.exec(previsto);
+  if (!m) return null;
+  const [h, min] = new Date(real).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).split(":").map(Number) as [number, number];
+  return h * 60 + min - (Number(m[1]) * 60 + Number(m[2]));
 }
 
 const ATUALIZAR_MS = 15_000;
@@ -52,11 +61,12 @@ export function Rastreamento() {
   const [data, setData] = useState(hojeIso());
   const [escolhida, setEscolhida] = useState<string | null>(null);
   const [cliente, setCliente] = useState(false);
+  const [tipo, setTipo] = useState<"ONIBUS" | "TRANSFER">("ONIBUS");
   const [erroAcao, setErroAcao] = useState<string | null>(null);
 
   const lista = useCarregar((s) => api.get<SaidaRastreio[]>(`/api/rastreio/saidas?data=${data}`, s), [data]);
   const alvo = escolhida ?? lista.dados?.[0]?.saidaId ?? null;
-  const detalhe = useCarregar((s) => (alvo ? api.get<Detalhe>(`/api/rastreio/saidas/${alvo}`, s) : Promise.resolve(null)), [alvo]);
+  const detalhe = useCarregar((s) => (alvo ? api.get<Detalhe>(`/api/rastreio/saidas/${alvo}?tipo=${tipo}`, s) : Promise.resolve(null)), [alvo, tipo]);
 
   // Atualiza sozinho enquanto a tela está visível.
   const { recarregar: recarregarLista } = lista;
@@ -100,6 +110,13 @@ export function Rastreamento() {
         <div className="campo">
           <label htmlFor="rs-data">Dia</label>
           <input id="rs-data" type="date" value={data} onChange={(e) => { setData(e.target.value || hojeIso()); setEscolhida(null); }} />
+        </div>
+        <div className="campo">
+          <label htmlFor="rs-tipo">Veículo</label>
+          <select id="rs-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as "ONIBUS" | "TRANSFER")}>
+            <option value="ONIBUS">Ônibus (pontos de embarque)</option>
+            <option value="TRANSFER">Van do transfer (hotéis)</option>
+          </select>
         </div>
       </div>
 
@@ -149,14 +166,31 @@ export function Rastreamento() {
                     {pode("produtos:gerenciar") ? <Link to="/passeios">Cadastrar em Passeios e pontos</Link> : "Peça a quem gerencia os passeios para cadastrar."}
                   </Aviso>
                 )}
-                <ol className="rastreio-pontos">
-                  {d.pontos.map((p) => (
-                    <li key={p.id} className={p.passou ? "passou" : undefined}>
-                      {p.horario} — {p.nome}
-                      {p.lat === null ? " (sem coordenadas)" : ""}
-                    </li>
-                  ))}
-                </ol>
+                {d.resumo?.inicio && (
+                  <p className="texto-fraco">
+                    Trajeto de {hora(d.resumo.inicio)} a {hora(d.resumo.fim!)} · {d.resumo.duracaoMin} min · {d.resumo.km.toLocaleString("pt-BR")} km
+                    {d.resumo.velocidadeMediaKmh !== null ? ` · média ${d.resumo.velocidadeMediaKmh} km/h` : ""}
+                    {d.resumo.velocidadeMaximaKmh !== null ? ` · máxima ${d.resumo.velocidadeMaximaKmh} km/h` : ""}
+                  </p>
+                )}
+                <div className="tabela-rolagem">
+                  <table className="tabela tabela--compacta rastreio-historico">
+                    <thead><tr><th scope="col">Previsto</th><th scope="col">{tipo === "TRANSFER" ? "Hotel" : "Ponto"}</th><th scope="col">Passou</th><th scope="col">Diferença</th></tr></thead>
+                    <tbody>
+                      {d.pontos.map((p) => {
+                        const dif = p.passouEm ? atraso(p.horario, p.passouEm) : null;
+                        return (
+                          <tr key={p.id} className={p.pulou ? "linha--atencao" : undefined}>
+                            <td className="sem-quebra">{p.horario || "—"}</td>
+                            <td>{p.nome}{p.lat === null ? <span className="texto-fraco"> (sem coordenadas)</span> : ""}</td>
+                            <td className="sem-quebra">{p.passouEm ? hora(p.passouEm) : p.pulou ? <span className="etiqueta etiqueta--perigo">Pulou</span> : <span className="texto-fraco">—</span>}</td>
+                            <td className="sem-quebra">{dif === null ? "" : dif === 0 ? "no horário" : dif > 0 ? <span className="texto-atencao">{dif} min atrasado</span> : `${-dif} min adiantado`}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
                 <div className="modal__acoes">
                   {import.meta.env.VITE_DEMO === "1" && (
                     <button type="button" className="botao botao--secundario" onClick={() => setCliente(true)}>

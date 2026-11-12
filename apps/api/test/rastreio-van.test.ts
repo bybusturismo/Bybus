@@ -69,6 +69,7 @@ describe("rastreio da van e do ônibus, com avisos de chegada", () => {
     expect(await tipos(ids.resA)).toEqual(["VAN_CHEGANDO", "VAN_CHEGOU"]);
     expect(await tipos(ids.resOnibus)).toEqual([]); // cliente do ponto não recebe aviso da van
 
+    await comDb((db) => db.update(transferReservas).set({ situacao: "BUSCADO" }).where(eq(transferReservas.reservaId, ids.resA)));
     const onibus = await mot.req("POST", `/api/rastreio/saidas/${ids.saida}/iniciar`, { tipo: "ONIBUS" });
     expect(onibus.statusCode, onibus.body).toBe(201);
     const [sVan] = await comDb((db) => db.select().from(rastreioSessoes).where(eq(rastreioSessoes.id, vanId)));
@@ -76,7 +77,7 @@ describe("rastreio da van e do ônibus, com avisos de chegada", () => {
     // Ônibus a ~1 km do ponto: avisa o cliente do ponto, não os do transfer (estão na van).
     await mot.req("POST", `/api/rastreio/sessoes/${onibus.json().sessaoId}/posicoes`, { posicoes: [pos(ids.ponto.lat, ids.ponto.lng - 1 * KM)] });
     expect(await tipos(ids.resOnibus)).toEqual(["ONIBUS_CHEGANDO", "RASTREIO"]);
-    expect((await tipos(ids.resA)).filter((t) => t.startsWith("ONIBUS"))).toEqual([]);
+    expect((await tipos(ids.resA)).filter((t) => t.startsWith("ONIBUS") || t === "RASTREIO")).toEqual([]); // buscado pela van: já está a bordo
     const [m] = await comDb((db) => db.select().from(mensagens).where(and(eq(mensagens.reservaId, ids.resOnibus), eq(mensagens.tipo, "ONIBUS_CHEGANDO"))));
     expect(m!.texto).toMatch(/^Olá, Otto! O ônibus do passeio .+ chega em cerca de 5 minutos em /);
   });

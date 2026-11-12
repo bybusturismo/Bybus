@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import { atualizarVisitado, preverChegada, PRECISAO_MAXIMA_M, situacaoSinal, velocidadeMediaKmh } from "@bybus/core";
+import { analisarTrajeto, atualizarVisitado, preverChegada, PRECISAO_MAXIMA_M, situacaoSinal, velocidadeMediaKmh } from "@bybus/core";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
@@ -224,25 +224,39 @@ export async function rotasRastreio(app: FastifyInstance, { db, config }: Contex
     }));
   });
 
+  /**
+   * Histórico de um dia (gestão, 11/11/2026): trajeto feito (todas as sessões do dia, ônibus ou van), horário em que passou em
+   * cada parada (previsto × real), paradas puladas, duração, km e velocidades. Não é público.
+   */
   app.get("/api/rastreio/saidas/:saidaId", equipe, async (req) => {
     const { saidaId } = z.object({ saidaId: uuid }).parse(req.params);
+    const { tipo } = z.object({ tipo: z.enum(["ONIBUS", "TRANSFER"]).default("ONIBUS") }).parse(req.query);
     await garantirSaida(db, req.usuario!, saidaId);
     const [r] = await db.select({ saida: saidas, passeio: passeios }).from(saidas).innerJoin(passeios, eq(passeios.id, saidas.passeioId)).where(eq(saidas.id, saidaId));
-    const sessao = await ultimaSessao(db, saidaId);
+    const sessao = await ultimaSessao(db, saidaId, tipo);
     const sinal = situacaoSinal(sessao, new Date());
-    const rota = await pontosDaRota(db, r!.passeio.id);
-    const trajeto = sessao
-      ? await db.select({ lat: rastreioPosicoes.lat, lng: rastreioPosicoes.lng, em: rastreioPosicoes.registradaEm }).from(rastreioPosicoes)
-        .where(eq(rastreioPosicoes.sessaoId, sessao.id)).orderBy(asc(rastreioPosicoes.registradaEm)).limit(3000)
+    const paradas = tipo === "TRANSFER"
+      ? (await paradasDoTransfer(db, saidaId)).map((x) => ({ id: x.id, nome: x.local ?? "Hotel a informar", horario: x.horario ?? "", latitude: x.latitude, longitude: x.longitude }))
+      : (await pontosDaRota(db, r!.passeio.id)).map((x) => ({ id: x.id, nome: x.nome, horario: x.horario, latitude: x.latitude, longitude: x.longitude }));
+    const sessoes = await db.select({ id: rastreioSessoes.id }).from(rastreioSessoes).where(and(eq(rastreioSessoes.saidaId, saidaId), eq(rastreioSessoes.tipo, tipo)));
+    const trajeto = sessoes.length
+      ? await db.select({ lat: rastreioPosicoes.lat, lng: rastreioPosicoes.lng, em: rastreioPosicoes.registradaEm, velocidade: rastreioPosicoes.velocidade }).from(rastreioPosicoes)
+        .where(inArray(rastreioPosicoes.sessaoId, sessoes.map((x) => x.id))).orderBy(asc(rastreioPosicoes.registradaEm)).limit(6000)
       : [];
+    const analise = analisarTrajeto(paradas.map(coordenadaDe), trajeto);
     const ultima = trajeto.at(-1) ?? null;
     return {
-      saidaId, passeio: r!.passeio.nome, data: r!.saida.data, motorista: r!.saida.motorista, veiculo: r!.saida.veiculo,
+      saidaId, tipo, passeio: r!.passeio.nome, data: r!.saida.data, motorista: r!.saida.motorista, veiculo: r!.saida.veiculo,
       situacao: sinal.situacao, minutosSemSinal: sinal.minutosSemSinal,
       sessao: sessao ? { id: sessao.id, iniciadaEm: sessao.iniciadaEm, encerradaEm: sessao.encerradaEm } : null,
-      ultimaPosicao: ultima,
-      pontos: rota.map((p, i) => ({ id: p.id, nome: p.nome, horario: p.horario, lat: p.latitude, lng: p.longitude, passou: !!sessao && i <= sessao.ultimoPontoVisitado })),
-      trajeto,
+      ultimaPosicao: ultima ? { lat: ultima.lat, lng: ultima.lng, em: ultima.em } : null,
+      pontos: paradas.map((p, i) => ({
+        id: p.id, nome: p.nome, horario: p.horario, lat: p.latitude, lng: p.longitude,
+        passou: !!analise.passagens[i] || (!!sessao && tipo === "ONIBUS" && i <= sessao.ultimoPontoVisitado),
+        passouEm: analise.passagens[i], pulou: analise.pulados[i],
+      })),
+      resumo: analise.resumo,
+      trajeto: trajeto.map((t) => ({ lat: t.lat, lng: t.lng, em: t.em })),
     };
   });
 

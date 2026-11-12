@@ -40,7 +40,7 @@ export async function ultimaSessao(db: Db, saidaId: string, tipo: TipoRastreio =
 /** Paradas da van: as reservas do transfer do dia, na ordem de busca, com o local e o ponto no mapa. */
 export async function paradasDoTransfer(db: Db, saidaId: string) {
   return db.select({
-    id: transferReservas.id, reservaId: transferReservas.reservaId, situacao: transferReservas.situacao,
+    id: transferReservas.id, reservaId: transferReservas.reservaId, situacao: transferReservas.situacao, horario: transferReservas.horarioBusca,
     local: sql<string | null>`coalesce(${transferReservas.enderecoBusca}, ${reservas.hospedagemInformada})`,
     latitude: transferReservas.latitude, longitude: transferReservas.longitude,
   }).from(transferReservas).innerJoin(transferDias, eq(transferDias.id, transferReservas.transferDiaId)).innerJoin(reservas, eq(reservas.id, transferReservas.reservaId))
@@ -132,24 +132,26 @@ export async function avisarChegadas(db: Db, config: Config, p: {
 export async function gerarLinkRastreio(db: Db, reservaId: string, data: string) {
   const token = randomBytes(24).toString("base64url");
   const expiraEm = fimDoDia(data);
-  await db.insert(rastreioLinks).values({ reservaId, tokenHash: hashToken(token), expiraEm })
-    .onConflictDoUpdate({ target: rastreioLinks.reservaId, set: { tokenHash: hashToken(token), expiraEm } });
+  await db.insert(rastreioLinks).values({ reservaId, tokenHash: hashToken(token), expiraEm });
   return token;
 }
 
 /**
- * Ao iniciar o rastreio: enfileira a mensagem RASTREIO (uma por reserva confirmada; respeita o modo simulado).
- * Reiniciar o rastreio no mesmo dia não reenvia nem troca o link já enviado.
- * Sem URL pública configurada não há como montar o link: nada é enfileirado.
+ * Ao iniciar o rastreio do ônibus (o motorista liga quando sai do 1º ponto): enfileira a mensagem RASTREIO ("o ônibus já saiu" +
+ * link do mapa) só para quem AINDA NÃO EMBARCOU (dono, 11/11/2026): quem já embarcou no 1º ponto e quem veio na van do transfer
+ * (buscado) não recebe. Uma por reserva (reiniciar no mesmo dia não reenvia). Sem URL pública não há link: nada é enfileirado.
  */
 export async function enviarLinksRastreio(db: Db, config: Config, saida: { id: string; data: string }, passeioNome: string) {
   if (!config.URL_PUBLICA) return { enfileiradas: 0, semUrlPublica: true };
   const base = config.URL_PUBLICA.replace(/\/$/, "");
   const ativas = await db.select().from(reservas).where(and(eq(reservas.saidaId, saida.id), eq(reservas.status, "CONFIRMADA")));
   const jaTem = new Set((await db.select({ id: mensagens.reservaId }).from(mensagens).where(and(eq(mensagens.saidaId, saida.id), eq(mensagens.tipo, "RASTREIO")))).map((m) => m.id));
-  // Quem já recebeu o link do mapa na confirmação da véspera não recebe outra mensagem (o dono paga por mensagem).
   const ids = ativas.map((r) => r.id);
-  if (ids.length) for (const l of await db.select({ id: rastreioLinks.reservaId }).from(rastreioLinks).where(inArray(rastreioLinks.reservaId, ids))) jaTem.add(l.id);
+  if (ids.length) {
+    // Já embarcou (marcado pela guia) ou já está na van do transfer: não precisa do aviso.
+    for (const x of await db.selectDistinct({ id: passageiros.reservaId }).from(passageiros).where(and(inArray(passageiros.reservaId, ids), eq(passageiros.embarque, "EMBARCOU")))) jaTem.add(x.id);
+    for (const x of await paradasDoTransfer(db, saida.id)) if (x.situacao === "BUSCADO") jaTem.add(x.reservaId);
+  }
   let enfileiradas = 0;
   for (const r of ativas) {
     if (jaTem.has(r.id)) continue;

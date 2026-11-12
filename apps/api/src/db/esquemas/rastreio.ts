@@ -37,10 +37,14 @@ export const rastreioPosicoes = pgTable("rastreio_posicoes", {
   index("rastreio_posicoes_tempo_idx").on(t.registradaEm),
 ]);
 
-/** Link público de acompanhamento por reserva: só o hash SHA-256 do token fica no banco. */
+/**
+ * Link público de acompanhamento: só o hash SHA-256 do token fica no banco. Uma reserva pode ter mais de um link válido
+ * (o da confirmação da véspera e o da saída do ônibus, 11/11/2026): gerar um novo não derruba o anterior.
+ */
 export const rastreioLinks = pgTable("rastreio_links", {
-  reservaId: uuid().primaryKey().references(() => reservas.id, { onDelete: "cascade" }),
+  id: uuid().primaryKey().defaultRandom(),
+  reservaId: uuid().notNull().references(() => reservas.id, { onDelete: "cascade" }),
   tokenHash: text().notNull().unique(),
   expiraEm: timestamp({ withTimezone: true }).notNull(),
   criadoEm: agora(),
-});
+}, (t) => [index("rastreio_links_reserva_idx").on(t.reservaId)]);

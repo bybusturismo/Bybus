@@ -79,3 +79,34 @@ export function kmPeloTracado(tracado: readonly Coordenada[], posicao: Coordenad
   for (let i = melhor; i < ate; i++) km += distanciaKm(tracado[i]!, tracado[i + 1]!);
   return km;
 }
+
+/**
+ * Análise do trajeto feito (gestão, 11/11/2026): horário em que passou em cada parada (a primeira posição a até 150 m, em ordem),
+ * paradas puladas (não passou, mas passou numa seguinte), duração, km percorridos e velocidades.
+ */
+export function analisarTrajeto(paradas: ReadonlyArray<Coordenada | null>, posicoes: ReadonlyArray<{ lat: number; lng: number; em: Date; velocidade: number | null }>, raioM = 150) {
+  const passagens: Array<Date | null> = paradas.map(() => null);
+  let desde = 0;
+  for (const [i, p] of paradas.entries()) {
+    if (!p) continue;
+    for (let j = desde; j < posicoes.length; j++) {
+      if (distanciaKm(p, posicoes[j]!) * 1000 <= raioM) { passagens[i] = posicoes[j]!.em; desde = j; break; }
+    }
+  }
+  const ultimaPassada = passagens.reduce((u, x, i) => (x ? i : u), -1);
+  const pulados = passagens.map((x, i) => !x && !!paradas[i] && i < ultimaPassada);
+  let km = 0;
+  for (let j = 1; j < posicoes.length; j++) km += distanciaKm(posicoes[j - 1]!, posicoes[j]!);
+  const inicio = posicoes[0]?.em ?? null;
+  const fim = posicoes.at(-1)?.em ?? null;
+  const horas = inicio && fim ? (fim.getTime() - inicio.getTime()) / 3_600_000 : 0;
+  const velocidades = posicoes.map((p) => p.velocidade).filter((v): v is number => v !== null && Number.isFinite(v)).map((v) => v * 3.6);
+  return {
+    passagens, pulados,
+    resumo: {
+      inicio, fim, duracaoMin: Math.round(horas * 60), km: Math.round(km * 10) / 10,
+      velocidadeMediaKmh: horas > 0 ? Math.round(km / horas) : null,
+      velocidadeMaximaKmh: velocidades.length ? Math.round(Math.max(...velocidades)) : null,
+    },
+  };
+}

@@ -302,8 +302,7 @@ describe("rota pública", () => {
   it("reserva sem ponto não tem previsão; depois do ponto do cliente, já passou", async () => {
     const sem = await comDb(async (db) => {
       const t = "semponto-token-ficticio-0000000001";
-      await db.insert(rastreioLinks).values({ reservaId: ids.reservaSemPonto, tokenHash: hashToken(t), expiraEm: new Date(Date.now() + 3_600_000) })
-        .onConflictDoUpdate({ target: rastreioLinks.reservaId, set: { tokenHash: hashToken(t) } });
+      await db.insert(rastreioLinks).values({ reservaId: ids.reservaSemPonto, tokenHash: hashToken(t), expiraEm: new Date(Date.now() + 3_600_000) });
       return t;
     });
     const r = (await publico(sem)).json();
