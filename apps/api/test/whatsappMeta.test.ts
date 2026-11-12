@@ -154,7 +154,7 @@ describe("modelos para aprovação", () => {
     expect(sit.modelos.find((m: { nome: string }) => m.nome === "bybus_rastreio")).toMatchObject({ status: "REJECTED", motivo: "INVALID_FORMAT" });
     expect(sit.modelos.find((m: { nome: string }) => m.nome === "bybus_confirmacao").status).toBe("NAO_ENVIADO");
     const r = (await admin.req("POST", "/api/whatsapp/meta/modelos/enviar")).json();
-    expect(r.enviados.sort()).toEqual(["bybus_chegando", "bybus_chegou", "bybus_confirmacao", "bybus_lista_equipe"]);
+    expect(r.enviados.sort()).toEqual(["bybus_confirmacao", "bybus_embarque_chegando", "bybus_embarque_chegou", "bybus_lista_equipe", "bybus_transfer_chegando", "bybus_transfer_chegou"]);
     const post = chamadas.find((c) => c.metodo === "POST")!;
     expect(post.url).toBe("https://graph.facebook.com/v23.0/9876543210/message_templates");
     expect(post.corpo).toMatchObject({ language: "pt_BR", category: "UTILITY", components: [{ type: "BODY" }] });

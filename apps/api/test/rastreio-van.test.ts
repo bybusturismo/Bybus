@@ -79,7 +79,10 @@ describe("rastreio da van e do ônibus, com avisos de chegada", () => {
     expect(await tipos(ids.resOnibus)).toEqual(["ONIBUS_CHEGANDO", "RASTREIO"]);
     expect((await tipos(ids.resA)).filter((t) => t.startsWith("ONIBUS") || t === "RASTREIO")).toEqual([]); // buscado pela van: já está a bordo
     const [m] = await comDb((db) => db.select().from(mensagens).where(and(eq(mensagens.reservaId, ids.resOnibus), eq(mensagens.tipo, "ONIBUS_CHEGANDO"))));
-    expect(m!.texto).toMatch(/^Olá, Otto! O ônibus do passeio .+ chega em cerca de 5 minutos em /);
+    expect(m!.texto).toMatch(/^Olá, Otto! O City Tour \*.+\* chega em cerca de 5 minutos ao ponto de embarque \*.+\*\.\nEsteja no ponto agora: não há tolerância para atrasos\. /);
+    const [v] = await comDb((db) => db.select().from(mensagens).where(and(eq(mensagens.reservaId, ids.resA), eq(mensagens.tipo, "VAN_CHEGOU"))));
+    expect(v!.texto).toMatch(/^Olá, .+! O transfer da By Bus chegou em .+ e está te esperando\./);
+    expect(v!.texto).not.toMatch(/van|ônibus/i);
   });
 
   it("a equipe corrige o ponto do hotel no mapa colando as coordenadas; endereço novo apaga o ponto antigo", async () => {

@@ -112,10 +112,10 @@ export function Rastreamento() {
           <input id="rs-data" type="date" value={data} onChange={(e) => { setData(e.target.value || hojeIso()); setEscolhida(null); }} />
         </div>
         <div className="campo">
-          <label htmlFor="rs-tipo">Veículo</label>
+          <label htmlFor="rs-tipo">Etapa</label>
           <select id="rs-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as "ONIBUS" | "TRANSFER")}>
-            <option value="ONIBUS">Ônibus (pontos de embarque)</option>
-            <option value="TRANSFER">Van do transfer (hotéis)</option>
+            <option value="ONIBUS">City Tour (pontos de embarque)</option>
+            <option value="TRANSFER">Transfer (hotéis)</option>
           </select>
         </div>
       </div>

@@ -28,9 +28,9 @@ export const MODELOS_META: readonly ModeloMeta[] = [
     exemplo: ["Ana", "City Tour Toda Ilha", "sábado (14/11/2026)", "Embarque: *08:00* — Villa Romana Shopping (ponto de táxi). Aguarde no local 10 minutos antes: o ônibus é pontual e não há tolerância para atrasos.", "No dia, acompanhe o ônibus no mapa por aqui: https://gestao.bybusturismo.com.br/rastreio/exemplo"],
   },
   {
-    nome: "bybus_rastreio", categoria: "UTILITY", idioma: "pt_BR", descricao: "Ônibus saiu: link para acompanhar",
-    corpo: "Olá, {{1}}! O ônibus do passeio *{{2}}* já saiu.\nAcompanhe no mapa e veja quanto falta para ele chegar ao seu ponto: {{3}}\nO horário é uma estimativa e pode variar com o trânsito. — Equipe By Bus",
-    exemplo: ["Ana", "City Tour Toda Ilha", "https://gestao.bybusturismo.com.br/rastreio/exemplo"],
+    nome: "bybus_rastreio", categoria: "UTILITY", idioma: "pt_BR", descricao: "City Tour saiu: link para acompanhar",
+    corpo: "Olá, {{1}}! O City Tour *{{2}}* já saiu.\nAcompanhe no mapa e veja quanto falta para ele chegar ao seu ponto: {{3}}\nO horário é uma estimativa e pode variar com o trânsito. — Equipe By Bus",
+    exemplo: ["Ana", "Toda a Ilha", "https://gestao.bybusturismo.com.br/rastreio/exemplo"],
   },
   {
     nome: "bybus_lista_equipe", categoria: "UTILITY", idioma: "pt_BR", descricao: "Lista de passageiros pronta (guia e motorista)",
@@ -38,14 +38,24 @@ export const MODELOS_META: readonly ModeloMeta[] = [
     exemplo: ["Guia", "City Tour Toda Ilha", "sábado (14/11/2026)", "versão 1", "https://gestao.bybusturismo.com.br/saidas/exemplo"],
   },
   {
-    nome: "bybus_chegando", categoria: "UTILITY", idioma: "pt_BR", descricao: "Van/ônibus chega em cerca de 5 minutos",
-    corpo: "Olá, {{1}}! {{2}} chega em cerca de 5 minutos em {{3}}.\nPor favor, aguarde no local. — Equipe By Bus",
-    exemplo: ["Ana", "A van do transfer da By Bus", "Pousada Exemplo, Canasvieiras"],
+    nome: "bybus_transfer_chegando", categoria: "UTILITY", idioma: "pt_BR", descricao: "Transfer chega em cerca de 5 minutos",
+    corpo: "Olá, {{1}}! O transfer da By Bus chega em cerca de 5 minutos em {{2}}.\nPor favor, já aguarde na recepção ou na entrada, com seus pertences em mãos. — Equipe By Bus",
+    exemplo: ["Ana", "Pousada Exemplo, Canasvieiras"],
   },
   {
-    nome: "bybus_chegou", categoria: "UTILITY", idioma: "pt_BR", descricao: "Van/ônibus chegou ao local de embarque",
-    corpo: "Olá, {{1}}! {{2}} chegou em {{3}}.\nEstamos te esperando! — Equipe By Bus",
-    exemplo: ["Ana", "O ônibus do passeio City Tour Toda Ilha", "Villa Romana Shopping"],
+    nome: "bybus_transfer_chegou", categoria: "UTILITY", idioma: "pt_BR", descricao: "Transfer chegou ao local de busca",
+    corpo: "Olá, {{1}}! O transfer da By Bus chegou em {{2}} e está te esperando.\nPor favor, dirija-se à entrada agora. — Equipe By Bus",
+    exemplo: ["Ana", "Pousada Exemplo, Canasvieiras"],
+  },
+  {
+    nome: "bybus_embarque_chegando", categoria: "UTILITY", idioma: "pt_BR", descricao: "City Tour chega ao ponto de embarque em cerca de 5 minutos",
+    corpo: "Olá, {{1}}! O City Tour *{{2}}* chega em cerca de 5 minutos ao ponto de embarque *{{3}}*.\nEsteja no ponto agora: não há tolerância para atrasos. {{4}} — Equipe By Bus",
+    exemplo: ["Ana", "Toda a Ilha", "Villa Romana Shopping", "Se perder o embarque, dirija-se ao próximo ponto: Trevo da Seta."],
+  },
+  {
+    nome: "bybus_embarque_chegou", categoria: "UTILITY", idioma: "pt_BR", descricao: "City Tour chegou ao ponto de embarque",
+    corpo: "Olá, {{1}}! O City Tour *{{2}}* chegou ao ponto de embarque *{{3}}* e sai em instantes.\nNão há tolerância para atrasos. {{4}} — Equipe By Bus",
+    exemplo: ["Ana", "Toda a Ilha", "Villa Romana Shopping", "Se não chegar a tempo, dirija-se ao próximo ponto: Trevo da Seta."],
   },
 ];
 
@@ -71,16 +81,30 @@ export function modeloConfirmacao(d: DadosConfirmacao): UsoModelo {
 }
 
 export function modeloRastreio(d: { primeiroNome: string; passeio: string; link: string }): UsoModelo {
-  return uso("bybus_rastreio", [nome(d.primeiroNome), d.passeio, d.link]);
+  return uso("bybus_rastreio", [nome(d.primeiroNome), nomeCityTour(d.passeio), d.link]);
 }
 
 export function modeloListaEquipe(d: { primeiroNome: string; passeio: string; data: string; versao: number; link: string }): UsoModelo {
   return uso("bybus_lista_equipe", [nome(d.primeiroNome), d.passeio, diaComData(d.data), d.versao > 1 ? `lista atualizada, versão ${d.versao}` : "versão 1", d.link]);
 }
 
-/** Aviso de chegada (11/11/2026): `quem` = "A van do transfer da By Bus" ou "O ônibus do passeio X". */
-export function modeloChegada(tipo: "CHEGANDO" | "CHEGOU", d: { primeiroNome: string; quem: string; local: string }): UsoModelo {
-  return uso(tipo === "CHEGANDO" ? "bybus_chegando" : "bybus_chegou", [nome(d.primeiroNome), d.quem, d.local]);
+/** Nome do passeio depois de "City Tour" (evita "City Tour City Tour Toda a Ilha"). */
+export const nomeCityTour = (passeio: string) => passeio.replace(/^\s*city\s*tour\s*[-–:·]?\s*/i, "").trim() || passeio;
+
+/**
+ * Avisos de chegada (11/11/2026; textos revistos pelo dono em 12/11/2026). O veículo não importa (o transfer pode ser van,
+ * carro ou o próprio ônibus): fala-se em "transfer" e "City Tour". No City Tour: sem tolerância para atrasos; quem perder
+ * segue para o próximo ponto de embarque (`proximoPonto`, ou null se este for o último).
+ */
+export function modeloChegada(
+  tipo: "CHEGANDO" | "CHEGOU",
+  d: { rastreio: "TRANSFER" | "ONIBUS"; primeiroNome: string; passeio: string; local: string; proximoPonto?: string | null },
+): UsoModelo {
+  if (d.rastreio === "TRANSFER") return uso(tipo === "CHEGANDO" ? "bybus_transfer_chegando" : "bybus_transfer_chegou", [nome(d.primeiroNome), d.local]);
+  const seguir = d.proximoPonto
+    ? `${tipo === "CHEGANDO" ? "Se perder o embarque" : "Se não chegar a tempo"}, dirija-se ao próximo ponto: ${d.proximoPonto}.`
+    : "Se não chegar a tempo, responda esta mensagem para falar com a equipe.";
+  return uso(tipo === "CHEGANDO" ? "bybus_embarque_chegando" : "bybus_embarque_chegou", [nome(d.primeiroNome), nomeCityTour(d.passeio), d.local, seguir]);
 }
 
 /** Texto final de um modelo com os parâmetros (o que o cliente lê; vai para a conversa na tela). */

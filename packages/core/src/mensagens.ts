@@ -131,11 +131,11 @@ export function textoPrevia(d: { primeiroNome: string; passeio: string; data: st
   return linhas.join("\n");
 }
 
-/** Mensagem enviada quando o motorista inicia o rastreio: o link para acompanhar o ônibus. [A CONFIRMAR] texto oficial com o dono. */
+/** Mensagem enviada quando o motorista inicia o rastreio: o link para acompanhar o City Tour. */
 export function textoRastreio(d: { primeiroNome: string; passeio: string; link: string }): string {
   const ola = d.primeiroNome ? `Olá, ${d.primeiroNome}!` : "Olá!";
   return [
-    `${ola} O ônibus do passeio *${d.passeio}* já saiu.`,
+    `${ola} O City Tour *${d.passeio.replace(/^\s*city\s*tour\s*[-–:·]?\s*/i, "").trim() || d.passeio}* já saiu.`,
     `Acompanhe no mapa e veja quanto falta para ele chegar ao seu ponto: ${d.link}`,
     "O horário é uma estimativa e pode variar com o trânsito. — Equipe By Bus",
   ].join("\n");

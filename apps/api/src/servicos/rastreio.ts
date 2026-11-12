@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
-import { avisosDeChegada, compararPontos, indicesNoTracado, modeloChegada, modeloRastreio, quemChega, renderizarModeloMeta, textoRastreio, type TipoRastreio } from "@bybus/core";
+import { avisosDeChegada, compararPontos, indicesNoTracado, modeloChegada, modeloRastreio, renderizarModeloMeta, textoRastreio, type TipoRastreio } from "@bybus/core";
 import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
 import { mensagens, passageiros, passeios, pontosEmbarque, rastreioLinks, rastreioPosicoes, rastreioSessoes, reservas, saidas, transferDias, transferReservas } from "../db/schema.js";
@@ -110,14 +110,16 @@ export async function avisarChegadas(db: Db, config: Config, p: {
   const rota = p.tipo === "ONIBUS" ? await rotaDoPasseio(db, p.saida.passeioId, coords) : null;
   const a = avisosDeChegada({ paradas: coords, visitadoAntes: p.visitadoAntes, visitadoAgora: p.visitadoAgora, posicao: p.posicao, velocidadeKmh: p.velocidadeKmh, rota });
   const alvo = [...a.chegou.map((i) => ({ i, tipo: "CHEGOU" as const })), ...a.chegando.map((i) => ({ i, tipo: "CHEGANDO" as const }))];
-  const quem = quemChega(p.tipo, p.passeio);
   let enfileiradas = 0;
   for (const { i, tipo } of alvo) {
     const parada = paradas[i]!;
     if (!parada.reservas.length) continue;
     const lista = await db.select({ id: reservas.id, nome: reservas.contatoNome, telefone: reservas.contatoTelefone }).from(reservas).where(inArray(reservas.id, parada.reservas));
     for (const r of lista) {
-      const modelo = modeloChegada(tipo, { primeiroNome: r.nome.split(/[\s,]+/).filter(Boolean)[0] ?? "", quem, local: parada.local });
+      const modelo = modeloChegada(tipo, {
+        rastreio: p.tipo, primeiroNome: r.nome.split(/[\s,]+/).filter(Boolean)[0] ?? "", passeio: p.passeio, local: parada.local,
+        proximoPonto: p.tipo === "ONIBUS" ? (paradas[i + 1]?.local ?? null) : null,
+      });
       const m = await enfileirarMensagem(db, config, { tipo: TIPO_MENSAGEM[p.tipo][tipo], reservaId: r.id, saidaId: p.saida.id, destino: r.telefone, texto: renderizarModeloMeta(modelo), modelo });
       if (m) enfileiradas++;
     }

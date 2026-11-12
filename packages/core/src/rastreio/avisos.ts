@@ -33,6 +33,3 @@ export function avisosDeChegada(p: {
   }
   return { chegando, chegou };
 }
-
-/** Texto para o cliente: "A van do transfer da By Bus" / "O ônibus do passeio X". */
-export const quemChega = (tipo: TipoRastreio, passeio: string) => (tipo === "TRANSFER" ? "A van do transfer da By Bus" : `O ônibus do passeio ${passeio}`);

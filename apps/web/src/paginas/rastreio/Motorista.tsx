@@ -260,7 +260,7 @@ export function Motorista() {
       <div className="pagina__cabecalho">
         <div>
           <h1>Motorista</h1>
-          <p className="pagina__descricao">{rastreia ? "Suas saídas de hoje. Ao iniciar o rastreio, os passageiros recebem o link para acompanhar o ônibus." : "Acesso rápido do motorista."}</p>
+          <p className="pagina__descricao">{rastreia ? "Suas saídas de hoje. Ao iniciar o rastreio do City Tour, os passageiros recebem o link para acompanhar no mapa." : "Acesso rápido do motorista."}</p>
         </div>
       </div>
 
@@ -288,7 +288,7 @@ export function Motorista() {
           )}
           {t.saiuDaTela && t.fase === "transmitindo" && (
             <Aviso tipo="atencao" titulo="Você saiu desta tela">
-              O rastreio pode ter parado enquanto a tela estava apagada ou outro app aberto. Se o ônibus não aparece para a equipe, encerre e inicie de novo.{" "}
+              O rastreio pode ter parado enquanto a tela estava apagada ou outro app aberto. Se o veículo não aparece para a equipe, encerre e inicie de novo.{" "}
               <button type="button" className="botao botao--fantasma botao--pequeno" onClick={t.dispensarAviso}>
                 Entendi
               </button>
@@ -315,8 +315,8 @@ export function Motorista() {
               return (
                 <section key={chaveDe(s)} className="cartao motorista__saida" aria-labelledby={`sd-${chaveDe(s)}`}>
                   <div>
-                    <h2 id={`sd-${chaveDe(s)}`}>{van ? `Transfer (van) · ${s.passeio}` : temVan ? `Ônibus · ${s.passeio}` : s.passeio}</h2>
-                    {van && <p className="texto-fraco">Busca nos hotéis. Os clientes recebem “a van chega em 5 minutos” e “a van chegou”. Ao começar o ônibus, a van encerra sozinha.</p>}
+                    <h2 id={`sd-${chaveDe(s)}`}>{van ? `Transfer · ${s.passeio}` : temVan ? `City Tour · ${s.passeio}` : s.passeio}</h2>
+                    {van && <p className="texto-fraco">Busca nos hotéis (van, carro ou o próprio ônibus). Cada cliente recebe “o transfer chega em 5 minutos” e “o transfer chegou”. Ao iniciar o City Tour, o transfer encerra sozinho.</p>}
                     <p className="texto-fraco">
                       {formatarDataExtenso(s.data)}
                       {s.veiculo ? ` · ${s.veiculo}` : ""}
@@ -324,7 +324,7 @@ export function Motorista() {
                   </div>
                   {minha && (
                     <div className={`motorista__estado${t.semInternet || t.erroGps ? " motorista__estado--alerta" : ""}`} role="status">
-                      <span>{t.fase === "iniciando" ? "Iniciando…" : t.fase === "encerrando" ? "Encerrando…" : t.semInternet ? "Sem internet: guardando as posições" : van ? "Transmitindo a posição da van" : "Transmitindo a posição do ônibus"}</span>
+                      <span>{t.fase === "iniciando" ? "Iniciando…" : t.fase === "encerrando" ? "Encerrando…" : t.semInternet ? "Sem internet: guardando as posições" : van ? "Transmitindo a posição do transfer" : "Transmitindo a posição do City Tour"}</span>
                       <small>
                         {t.ultima ? `Última posição às ${hora(t.ultima)}` : "Aguardando o primeiro sinal do GPS…"}
                         {t.naFila > 0 ? ` · ${t.naFila} na fila para enviar` : ""}
@@ -341,14 +341,14 @@ export function Motorista() {
                     </button>
                   ) : (
                     <button type="button" className="botao botao--primario botao--grande" onClick={() => void t.iniciar(s)} disabled={outraAtiva || t.fase === "iniciando"}>
-                      {abertaNoServidor ? "Continuar rastreio" : van ? "Iniciar rastreio da van" : temVan ? "Iniciar rastreio do ônibus" : "Iniciar rastreio"}
+                      {abertaNoServidor ? "Continuar rastreio" : van ? "Iniciar rastreio do transfer" : temVan ? "Iniciar rastreio do City Tour" : "Iniciar rastreio"}
                     </button>
                   )}
                 </section>
               );
             })
           )}
-          <p className="campo__ajuda">O rastreio usa o GPS e a internet do celular (consumo baixo de dados, mas a bateria cai mais rápido). Só a posição do ônibus é enviada, e só enquanto o rastreio está ligado.</p>
+          <p className="campo__ajuda">O rastreio usa o GPS e a internet do celular (consumo baixo de dados, mas a bateria cai mais rápido). Só a posição do veículo é enviada, e só enquanto o rastreio está ligado.</p>
         </>
       )}
     </div>

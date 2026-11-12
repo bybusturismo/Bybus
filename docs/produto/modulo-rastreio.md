@@ -94,7 +94,12 @@ Enfileirada ao iniciar o rastreio, **uma por reserva confirmada** (índice únic
   150 m), **uma vez por reserva e tipo** (VAN_CHEGANDO, VAN_CHEGOU, ONIBUS_CHEGANDO, ONIBUS_CHEGOU). Ônibus: clientes de cada
   ponto, menos os do transfer (estão na van) e quem já embarcou. Van: cada hotel, menos buscado/não apareceu. Posições com mais
   de 2 min (fila que estava sem internet) não disparam aviso. Mesmo telefone em duas reservas: uma mensagem só.
-- **Modelos da Meta novos:** `bybus_chegando` e `bybus_chegou` (enviar para aprovação em Integrações). Custo: 2 mensagens por
+- **Textos (revistos pelo dono em 12/11/2026):** o veículo não importa (o transfer pode ser van, carro ou o próprio ônibus), então
+  as mensagens falam em **transfer** e **City Tour**, nunca em van/ônibus. No City Tour, o aviso diz que **não há tolerância para
+  atrasos** e que, se perder, o cliente deve ir ao **próximo ponto de embarque** (o nome dele vai na mensagem; no último ponto,
+  "responda esta mensagem para falar com a equipe"). O link do mapa diz "O City Tour *Toda a Ilha* já saiu".
+- **Modelos da Meta:** `bybus_transfer_chegando`, `bybus_transfer_chegou`, `bybus_embarque_chegando` e `bybus_embarque_chegou`
+  (substituem `bybus_chegando`/`bybus_chegou`; se esses já foram enviados à Meta, podem ser apagados lá; enviar os novos para aprovação em Integrações). Custo: 2 mensagens por
   reserva em cada trajeto (valor por mensagem na tabela da Meta, a confirmar). Até o WhatsApp oficial estar ligado, ficam na fila.
 - Equipe: Rastreamento mostra também a situação da van.
 
