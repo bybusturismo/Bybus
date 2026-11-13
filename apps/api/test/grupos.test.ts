@@ -89,6 +89,32 @@ describe("grupos fechados (13/11/2026)", () => {
     expect((await pub.req("GET", `/api/publico/lista-grupo/${tok}`)).statusCode).toBe(404);
   });
 
+  it("contrato e recibo em PDF no timbrado; dados da empresa só o administrador muda", async () => {
+    const c = new Cliente(app);
+    await c.login("supervisor@bybus.test");
+    const id = (await c.req("POST", "/api/grupos", { ...grupo, nome: "Escola Fictícia Contrato" })).json().id as string;
+    await c.req("POST", `/api/grupos/${id}/cobranca`, { vencimentoSinal: "2027-02-20" });
+    const pdf = await c.req("GET", `/api/grupos/${id}/contrato.pdf`);
+    expect(pdf.statusCode).toBe(200);
+    expect(pdf.headers["content-type"]).toBe("application/pdf");
+    expect(pdf.rawPayload.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(pdf.rawPayload.length).toBeGreaterThan(30_000); // com o timbrado ao fundo
+    if (process.env.SALVAR_PDF) (await import("node:fs")).writeFileSync(process.env.SALVAR_PDF, pdf.rawPayload);
+    const [l] = await comDb((db) => db.select().from(finLancamentos).where(eq(finLancamentos.grupoFechadoId, id)));
+    expect((await c.req("GET", `/api/grupos/${id}/recibo/${l!.id}`)).statusCode).toBe(409); // ainda não pago
+    await comDb((db) => db.update(finLancamentos).set({ situacao: "REALIZADO", pagoEm: "2027-02-19", valorPagoCentavos: l!.valorCentavos }).where(eq(finLancamentos.id, l!.id)));
+    const rec = await c.req("GET", `/api/grupos/${id}/recibo/${l!.id}`);
+    expect(rec.statusCode).toBe(200);
+    expect(rec.rawPayload.subarray(0, 5).toString()).toBe("%PDF-");
+    // Dados da empresa: supervisor lê, só administrador altera.
+    expect((await c.req("GET", "/api/configuracoes/contrato")).json()).toMatchObject({ cnpj: "09.529.650/0001-01", cidadeForo: "Florianópolis/SC", assinanteNome: null });
+    const dados = { razaoSocial: "By Bus Turismo Ltda.", cnpj: "09.529.650/0001-01", endereco: "Endereço fictício, 1", cidadeForo: "Florianópolis/SC", assinanteNome: "Diretora Fictícia", assinanteCargo: "Diretora" };
+    expect((await c.req("PUT", "/api/configuracoes/contrato", dados)).statusCode).toBe(403);
+    const admin = new Cliente(app);
+    await admin.login("admin@bybus.test");
+    expect((await admin.req("PUT", "/api/configuracoes/contrato", dados)).json()).toMatchObject({ assinanteNome: "Diretora Fictícia" });
+  });
+
   it("quem não lança reservas não acessa", async () => {
     const g = new Cliente(app);
     await g.login("guia@bybus.test");

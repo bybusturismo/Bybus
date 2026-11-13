@@ -30,6 +30,19 @@ quem já fez passeio e para conferir valores e roteiros de anos anteriores. Regr
   banco, vence, cancelável, 404 igual para inválido/vencido/cancelado/grupo cancelado, 20–30 pedidos por minuto por IP,
   no máximo 500 pessoas, token mascarado no log, aceite obrigatório.
 
+## Etapa 3 — contrato e recibo no papel timbrado (pronta)
+- **Contrato (PDF)** na ficha do grupo: modelo do dono (passeio pedagógico, 16 cláusulas) generalizado para escolas e demais
+  grupos (`montarContratoGrupo` no core): partes, objeto, data/horário/local e roteiro (uma letra por linha do roteiro),
+  valor por pessoa, mínimo e valor mínimo por extenso, cortesias, prazo da lista (3 dias antes), alimentação e terceiros,
+  sinal (% e valor por extenso, vencimento da cobrança gerada), saldo até o passeio, responsabilidades, LGPD, chuva e
+  reagendamento, alterações, segurança, **cancelamento sem devolução do antecipado (remarcação ou crédito em até 12 meses)**,
+  vigência, assinatura eletrônica (MP 2.200-2/2001 e Lei 14.063/2020) e foro. Campos sem dado saem como "____________".
+- **Recibo (PDF)** de cada pagamento recebido (só depois da baixa no financeiro), com valor por extenso.
+- O timbrado (folha A4 inteira, `apps/api/recursos/timbrado-bybus.jpg`, do arquivo enviado pelo dono) vai ao fundo de todas
+  as páginas; texto entre o cabeçalho e o rodapé; numeração "página X de Y".
+- **Dados da empresa no contrato** (botão em Grupos): razão social, CNPJ, endereço, cidade do foro e **quem assina** (nome e
+  cargo) na tabela `configuracoes` — todos veem, só o administrador altera (auditado). Nenhum nome no código.
+- **A confirmar:** texto final revisado pela Diretoria e por advogado; testemunhas (o modelo original previa duas).
+
 ## Próximas etapas
-3. Contrato padrão (modelo do dono, 16 cláusulas) e recibo em PDF no papel timbrado.
 4. Assinatura eletrônica (link por e-mail, código de confirmação, registro de data/hora/IP, código de verificação).

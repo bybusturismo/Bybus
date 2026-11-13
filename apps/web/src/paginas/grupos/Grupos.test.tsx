@@ -32,6 +32,8 @@ describe("Grupos fechados (13/11/2026)", () => {
     const pag = within(screen.getByRole("region", { name: "Pagamentos" }));
     expect(pag.getByRole("row", { name: /Sinal \(50%\)/ })).toHaveTextContent("Pago em 19/02/2027");
     expect(screen.getByRole("link", { name: /Contrato — contrato.pdf/ })).toHaveAttribute("href", "/api/grupos/anexos/a1");
+    expect(screen.getByRole("link", { name: /Contrato \(PDF\)/ })).toHaveAttribute("href", "/api/grupos/g1/contrato.pdf");
+    expect(pag.getByRole("link", { name: "Recibo" })).toHaveAttribute("href", "/api/grupos/g1/recibo/c1");
     expect(within(screen.getByRole("region", { name: "Histórico deste grupo" })).getByRole("row", { name: /21\/03\/2026/ })).toHaveTextContent("R$ 120,00");
   });
 

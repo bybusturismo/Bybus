@@ -85,3 +85,14 @@ export const gruposPassageiros = pgTable("grupos_passageiros", {
   origem: text().notNull().default("EQUIPE"),
   criadoEm: agora(),
 }, (t) => [index("grupos_passageiros_grupo_idx").on(t.grupoId, t.ordem)]);
+
+/**
+ * Configurações gerais do sistema (chave/valor), começando pelos dados da empresa no contrato e no recibo (13/11/2026):
+ * razão social, CNPJ, endereço, foro e quem assina pela empresa. Nada disso fica no código.
+ */
+export const configuracoes = pgTable("configuracoes", {
+  chave: text().primaryKey(),
+  valor: text().notNull(),
+  atualizadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  atualizadoEm: agora(),
+});

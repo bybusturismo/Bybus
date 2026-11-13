@@ -4,11 +4,12 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
   CATEGORIAS_PASSAGEIRO_GRUPO, DOCUMENTO_MAX_BYTES, MAX_PASSAGEIROS_GRUPO, STATUS_GRUPO, TIPOS_ANEXO_GRUPO, TIPOS_GRUPO, contarPorCategoria,
-  normalizarPassageiro, planoDeCobranca, tipoDocumentoEmpresa, totalDoGrupo, type PassageiroGrupo,
+  montarContratoGrupo, montarReciboGrupo, normalizarPassageiro, planoDeCobranca, tipoDocumentoEmpresa, totalDoGrupo, type DadosEmpresaContrato, type PassageiroGrupo,
 } from "@bybus/core";
 import type { Contexto } from "../app.js";
 import { auditar } from "../auditoria.js";
-import { finCategorias, finLancamentos, gruposAnexos, gruposFechados, gruposPassageiros, pessoas } from "../db/schema.js";
+import { configuracoes, finCategorias, finLancamentos, gruposAnexos, gruposFechados, gruposPassageiros, pessoas } from "../db/schema.js";
+import { gerarPdfTimbrado } from "../servicos/pdfTimbrado.js";
 import { hashToken } from "../servicos/linkEmbarque.js";
 import { podeUnidade } from "../seguranca/escopo.js";
 import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
@@ -291,6 +292,57 @@ export async function rotasGrupos(app: FastifyInstance, { db, config, cofre }: C
     await salvarLista(g.id, lista, "REPRESENTANTE");
     await auditar(db, null, "GRUPO_LISTA_ENVIADA_REPRESENTANTE", { tipo: "grupo_fechado", id: g.id }, { quantidade: lista.length, aceite: true });
     return { quantidade: lista.length };
+  });
+
+  // ---------- Contrato e recibo no papel timbrado (13/11/2026) ----------
+  const CHAVES_EMPRESA = { razaoSocial: "empresa_razao_social", cnpj: "empresa_cnpj", endereco: "empresa_endereco", cidadeForo: "contrato_foro", assinanteNome: "contrato_assinante_nome", assinanteCargo: "contrato_assinante_cargo" } as const;
+  async function dadosEmpresa(): Promise<DadosEmpresaContrato> {
+    const linhas = await db.select().from(configuracoes).where(inArray(configuracoes.chave, Object.values(CHAVES_EMPRESA)));
+    const v = (k: keyof typeof CHAVES_EMPRESA) => linhas.find((l) => l.chave === CHAVES_EMPRESA[k])?.valor || null;
+    return {
+      razaoSocial: v("razaoSocial") ?? "By Bus Turismo Ltda.", cnpj: v("cnpj") ?? "09.529.650/0001-01", endereco: v("endereco") ?? "Florianópolis/SC",
+      cidadeForo: v("cidadeForo") ?? "Florianópolis/SC", assinanteNome: v("assinanteNome"), assinanteCargo: v("assinanteCargo"),
+    };
+  }
+  app.get("/api/configuracoes/contrato", acesso, async () => dadosEmpresa());
+  app.put("/api/configuracoes/contrato", { preHandler: exigir(config, "usuarios:gerenciar") }, async (req) => {
+    const c = z.object({
+      razaoSocial: texto(200).min(2), cnpj: texto(20).min(14), endereco: texto(300).min(5), cidadeForo: texto(80).min(2),
+      assinanteNome: opcional(160), assinanteCargo: opcional(80),
+    }).parse(req.body);
+    for (const [k, chave] of Object.entries(CHAVES_EMPRESA) as Array<[keyof typeof CHAVES_EMPRESA, string]>) {
+      const valor = c[k];
+      if (!valor) await db.delete(configuracoes).where(eq(configuracoes.chave, chave));
+      else await db.insert(configuracoes).values({ chave, valor, atualizadoPor: req.usuario!.id }).onConflictDoUpdate({ target: configuracoes.chave, set: { valor, atualizadoPor: req.usuario!.id, atualizadoEm: new Date() } });
+    }
+    await auditar(db, req, "CONFIG_CONTRATO_ALTERADA", { tipo: "configuracoes", id: "contrato" }, { campos: Object.keys(c) });
+    return dadosEmpresa();
+  });
+
+  const nomeArquivo = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+  app.get("/api/grupos/:id/contrato.pdf", acesso, async (req, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const g = await grupoDoUsuario(req.usuario!, id);
+    const [sinal] = await db.select({ vencimento: finLancamentos.vencimento }).from(finLancamentos).where(eq(finLancamentos.grupoFechadoId, id)).orderBy(asc(finLancamentos.vencimento)).limit(1);
+    const prazoLista = g.dataPasseio ? new Date(Date.parse(`${g.dataPasseio}T12:00:00Z`) - 3 * 86_400_000).toISOString().slice(0, 10) : null;
+    const blocos = montarContratoGrupo({ ...g, estilo: g.estilo as never, vencimentoSinal: sinal?.vencimento ?? null, prazoLista }, await dadosEmpresa(), hojeSp());
+    const pdf = await gerarPdfTimbrado(`Contrato - ${g.nome}`, blocos, `Contrato ${g.nome}`);
+    await auditar(db, req, "GRUPO_CONTRATO_GERADO", { tipo: "grupo_fechado", id }, {});
+    return reply.header("Content-Type", "application/pdf").header("Cache-Control", "no-store")
+      .header("Content-Disposition", `inline; filename="contrato-${nomeArquivo(g.nome)}.pdf"`).send(pdf);
+  });
+
+  app.get("/api/grupos/:id/recibo/:lancamentoId", acesso, async (req, reply) => {
+    const { id, lancamentoId } = z.object({ id: z.string().uuid(), lancamentoId: z.string().uuid() }).parse(req.params);
+    const g = await grupoDoUsuario(req.usuario!, id);
+    const [l] = await db.select().from(finLancamentos).where(and(eq(finLancamentos.id, lancamentoId), eq(finLancamentos.grupoFechadoId, id)));
+    if (!l) throw new ErroHttp(404, "NAO_ENCONTRADO", "Pagamento não encontrado.");
+    if (l.situacao !== "REALIZADO" || !l.pagoEm) throw new ErroHttp(409, "NAO_PAGO", "Este pagamento ainda não foi recebido: dê baixa no financeiro antes de emitir o recibo.");
+    const referente = `${l.descricao.replace(`${g.nome} — `, "").toLowerCase()} do passeio${g.dataPasseio ? ` de ${g.dataPasseio.split("-").reverse().join("/")}` : ""} (${g.nome})`;
+    const pdf = await gerarPdfTimbrado(`Recibo - ${g.nome}`, montarReciboGrupo({ empresa: await dadosEmpresa(), pagador: g.razaoSocial || g.nome, cnpjPagador: g.cnpj, valorCentavos: l.valorPagoCentavos ?? l.valorCentavos, referente, pagoEm: l.pagoEm }));
+    await auditar(db, req, "GRUPO_RECIBO_GERADO", { tipo: "grupo_fechado", id }, { lancamentoId });
+    return reply.header("Content-Type", "application/pdf").header("Cache-Control", "no-store")
+      .header("Content-Disposition", `inline; filename="recibo-${nomeArquivo(g.nome)}.pdf"`).send(pdf);
   });
 
   // ---------- Anexos ----------

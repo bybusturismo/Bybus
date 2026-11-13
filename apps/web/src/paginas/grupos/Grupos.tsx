@@ -15,6 +15,53 @@ import { centavosDeTexto, formatarData, formatarMoeda, hojeIso, textoDeCentavos 
 import { useAtraso } from "../../util/useAtraso";
 import { imprimirPagina } from "../../util/appCelular";
 import { corpoLista, EditorLista, linhaVazia, paraLinhas, type LinhaLista } from "./EditorLista";
+import { Modal } from "../../componentes/Modal";
+
+interface DadosEmpresa { razaoSocial: string; cnpj: string; endereco: string; cidadeForo: string; assinanteNome: string | null; assinanteCargo: string | null }
+
+/** Dados da empresa no contrato e no recibo (quem assina etc.): todos veem; só o administrador altera. */
+function DadosContrato({ aoFechar }: { aoFechar: () => void }) {
+  const { pode } = useSessao();
+  const notificar = useNotificar();
+  const podeEditar = pode("usuarios:gerenciar");
+  const dados = useCarregar((s) => api.get<DadosEmpresa>("/api/configuracoes/contrato", s), []);
+  const [f, setF] = useState<DadosEmpresa | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  useEffect(() => { if (dados.dados) setF(dados.dados); }, [dados.dados]);
+  async function salvar(e: FormEvent) {
+    e.preventDefault();
+    if (!f) return;
+    try {
+      await api.put("/api/configuracoes/contrato", f);
+      notificar("Dados do contrato salvos.");
+      aoFechar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    }
+  }
+  const c = (k: keyof DadosEmpresa, rotulo: string, id: string) => (
+    <div className="campo campo--largo"><label htmlFor={id}>{rotulo}</label><input id={id} value={f?.[k] ?? ""} disabled={!podeEditar} onChange={(e) => f && setF({ ...f, [k]: e.target.value })} /></div>
+  );
+  return (
+    <Modal aberto titulo="Dados da empresa no contrato e no recibo" aoFechar={aoFechar}>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      {!f ? <Carregando /> : (
+        <form onSubmit={(e) => void salvar(e)}>
+          {!podeEditar && <p className="texto-fraco">Só o administrador altera estes dados.</p>}
+          <div className="grade-campos">
+            {c("razaoSocial", "Razão social", "dc-razao")}
+            {c("cnpj", "CNPJ", "dc-cnpj")}
+            {c("endereco", "Endereço", "dc-end")}
+            {c("cidadeForo", "Cidade (foro e local da assinatura)", "dc-foro")}
+            {c("assinanteNome", "Quem assina pela By Bus", "dc-assinante")}
+            {c("assinanteCargo", "Cargo de quem assina", "dc-cargo")}
+          </div>
+          {podeEditar && <div className="modal__acoes"><button type="button" className="botao botao--secundario" onClick={aoFechar}>Cancelar</button><button type="submit" className="botao botao--primario">Salvar</button></div>}
+        </form>
+      )}
+    </Modal>
+  );
+}
 import { useCarregar } from "../../util/useCarregar";
 
 interface GrupoLista {
@@ -45,6 +92,7 @@ export function Grupos() {
   const [ano, setAno] = useState("");
   const lista = useCarregar((s) => api.get<GrupoLista[]>(`/api/grupos${qs({ q: q || undefined, status: status || undefined, estilo: estilo || undefined, ano: ano || undefined })}`, s), [q, status, estilo, ano]);
   const anoAtual = Number(hojeIso().slice(0, 4));
+  const [dadosContrato, setDadosContrato] = useState(false);
   return (
     <div className="pagina">
       <div className="pagina__cabecalho">
@@ -52,7 +100,10 @@ export function Grupos() {
           <h1>Grupos fechados</h1>
           <p className="pagina__descricao">Escolas, empresas e excursões: data, roteiro, valores, representante, pagamentos, contrato e histórico de anos anteriores.</p>
         </div>
-        <div className="barra-acoes"><Link className="botao botao--primario" to="/grupos/novo"><Icone nome="mais" /> Novo grupo</Link></div>
+        <div className="barra-acoes">
+          <button type="button" className="botao botao--secundario" onClick={() => setDadosContrato(true)}><Icone nome="engrenagem" /> Dados do contrato</button>
+          <Link className="botao botao--primario" to="/grupos/novo"><Icone nome="mais" /> Novo grupo</Link>
+        </div>
       </div>
       <div className="filtros" role="search" aria-label="Filtros dos grupos">
         <div className="campo campo--linha campo--busca"><label htmlFor="gr-busca">Buscar</label><input id="gr-busca" type="search" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Grupo, representante ou roteiro" /></div>
@@ -66,6 +117,7 @@ export function Grupos() {
           <select id="gr-ano" value={ano} onChange={(e) => setAno(e.target.value)}><option value="">Todos</option>{[anoAtual + 1, anoAtual, anoAtual - 1, anoAtual - 2, anoAtual - 3].map((a) => <option key={a} value={a}>{a}</option>)}</select>
         </div>
       </div>
+      {dadosContrato && <DadosContrato aoFechar={() => setDadosContrato(false)} />}
       {lista.carregando && !lista.dados ? <Carregando /> : lista.erro ? <ErroCarga mensagem={lista.erro} tentarDeNovo={lista.recarregar} /> : !lista.dados?.length ? <Vazio titulo="Nenhum grupo encontrado." /> : (
         <div className="tabela-rolagem">
           <table className="tabela">
@@ -279,7 +331,14 @@ export function GrupoFicha() {
   return (
     <div className="pagina">
       <nav className="migalhas nao-imprimir" aria-label="Você está em"><Link to="/grupos">Grupos fechados</Link> <span aria-hidden="true">›</span> <span aria-current="page">{novo ? "Novo grupo" : g?.nome}</span></nav>
-      <h1>{novo ? "Novo grupo" : g?.nome}</h1>
+      <div className="pagina__cabecalho">
+        <h1>{novo ? "Novo grupo" : g?.nome}</h1>
+        {g && (
+          <div className="barra-acoes nao-imprimir">
+            <a className="botao botao--secundario" href={`/api/grupos/${g.id}/contrato.pdf`} target="_blank" rel="noopener noreferrer"><Icone nome="imprimir" /> Contrato (PDF)</a>
+          </div>
+        )}
+      </div>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       <form onSubmit={(e) => void salvar(e)} className="grupo-ficha nao-imprimir">
         <fieldset className="cartao"><legend>Grupo e passeio</legend>
@@ -349,7 +408,7 @@ export function GrupoFicha() {
             ) : (
               <div className="tabela-rolagem">
                 <table className="tabela">
-                  <thead><tr><th scope="col">Parcela</th><th scope="col">Vencimento</th><th scope="col" className="num">Valor</th><th scope="col">Situação</th></tr></thead>
+                  <thead><tr><th scope="col">Parcela</th><th scope="col">Vencimento</th><th scope="col" className="num">Valor</th><th scope="col">Situação</th><th scope="col"><span className="visualmente-oculto">Recibo</span></th></tr></thead>
                   <tbody>
                     {g.cobrancas.map((c) => (
                       <tr key={c.id}>
@@ -357,6 +416,7 @@ export function GrupoFicha() {
                         <td className="sem-quebra">{formatarData(c.vencimento)}</td>
                         <td className="num">{formatarMoeda(c.valorCentavos)}</td>
                         <td>{c.situacao === "REALIZADO" ? <span className="etiqueta etiqueta--sucesso">Pago em {formatarData(c.pagoEm)}</span> : c.vencimento < hojeIso() ? <span className="etiqueta etiqueta--perigo">Vencido</span> : <span className="etiqueta etiqueta--neutra">Em aberto</span>}</td>
+                        <td>{c.situacao === "REALIZADO" && <a className="botao botao--pequeno botao--secundario" href={`/api/grupos/${g.id}/recibo/${c.id}`} target="_blank" rel="noopener noreferrer">Recibo</a>}</td>
                       </tr>
                     ))}
                   </tbody>

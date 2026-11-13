@@ -36,6 +36,8 @@ RUN --mount=type=secret,id=ca,required=false \
 COPY --from=build /app/packages/core/dist packages/core/dist
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY apps/api/drizzle apps/api/drizzle
+# Papel timbrado e outros arquivos fixos dos PDFs (contrato e recibo de grupos, 13/11/2026).
+COPY apps/api/recursos apps/api/recursos
 COPY --chmod=755 implantacao/iniciar-api.sh /usr/local/bin/iniciar-api
 WORKDIR /app/apps/api
 USER node
