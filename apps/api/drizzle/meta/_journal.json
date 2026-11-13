@@ -372,6 +372,13 @@
       "when": 1794590012678,
       "tag": "0052_assinatura_eletronica",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794591666202,
+      "tag": "0053_portal_afiliado",
+      "breakpoints": true
     }
   ]
 }

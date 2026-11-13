@@ -124,6 +124,11 @@ export const afiliados = pgTable("afiliados", {
   contato: text(),
   /** Id do afiliado correspondente na Paytour (ligação pendente: a confirmar). */
   paytourAfiliadoId: text(),
+  /** Usuário do portal do afiliado (perfil Afiliado, 13/11/2026). */
+  usuarioId: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  /** Dados bancários/PIX informados pelo próprio afiliado no portal (JSON cifrado). */
+  dadosBancariosCifrado: text(),
+  dadosBancariosEm: timestamp({ withTimezone: true }),
   observacoes: text(),
   ativo: boolean().notNull().default(true),
   criadoEm: agora(),

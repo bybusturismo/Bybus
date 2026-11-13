@@ -12,6 +12,52 @@ import { ROTULO_TIPO_AFILIADO } from "./comum";
 interface Afiliado {
   id: string; unidadeId: string | null; nome: string; tipo: string; codigo: string; comissaoPontosBase: number | null; contato: string | null;
   paytourAfiliadoId: string | null; observacoes: string | null; ativo: boolean; link: string;
+  /** Portal do afiliado (13/11/2026). */
+  temAcesso?: boolean; temDadosBancarios?: boolean;
+}
+
+/** Cria (ou remove) o acesso do afiliado ao portal: e-mail próprio, link para criar a senha. */
+function AcessoPortal({ afiliado, aoMudar }: { afiliado: Afiliado; aoMudar: () => Promise<void> }) {
+  const [email, setEmail] = useState("");
+  const [link, setLink] = useState<{ link: string; emailEnviado: boolean } | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  async function criar(e: FormEvent) {
+    e.preventDefault();
+    setErro(null);
+    try {
+      setLink(await api.post<{ link: string; emailEnviado: boolean }>(`/api/marketing/afiliados/${afiliado.id}/acesso`, { email }));
+      await aoMudar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    }
+  }
+  async function remover() {
+    try {
+      await api.delete(`/api/marketing/afiliados/${afiliado.id}/acesso`);
+      await aoMudar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    }
+  }
+  return (
+    <div>
+      <p className="texto-fraco">No portal, o afiliado vê só as próprias comissões, cadastra os dados bancários e pega o link e o QR code.</p>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      {link ? (
+        <Aviso tipo="sucesso">
+          Acesso criado. {link.emailEnviado ? "Enviamos ao afiliado o link para criar a senha." : "O e-mail não saiu: mande este link ao afiliado."} O link vale 72 horas:<br />
+          <code className="frota-link">{link.link}</code>
+        </Aviso>
+      ) : afiliado.temAcesso ? (
+        <p>Este afiliado já tem acesso ao portal. <button type="button" className="botao botao--pequeno botao--perigo-contorno" onClick={() => void remover()}>Remover acesso</button></p>
+      ) : (
+        <form className="filtros" onSubmit={(e) => void criar(e)}>
+          <div className="campo campo--linha"><label htmlFor="ap-email">E-mail do afiliado</label><input id="ap-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <button type="submit" className="botao botao--primario">Criar acesso</button>
+        </form>
+      )}
+    </div>
+  );
 }
 interface Resposta { urlLoja: string; ligacaoPaytour: { situacao: string; nota: string }; afiliados: Afiliado[] }
 
@@ -108,6 +154,7 @@ export function Afiliados() {
   const r = useCarregar((s) => api.get<Resposta>("/api/marketing/afiliados", s), []);
   const [form, setForm] = useState<{ afiliado: Afiliado | null } | null>(null);
   const [qr, setQr] = useState<Afiliado | null>(null);
+  const [portal, setPortal] = useState<Afiliado | null>(null);
   const [excluir, setExcluir] = useState<Afiliado | null>(null);
   const d = r.dados;
 
@@ -148,6 +195,7 @@ export function Afiliados() {
                   <td className="num">{comissaoTexto(a.comissaoPontosBase)}</td>
                   <td className="sem-quebra">
                     <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setQr(a)}>QR code</button>
+                    {podeGerenciar && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setPortal(a)}>Portal{a.temAcesso ? " ✓" : ""}</button>}
                     {podeGerenciar && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setForm({ afiliado: a })}>Editar</button>}
                     {podeGerenciar && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => setExcluir(a)}>Excluir</button>}
                   </td>
@@ -160,6 +208,7 @@ export function Afiliados() {
       <Modal aberto={!!form} titulo={form?.afiliado ? "Editar afiliado" : "Novo afiliado"} aoFechar={() => setForm(null)} largura="larga">
         {form && <FormAfiliado afiliado={form.afiliado} aoCancelar={() => setForm(null)} aoSalvar={async () => { setForm(null); notificar("Afiliado salvo."); await r.recarregar(); }} />}
       </Modal>
+      <Modal aberto={!!portal} titulo={portal ? `Portal do afiliado — ${portal.nome}` : "Portal"} aoFechar={() => setPortal(null)}>{portal && <AcessoPortal afiliado={portal} aoMudar={async () => { await r.recarregar(); }} />}</Modal>
       <Modal aberto={!!qr} titulo={qr ? `QR code — ${qr.nome}` : "QR code"} aoFechar={() => setQr(null)}>{qr && <Qr afiliado={qr} />}</Modal>
       <Confirmar aberto={!!excluir} titulo="Excluir afiliado" perigo textoConfirmar="Excluir" aoFechar={() => setExcluir(null)} aoConfirmar={() => void confirmarExclusao()} mensagem={<>Excluir <strong>{excluir?.nome}</strong> ({excluir?.codigo})? QR codes já impressos deixam de ser reconhecidos pelo cadastro.</>} />
     </div>

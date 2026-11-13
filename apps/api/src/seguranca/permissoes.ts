@@ -38,6 +38,7 @@ export const CATALOGO_PERMISSOES = {
   "transfer:operar": "Operar o transfer pelo celular (motorista): marcar buscado/não apareceu e registrar a taxa recebida",
   "documentos:ver": "Ver os documentos da empresa das pastas abertas (as restritas só para quem estiver na lista da pasta)",
   "documentos:gerenciar": "Enviar, editar e apagar documentos da empresa e criar pastas (nas pastas que a pessoa vê)",
+  "afiliado:portal": "Portal do afiliado: ver as próprias comissões, cadastrar os dados bancários e pegar o link e o QR code (perfil Afiliado)",
 } as const;
 
 export type Permissao = keyof typeof CATALOGO_PERMISSOES;

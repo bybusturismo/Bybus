@@ -60,6 +60,12 @@ function exigirAlterar(u: UsuarioSessao, unidadeId: string | null | undefined) {
 }
 const naoEncontrado = (o: string) => new ErroHttp(404, "NAO_ENCONTRADO", `${o} não encontrado(a).`);
 
+/** Afiliado para a tela: sem os dados bancários (cifrados; só o financeiro vê, em rota própria), com os indicadores. */
+function publicoAfiliado<T extends { dadosBancariosCifrado: string | null; usuarioId: string | null }>(a: T) {
+  const { dadosBancariosCifrado, ...resto } = a;
+  return { ...resto, temDadosBancarios: !!dadosBancariosCifrado, temAcesso: !!a.usuarioId };
+}
+
 export async function rotasMarketing(app: FastifyInstance, { db, config }: Contexto) {
   const ver = { preHandler: exigir(config, "marketing:ver") };
   const gerenciar = { preHandler: exigir(config, "marketing:gerenciar") };
@@ -379,7 +385,7 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     return {
       urlLoja: cfg.urlLoja,
       ligacaoPaytour: { situacao: "PENDENTE", nota: "Ligação com os afiliados da Paytour pendente: confirmar se o link com ?ref= atribui a venda e como casar o código com o afiliado da Paytour." },
-      afiliados: lista.map((a) => ({ ...a, link: linkAfiliado(cfg.urlLoja, a.codigo) })),
+      afiliados: lista.map((a) => ({ ...publicoAfiliado(a), link: linkAfiliado(cfg.urlLoja, a.codigo) })),
     };
   });
 
@@ -398,7 +404,7 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     const a = esquemaAfiliado.parse(req.body);
     exigirAlterar(req.usuario!, a.unidadeId);
     await garantirCodigoLivre(a.codigo);
-    const [novo] = await db.insert(afiliados).values(a).returning();
+    const [novo] = (await db.insert(afiliados).values(a).returning()).map(publicoAfiliado);
     await auditar(db, req, "AFILIADO_CRIADO", { tipo: "afiliado", id: novo!.id }, { nome: a.nome, codigo: a.codigo });
     return novo;
   });
@@ -409,7 +415,7 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     const dados = esquemaAfiliado.partial().parse(req.body);
     if (dados.unidadeId !== undefined) exigirAlterar(req.usuario!, dados.unidadeId);
     if (dados.codigo) await garantirCodigoLivre(dados.codigo, id);
-    const [novo] = await db.update(afiliados).set({ ...dados, atualizadoEm: new Date() }).where(eq(afiliados.id, id)).returning();
+    const [novo] = (await db.update(afiliados).set({ ...dados, atualizadoEm: new Date() }).where(eq(afiliados.id, id)).returning()).map(publicoAfiliado);
     await auditar(db, req, "AFILIADO_EDITADO", { tipo: "afiliado", id }, { campos: Object.keys(dados) });
     return novo;
   });

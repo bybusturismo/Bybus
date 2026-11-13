@@ -5,6 +5,7 @@ import { criarDb } from "../src/db/cliente.js";
 import { afiliados, finLancamentos, passageiros, passeios, reservas, saidas, vendas } from "../src/db/schema.js";
 import { sincronizarAfiliadosPaytour } from "../src/servicos/afiliadosComissao.js";
 import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
+import { emailsDeTeste } from "../src/servicos/email.js";
 
 let app: FastifyInstance;
 let fechar: () => Promise<void>;
@@ -17,7 +18,7 @@ const ids = {} as { realizada: string; futura: string; faltou: string; cancelada
 
 beforeAll(async () => {
   await prepararBanco();
-  ({ app, fechar } = await subirApp());
+  ({ app, fechar } = await subirApp({ URL_PUBLICA: "https://gestao.exemplo.test", EMAIL_USUARIO: "envio@exemplo.test", EMAIL_SENHA: "senha-ficticia" }));
   await comDb(async (db) => {
     const [p] = await db.select().from(passeios).where(eq(passeios.codigo, "TODA_ILHA"));
     const saida = async (data: string) => (await db.insert(saidas).values({ passeioId: p!.id, data, capacidade: 40 }).onConflictDoNothing().returning())[0]
@@ -94,6 +95,41 @@ describe("comissões de afiliados (13/11/2026)", () => {
     expect(await comDb((db) => db.select().from(finLancamentos).where(eq(finLancamentos.id, lista[0].lancamentoId)))).toHaveLength(0);
     const depois = (await c.req("GET", `/api/afiliados/comissoes?de=2026-10-01&ate=2026-10-31`)).json().itens.find((x: { reservaId: string }) => x.reservaId === ids.realizada);
     expect(depois).toMatchObject({ situacao: "A_PAGAR", pagamentoId: null });
+  });
+
+  it("portal do afiliado: a equipe cria o acesso, ele cria a senha e vê só as próprias comissões e cadastra os dados bancários", async () => {
+    const admin = new Cliente(app);
+    await admin.login("admin@bybus.test");
+    const [a] = await comDb((db) => db.select().from(afiliados).where(eq(afiliados.codigo, "PT-777")));
+    emailsDeTeste.length = 0;
+    const acesso = await admin.req("POST", `/api/marketing/afiliados/${a!.id}/acesso`, { email: "hotel.sol@exemplo.test" });
+    expect(acesso.statusCode, acesso.body).toBe(200);
+    expect(acesso.json()).toMatchObject({ emailEnviado: true, validadeHoras: 72 });
+    expect((await admin.req("POST", `/api/marketing/afiliados/${a!.id}/acesso`, { email: "outro@exemplo.test" })).statusCode).toBe(409);
+    const codigo = /c=([A-Za-z0-9_-]+)/.exec(emailsDeTeste[0]!.texto)![1]!;
+    const senha = "Senha-Ficticia-2026!";
+    expect((await new Cliente(app).req("POST", "/api/auth/redefinir", { codigo, senha })).statusCode).toBe(200);
+    const af = new Cliente(app);
+    expect((await af.login("hotel.sol@exemplo.test", senha)).statusCode).toBe(200);
+    const p = await af.req("GET", "/api/portal-afiliado");
+    expect(p.statusCode, p.body).toBe(200);
+    const j = p.json();
+    expect(j.afiliado).toMatchObject({ nome: "Hotel Fictício Sol", codigo: "PT-777" });
+    expect(j.afiliado.link).toContain("ref=PT-777");
+    expect(j.comissoes.length).toBe(3); // só as do 777 (realizada, futura e a que não compareceu)
+    expect(JSON.stringify(j)).not.toMatch(/888|Cliente Fictício|Passageiro/);
+    expect(j.dadosBancarios).toBeNull();
+    expect((await af.req("PUT", "/api/portal-afiliado/dados-bancarios", { titular: "Hotel Fictício Sol", documento: "00.000.000/0001-00" })).statusCode).toBe(400);
+    expect((await af.req("PUT", "/api/portal-afiliado/dados-bancarios", { titular: "Hotel Fictício Sol", documento: "00.000.000/0001-00", pix: "pix@exemplo.test" })).statusCode).toBe(200);
+    expect((await af.req("GET", "/api/portal-afiliado")).json().dadosBancarios).toMatchObject({ pix: "pix@exemplo.test" });
+    // O afiliado não acessa o resto do sistema.
+    expect((await af.req("GET", "/api/afiliados/comissoes?de=2026-10-01&ate=2026-10-31")).statusCode).toBe(403);
+    expect((await af.req("GET", "/api/grupos")).statusCode).toBe(403);
+    // O financeiro vê os dados bancários para pagar (auditado).
+    expect((await admin.req("GET", `/api/marketing/afiliados/${a!.id}/dados-bancarios`)).json().dados).toMatchObject({ pix: "pix@exemplo.test" });
+    // Remover o acesso derruba o login.
+    expect((await admin.req("DELETE", `/api/marketing/afiliados/${a!.id}/acesso`)).statusCode).toBe(200);
+    expect((await new Cliente(app).login("hotel.sol@exemplo.test", senha)).statusCode).not.toBe(200);
   });
 
   it("sem financeiro nem marketing não vê; gerar pagamento exige financeiro:gerenciar", async () => {

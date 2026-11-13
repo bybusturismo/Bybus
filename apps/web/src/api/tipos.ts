@@ -43,6 +43,7 @@ export const PERMISSOES = [
   "transfer:operar",
   "documentos:ver",
   "documentos:gerenciar",
+  "afiliado:portal",
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 

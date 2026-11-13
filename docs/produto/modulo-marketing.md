@@ -137,4 +137,10 @@ Regras do dono em `docs/conhecimento/canais-e-integracoes.md`. Tela **Marketing 
   auditado). Sem o corte, gerar pagamento é bloqueado — evita pagar o histórico duas vezes.
 - Relatório pela data do **passeio** ou da **venda**, filtro por afiliado e **ranking** (reservas, valor vendido e comissão).
 - API: `GET /api/afiliados/comissoes?de&ate&por&afiliadoId`, `GET|POST /api/afiliados/pagamentos`, `DELETE /api/afiliados/pagamentos/:id`.
-- Próximo passo: **portal do afiliado** (login próprio: comissões, dados bancários, link e QR code).
+- **Portal do afiliado (13/11/2026):** perfil **Afiliado** (permissão `afiliado:portal`, só a própria página). Em
+  "Afiliados e QR codes › Portal", a equipe (`marketing:gerenciar`) cria o acesso com o e-mail do afiliado: ele recebe o link
+  para criar a senha (72 h; o link também aparece na tela) e entra direto em **Minhas comissões** (`/afiliado`): comissões
+  previstas, a receber e recebidas, próximo pagamento, pagamentos, link e QR code, e **dados para receber** (titular,
+  CPF/CNPJ, PIX ou banco/agência/conta), guardados **cifrados** (`afiliados.dados_bancarios_cifrado`). O financeiro vê os
+  dados em "Comissões de afiliados › Pagamentos gerados › Dados bancários" (`financeiro:gerenciar`, auditado). A lista de
+  afiliados nunca devolve os dados bancários (só "tem dados bancários"/"tem acesso"). "Remover acesso" desativa o login.

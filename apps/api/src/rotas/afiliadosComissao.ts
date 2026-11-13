@@ -58,7 +58,7 @@ export async function rotasAfiliadosComissao(app: FastifyInstance, { db, config 
   app.get("/api/afiliados/pagamentos", ver, async (req) => {
     const u = req.usuario!;
     const lista = await db.select({
-      id: afiliadoPagamentos.id, dataPagamento: afiliadoPagamentos.dataPagamento, periodoDe: afiliadoPagamentos.periodoDe, periodoAte: afiliadoPagamentos.periodoAte,
+      id: afiliadoPagamentos.id, afiliadoId: afiliadoPagamentos.afiliadoId, dataPagamento: afiliadoPagamentos.dataPagamento, periodoDe: afiliadoPagamentos.periodoDe, periodoAte: afiliadoPagamentos.periodoAte,
       totalCentavos: afiliadoPagamentos.totalCentavos, unidadeId: afiliadoPagamentos.unidadeId, afiliado: afiliados.nome, lancamentoId: afiliadoPagamentos.lancamentoId,
       situacaoConta: finLancamentos.situacao,
     }).from(afiliadoPagamentos).innerJoin(afiliados, eq(afiliados.id, afiliadoPagamentos.afiliadoId))

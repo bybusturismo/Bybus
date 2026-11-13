@@ -67,6 +67,7 @@ import { Pracas } from "./paginas/Pracas";
 import { Biblioteca } from "./paginas/biblioteca/Biblioteca";
 import { Afiliados } from "./paginas/marketing/Afiliados";
 import { ComissoesAfiliados } from "./paginas/marketing/ComissoesAfiliados";
+import { PortalAfiliado } from "./paginas/marketing/PortalAfiliado";
 import { Avaliacoes } from "./paginas/marketing/Avaliacoes";
 import { Campanhas } from "./paginas/marketing/Campanhas";
 import { Canais } from "./paginas/marketing/Canais";
@@ -107,6 +108,8 @@ function Inicio() {
   // Motorista (transmite o rastreio ou só faz o checklist) cai direto na tela dele, no celular.
   // Motorista só do transfer (sem rastreio) cai na lista do transfer dele.
   if (!pode("saidas:decidir") && pode("transfer:operar") && !pode("rastreio:transmitir")) return <Navigate to="/transfer/motorista" replace />;
+  // Afiliado (portal próprio, 13/11/2026) cai direto na página dele.
+  if (pode("afiliado:portal") && !pode("manifesto:ver")) return <Navigate to="/afiliado" replace />;
   const soMotorista = !pode("saidas:decidir") && (pode("rastreio:transmitir") || (!pode("manifesto:ver") && pode("frota:checklist")));
   if (soMotorista) return <Navigate to="/motorista" replace />;
   // Quem vê a lista de passageiros entra na Visão Geral; os blocos mostram só o que o perfil pode ver.
@@ -493,6 +496,7 @@ export function Rotas() {
             </Exige>
           }
         />
+        <Route path="afiliado" element={<Exige permissao="afiliado:portal"><PortalAfiliado /></Exige>} />
         <Route path="grupos" element={<Exige permissao="reservas:editar"><Grupos /></Exige>} />
         <Route path="grupos/:id" element={<Exige permissao="reservas:editar"><GrupoFicha /></Exige>} />
         <Route

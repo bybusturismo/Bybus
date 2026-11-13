@@ -3,7 +3,7 @@ import { ROTULO_SITUACAO_COMISSAO, type SituacaoComissao } from "@bybus/core";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
 import { Indicador, Indicadores } from "../../componentes/Indicador";
-import { Confirmar } from "../../componentes/Modal";
+import { Confirmar, Modal } from "../../componentes/Modal";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { useSessao } from "../../sessao/Sessao";
 import { formatarData, formatarMoeda, hojeIso, somarDias } from "../../util/formato";
@@ -22,7 +22,7 @@ interface Resposta {
   /** Passeios até esta data: comissões já pagas fora do sistema (corte do histórico). */
   pagasForaAte: string | null;
 }
-interface Pagamento { id: string; dataPagamento: string; periodoDe: string; periodoAte: string; totalCentavos: number; afiliado: string; situacaoConta: string }
+interface Pagamento { id: string; afiliadoId: string; dataPagamento: string; periodoDe: string; periodoAte: string; totalCentavos: number; afiliado: string; situacaoConta: string }
 
 const ETIQUETA: Record<SituacaoComissao, string> = { PREVISTA: "etiqueta--neutra", A_PAGAR: "etiqueta--atencao", PAGA: "etiqueta--sucesso", CANCELADA: "etiqueta--perigo" };
 
@@ -59,6 +59,15 @@ export function ComissoesAfiliados() {
   const [desfazer, setDesfazer] = useState<Pagamento | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [corte, setCorte] = useState("");
+  // Dados bancários do afiliado para pagar (financeiro; a consulta fica registrada na auditoria).
+  const [banco, setBanco] = useState<{ nome: string; dados: Record<string, string | null> | null } | null>(null);
+  async function verBanco(p: Pagamento) {
+    try {
+      setBanco(await api.get(`/api/marketing/afiliados/${p.afiliadoId}/dados-bancarios`));
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    }
+  }
   const dados = useCarregar((s) => api.get<Resposta>(`/api/afiliados/comissoes${qs({ de, ate, por, afiliadoId: afiliadoId || undefined })}`, s), [de, ate, por, afiliadoId]);
   const pagamentos = useCarregar((s) => api.get<Pagamento[]>("/api/afiliados/pagamentos", s), []);
   const afiliados = useMemo(() => (dados.dados?.ranking ?? []).filter((r) => r.afiliadoId).sort((a, b) => a.nome.localeCompare(b.nome)), [dados.dados]);
@@ -222,7 +231,10 @@ export function ComissoesAfiliados() {
                     <td>{p.afiliado}</td>
                     <td className="num">{formatarMoeda(p.totalCentavos)}</td>
                     <td><span className={`etiqueta ${p.situacaoConta === "REALIZADO" ? "etiqueta--sucesso" : "etiqueta--atencao"}`}>{p.situacaoConta === "REALIZADO" ? "Pago" : "Em aberto no financeiro"}</span></td>
-                    {podePagar && <td>{p.situacaoConta !== "REALIZADO" && <button type="button" className="botao botao--pequeno botao--secundario" onClick={() => setDesfazer(p)}>Desfazer</button>}</td>}
+                    {podePagar && <td><span className="frota-acoes">
+                      <button type="button" className="botao botao--pequeno botao--secundario" onClick={() => void verBanco(p)}>Dados bancários</button>
+                      {p.situacaoConta !== "REALIZADO" && <button type="button" className="botao botao--pequeno botao--secundario" onClick={() => setDesfazer(p)}>Desfazer</button>}
+                    </span></td>}
                   </tr>
                 ))}
               </tbody>
@@ -231,6 +243,15 @@ export function ComissoesAfiliados() {
         )}
       </section>
 
+      {banco && (
+        <Modal aberto titulo={`Dados para pagar — ${banco.nome}`} aoFechar={() => setBanco(null)}>
+          {!banco.dados ? <p>O afiliado ainda não cadastrou os dados bancários no portal.</p> : (
+            <dl className="lista-simples">
+              {([["titular", "Titular"], ["documento", "CPF/CNPJ"], ["pix", "Chave PIX"], ["banco", "Banco"], ["agencia", "Agência"], ["conta", "Conta"], ["tipoConta", "Tipo"]] as const).map(([k, r]) => banco.dados![k] ? <div key={k}><dt className="texto-fraco">{r}</dt><dd>{banco.dados![k] === "POUPANCA" ? "Poupança" : banco.dados![k] === "CORRENTE" ? "Corrente" : banco.dados![k]}</dd></div> : null)}
+            </dl>
+          )}
+        </Modal>
+      )}
       {desfazer && (
         <Confirmar
           aberto
