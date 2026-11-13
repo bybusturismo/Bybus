@@ -96,3 +96,49 @@ export const configuracoes = pgTable("configuracoes", {
   atualizadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
   atualizadoEm: agora(),
 });
+
+/**
+ * Documento enviado para assinatura eletrônica (13/11/2026). A versão assinada fica congelada: o PDF original (cifrado), o
+ * hash SHA-256 dele e o conteúdo usado para gerá-lo (para montar a versão final com a folha de assinaturas).
+ */
+export const assinaturaDocumentos = pgTable("assinatura_documentos", {
+  id: uuid().primaryKey().defaultRandom(),
+  grupoId: uuid().references(() => gruposFechados.id, { onDelete: "set null" }),
+  titulo: text().notNull(),
+  /** PENDENTE, CONCLUIDO ou CANCELADO. */
+  status: text().notNull().default("PENDENTE"),
+  /** Código público para conferir a autenticidade (página /verificar/<código>). */
+  codigoVerificacao: text().notNull().unique(),
+  blocosJson: text().notNull(),
+  pdfCifrado: text().notNull(),
+  hashOriginal: text().notNull(),
+  pdfFinalCifrado: text(),
+  hashFinal: text(),
+  criadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  criadoEm: agora(),
+  concluidoEm: timestamp({ withTimezone: true }),
+  canceladoEm: timestamp({ withTimezone: true }),
+}, (t) => [index("assinatura_documentos_grupo_idx").on(t.grupoId)]);
+
+/** Quem assina: link próprio (hash do token), código de confirmação por e-mail e a trilha da assinatura. */
+export const assinaturaSignatarios = pgTable("assinatura_signatarios", {
+  id: uuid().primaryKey().defaultRandom(),
+  documentoId: uuid().notNull().references(() => assinaturaDocumentos.id, { onDelete: "cascade" }),
+  ordem: integer().notNull(),
+  /** CONTRATANTE, CONTRATADA ou TESTEMUNHA. */
+  papel: text().notNull(),
+  nome: text().notNull(),
+  email: text().notNull(),
+  cpfCifrado: text(),
+  tokenHash: text().notNull().unique(),
+  codigoHash: text(),
+  codigoExpiraEm: timestamp({ withTimezone: true }),
+  codigoTentativas: integer().notNull().default(0),
+  codigosEnviados: integer().notNull().default(0),
+  visualizadoEm: timestamp({ withTimezone: true }),
+  assinadoEm: timestamp({ withTimezone: true }),
+  nomeDigitado: text(),
+  cpfDigitadoCifrado: text(),
+  ip: text(),
+  navegador: text(),
+}, (t) => [index("assinatura_signatarios_doc_idx").on(t.documentoId)]);

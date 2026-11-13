@@ -37,6 +37,7 @@ export * from "./afiliados/comissao.js";
 export * from "./grupos/grupos.js";
 export * from "./grupos/passageiros.js";
 export * from "./grupos/contrato.js";
+export * from "./grupos/assinatura.js";
 export * from "./rastreio/previsao.js";
 export * from "./rastreio/avisos.js";
 export * from "./rastreio/kml.js";

@@ -365,6 +365,13 @@
       "when": 1794589774129,
       "tag": "0051_configuracoes_contrato",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1794590012678,
+      "tag": "0052_assinatura_eletronica",
+      "breakpoints": true
     }
   ]
 }
