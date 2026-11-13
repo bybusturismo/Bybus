@@ -54,6 +54,7 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/reservas", rotulo: "Listagem de reservas", icone: "lista", area: "Reservas", permissao: "manifesto:ver" },
   { para: "/orcamentos", rotulo: "Orçamentos", icone: "bilhete", area: "Reservas", permissao: "reservas:editar" },
   { para: "/grupos", rotulo: "Grupos fechados", icone: "pessoas", area: "Reservas", permissao: "reservas:editar" },
+  { para: "/orcamentos-rota", rotulo: "Orçamento com rota", icone: "mapa", area: "Reservas", permissao: "reservas:editar" },
   { para: "/afiliado", rotulo: "Minhas comissões", icone: "dinheiro", area: "Reservas", permissao: "afiliado:portal" },
   { para: "/conversas", rotulo: "Conversas", icone: "mensagem", area: "Reservas", permissao: "whatsapp:ver", atalho: "x" },
   { para: "/importar", rotulo: "Importar reservas", icone: "importar", area: "Reservas", permissao: "importacoes:executar", atalho: "i" },

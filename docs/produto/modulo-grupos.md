@@ -64,3 +64,14 @@ quem já fez passeio e para conferir valores e roteiros de anos anteriores. Regr
   token aleatório de 24 bytes (só o hash no banco; reenviar troca), código de 6 dígitos com hash por signatário, comparação
   em tempo constante, limites por minuto e por envio, documento cancelado derruba os links, tokens mascarados no log
   (`/assinar/***`), CPF cifrado. Sem e-mail configurado o envio do código falha com aviso (a equipe manda o link).
+
+## Etapa 5 — orçamento com rota (pronta, 13/11/2026)
+Menu **Reservas › Orçamento com rota**. Decisões do dono: rota pelo **OpenRouteService** e preço por **tabela por veículo**, ajustável à mão.
+- **Pontos de visitação**: procura pelo nome ou endereço. Primeiro aparecem os pontos de embarque cadastrados que já têm coordenadas; depois o mapa (OpenRouteService; sem chave, OpenStreetMap). O primeiro ponto é a saída. Cada parada tem um tempo de permanência, e os pontos podem ser reordenados.
+- **Rota**: calculada pelas ruas pelo OpenRouteService. Ônibus e micro usam o perfil de veículo pesado; a van, o de carro. **Sem a chave** (`ORS_CHAVE`), o sistema faz uma estimativa (linha reta × 1,3 a 40 km/h) e a tela avisa que é estimativa.
+- **Carga horária** = deslocamento + permanências + folga (padrão de 30 min, para embarque e trânsito).
+- **Valor pela tabela** (botão "Tabela de preços"; só quem tem o financeiro altera): para cada veículo, R$ por km, R$ por hora, horas mínimas e valor mínimo. Valor = km × R$/km + horas (no mínimo as horas mínimas) × R$/hora, nunca abaixo do mínimo. O campo "Valor final" substitui o calculado. O servidor recalcula tudo ao salvar.
+- **Numeração** AAAA-NNNN; **PDF no papel timbrado** com roteiro, percurso, carga horária, investimento (com valor por extenso e por pessoa), condições (sinal de 50% e a regra do cancelamento), validade e observações.
+- **"Fechou: virar grupo"** cria o grupo fechado já preenchido (data, saída, veículo, roteiro com as permanências, duração, pessoas, valor e contato). Só uma vez por orçamento.
+- **Para ligar a rota pelas ruas no servidor**: criar a chave gratuita em openrouteservice.org e rodar `bash /opt/bybus/implantacao/ligar-rotas.sh`, que pede a chave sem mostrá-la e reinicia o sistema.
+- Valores da tabela: **a confirmar** com o dono (a tabela começa zerada).

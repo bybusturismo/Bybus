@@ -100,6 +100,8 @@ const esquema = z.object({
   URL_PUBLICA: z.string().url().optional(),
   /** Chave da API da Anthropic (IA). Sem ela a IA fica desligada e o resto do sistema funciona normalmente. Só em variável de ambiente/cofre. */
   ANTHROPIC_API_KEY: z.string().optional().transform((v) => v?.trim() || undefined),
+  /** Chave do OpenRouteService (rota dos orçamentos de grupo; plano gratuito). Sem ela, o orçamento usa estimativa. */
+  ORS_CHAVE: z.string().optional().transform((v) => v?.trim() || undefined),
   /** Modelo dos gestores (avaliação e debate) e do assistente. Padrão: o recomendado para o dia a dia. */
   IA_MODELO: z.string().min(3).default("claude-opus-5-5"),
   /** Modelo da síntese final. Padrão = IA_MODELO; opção mais forte e mais cara: claude-fable-5-1. */

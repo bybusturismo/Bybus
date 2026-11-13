@@ -45,6 +45,7 @@ import { rotasAfiliadosComissao } from "./rotas/afiliadosComissao.js";
 import { rotasGpsVeiculo } from "./rotas/gpsVeiculo.js";
 import { rotasGrupos } from "./rotas/grupos.js";
 import { rotasAssinaturas } from "./rotas/assinaturas.js";
+import { rotasOrcamentosRota } from "./rotas/orcamentosRota.js";
 import { rotasPortalAfiliado } from "./rotas/portalAfiliado.js";
 import { Cofre } from "./seguranca/cripto.js";
 import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
@@ -161,6 +162,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasGpsVeiculo(app, ctx);
   await rotasGrupos(app, ctx);
   await rotasAssinaturas(app, ctx);
+  await rotasOrcamentosRota(app, ctx);
   await rotasPortalAfiliado(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);

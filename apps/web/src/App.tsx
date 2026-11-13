@@ -82,6 +82,7 @@ import { Relatorios } from "./paginas/marketing/Relatorios";
 import { LinkBio } from "./paginas/marketing/LinkBio";
 import { Orcamentos } from "./paginas/orcamentos/Orcamentos";
 import { GrupoFicha, Grupos } from "./paginas/grupos/Grupos";
+import { OrcamentoRotaFicha, OrcamentosRota } from "./paginas/grupos/OrcamentosRota";
 import { ListaGrupoPublica } from "./paginas/grupos/ListaGrupoPublica";
 import { AssinarPublico, VerificarPublico } from "./paginas/grupos/AssinarPublico";
 import { ProvedorSessao, useSessao } from "./sessao/Sessao";
@@ -499,6 +500,8 @@ export function Rotas() {
         <Route path="afiliado" element={<Exige permissao="afiliado:portal"><PortalAfiliado /></Exige>} />
         <Route path="grupos" element={<Exige permissao="reservas:editar"><Grupos /></Exige>} />
         <Route path="grupos/:id" element={<Exige permissao="reservas:editar"><GrupoFicha /></Exige>} />
+        <Route path="orcamentos-rota" element={<Exige permissao="reservas:editar"><OrcamentosRota /></Exige>} />
+        <Route path="orcamentos-rota/:id" element={<Exige permissao="reservas:editar"><OrcamentoRotaFicha /></Exige>} />
         <Route
           path="biblioteca"
           element={

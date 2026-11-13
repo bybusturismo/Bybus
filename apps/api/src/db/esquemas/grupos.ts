@@ -1,4 +1,5 @@
-import { boolean, date, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, date, doublePrecision, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { orcamentosGrupo, pessoas, unidades, usuarios } from "../schema.js";
 
 const agora = () => timestamp({ withTimezone: true }).notNull().defaultNow();
@@ -142,3 +143,31 @@ export const assinaturaSignatarios = pgTable("assinatura_signatarios", {
   ip: text(),
   navegador: text(),
 }, (t) => [index("assinatura_signatarios_doc_idx").on(t.documentoId)]);
+
+/** Orçamento de grupo com rota (13/11/2026): pontos, rota (OpenRouteService), veículo, carga horária, valor e PDF. */
+export const orcamentosRota = pgTable("orcamentos_rota", {
+  id: uuid().primaryKey().defaultRandom(),
+  numero: text().notNull().unique(),
+  unidadeId: uuid().references(() => unidades.id),
+  cliente: text().notNull(),
+  contato: text(),
+  grupoId: uuid().references(() => gruposFechados.id, { onDelete: "set null" }),
+  dataPasseio: date({ mode: "string" }),
+  horarioInicio: text(),
+  /** VAN, MICRO ou ONIBUS. */
+  veiculo: text().notNull().default("ONIBUS"),
+  pessoas: integer(),
+  /** [{ nome, lat, lng, permanenciaMin }] na ordem do roteiro. */
+  pontos: jsonb().notNull().default(sql`'[]'::jsonb`),
+  distanciaKm: doublePrecision(),
+  duracaoRotaMin: integer(),
+  folgaMin: integer().notNull().default(30),
+  cargaHorariaMin: integer(),
+  valorCalculadoCentavos: integer(),
+  valorFinalCentavos: integer(),
+  validadeDias: integer().notNull().default(15),
+  observacoes: text(),
+  criadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  criadoEm: agora(),
+  atualizadoEm: agora(),
+}, (t) => [index("orcamentos_rota_criado_idx").on(t.criadoEm)]);

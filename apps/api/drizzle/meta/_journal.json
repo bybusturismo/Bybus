@@ -386,6 +386,13 @@
       "when": 1794592227974,
       "tag": "0054_tipo_abastecimento",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1794592721125,
+      "tag": "0055_orcamento_rota",
+      "breakpoints": true
     }
   ]
 }
