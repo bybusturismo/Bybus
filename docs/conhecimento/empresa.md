@@ -31,3 +31,16 @@ Paytour (reservas, ~R$ 379–399/mês, Cielo e Zoop) · WhatsApp com BotConversa
 3. Passeios com grupos: escolas, empresas e eventos.
 4. Revenda de serviços de terceiros: ingressos do Beto Carrero, escuna e outros.
 5. Campanhas publicitárias (ao menos um ônibus é usado em ações publicitárias).
+
+## Grupos fechados (dono, 13/11/2026)
+- Sem contrato padrão até agora; o dono redigiu um modelo (passeio pedagógico, 16 cláusulas) e mandou à Diretora para revisão.
+  Base: objeto e o que não está incluído (ingressos, alimentação), data/horário/roteiro com paradas e tempos, valor por
+  aluno com **mínimo de alunos** (só alunos contam; cortesias para professores/monitores), lista de participantes até uma
+  data, LGPD, chuva e reagendamento (pedido até 12h do dia anterior), alterações de roteiro, segurança, cancelamento,
+  vigência/comunicações, assinatura (2 testemunhas; aceita assinatura eletrônica) e foro de Florianópolis.
+- **Pagamento (regra geral; cada caso é analisado):** 50% antecipado para reservar a data; o restante até a realização do passeio.
+- **Cancelamento pelo grupo:** o valor antecipado **não é devolvido**; a By Bus remarca ou, no máximo, oferece **crédito para
+  realizar o passeio em até 1 ano** (o prazo mais longo já concedido).
+- **Quem assina pela By Bus:** a Diretora (nome e CPF cadastrados no sistema, não neste repositório).
+- Desejado: orçamento com pontos de visitação, rota calculada, **veículo (van ou ônibus)** e **carga horária**, em PDF no papel
+  timbrado; contrato e recibo gerados no timbrado; assinatura eletrônica.

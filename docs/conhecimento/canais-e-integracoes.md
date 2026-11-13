@@ -90,3 +90,14 @@ Integração pela **API oficial da Meta**, "Instagram API com Instagram Login" (
 - Regra do dono: como a Meta cobra por mensagem, **juntar informações numa mensagem só** sempre que possível.
 - Tripadvisor por praça: Floripa by Bus (g303576-d2362697) e BC by Bus (g680306-d10686390) — links cadastrados no sistema.
 - Google (perfil da empresa): Floripa by Bus → https://maps.app.goo.gl/ApHoQ2bE7i17i8QA8 (cadastrado no sistema, 10/11/2026). BC by Bus: a enviar.
+
+## Afiliados — regras de comissão (dono, 13/11/2026)
+- **Comissão padrão: 10%** do valor da venda. Exceções: afiliados com **0%** (repassam tudo como desconto ao cliente);
+  afiliados que dividem (parte em **desconto** ao cliente, o restante em **comissão**); um afiliado com **15%** pelo volume.
+- Na Paytour, a venda paga antecipadamente já aparece como "a pagar" ao afiliado, mas a By Bus **só valida depois que o
+  cliente realiza o passeio**. O relatório de comissões pode ser por data da venda ou da realização.
+- **Pagamento quinzenal, pela data de realização do passeio:** dia **01** paga os passeios realizados de **16 ao último dia
+  do mês anterior**; dia **16** paga os realizados de **01 a 15 do próprio mês**. Ex.: compra 02/03, passeio 26/04 → recebe
+  01/05; compra 23/04, passeio 02/05 → recebe 16/05.
+- Hoje (Paytour) o afiliado tem painel com e-mail e senha: confere comissões, cadastra dados bancários, pega link e QR code e
+  pode vender pelo sistema.
