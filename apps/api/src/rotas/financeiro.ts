@@ -199,6 +199,8 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       z.object({ tipo: z.literal("PARCELADO"), parcelas: z.number().int().min(2).max(120) }),
       z.object({ tipo: z.literal("RECORRENTE"), meses: z.number().int().min(2).max(60) }),
     ]).nullish(),
+    /** A tela confirma que quer lançar mesmo havendo um igual criado há pouco (ver POSSIVEL_DUPLICADO). */
+    confirmarDuplicado: z.boolean().optional(),
   });
 
   const colunasLista = {
@@ -272,7 +274,20 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
 
   app.post("/api/financeiro/lancamentos", gerenciar, async (req) => {
     const u = req.usuario!;
-    const corpo = esquemaNovo.parse(req.body);
+    const { confirmarDuplicado, ...corpo } = esquemaNovo.parse(req.body);
+    // Trava contra lançamento repetido (dono, 13/11/2026: salvamento lento fez a equipe digitar de novo e duplicou).
+    // Igual = mesmo tipo, descrição, valor e vencimento, criado nas últimas 12 horas. A tela pergunta antes de lançar.
+    if (!confirmarDuplicado) {
+      const [igual] = await db.select({ criadoEm: finLancamentos.criadoEm, situacao: finLancamentos.situacao }).from(finLancamentos).where(and(
+        eq(finLancamentos.tipo, corpo.tipo), eq(finLancamentos.valorCentavos, corpo.valorCentavos), eq(finLancamentos.vencimento, corpo.vencimento),
+        sql`lower(trim(${finLancamentos.descricao})) = lower(trim(${corpo.descricao}))`,
+        gte(finLancamentos.criadoEm, new Date(Date.now() - 12 * 3_600_000)),
+      )).orderBy(desc(finLancamentos.criadoEm)).limit(1);
+      if (igual) {
+        const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(igual.criadoEm);
+        throw new ErroHttp(409, "POSSIVEL_DUPLICADO", `Já existe um lançamento igual (mesma descrição, valor e vencimento) criado hoje às ${hora}${igual.situacao === "REALIZADO" ? ", já baixado" : ""}. Confira na lista antes de lançar de novo.`);
+      }
+    }
     await validarCategoria(db, corpo.categoriaId, corpo.tipo);
     const unidadeId = await validarPracaDoRegistro(db, u, corpo.unidadeId);
     if (corpo.contaId) await garantirConta(db, u, corpo.contaId);

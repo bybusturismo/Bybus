@@ -66,7 +66,8 @@ async function conta(c: Cliente, corpo: Record<string, unknown>) {
 
 async function lancar(c: Cliente, corpo: Record<string, unknown>) {
   const r = await c.req("POST", "/api/financeiro/lancamentos", {
-    tipo: "PAGAR", descricao: "Combustível", categoriaId: cat.DESP_COMBUSTIVEL, valorCentavos: 10000, competencia: "2026-10-01", vencimento: "2026-10-10", unidadeId: fln, ...corpo,
+    // Os testes lançam várias vezes o mesmo valor de propósito: confirmam o "igual a outro" (testado à parte).
+    tipo: "PAGAR", descricao: "Combustível", categoriaId: cat.DESP_COMBUSTIVEL, valorCentavos: 10000, competencia: "2026-10-01", vencimento: "2026-10-10", unidadeId: fln, confirmarDuplicado: true, ...corpo,
   });
   return r;
 }
@@ -76,6 +77,21 @@ function ofx(linhas: Array<{ fitid: string; data: string; valor: string; memo: s
     linhas.map((l) => `<STMTTRN><TRNTYPE>OTHER<DTPOSTED>${l.data}<TRNAMT>${l.valor}<FITID>${l.fitid}<MEMO>${l.memo}\n</STMTTRN>`).join("\n") +
     `\n</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
 }
+
+describe("lançamento repetido (13/11/2026)", () => {
+  it("lançar de novo o mesmo (descrição, valor e vencimento) pede confirmação; confirmado, lança", async () => {
+    const c = usuarioFln;
+    const corpo = { tipo: "RECEBER", descricao: "Aplicação teste", categoriaId: cat.REC_FRETAMENTO, valorCentavos: 1600000, competencia: "2026-11-12", vencimento: "2026-11-12", confirmarDuplicado: false };
+    const primeiro = await lancar(c, corpo);
+    expect(primeiro.statusCode, primeiro.body).toBe(200);
+    const segundo = await lancar(c, { ...corpo, descricao: "  APLICAÇÃO TESTE " });
+    expect(segundo.statusCode).toBe(409);
+    expect(json(segundo)).toMatchObject({ codigo: "POSSIVEL_DUPLICADO" });
+    expect(json(segundo).mensagem).toMatch(/Já existe um lançamento igual .* criado hoje às \d{2}:\d{2}/);
+    expect((await lancar(c, { ...corpo, valorCentavos: 1600001 })).statusCode).toBe(200); // valor diferente: lança
+    expect((await lancar(c, { ...corpo, confirmarDuplicado: true })).statusCode).toBe(200);
+  });
+});
 
 describe("permissões e escopo", () => {
   it("sem financeiro:ver/gerenciar nada é acessível; leitor só consulta; gerenciar também consulta", async () => {

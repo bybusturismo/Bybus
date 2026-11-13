@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { api, mensagemDeErro, qs } from "../../api/cliente";
+import { api, ErroApi, mensagemDeErro, qs } from "../../api/cliente";
 import { LINHAS_NEGOCIO, type LinhaNegocio } from "../../api/tipos";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
 import { EtiquetaLinha } from "../../componentes/Etiquetas";
@@ -46,15 +46,17 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
   const [observacao, setObservacao] = useState(lancamento?.observacao ?? "");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [duplicado, setDuplicado] = useState<string | null>(null);
 
   const travaConciliado = !!lancamento?.conciliado;
   const travaValor = travaConciliado || lancamento?.situacao === "REALIZADO";
   const cats = categorias.filter((c) => c.ativa && c.tipo === (tipo === "PAGAR" ? "DESPESA" : "RECEITA"));
   const contasAtivas = contas.filter((c) => c.ativa);
 
-  async function salvar(e: FormEvent) {
+  async function salvar(e: FormEvent, confirmarDuplicado = false) {
     e.preventDefault();
     setErro(null);
+    setDuplicado(null);
     const centavos = centavosDeTexto(valor);
     if (descricao.trim().length < 2) return setErro("Informe a descrição.");
     if (!categoriaId) return setErro("Escolha a categoria.");
@@ -81,11 +83,13 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
         await api.post("/api/financeiro/lancamentos", {
           ...comuns, tipo, valorCentavos: centavos, competencia, vencimento,
           repeticao: repeticao === "UNICA" ? null : repeticao === "PARCELADO" ? { tipo: "PARCELADO", parcelas: n } : { tipo: "RECORRENTE", meses: n },
+          ...(confirmarDuplicado ? { confirmarDuplicado: true } : {}),
         });
       }
       await aoSalvar();
     } catch (x) {
-      setErro(mensagemDeErro(x));
+      if (x instanceof ErroApi && x.codigo === "POSSIVEL_DUPLICADO") setDuplicado(x.message);
+      else setErro(mensagemDeErro(x));
     } finally {
       setSalvando(false);
     }
@@ -189,6 +193,12 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
           <textarea id="lan-obs" rows={2} maxLength={1000} value={observacao} onChange={(e) => setObservacao(e.target.value)} />
         </div>
       </div>
+      {duplicado && (
+        <Aviso tipo="atencao">
+          {duplicado}{" "}
+          <button type="button" className="botao botao--pequeno botao--secundario" disabled={salvando} onClick={(e) => void salvar(e as unknown as FormEvent, true)}>Lançar mesmo assim</button>
+        </Aviso>
+      )}
       <div className="modal__acoes">
         <button type="button" className="botao botao--secundario" onClick={aoCancelar}>Cancelar</button>
         <button type="submit" className="botao botao--primario" disabled={salvando}>{salvando ? "Salvando…" : lancamento ? "Salvar" : "Lançar"}</button>
