@@ -17,7 +17,7 @@ describe("Comissões de afiliados (13/11/2026)", () => {
         itens: [{ reservaId: "r1", pedidoCodigo: "PAYTOUR-1", afiliadoId: "a1", afiliadoNome: "Hotel Fictício Sol", passeio: "Toda a Ilha", dataVenda: "2026-10-02", dataPasseio: "2026-10-20", valorReservaCentavos: 30000, comissaoCentavos: 3000, situacao: "A_PAGAR", dataPagamento: "2026-11-01", pagamentoId: null }],
         totais: { previstaCentavos: 0, aPagarCentavos: 3000, pagaCentavos: 0, canceladaCentavos: 0 },
         ranking: [{ afiliadoId: "a1", nome: "Hotel Fictício Sol", reservas: 1, vendidoCentavos: 30000, comissaoCentavos: 3000 }],
-        proximoPagamento: { data: "2026-11-16", pendentes: 1, totalCentavos: 3000 },
+        proximoPagamento: { data: "2026-11-16", pendentes: 1, totalCentavos: 3000 }, pagasForaAte: "2026-10-15",
       },
       "GET /api/afiliados/pagamentos": [],
       "POST /api/afiliados/pagamentos": { pagamentos: 1, comissoes: 1, totalCentavos: 3000 },
@@ -34,11 +34,12 @@ describe("Comissões de afiliados (13/11/2026)", () => {
 
   it("quem não gerencia o financeiro não vê o botão de gerar", async () => {
     simularApi({
-      "GET /api/afiliados/comissoes": { itens: [], totais: { previstaCentavos: 0, aPagarCentavos: 0, pagaCentavos: 0, canceladaCentavos: 0 }, ranking: [], proximoPagamento: { data: "2026-11-16", pendentes: 0, totalCentavos: 0 } },
+      "GET /api/afiliados/comissoes": { itens: [], totais: { previstaCentavos: 0, aPagarCentavos: 0, pagaCentavos: 0, canceladaCentavos: 0 }, ranking: [], proximoPagamento: { data: "2026-11-16", pendentes: 0, totalCentavos: 0 }, pagasForaAte: null },
       "GET /api/afiliados/pagamentos": [],
     });
     renderizar(<ComissoesAfiliados />, { sessao: sessaoFicticia("MKT", ["marketing:ver"], { unidades: [FLN] }) });
     expect(await screen.findByText(/Próximo pagamento/)).toBeInTheDocument();
+    expect(screen.getByText(/informe até que data de passeio as comissões já foram pagas/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Gerar contas a pagar" })).not.toBeInTheDocument();
   });
 });

@@ -4,10 +4,10 @@ import { z } from "zod";
 import { proximoPagamento, type SituacaoComissao } from "@bybus/core";
 import type { Contexto } from "../app.js";
 import { auditar } from "../auditoria.js";
-import { afiliadoPagamentos, afiliados, finLancamentos } from "../db/schema.js";
+import { afiliadoPagamentos, afiliados, finLancamentos, marketingConfig } from "../db/schema.js";
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
-import { calcularComissoes, desfazerPagamentoComissao, gerarPagamentosComissao } from "../servicos/afiliadosComissao.js";
+import { CHAVE_CORTE, calcularComissoes, desfazerPagamentoComissao, gerarPagamentosComissao, lerCorte } from "../servicos/afiliadosComissao.js";
 import { dataIso, hojeSp } from "../servicos/marketingComum.js";
 
 /** Comissões de afiliados: relatório, ranking e pagamento quinzenal (13/11/2026). Valores: só com financeiro:ver ou marketing:ver. */
@@ -50,6 +50,7 @@ export async function rotasAfiliadosComissao(app: FastifyInstance, { db, config 
       itens,
       totais: { previstaCentavos: soma("PREVISTA"), aPagarCentavos: soma("A_PAGAR"), pagaCentavos: soma("PAGA"), canceladaCentavos: soma("CANCELADA") },
       ranking: [...porAfiliado.values()].sort((a, b) => b.vendidoCentavos - a.vendidoCentavos),
+      pagasForaAte: await lerCorte(db),
       proximoPagamento: { data: proximo, pendentes: aPagarSemLote.length, totalCentavos: aPagarSemLote.reduce((a, c) => a + c.comissaoCentavos, 0) },
     };
   });
@@ -65,6 +66,17 @@ export async function rotasAfiliadosComissao(app: FastifyInstance, { db, config 
       .where(u.todasUnidades ? undefined : inArray(afiliadoPagamentos.unidadeId, u.unidadeIds.length ? u.unidadeIds : ["00000000-0000-0000-0000-000000000000"]))
       .orderBy(desc(afiliadoPagamentos.dataPagamento), desc(afiliadoPagamentos.criadoEm)).limit(200);
     return lista;
+  });
+
+  // Corte do histórico: comissões de passeios até esta data já foram pagas fora do sistema.
+  app.put("/api/afiliados/corte", pagar, async (req) => {
+    const { pagasAte } = z.object({ pagasAte: dataIso }).parse(req.body);
+    if (pagasAte > hojeSp()) throw new ErroHttp(400, "DATA_FUTURA", "A data de corte não pode ser futura.");
+    const antes = await lerCorte(db);
+    await db.insert(marketingConfig).values({ chave: CHAVE_CORTE, valor: pagasAte, atualizadoPor: req.usuario!.id })
+      .onConflictDoUpdate({ target: marketingConfig.chave, set: { valor: pagasAte, atualizadoEm: new Date(), atualizadoPor: req.usuario!.id } });
+    await auditar(db, req, "AFILIADO_CORTE_DEFINIDO", { tipo: "marketing_config", id: CHAVE_CORTE }, { antes, depois: pagasAte });
+    return { pagasAte };
   });
 
   app.post("/api/afiliados/pagamentos", pagar, async (req) => {

@@ -19,6 +19,8 @@ interface Resposta {
   totais: { previstaCentavos: number; aPagarCentavos: number; pagaCentavos: number; canceladaCentavos: number };
   ranking: Array<{ afiliadoId: string | null; nome: string; reservas: number; vendidoCentavos: number; comissaoCentavos: number }>;
   proximoPagamento: { data: string; pendentes: number; totalCentavos: number };
+  /** Passeios até esta data: comissões já pagas fora do sistema (corte do histórico). */
+  pagasForaAte: string | null;
 }
 interface Pagamento { id: string; dataPagamento: string; periodoDe: string; periodoAte: string; totalCentavos: number; afiliado: string; situacaoConta: string }
 
@@ -56,6 +58,7 @@ export function ComissoesAfiliados() {
   const [gerando, setGerando] = useState(false);
   const [desfazer, setDesfazer] = useState<Pagamento | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [corte, setCorte] = useState("");
   const dados = useCarregar((s) => api.get<Resposta>(`/api/afiliados/comissoes${qs({ de, ate, por, afiliadoId: afiliadoId || undefined })}`, s), [de, ate, por, afiliadoId]);
   const pagamentos = useCarregar((s) => api.get<Pagamento[]>("/api/afiliados/pagamentos", s), []);
   const afiliados = useMemo(() => (dados.dados?.ranking ?? []).filter((r) => r.afiliadoId).sort((a, b) => a.nome.localeCompare(b.nome)), [dados.dados]);
@@ -72,6 +75,18 @@ export function ComissoesAfiliados() {
       setErro(mensagemDeErro(x));
     } finally {
       setGerando(false);
+    }
+  }
+
+  async function salvarCorte() {
+    setErro(null);
+    try {
+      await api.put("/api/afiliados/corte", { pagasAte: corte });
+      notificar("Data de corte salva.");
+      setCorte("");
+      await dados.recarregar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
     }
   }
 
@@ -95,6 +110,20 @@ export function ComissoesAfiliados() {
             Próximo pagamento: <strong>{formatarData(d.proximoPagamento.data)}</strong> · {d.proximoPagamento.pendentes} comissão(ões) já liberada(s) e ainda não
             pagas: <strong>{formatarMoeda(d.proximoPagamento.totalCentavos)}</strong>.
           </p>
+          {d.pagasForaAte ? (
+            <p className="texto-fraco">Comissões de passeios até {formatarData(d.pagasForaAte)} contam como já pagas fora do sistema.</p>
+          ) : (
+            <Aviso tipo="atencao">Antes do primeiro pagamento, informe até que data de passeio as comissões já foram pagas pela rotina antiga (fora do sistema). Assim ninguém recebe duas vezes.</Aviso>
+          )}
+          {podePagar && (
+            <div className="filtros">
+              <div className="campo campo--linha">
+                <label htmlFor="cm-corte">Comissões já pagas até o passeio de</label>
+                <input id="cm-corte" type="date" max={hoje} value={corte} onChange={(e) => setCorte(e.target.value)} />
+              </div>
+              <button type="button" className="botao botao--secundario" disabled={!corte} onClick={() => void salvarCorte()}>Salvar corte</button>
+            </div>
+          )}
           {podePagar && (
             <div className="filtros">
               <div className="campo campo--linha">

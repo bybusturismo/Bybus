@@ -73,6 +73,13 @@ describe("comissões de afiliados (13/11/2026)", () => {
     const c = new Cliente(app);
     await c.login("admin@bybus.test");
     expect((await c.req("POST", "/api/afiliados/pagamentos", { dataPagamento: "2026-11-10" })).statusCode).toBe(400);
+    // Sem o corte do histórico, não gera (evita pagar de novo o que já foi pago fora do sistema).
+    expect((await c.req("POST", "/api/afiliados/pagamentos", { dataPagamento: "2026-11-01" })).json().codigo).toBe("SEM_CORTE");
+    expect((await c.req("PUT", "/api/afiliados/corte", { pagasAte: "2026-10-22" })).statusCode).toBe(200);
+    // Corte em 22/10: a reserva de 20/10 conta como paga fora; volta para 15/10 para seguir o teste.
+    const it0 = (await c.req("GET", `/api/afiliados/comissoes?de=2026-10-01&ate=2026-10-31`)).json().itens.find((x: { reservaId: string }) => x.reservaId === ids.realizada);
+    expect(it0).toMatchObject({ situacao: "PAGA", pagamentoId: null });
+    expect((await c.req("PUT", "/api/afiliados/corte", { pagasAte: "2026-10-15" })).statusCode).toBe(200);
     const g = await c.req("POST", "/api/afiliados/pagamentos", { dataPagamento: "2026-11-01" });
     expect(g.statusCode, g.body).toBe(200);
     expect(g.json()).toMatchObject({ pagamentos: 1, comissoes: 1, totalCentavos: 750 });

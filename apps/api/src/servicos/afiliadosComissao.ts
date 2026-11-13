@@ -2,7 +2,7 @@ import { and, eq, gt, inArray, isNotNull, notInArray, sql } from "drizzle-orm";
 import { dataPagamentoComissao, periodoDoPagamento, ratearComissao, situacaoComissao, type SituacaoComissao } from "@bybus/core";
 import type { Db } from "../db/cliente.js";
 import {
-  afiliadoPagamentoItens, afiliadoPagamentos, afiliados, finCategorias, finLancamentos, passageiros, passeios, reservas, saidas, vendas,
+  afiliadoPagamentoItens, afiliadoPagamentos, afiliados, finCategorias, finLancamentos, marketingConfig, passageiros, passeios, reservas, saidas, vendas,
 } from "../db/schema.js";
 import { ErroHttp, type UsuarioSessao } from "../seguranca/sessao.js";
 import { garantirPlano } from "./financeiro.js";
@@ -29,6 +29,16 @@ export interface ComissaoReserva {
   /** Dia em que é (ou foi) paga: o do pagamento gerado, ou o previsto pela regra quinzenal. */
   dataPagamento: string;
   pagamentoId: string | null;
+}
+
+/**
+ * Corte: comissões de passeios até esta data já foram pagas fora do sistema (pela rotina antiga) e contam como pagas.
+ * Sem o corte, gerar pagamento é bloqueado (evita pagar duas vezes o histórico).
+ */
+export const CHAVE_CORTE = "comissoes_pagas_ate";
+export async function lerCorte(db: Db): Promise<string | null> {
+  const [c] = await db.select({ valor: marketingConfig.valor }).from(marketingConfig).where(eq(marketingConfig.chave, CHAVE_CORTE));
+  return c?.valor ?? null;
 }
 
 const diaSp = (d: Date | null) => (d ? new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d) : null);
@@ -96,13 +106,14 @@ export async function calcularComissoes(db: Db, unidadeIds: string[] | null, hoj
   const pagoPor = new Map(pagos.map((p) => [p.reservaId, p]));
   const cadastro = await db.select({ id: afiliados.id, nome: afiliados.nome, paytour: afiliados.paytourAfiliadoId }).from(afiliados).where(isNotNull(afiliados.paytourAfiliadoId));
   const afiliadoDe = new Map(cadastro.map((a) => [a.paytour!, a]));
+  const corte = await lerCorte(db);
 
   return visiveis.map((l) => {
     const p = pagoPor.get(l.reservaId);
     const a = afiliadoDe.get(l.paytourAfiliadoId!);
     const situacao: SituacaoComissao = p
       ? (p.situacaoConta === "REALIZADO" ? "PAGA" : "A_PAGAR")
-      : situacaoComissao({ reservaCancelada: l.status === "CANCELADA", dataPasseio: l.dataPasseio, hoje, compareceu: embarque.get(l.reservaId) ?? null, paga: false });
+      : situacaoComissao({ reservaCancelada: l.status === "CANCELADA", dataPasseio: l.dataPasseio, hoje, compareceu: embarque.get(l.reservaId) ?? null, paga: !!corte && l.dataPasseio <= corte });
     return {
       reservaId: l.reservaId, pedidoCodigo: l.pedidoCodigo, afiliadoId: a?.id ?? null, afiliadoNome: a?.nome ?? `Afiliado Paytour ${l.paytourAfiliadoId}`,
       paytourAfiliadoId: l.paytourAfiliadoId!, unidadeId: l.unidadeId, passeio: l.passeio, dataVenda: diaSp(l.compra), dataPasseio: l.dataPasseio,
@@ -124,6 +135,7 @@ export async function gerarPagamentosComissao(db: Db, u: UsuarioSessao, dataPaga
     throw new ErroHttp(400, "DATA_INVALIDA", (e as Error).message);
   }
   if (hoje <= periodo.ate) throw new ErroHttp(409, "PERIODO_EM_ANDAMENTO", `Os passeios de ${periodo.de.split("-").reverse().join("/")} a ${periodo.ate.split("-").reverse().join("/")} ainda não terminaram: gere o pagamento a partir do dia seguinte ao fim do período.`);
+  if (!(await lerCorte(db))) throw new ErroHttp(409, "SEM_CORTE", "Antes do primeiro pagamento, informe até que data de passeio as comissões já foram pagas fora do sistema.");
   const todas = await calcularComissoes(db, u.todasUnidades ? null : u.unidadeIds, hoje);
   const elegiveis = todas.filter((c) => c.situacao === "A_PAGAR" && !c.pagamentoId && c.afiliadoId && c.comissaoCentavos > 0 && c.dataPasseio <= periodo.ate);
   if (!elegiveis.length) return { pagamentos: 0, comissoes: 0, totalCentavos: 0 };

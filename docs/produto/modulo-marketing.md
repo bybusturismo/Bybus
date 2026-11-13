@@ -132,6 +132,9 @@ Regras do dono em `docs/conhecimento/canais-e-integracoes.md`. Tela **Marketing 
   `afiliado_pagamento_itens`, uma reserva em um pagamento só). Comissões esquecidas de quinzenas anteriores entram junto.
   **Desfazer** apaga a conta enquanto não foi paga nem conciliada; se a conta for excluída no financeiro, as comissões
   voltam a ficar a pagar.
+- **Corte do histórico:** antes do primeiro pagamento, informar "comissões já pagas até o passeio de" (data); as de antes
+  contam como pagas fora do sistema (chave `comissoes_pagas_ate` em `marketing_config`, `PUT /api/afiliados/corte`,
+  auditado). Sem o corte, gerar pagamento é bloqueado — evita pagar o histórico duas vezes.
 - Relatório pela data do **passeio** ou da **venda**, filtro por afiliado e **ranking** (reservas, valor vendido e comissão).
 - API: `GET /api/afiliados/comissoes?de&ate&por&afiliadoId`, `GET|POST /api/afiliados/pagamentos`, `DELETE /api/afiliados/pagamentos/:id`.
 - Próximo passo: **portal do afiliado** (login próprio: comissões, dados bancários, link e QR code).
