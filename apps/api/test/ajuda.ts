@@ -30,10 +30,10 @@ export class Cliente {
   cookie = "";
   constructor(private app: FastifyInstance) {}
 
-  async req(method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE", url: string, payload?: unknown) {
+  async req(method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE", url: string, payload?: unknown, cabecalhos: Record<string, string> = {}) {
     const r = await this.app.inject({
       method, url, payload: payload as never,
-      headers: { cookie: this.cookie, ...(method !== "GET" ? { "x-bybus": "1" } : {}) },
+      headers: { cookie: this.cookie, ...(method !== "GET" ? { "x-bybus": "1" } : {}), ...cabecalhos },
     });
     // Guarda os cookies por nome (sessão e, por exemplo, o do Cofre), como um navegador.
     const setCookie = r.headers["set-cookie"];

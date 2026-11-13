@@ -82,6 +82,7 @@ import { LinkBio } from "./paginas/marketing/LinkBio";
 import { Orcamentos } from "./paginas/orcamentos/Orcamentos";
 import { GrupoFicha, Grupos } from "./paginas/grupos/Grupos";
 import { ListaGrupoPublica } from "./paginas/grupos/ListaGrupoPublica";
+import { AssinarPublico, VerificarPublico } from "./paginas/grupos/AssinarPublico";
 import { ProvedorSessao, useSessao } from "./sessao/Sessao";
 
 /** Esconde a tela de quem não tem a permissão (o servidor também recusa). */
@@ -547,6 +548,11 @@ export function App() {
   // Lista de passageiros de grupo fechado, preenchida pelo representante (13/11/2026; sem login nem sessão).
   const listaGrupo = /^\/lista-grupo\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
   if (listaGrupo) return <ListaGrupoPublica token={listaGrupo[1]!} />;
+  // Assinatura eletrônica e verificação pública de documentos (13/11/2026; sem login nem sessão).
+  const assinar = /^\/assinar\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
+  if (assinar) return <AssinarPublico token={assinar[1]!} />;
+  const verificar = /^\/verificar\/(BB-[A-Za-z0-9]{4}-[A-Za-z0-9]{4})$/i.exec(window.location.pathname);
+  if (verificar) return <VerificarPublico codigo={verificar[1]!.toUpperCase()} />;
   // Marketing: link na bio, pedido de orçamento de grupos e pesquisa NPS (sem login nem sessão).
   const caminho = window.location.pathname.replace(/\/$/, "");
   if (caminho === "/bio") return <BioPublica />;

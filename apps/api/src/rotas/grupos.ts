@@ -21,6 +21,18 @@ const opcional = (max: number) => texto(max).nullish().transform((v) => v || nul
 const centavos = z.number().int().min(0).max(1_000_000_000).nullish();
 const naoEncontrado = () => new ErroHttp(404, "NAO_ENCONTRADO", "Grupo não encontrado.");
 
+const CHAVES_EMPRESA = { razaoSocial: "empresa_razao_social", cnpj: "empresa_cnpj", endereco: "empresa_endereco", cidadeForo: "contrato_foro", assinanteNome: "contrato_assinante_nome", assinanteCargo: "contrato_assinante_cargo" } as const;
+
+/** Dados da empresa no contrato e no recibo (tabela `configuracoes`; quem assina é preenchido pelo administrador). */
+export async function dadosEmpresaContrato(db: Contexto["db"]): Promise<DadosEmpresaContrato> {
+  const linhas = await db.select().from(configuracoes).where(inArray(configuracoes.chave, Object.values(CHAVES_EMPRESA)));
+  const v = (k: keyof typeof CHAVES_EMPRESA) => linhas.find((l) => l.chave === CHAVES_EMPRESA[k])?.valor || null;
+  return {
+    razaoSocial: v("razaoSocial") ?? "By Bus Turismo Ltda.", cnpj: v("cnpj") ?? "09.529.650/0001-01", endereco: v("endereco") ?? "Florianópolis/SC",
+    cidadeForo: v("cidadeForo") ?? "Florianópolis/SC", assinanteNome: v("assinanteNome"), assinanteCargo: v("assinanteCargo"),
+  };
+}
+
 /**
  * Grupos fechados (dono, 13/11/2026): cadastro completo, cobrança (sinal e saldo viram contas a receber no financeiro),
  * anexos (contrato assinado, comprovantes, NF) e histórico de anos anteriores. Acesso: quem lança reservas (reservas:editar),
@@ -295,15 +307,7 @@ export async function rotasGrupos(app: FastifyInstance, { db, config, cofre }: C
   });
 
   // ---------- Contrato e recibo no papel timbrado (13/11/2026) ----------
-  const CHAVES_EMPRESA = { razaoSocial: "empresa_razao_social", cnpj: "empresa_cnpj", endereco: "empresa_endereco", cidadeForo: "contrato_foro", assinanteNome: "contrato_assinante_nome", assinanteCargo: "contrato_assinante_cargo" } as const;
-  async function dadosEmpresa(): Promise<DadosEmpresaContrato> {
-    const linhas = await db.select().from(configuracoes).where(inArray(configuracoes.chave, Object.values(CHAVES_EMPRESA)));
-    const v = (k: keyof typeof CHAVES_EMPRESA) => linhas.find((l) => l.chave === CHAVES_EMPRESA[k])?.valor || null;
-    return {
-      razaoSocial: v("razaoSocial") ?? "By Bus Turismo Ltda.", cnpj: v("cnpj") ?? "09.529.650/0001-01", endereco: v("endereco") ?? "Florianópolis/SC",
-      cidadeForo: v("cidadeForo") ?? "Florianópolis/SC", assinanteNome: v("assinanteNome"), assinanteCargo: v("assinanteCargo"),
-    };
-  }
+  const dadosEmpresa = () => dadosEmpresaContrato(db);
   app.get("/api/configuracoes/contrato", acesso, async () => dadosEmpresa());
   app.put("/api/configuracoes/contrato", { preHandler: exigir(config, "usuarios:gerenciar") }, async (req) => {
     const c = z.object({

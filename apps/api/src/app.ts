@@ -44,6 +44,7 @@ import { rotasTempo } from "./rotas/tempo.js";
 import { rotasAfiliadosComissao } from "./rotas/afiliadosComissao.js";
 import { rotasGpsVeiculo } from "./rotas/gpsVeiculo.js";
 import { rotasGrupos } from "./rotas/grupos.js";
+import { rotasAssinaturas } from "./rotas/assinaturas.js";
 import { Cofre } from "./seguranca/cripto.js";
 import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
 
@@ -61,6 +62,7 @@ export const mascararUrl = (url: string) => url
   .replace(/(\/rastreio\/)[A-Za-z0-9_-]{20,}/g, "$1***")
   .replace(/(\/gps\/)[A-Za-z0-9_-]{20,}/g, "$1***")
   .replace(/(\/lista-grupo\/)[A-Za-z0-9_-]{20,}/g, "$1***")
+  .replace(/(\/assinar\/)[A-Za-z0-9_-]{20,}/g, "$1***")
   .replace(/(\/api\/interno\/whatsapp\/)[A-Za-z0-9_-]+/g, "$1***")
   // Instagram: token de verificação do webhook (na query) e token da mídia agendada (na rota pública).
   .replace(/(hub\.verify_token=)[^&]*/g, "$1***")
@@ -157,6 +159,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasAfiliadosComissao(app, ctx);
   await rotasGpsVeiculo(app, ctx);
   await rotasGrupos(app, ctx);
+  await rotasAssinaturas(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);

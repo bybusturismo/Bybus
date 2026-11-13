@@ -16,6 +16,7 @@ import { useAtraso } from "../../util/useAtraso";
 import { imprimirPagina } from "../../util/appCelular";
 import { corpoLista, EditorLista, linhaVazia, paraLinhas, type LinhaLista } from "./EditorLista";
 import { Modal } from "../../componentes/Modal";
+import { AssinaturaGrupo } from "./AssinaturaGrupo";
 
 interface DadosEmpresa { razaoSocial: string; cnpj: string; endereco: string; cidadeForo: string; assinanteNome: string | null; assinanteCargo: string | null }
 
@@ -394,6 +395,8 @@ export function GrupoFicha() {
       {g && (
         <>
           <ListaDoGrupo grupoId={g.id} nome={g.nome} estilo={g.estilo} />
+
+          <AssinaturaGrupo grupoId={g.id} representante={{ nome: g.representanteNome, email: g.representanteEmail, cpf: g.representanteCpf }} empresa={{ nome: null }} />
 
           <section className="cartao nao-imprimir" aria-labelledby="g-tit-cobranca">
             <h2 id="g-tit-cobranca">Pagamentos</h2>

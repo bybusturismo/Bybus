@@ -44,5 +44,23 @@ quem já fez passeio e para conferir valores e roteiros de anos anteriores. Regr
   cargo) na tabela `configuracoes` — todos veem, só o administrador altera (auditado). Nenhum nome no código.
 - **A confirmar:** texto final revisado pela Diretoria e por advogado; testemunhas (o modelo original previa duas).
 
-## Próximas etapas
-4. Assinatura eletrônica (link por e-mail, código de confirmação, registro de data/hora/IP, código de verificação).
+## Etapa 4 — assinatura eletrônica (pronta)
+- Na ficha do grupo, **Enviar contrato para assinatura**: contratante (representante, já preenchido), contratada (quem assina
+  pela By Bus, dos "Dados do contrato") e testemunhas opcionais, com nome, e-mail e CPF opcional (se informado, tem que bater).
+  O contrato é **congelado** (PDF cifrado, hash SHA-256, conteúdo guardado) e cada pessoa recebe **link individual por
+  e-mail** (os links aparecem uma vez para copiar e mandar também pelo WhatsApp). Acompanhamento: abriu / assinou;
+  reenviar (novo link, o anterior deixa de valer); cancelar envio.
+- **Quem assina** (`/assinar/<token>`, sem login): lê o PDF, pede o **código de 6 números por e-mail** (10 min, 5 tentativas,
+  no máximo 8 envios), confirma **nome completo** (tem que bater com o cadastrado, sem diferenciar acento/maiúscula) e **CPF**
+  (válido; igual ao cadastrado, se houver) e aceita. Ficam registrados data/hora, IP e navegador.
+- **Quando todos assinam:** PDF final = contrato + **folha de assinaturas** (quem, quando em horário de Brasília, e-mail e
+  CPF mascarados, IP, navegador, hash do original, código de verificação), vira anexo "Contrato" do grupo, todos recebem
+  e-mail com o código; o link de cada um passa a baixar o documento assinado.
+- **Verificação pública** `/verificar/BB-XXXX-XXXX`: título, situação, quem assinou e quando, hashes — sem e-mails, CPFs
+  ou conteúdo.
+- Base legal citada no contrato e na folha: MP 2.200-2/2001 (art. 10, § 2º) e Lei 14.063/2020 (assinatura eletrônica entre
+  particulares). **A confirmar com advogado:** necessidade de testemunhas para título executivo.
+- Revisão de segurança das rotas públicas `/api/publico/assinar/:token[/pdf|/codigo|/assinar]` e `/api/publico/verificar/:codigo`:
+  token aleatório de 24 bytes (só o hash no banco; reenviar troca), código de 6 dígitos com hash por signatário, comparação
+  em tempo constante, limites por minuto e por envio, documento cancelado derruba os links, tokens mascarados no log
+  (`/assinar/***`), CPF cifrado. Sem e-mail configurado o envio do código falha com aviso (a equipe manda o link).
