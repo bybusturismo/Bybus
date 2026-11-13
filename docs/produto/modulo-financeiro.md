@@ -101,3 +101,21 @@ Categoria nova escolhe o grupo numa lista com as linhas da DRE (não é mais tex
 - A coluna **Centro de custo** (praça · linha · veículo/placa/trem) passou para logo depois do Vencimento e aparece também no celular.
 - Ao escolher o **banco/conta** nos filtros, o topo mostra, para aquela conta: recebido no mês, pago no mês, **resultado do mês**
   (recebido − pago) e o **saldo atual** da conta (saldo inicial + tudo o que já entrou e saiu, o mesmo de Caixa e saldos).
+
+## Prevenção de erros no saldo (dono, 13/11/2026)
+Caso real: a transferência de R$ 25 mil para o Sicredi entrou pela planilha (03/11) e de novo à mão em "A receber" (05/11); o
+saldo ficou R$ 25 mil acima do banco. Regras novas:
+1. **Descrição de transferência** ("transf", "transferência", "entre contas", "mesma titularidade", "aplicação", "resgate",
+   "poupança") em um lançamento novo: o sistema avisa que isso não é receita nem despesa e oferece **Registrar como
+   transferência** (abre o formulário de transferência com o valor e a conta) ou "É receita/despesa: lançar"
+   (`confirmarNaoTransferencia`). **"Transfer" sozinho não conta**: é o serviço de busca no hotel (receita de verdade).
+2. **Baixa repetindo transferência:** dar baixa numa conta que já tem transferência do mesmo valor (mesmo sentido) até 5 dias
+   antes ou depois avisa e pede confirmação (`confirmarTransferencia`; a auditoria registra quando foi confirmado).
+3. **Lançamento igual** (mesma descrição, valor e vencimento nas últimas 12 h): aviso antes de lançar (publicado em 13/11).
+4. **Conferir com o banco** (Caixa e saldos): digita o saldo do banco num dia; o sistema mostra o saldo dele, a diferença, de
+   que é feito o saldo (saldo inicial, transferências, extrato, recebimentos e pagamentos) e os movimentos suspeitos, mais
+   prováveis primeiro: valor igual à diferença, lançado à mão e também como transferência, mesmo valor duas vezes em até 5
+   dias, descrição de transferência como receita/despesa (`suspeitosDaDiferenca` no core).
+   `GET /api/financeiro/contas/:id/conferencia?data&saldoBancoCentavos` (`financeiro:ver`, escopo da praça).
+- Rotina recomendada ao dono: transferências/aplicações/resgates só como transferência; planilha **ou** lançamento à mão
+  para o mesmo período; importar o extrato (OFX) toda semana; saldo inicial = saldo do banco no fim do dia anterior.

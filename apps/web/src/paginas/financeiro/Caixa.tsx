@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { ROTULO_SUSPEITA, type MotivoSuspeita } from "@bybus/core";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
 import { useNotificar } from "../../componentes/Notificacoes";
@@ -10,6 +11,93 @@ import type { CaixaDia, SaldoDiario } from "./tipos";
 import { ROTULO_TIPO_CONTA } from "./util";
 
 const sinal = (v: number) => (v < 0 ? "fin-valor--saida" : "");
+
+interface Conferencia {
+  saldoSistemaCentavos: number; saldoBancoCentavos: number; diferencaCentavos: number;
+  composicao: { saldoInicialCentavos: number; saldoInicialEm: string | null; transferenciasCentavos: number; extratoCentavos: number; entradasCentavos: number; saidasCentavos: number };
+  suspeitos: Array<{ id: string; origem: "LINHA" | "LANCAMENTO"; data: string; valorCentavos: number; descricao: string; transferencia: boolean; criadoPelaPlanilha: boolean; motivos: MotivoSuspeita[] }>;
+}
+
+/**
+ * Conferência com o banco (dono, 13/11/2026): digita o saldo que o banco mostra num dia e o sistema compara, mostra de que é
+ * feito o saldo e aponta os lançamentos que provavelmente explicam a diferença (repetidos, transferência em dobro…).
+ */
+function ConferenciaComBanco({ contaId }: { contaId: string }) {
+  const [data, setData] = useState(hojeIso());
+  const [saldoBanco, setSaldoBanco] = useState("");
+  const [r, setR] = useState<Conferencia | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  async function conferir(e: FormEvent) {
+    e.preventDefault();
+    setErro(null);
+    const texto = saldoBanco.trim();
+    const negativo = texto.startsWith("-");
+    const v = centavosDeTexto(negativo ? texto.slice(1) : texto);
+    if (v === null || Number.isNaN(v)) return setErro("Informe o saldo do banco em reais (ex.: 3.196,04; negativo com sinal de menos).");
+    setOcupado(true);
+    try {
+      setR(await api.get<Conferencia>(`/api/financeiro/contas/${contaId}/conferencia${qs({ data, saldoBancoCentavos: String(negativo ? -v : v) })}`));
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    } finally {
+      setOcupado(false);
+    }
+  }
+  const c = r?.composicao;
+  return (
+    <section className="cartao" aria-labelledby="titulo-conferencia">
+      <h2 id="titulo-conferencia">Conferir com o banco</h2>
+      <p className="texto-fraco">Digite o saldo que o banco mostra no fim de um dia. O sistema compara e aponta o que pode explicar a diferença.</p>
+      <form className="filtros" onSubmit={(e) => void conferir(e)}>
+        <div className="campo campo--linha"><label htmlFor="conf-data">Dia</label><input id="conf-data" type="date" max={hojeIso()} value={data} onChange={(e) => { setData(e.target.value || hojeIso()); setR(null); }} /></div>
+        <div className="campo campo--linha"><label htmlFor="conf-saldo">Saldo no banco (R$)</label><input id="conf-saldo" inputMode="decimal" value={saldoBanco} onChange={(e) => { setSaldoBanco(e.target.value); setR(null); }} placeholder="0,00" /></div>
+        <button type="submit" className="botao botao--primario" disabled={ocupado}>{ocupado ? "Conferindo…" : "Conferir"}</button>
+      </form>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      {r && c && (
+        <>
+          {r.diferencaCentavos === 0 ? (
+            <Aviso tipo="sucesso">Saldo confere com o banco: {formatarMoeda(r.saldoSistemaCentavos)} em {formatarData(data)}.</Aviso>
+          ) : (
+            <Aviso tipo="atencao">
+              No sistema: <strong>{formatarMoeda(r.saldoSistemaCentavos)}</strong> · no banco: <strong>{formatarMoeda(r.saldoBancoCentavos)}</strong> ·
+              diferença: <strong>{formatarMoeda(Math.abs(r.diferencaCentavos))} {r.diferencaCentavos > 0 ? "a mais no sistema" : "a menos no sistema"}</strong>
+            </Aviso>
+          )}
+          <p className="texto-fraco">
+            Como o sistema chega ao saldo: saldo inicial {formatarMoeda(c.saldoInicialCentavos)}{c.saldoInicialEm ? ` em ${formatarData(c.saldoInicialEm)}` : ""}
+            {c.transferenciasCentavos ? ` · transferências ${formatarMoeda(c.transferenciasCentavos)}` : ""}
+            {c.extratoCentavos ? ` · extrato do banco ${formatarMoeda(c.extratoCentavos)}` : ""}
+            {` · recebimentos ${formatarMoeda(c.entradasCentavos)} · pagamentos ${formatarMoeda(c.saidasCentavos)}`}.
+            {" "}Se o saldo inicial não for o saldo do banco no fim do dia anterior, corrija em “Contas e categorias”.
+          </p>
+          {r.diferencaCentavos !== 0 && (r.suspeitos.length === 0 ? (
+            <p>Nenhum lançamento suspeito encontrado. Confira o saldo inicial ou importe o extrato do banco em “Extrato e conciliação”.</p>
+          ) : (
+            <div className="tabela-rolagem">
+              <table className="tabela">
+                <caption className="fin-oculto-visual">Possíveis causas da diferença</caption>
+                <thead><tr><th scope="col">Data</th><th scope="col">Descrição</th><th scope="col">Origem</th><th scope="col" className="fin-valor">Valor</th><th scope="col">Por que conferir</th></tr></thead>
+                <tbody>
+                  {r.suspeitos.map((x) => (
+                    <tr key={x.id}>
+                      <td className="sem-quebra">{formatarData(x.data)}</td>
+                      <td>{x.descricao || "—"}</td>
+                      <td>{x.transferencia ? (x.criadoPelaPlanilha ? "Transferência (planilha)" : "Transferência") : x.origem === "LINHA" ? "Extrato do banco" : x.criadoPelaPlanilha ? "Lançamento (planilha)" : "Lançamento (à mão)"}</td>
+                      <td className={`fin-valor ${sinal(x.valorCentavos)}`}>{formatarMoeda(x.valorCentavos)}</td>
+                      <td>{x.motivos.map((m) => ROTULO_SUSPEITA[m]).join("; ")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </>
+      )}
+    </section>
+  );
+}
 
 function FechamentoDoDia({ contaId, podeEditar }: { contaId: string; podeEditar: boolean }) {
   const notificar = useNotificar();
@@ -143,6 +231,7 @@ export function Caixa() {
             <span>Saldo atual: <strong className={`fin-valor ${sinal(conta.saldoCentavos)}`}>{formatarMoeda(conta.saldoCentavos)}</strong></span>
           </div>
           {conta.tipo === "CAIXA" && <FechamentoDoDia key={`fech-${conta.id}`} contaId={conta.id} podeEditar={pode("financeiro:gerenciar")} />}
+          <ConferenciaComBanco key={`conf-${conta.id}`} contaId={conta.id} />
           <SaldoDiarioDaConta key={`dia-${conta.id}`} contaId={conta.id} />
         </>
       )}

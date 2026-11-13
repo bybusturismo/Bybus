@@ -1,12 +1,12 @@
-import { LINHAS_FINANCEIRO, somarDiasIso } from "@bybus/core";
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { LINHAS_FINANCEIRO, somarDiasIso, suspeitosDaDiferenca, type MovimentoConferencia } from "@bybus/core";
+import { and, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
-import { finCategorias, finFechamentosCaixa, finLancamentos, finRevendas } from "../db/schema.js";
+import { finCategorias, finExtratoLinhas, finFechamentosCaixa, finLancamentos, finRevendas } from "../db/schema.js";
 import { ErroHttp } from "../seguranca/sessao.js";
-import { filtroPraca, garantirConta, garantirPlano, hojeSP, saldosDasContas, validarPracaDoRegistro } from "../servicos/financeiro.js";
+import { filtroPraca, garantirConta, garantirPlano, hojeSP, naoConciliadoSql, saldosDasContas, validarPracaDoRegistro } from "../servicos/financeiro.js";
 import { movimentosPorDia } from "../servicos/financeiro-saldos.js";
 import { centavos, dataIso, uuid, valorPositivo } from "./financeiro-comum.js";
 
@@ -36,6 +36,42 @@ export async function rotasFinanceiroCaixa(app: FastifyInstance, { db }: Context
       lista.push({ data, entradasCentavos: m.entradasCentavos, saidasCentavos: m.saidasCentavos, saldoFinalCentavos: saldo });
     }
     return { conta: { id: conta.id, nome: conta.nome, tipo: conta.tipo }, saldoInicialCentavos: inicial, dias: lista };
+  });
+
+  // ---------------------------------------------------------------- conferência com o saldo do banco (13/11/2026)
+  // O dono digita o saldo que o banco mostra num dia; o sistema compara e lista o que pode explicar a diferença.
+  app.get("/api/financeiro/contas/:id/conferencia", ver, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const q = z.object({ data: dataIso, saldoBancoCentavos: z.coerce.number().int().min(-100_000_000_00).max(100_000_000_00) }).parse(req.query);
+    if (q.data > hojeSP()) throw new ErroHttp(400, "DATA_FUTURA", "Escolha hoje ou um dia que já passou.");
+    const conta = await garantirConta(db, req.usuario!, id);
+    const ate = q.data;
+    const de = conta.saldoInicialEm ?? "1900-01-01";
+    const saldoSistema = (await saldosDasContas(db, [conta], somarDiasIso(ate, 1))).get(conta.id) ?? 0;
+    // Os mesmos movimentos que formam o saldo (ver saldosDasContas): linhas da conta e lançamentos baixados sem conciliar
+    // fora dos períodos de extrato importado.
+    const linhas = await db.select().from(finExtratoLinhas).where(and(eq(finExtratoLinhas.contaId, conta.id), gte(finExtratoLinhas.data, de), lte(finExtratoLinhas.data, ate)));
+    const lancs = await db.select().from(finLancamentos).where(and(
+      eq(finLancamentos.contaId, conta.id), eq(finLancamentos.situacao, "REALIZADO"), isNotNull(finLancamentos.valorPagoCentavos), naoConciliadoSql,
+      sql`not exists (select 1 from fin_extratos e where e.conta_id = ${finLancamentos.contaId} and e.inicio <= ${finLancamentos.pagoEm} and e.fim >= ${finLancamentos.pagoEm})`,
+      gte(finLancamentos.pagoEm, de), lte(finLancamentos.pagoEm, ate),
+    ));
+    const movs: MovimentoConferencia[] = [
+      ...linhas.map((l) => ({ id: l.id, origem: "LINHA" as const, data: l.data, valorCentavos: l.valorCentavos, descricao: l.descricao, transferencia: l.status === "TRANSFERENCIA", criadoPelaPlanilha: !!l.importacaoId })),
+      ...lancs.map((l) => ({ id: l.id, origem: "LANCAMENTO" as const, data: l.pagoEm!, valorCentavos: l.tipo === "RECEBER" ? l.valorPagoCentavos! : -l.valorPagoCentavos!, descricao: l.descricao, transferencia: false, criadoPelaPlanilha: !!l.importacaoId })),
+    ];
+    const diferenca = saldoSistema - q.saldoBancoCentavos;
+    const soma = (f: (m: MovimentoConferencia) => boolean) => movs.filter(f).reduce((a, m) => a + m.valorCentavos, 0);
+    return {
+      conta: { id: conta.id, nome: conta.nome }, data: ate,
+      saldoSistemaCentavos: saldoSistema, saldoBancoCentavos: q.saldoBancoCentavos, diferencaCentavos: diferenca,
+      composicao: {
+        saldoInicialCentavos: conta.saldoInicialCentavos, saldoInicialEm: conta.saldoInicialEm,
+        transferenciasCentavos: soma((m) => m.transferencia), extratoCentavos: soma((m) => m.origem === "LINHA" && !m.transferencia),
+        entradasCentavos: soma((m) => m.origem === "LANCAMENTO" && m.valorCentavos > 0), saidasCentavos: soma((m) => m.origem === "LANCAMENTO" && m.valorCentavos < 0),
+      },
+      suspeitos: diferenca === 0 ? [] : suspeitosDaDiferenca(movs, diferenca),
+    };
   });
 
   // ---------------------------------------------------------------- caixa em dinheiro: fechamento do dia

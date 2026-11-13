@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
-import { corpoEnviado, FLN, renderizar, sessaoFicticia, simularApi } from "../../teste/ajuda";
+import { describe, expect, it, vi } from "vitest";
+import { corpoEnviado, FLN, renderizar, respostaJson, sessaoFicticia, simularApi } from "../../teste/ajuda";
 import { Lancamentos } from "./Lancamentos";
 import type { CategoriaFin, ContaFin, LancamentoFin } from "./tipos";
 
@@ -57,6 +57,38 @@ describe("Contas a pagar", () => {
     const linhas = screen.getAllByRole("row").slice(1, 4).map((r) => r.textContent ?? "");
     expect(linhas[0]).toMatch(/Óleo do trem/);
     expect(linhas[2]).toMatch(/Aluguel/);
+  });
+
+  it("descrição de transferência: avisa, oferece registrar como transferência ou confirmar que é receita", async () => {
+    api([]);
+    const original = globalThis.fetch;
+    const enviados: unknown[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (u, init) => {
+      if (String(u).split("?")[0] === "/api/financeiro/lancamentos" && init?.method === "POST") {
+        const corpo = JSON.parse(String(init.body));
+        enviados.push(corpo);
+        return corpo.confirmarNaoTransferencia ? respostaJson(200, { ids: ["x"], lancamentos: [] }) : respostaJson(409, { codigo: "PARECE_TRANSFERENCIA", mensagem: "A descrição parece transferência entre contas." });
+      }
+      return (original as typeof fetch)(u, init);
+    });
+    renderizar(<Lancamentos tipo="RECEBER" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Nova conta a receber" }));
+    const d = within(await screen.findByRole("dialog"));
+    await u.type(d.getByLabelText("Descrição"), "TRANSF ENTRE CONTAS");
+    await u.selectOptions(d.getByLabelText("Categoria"), "c-frete");
+    await u.type(d.getByLabelText(/^Valor/), "25000");
+    await u.click(d.getByRole("button", { name: "Lançar" }));
+    expect(await d.findByText(/parece transferência/)).toBeInTheDocument();
+    // Opção 1: virar transferência (abre o formulário de transferência com o valor).
+    await u.click(d.getByRole("button", { name: "Registrar como transferência" }));
+    expect(d.getByRole("button", { name: "Registrar transferência" })).toBeInTheDocument();
+    expect(d.getByLabelText("Valor (R$)")).toHaveValue("25000");
+    await u.click(d.getByRole("button", { name: "Cancelar" }));
+    // Opção 2: é receita mesmo.
+    await u.click(d.getByRole("button", { name: "Lançar" }));
+    await u.click(await d.findByRole("button", { name: "É receita/despesa: lançar" }));
+    expect(enviados.at(-1)).toMatchObject({ confirmarNaoTransferencia: true });
   });
 
   it("ao escolher o banco no filtro mostra recebido, pago, resultado e saldo da conta", async () => {

@@ -1,6 +1,6 @@
 import {
   CANAIS, FORMAS_PAGAMENTO, LINHAS_FINANCEIRO, TIPOS_CATEGORIA, TIPOS_CONTA_FINANCEIRA,
-  calcularBaixa, faturaDaData, fimDoMes, inicioDaSemana, montarDre, montarDreGerencial, montarFluxoSemanal, parcelar, somarDiasIso, somarMeses,
+  calcularBaixa, centavosParaTexto, faturaDaData, pareceTransferencia, fimDoMes, inicioDaSemana, montarDre, montarDreGerencial, montarFluxoSemanal, parcelar, somarDiasIso, somarMeses,
   type CategoriaInfo, type LancamentoDre, type LancamentoRelatorio,
 } from "@bybus/core";
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
@@ -201,6 +201,8 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     ]).nullish(),
     /** A tela confirma que quer lançar mesmo havendo um igual criado há pouco (ver POSSIVEL_DUPLICADO). */
     confirmarDuplicado: z.boolean().optional(),
+    /** Confirma que, apesar da descrição, é receita/despesa de verdade e não transferência (ver PARECE_TRANSFERENCIA). */
+    confirmarNaoTransferencia: z.boolean().optional(),
   });
 
   const colunasLista = {
@@ -274,7 +276,11 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
 
   app.post("/api/financeiro/lancamentos", gerenciar, async (req) => {
     const u = req.usuario!;
-    const { confirmarDuplicado, ...corpo } = esquemaNovo.parse(req.body);
+    const { confirmarDuplicado, confirmarNaoTransferencia, ...corpo } = esquemaNovo.parse(req.body);
+    // Transferência, aplicação e resgate não são receita nem despesa (dono, 13/11/2026): vão como transferência entre contas.
+    if (!confirmarNaoTransferencia && pareceTransferencia(corpo.descricao)) {
+      throw new ErroHttp(409, "PARECE_TRANSFERENCIA", "A descrição parece transferência entre contas, aplicação ou resgate. Isso não é receita nem despesa: registre como transferência (o saldo das duas contas fica certo e o DRE não muda). Se for mesmo uma receita ou despesa, confirme.");
+    }
     // Trava contra lançamento repetido (dono, 13/11/2026: salvamento lento fez a equipe digitar de novo e duplicou).
     // Igual = mesmo tipo, descrição, valor e vencimento, criado nas últimas 12 horas. A tela pergunta antes de lançar.
     if (!confirmarDuplicado) {
@@ -351,7 +357,10 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     const corpo = z.object({
       pagoEm: dataIso, contaId: uuid.nullish(),
       jurosCentavos: naoNegativo.default(0), multaCentavos: naoNegativo.default(0), descontoCentavos: naoNegativo.default(0),
+      /** Confirma a baixa mesmo havendo transferência de mesmo valor na conta (ver TRANSFERENCIA_PARECIDA). */
+      confirmarTransferencia: z.boolean().optional(),
     }).parse(req.body);
+    const { confirmarTransferencia, ...dadosBaixa } = corpo;
     const atual = await garantirLancamento(db, u, id);
     if (atual.situacao !== "ABERTO") throw new ErroHttp(409, "JA_BAIXADO", "Este lançamento já foi baixado.");
     if (corpo.pagoEm > hojeSP()) throw new ErroHttp(400, "DATA_FUTURA", "A data da baixa não pode ser futura.");
@@ -366,12 +375,24 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     } catch (e) {
       throw new ErroHttp(400, "BAIXA_INVALIDA", (e as Error).message);
     }
+    // A mesma movimentação já entrou como transferência nesta conta (ex.: pela planilha)? Avisa antes de contar em dobro.
+    if (!confirmarTransferencia) {
+      const sinalizado = atual.tipo === "RECEBER" ? pago : -pago;
+      const [t] = await db.select({ data: finExtratoLinhas.data, descricao: finExtratoLinhas.descricao }).from(finExtratoLinhas).where(and(
+        eq(finExtratoLinhas.contaId, contaId), eq(finExtratoLinhas.status, "TRANSFERENCIA"), eq(finExtratoLinhas.valorCentavos, sinalizado),
+        sql`abs(${finExtratoLinhas.data} - ${corpo.pagoEm}::date) <= 5`,
+      )).limit(1);
+      if (t) {
+        const [a, m, d] = String(t.data).split("-");
+        throw new ErroHttp(409, "TRANSFERENCIA_PARECIDA", `Já existe uma transferência de R$ ${centavosParaTexto(pago)} em ${conta.nome} no dia ${d}/${m}/${a} (${t.descricao.slice(0, 40)}). Se é a mesma movimentação, não dê baixa aqui: ela já está no saldo. Se for outra, confirme.`);
+      }
+    }
     const r = await db.update(finLancamentos).set({
       situacao: "REALIZADO", pagoEm: corpo.pagoEm, contaId, valorPagoCentavos: pago,
       jurosCentavos: corpo.jurosCentavos, multaCentavos: corpo.multaCentavos, descontoCentavos: corpo.descontoCentavos, atualizadoEm: new Date(),
     }).where(and(eq(finLancamentos.id, id), eq(finLancamentos.situacao, "ABERTO"))).returning({ id: finLancamentos.id });
     if (r.length === 0) throw new ErroHttp(409, "JA_BAIXADO", "Este lançamento já foi baixado.");
-    await auditar(db, req, "FIN_LANCAMENTO_BAIXADO", { tipo: "fin_lancamento", id }, { valorCentavos: atual.valorCentavos, valorPagoCentavos: pago, ...corpo });
+    await auditar(db, req, "FIN_LANCAMENTO_BAIXADO", { tipo: "fin_lancamento", id }, { valorCentavos: atual.valorCentavos, valorPagoCentavos: pago, ...dadosBaixa, ...(confirmarTransferencia ? { confirmouTransferenciaParecida: true } : {}) });
     return lancamentoCompleto(id);
   });
 

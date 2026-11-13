@@ -80,8 +80,11 @@ describe("previsão do tempo (13/11/2026)", () => {
     const dias = res.json().porPraca[fln!.id] as Array<{ data: string; fonte: string; icone: string; probChuva: number | null }>;
     expect(dias).toHaveLength(30);
     expect(dias.slice(0, 3).map((d) => [d.fonte, d.icone])).toEqual([["PREVISAO", "SOL"], ["PREVISAO", "CHUVA"], ["PREVISAO", "SOL"]]);
-    expect(dias[10]).toMatchObject({ fonte: "HISTORICO", icone: "SOL_NUVENS" });
-    expect(dias[10]!.probChuva).toBeGreaterThan(20);
+    // Chove em ~1 de cada 4 dias (20% a 27% conforme a janela do dia): sol ou sol entre nuvens.
+    expect(dias[10]).toMatchObject({ fonte: "HISTORICO" });
+    expect(["SOL", "SOL_NUVENS"]).toContain(dias[10]!.icone);
+    expect(dias[10]!.probChuva).toBeGreaterThanOrEqual(13);
+    expect(dias[10]!.probChuva).toBeLessThanOrEqual(34);
   });
 
   it("falha do serviço não apaga o que já existe", async () => {

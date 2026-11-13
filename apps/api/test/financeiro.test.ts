@@ -81,7 +81,7 @@ function ofx(linhas: Array<{ fitid: string; data: string; valor: string; memo: s
 describe("lançamento repetido (13/11/2026)", () => {
   it("lançar de novo o mesmo (descrição, valor e vencimento) pede confirmação; confirmado, lança", async () => {
     const c = usuarioFln;
-    const corpo = { tipo: "RECEBER", descricao: "Aplicação teste", categoriaId: cat.REC_FRETAMENTO, valorCentavos: 1600000, competencia: "2026-11-12", vencimento: "2026-11-12", confirmarDuplicado: false };
+    const corpo = { tipo: "RECEBER", descricao: "Aplicação teste", categoriaId: cat.REC_FRETAMENTO, valorCentavos: 1600000, competencia: "2026-11-12", vencimento: "2026-11-12", confirmarDuplicado: false, confirmarNaoTransferencia: true };
     const primeiro = await lancar(c, corpo);
     expect(primeiro.statusCode, primeiro.body).toBe(200);
     const segundo = await lancar(c, { ...corpo, descricao: "  APLICAÇÃO TESTE " });
@@ -90,6 +90,42 @@ describe("lançamento repetido (13/11/2026)", () => {
     expect(json(segundo).mensagem).toMatch(/Já existe um lançamento igual .* criado hoje às \d{2}:\d{2}/);
     expect((await lancar(c, { ...corpo, valorCentavos: 1600001 })).statusCode).toBe(200); // valor diferente: lança
     expect((await lancar(c, { ...corpo, confirmarDuplicado: true })).statusCode).toBe(200);
+  });
+});
+
+describe("saldo do banco: transferência contada em dobro (caso do Sicredi, 13/11/2026)", () => {
+  it("avisa ao lançar transferência como receita e ao dar baixa repetindo uma transferência; a conferência aponta o culpado", async () => {
+    const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    const ontem = new Date(Date.parse(`${hoje}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    const sicredi = await conta(usuarioFln, { nome: "Sicredi Teste", tipo: "CORRENTE", unidadeId: fln, saldoInicialCentavos: 100000, saldoInicialEm: ontem });
+    const unilos = await conta(usuarioFln, { nome: "Unilos Teste", tipo: "CORRENTE", unidadeId: fln, saldoInicialCentavos: 5000000, saldoInicialEm: ontem });
+    expect((await usuarioFln.req("POST", "/api/financeiro/transferencias", { contaOrigemId: unilos, contaDestinoId: sicredi, valorCentavos: 2500000, data: ontem })).statusCode).toBe(200);
+
+    // 1) "TRANSF ENTRE CONTAS" em A receber: pede confirmação ("taxa do transfer" é receita de verdade e passa direto).
+    const base = { tipo: "RECEBER", categoriaId: cat.REC_FRETAMENTO, valorCentavos: 2500000, competencia: hoje, vencimento: hoje };
+    const r1 = await lancar(usuarioFln, { ...base, descricao: "TRANSF ENTRE CONTAS" });
+    expect(r1.statusCode).toBe(409);
+    expect(json(r1).codigo).toBe("PARECE_TRANSFERENCIA");
+    expect((await lancar(usuarioFln, { ...base, descricao: "Taxa do transfer", valorCentavos: 4500 })).statusCode).toBe(200);
+    const r2 = await lancar(usuarioFln, { ...base, descricao: "TRANSF ENTRE CONTAS", confirmarNaoTransferencia: true });
+    expect(r2.statusCode, r2.body).toBe(200);
+    const id = json(r2).ids[0] as string;
+
+    // 2) Baixa no Sicredi com o mesmo valor da transferência de ontem: avisa.
+    const b1 = await usuarioFln.req("POST", `/api/financeiro/lancamentos/${id}/baixa`, { pagoEm: hoje, contaId: sicredi });
+    expect(b1.statusCode).toBe(409);
+    expect(json(b1)).toMatchObject({ codigo: "TRANSFERENCIA_PARECIDA" });
+    expect(json(b1).mensagem).toMatch(/Já existe uma transferência de R\$ 25\.000,00 em Sicredi Teste/);
+    expect((await usuarioFln.req("POST", `/api/financeiro/lancamentos/${id}/baixa`, { pagoEm: hoje, contaId: sicredi, confirmarTransferencia: true })).statusCode).toBe(200);
+
+    // 3) Conferência: banco mostra R$ 26.000,00 (1.000 + 25.000); o sistema tem 25.000 a mais e aponta o lançamento à mão.
+    const c = await usuarioFln.req("GET", `/api/financeiro/contas/${sicredi}/conferencia?data=${hoje}&saldoBancoCentavos=2600000`);
+    expect(c.statusCode, c.body).toBe(200);
+    const j = json(c);
+    expect(j).toMatchObject({ saldoSistemaCentavos: 5100000, diferencaCentavos: 2500000, composicao: { saldoInicialCentavos: 100000, transferenciasCentavos: 2500000, entradasCentavos: 2500000 } });
+    expect(j.suspeitos[0]).toMatchObject({ id, origem: "LANCAMENTO", motivos: expect.arrayContaining(["VALOR_DA_DIFERENCA", "TRANSFERENCIA_EM_DOBRO", "PARECE_TRANSFERENCIA"]) });
+    // Outra praça não confere a conta.
+    expect((await usuarioBc.req("GET", `/api/financeiro/contas/${sicredi}/conferencia?data=${hoje}&saldoBancoCentavos=0`)).statusCode).toBe(404);
   });
 });
 

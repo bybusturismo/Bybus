@@ -16,6 +16,7 @@ import { useCarregar } from "../../util/useCarregar";
 import { useCategorias, useContas } from "./dados";
 import { CANAIS_FIN, FORMAS, type CategoriaFin, type ContaFin, type FormaPagamento, type LancamentoFin, type RespostaLancamentos, type TipoLancamento } from "./tipos";
 import { ROTULO_FORMA } from "./util";
+import { FormTransferencia } from "./Extrato";
 
 type Repeticao = "UNICA" | "PARCELADO" | "RECORRENTE";
 
@@ -46,17 +47,20 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
   const [observacao, setObservacao] = useState(lancamento?.observacao ?? "");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
-  const [duplicado, setDuplicado] = useState<string | null>(null);
+  // Avisos que pedem confirmação (13/11/2026): lançamento igual a outro recente; descrição de transferência.
+  const [aviso, setAviso] = useState<{ codigo: string; mensagem: string } | null>(null);
+  const [confirmados, setConfirmados] = useState<string[]>([]);
+  const [comoTransferencia, setComoTransferencia] = useState(false);
 
   const travaConciliado = !!lancamento?.conciliado;
   const travaValor = travaConciliado || lancamento?.situacao === "REALIZADO";
   const cats = categorias.filter((c) => c.ativa && c.tipo === (tipo === "PAGAR" ? "DESPESA" : "RECEITA"));
   const contasAtivas = contas.filter((c) => c.ativa);
 
-  async function salvar(e: FormEvent, confirmarDuplicado = false) {
+  async function salvar(e: FormEvent, confirmar: string[] = confirmados) {
     e.preventDefault();
     setErro(null);
-    setDuplicado(null);
+    setAviso(null);
     const centavos = centavosDeTexto(valor);
     if (descricao.trim().length < 2) return setErro("Informe a descrição.");
     if (!categoriaId) return setErro("Escolha a categoria.");
@@ -83,20 +87,34 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
         await api.post("/api/financeiro/lancamentos", {
           ...comuns, tipo, valorCentavos: centavos, competencia, vencimento,
           repeticao: repeticao === "UNICA" ? null : repeticao === "PARCELADO" ? { tipo: "PARCELADO", parcelas: n } : { tipo: "RECORRENTE", meses: n },
-          ...(confirmarDuplicado ? { confirmarDuplicado: true } : {}),
+          ...(confirmar.includes("POSSIVEL_DUPLICADO") ? { confirmarDuplicado: true } : {}),
+          ...(confirmar.includes("PARECE_TRANSFERENCIA") ? { confirmarNaoTransferencia: true } : {}),
         });
       }
       await aoSalvar();
     } catch (x) {
-      if (x instanceof ErroApi && x.codigo === "POSSIVEL_DUPLICADO") setDuplicado(x.message);
+      if (x instanceof ErroApi && (x.codigo === "POSSIVEL_DUPLICADO" || x.codigo === "PARECE_TRANSFERENCIA")) setAviso({ codigo: x.codigo, mensagem: x.message });
       else setErro(mensagemDeErro(x));
     } finally {
       setSalvando(false);
     }
   }
 
+  if (comoTransferencia) {
+    return (
+      <FormTransferencia
+        contas={contas}
+        valorInicial={valor}
+        origemInicial={tipo === "PAGAR" ? contaId || undefined : undefined}
+        destinoInicial={tipo === "RECEBER" ? contaId || undefined : undefined}
+        aoConcluir={aoSalvar}
+        aoCancelar={() => setComoTransferencia(false)}
+      />
+    );
+  }
+
   return (
-    <form onSubmit={salvar}>
+    <form onSubmit={(e) => void salvar(e)}>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       {travaConciliado && <Aviso tipo="info">Lançamento conciliado com o extrato: valor, datas e conta não podem ser alterados (desfaça a conciliação primeiro).</Aviso>}
       {!travaConciliado && travaValor && <Aviso tipo="info">Lançamento já baixado: para alterar o valor, reabra a baixa antes.</Aviso>}
@@ -193,10 +211,19 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
           <textarea id="lan-obs" rows={2} maxLength={1000} value={observacao} onChange={(e) => setObservacao(e.target.value)} />
         </div>
       </div>
-      {duplicado && (
+      {aviso && (
         <Aviso tipo="atencao">
-          {duplicado}{" "}
-          <button type="button" className="botao botao--pequeno botao--secundario" disabled={salvando} onClick={(e) => void salvar(e as unknown as FormEvent, true)}>Lançar mesmo assim</button>
+          {aviso.mensagem}{" "}
+          <span className="fin-acoes">
+            {aviso.codigo === "PARECE_TRANSFERENCIA" && (
+              <button type="button" className="botao botao--pequeno botao--primario" disabled={salvando} onClick={() => setComoTransferencia(true)}>Registrar como transferência</button>
+            )}
+            <button type="button" className="botao botao--pequeno botao--secundario" disabled={salvando} onClick={(e) => {
+              const n = [...confirmados, aviso.codigo];
+              setConfirmados(n);
+              void salvar(e as unknown as FormEvent, n);
+            }}>{aviso.codigo === "PARECE_TRANSFERENCIA" ? "É receita/despesa: lançar" : "Lançar mesmo assim"}</button>
+          </span>
         </Aviso>
       )}
       <div className="modal__acoes">
@@ -215,6 +242,7 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
   const [desconto, setDesconto] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [parecida, setParecida] = useState<string | null>(null);
   const campo = (t: string) => {
     if (t.trim() === "") return 0;
     const v = centavosDeTexto(t);
@@ -226,18 +254,20 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
   const total = j === null || m === null || d === null ? null : lancamento.valorCentavos + j + m - d;
   const verbo = lancamento.tipo === "PAGAR" ? "pago" : "recebido";
 
-  async function salvar(e: FormEvent) {
+  async function salvar(e: FormEvent, confirmarTransferencia = false) {
     e.preventDefault();
     setErro(null);
+    setParecida(null);
     if (!contaId) return setErro("Escolha a conta.");
     if (total === null) return setErro("Juros, multa e desconto: valores em reais com até duas casas decimais.");
     if (total <= 0) return setErro("O desconto não pode ser igual ou maior que o valor devido.");
     setSalvando(true);
     try {
-      await api.post(`/api/financeiro/lancamentos/${lancamento.id}/baixa`, { pagoEm, contaId, jurosCentavos: j, multaCentavos: m, descontoCentavos: d });
+      await api.post(`/api/financeiro/lancamentos/${lancamento.id}/baixa`, { pagoEm, contaId, jurosCentavos: j, multaCentavos: m, descontoCentavos: d, ...(confirmarTransferencia ? { confirmarTransferencia: true } : {}) });
       await aoConcluir();
     } catch (x) {
-      setErro(mensagemDeErro(x));
+      if (x instanceof ErroApi && x.codigo === "TRANSFERENCIA_PARECIDA") setParecida(x.message);
+      else setErro(mensagemDeErro(x));
     } finally {
       setSalvando(false);
     }
@@ -264,6 +294,12 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
         <div className="campo"><label htmlFor="baixa-desconto">Desconto (R$)</label><input id="baixa-desconto" inputMode="decimal" value={desconto} onChange={(e) => setDesconto(e.target.value)} placeholder="0,00" /></div>
       </div>
       <p aria-live="polite">Valor {verbo}: <strong>{total === null ? "—" : formatarMoeda(total)}</strong></p>
+      {parecida && (
+        <Aviso tipo="atencao">
+          {parecida}{" "}
+          <button type="button" className="botao botao--pequeno botao--secundario" disabled={salvando} onClick={(e) => void salvar(e as unknown as FormEvent, true)}>É outra movimentação: dar baixa</button>
+        </Aviso>
+      )}
       <div className="modal__acoes">
         <button type="button" className="botao botao--secundario" onClick={aoCancelar}>Cancelar</button>
         <button type="submit" className="botao botao--primario" disabled={salvando}>{salvando ? "Salvando…" : lancamento.tipo === "PAGAR" ? "Confirmar pagamento" : "Confirmar recebimento"}</button>
