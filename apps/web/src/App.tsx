@@ -80,6 +80,7 @@ import { Nps } from "./paginas/marketing/Nps";
 import { Relatorios } from "./paginas/marketing/Relatorios";
 import { LinkBio } from "./paginas/marketing/LinkBio";
 import { Orcamentos } from "./paginas/orcamentos/Orcamentos";
+import { GrupoFicha, Grupos } from "./paginas/grupos/Grupos";
 import { ProvedorSessao, useSessao } from "./sessao/Sessao";
 
 /** Esconde a tela de quem não tem a permissão (o servidor também recusa). */
@@ -490,6 +491,8 @@ export function Rotas() {
             </Exige>
           }
         />
+        <Route path="grupos" element={<Exige permissao="reservas:editar"><Grupos /></Exige>} />
+        <Route path="grupos/:id" element={<Exige permissao="reservas:editar"><GrupoFicha /></Exige>} />
         <Route
           path="biblioteca"
           element={

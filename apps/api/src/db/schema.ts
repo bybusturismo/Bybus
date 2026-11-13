@@ -380,6 +380,7 @@ export * from "./esquemas/marketing.js";
 export * from "./esquemas/biblioteca.js";
 export * from "./esquemas/ia.js";
 export * from "./esquemas/tempo.js";
+export * from "./esquemas/grupos.js";
 export * from "./esquemas/financeiro.js";
 export * from "./esquemas/rastreio.js";
 export * from "./esquemas/whatsapp.js";

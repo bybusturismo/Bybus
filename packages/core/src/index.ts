@@ -34,6 +34,7 @@ export * from "./financeiro/dre.js";
 export * from "./financeiro/cartao.js";
 export * from "./financeiro/conferencia.js";
 export * from "./afiliados/comissao.js";
+export * from "./grupos/grupos.js";
 export * from "./rastreio/previsao.js";
 export * from "./rastreio/avisos.js";
 export * from "./rastreio/kml.js";

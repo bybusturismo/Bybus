@@ -126,6 +126,8 @@ export const finLancamentos = pgTable("fin_lancamentos", {
   chaveImportacao: text(),
   /** Importação da planilha que criou o lançamento (para "Desfazer importação"). */
   importacaoId: uuid().references(() => finImportacoes.id, { onDelete: "set null" }),
+  /** Cobrança de um grupo fechado (sinal ou saldo), 13/11/2026. Sem chave estrangeira para não criar ciclo entre os esquemas. */
+  grupoFechadoId: uuid(),
   criadoPor: uuid().references(() => usuarios.id),
   criadoEm: agora(),
   atualizadoEm: agora(),

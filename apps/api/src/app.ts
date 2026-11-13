@@ -43,6 +43,7 @@ import { agendarTempo } from "./servicos/tempo.js";
 import { rotasTempo } from "./rotas/tempo.js";
 import { rotasAfiliadosComissao } from "./rotas/afiliadosComissao.js";
 import { rotasGpsVeiculo } from "./rotas/gpsVeiculo.js";
+import { rotasGrupos } from "./rotas/grupos.js";
 import { Cofre } from "./seguranca/cripto.js";
 import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
 
@@ -154,6 +155,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasTempo(app, ctx);
   await rotasAfiliadosComissao(app, ctx);
   await rotasGpsVeiculo(app, ctx);
+  await rotasGrupos(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);

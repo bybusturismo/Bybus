@@ -344,6 +344,13 @@
       "when": 1794583975811,
       "tag": "0048_link_gps_veiculo",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1794588374462,
+      "tag": "0049_grupos_fechados",
+      "breakpoints": true
     }
   ]
 }

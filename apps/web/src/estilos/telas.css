@@ -2513,3 +2513,10 @@
   flex-direction: column;
   gap: var(--esp-1);
 }
+
+/* Grupos fechados (13/11/2026) */
+.grupo-ficha { display: grid; gap: 16px; }
+.grupo-ficha fieldset.cartao { border: 1px solid var(--cor-borda); }
+.grupo-ficha legend { font-weight: 700; padding: 0 6px; }
+.grupo-roteiro-curto { max-width: 40ch; white-space: pre-line; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.lista-simples { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
