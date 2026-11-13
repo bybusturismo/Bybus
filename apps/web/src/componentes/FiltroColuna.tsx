@@ -54,6 +54,8 @@ export function CabecalhoFiltro<T, C extends string>(p: {
   textos?: { asc: string; desc: string };
 }) {
   const [aberto, setAberto] = useState(false);
+  // O menu flutua sobre a página (a tabela tem rolagem própria e cortaria o menu).
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [busca, setBusca] = useState("");
   const id = useId();
   const caixa = useRef<HTMLDivElement>(null);
@@ -68,9 +70,11 @@ export function CabecalhoFiltro<T, C extends string>(p: {
     if (!aberto) return;
     const fora = (e: MouseEvent) => { if (caixa.current && !caixa.current.contains(e.target as Node)) setAberto(false); };
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setAberto(false); };
+    const rolou = (e: Event) => { if (!caixa.current?.contains(e.target as Node)) setAberto(false); };
     document.addEventListener("mousedown", fora);
     document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", esc); };
+    window.addEventListener("scroll", rolou, true);
+    return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", esc); window.removeEventListener("scroll", rolou, true); };
   }, [aberto]);
 
   const visiveis = valores.filter((v) => normalizarBusca(v).includes(normalizarBusca(busca)));
@@ -99,12 +103,16 @@ export function CabecalhoFiltro<T, C extends string>(p: {
   return (
     <th scope="col" className={p.className} aria-sort={p.estado.ordem?.coluna === p.coluna ? (p.estado.ordem.direcao === "asc" ? "ascending" : "descending") : undefined}>
       <div className="filtro-coluna" ref={caixa}>
-        <button type="button" className={`filtro-coluna__botao${ativo ? " filtro-coluna__botao--ativo" : ""}`} aria-expanded={aberto} aria-controls={id} onClick={() => setAberto(!aberto)}>
+        <button type="button" className={`filtro-coluna__botao${ativo ? " filtro-coluna__botao--ativo" : ""}`} aria-expanded={aberto} aria-controls={id} onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - 296)) });
+          setAberto(!aberto);
+        }}>
           {p.rotulo}{seta}{atuais ? ` (${atuais.length})` : ""} <span aria-hidden="true">▾</span>
           <span className="visualmente-oculto"> — classificar e filtrar</span>
         </button>
         {aberto && (
-          <div id={id} className="filtro-coluna__menu" role="dialog" aria-label={`Filtrar ${p.rotulo}`}>
+          <div id={id} className="filtro-coluna__menu" role="dialog" aria-label={`Filtrar ${p.rotulo}`} style={pos ? { position: "fixed", top: pos.top, left: pos.left } : undefined}>
             <button type="button" className="filtro-coluna__opcao" onClick={() => ordenar("asc")}>{textos.asc}</button>
             <button type="button" className="filtro-coluna__opcao" onClick={() => ordenar("desc")}>{textos.desc}</button>
             <hr />
