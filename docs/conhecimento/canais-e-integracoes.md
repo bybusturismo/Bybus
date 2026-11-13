@@ -101,3 +101,5 @@ Integração pela **API oficial da Meta**, "Instagram API com Instagram Login" (
   01/05; compra 23/04, passeio 02/05 → recebe 16/05.
 - Hoje (Paytour) o afiliado tem painel com e-mail e senha: confere comissões, cadastra dados bancários, pega link e QR code e
   pode vender pelo sistema.
+- Decisões do dono (13/11/2026): o **valor da comissão vem da Paytour** (a porcentagem de cada afiliado continua configurada lá);
+  cliente que **não compareceu** ao passeio **não gera comissão**.
