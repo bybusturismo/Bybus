@@ -117,3 +117,21 @@ Novas: `avaliacao_externas` (semana, canal, alvo, praça, nota×100, quantidade)
 - **Simulado**: todo envio de mensagem (avaliação, lembrete, confirmação, NPS) até haver provedor de WhatsApp e chaves.
 - **A confirmar / depende do dono**: links do Google por praça e do Tripadvisor; texto oficial das mensagens (os padrões são sugestões); se `cupom_id` da Paytour casa com o código da campanha; prazo de retenção dos orçamentos; se a IA fica ligada para os resumos (custo); aprovação das APIs do Google Ads/Meta Ads.
 - **Dados reais**: o relógio só cria linhas e mensagens simuladas; com `DADOS_REAIS_AUTORIZADOS` só números agregados aparecem nas respostas.
+
+## Comissões de afiliados (13/11/2026)
+Regras do dono em `docs/conhecimento/canais-e-integracoes.md`. Tela **Marketing › Comissões de afiliados** (`marketing:ver`).
+- **Valor:** o da Paytour (`vendas.afiliado_comissao_centavos`), rateado entre as reservas do pedido pelo valor de cada uma
+  (`ratearComissao` no core). A porcentagem de cada afiliado continua configurada na Paytour (decisão do dono).
+- **Cadastro:** cada afiliado da Paytour que aparece nas vendas ganha cadastro sozinho na sincronização (código `PT-<id>`,
+  `afiliados.paytour_afiliado_id` único). O nome pode ser editado em "Afiliados e QR codes".
+- **Situação** (calculada na hora, acompanha mudanças da reserva): Prevista (passeio não realizado), A pagar (realizado),
+  Cancelada (reserva cancelada ou todos os passageiros "não veio"), Paga (conta a pagar baixada no financeiro).
+- **Pagamento quinzenal:** dia 01 (passeios de 16 ao fim do mês anterior) e 16 (01 a 15). "Gerar contas a pagar"
+  (`financeiro:gerenciar`, só depois do fim do período) cria **uma conta a pagar por afiliado e praça** (categoria
+  Afiliados, vencimento no dia do pagamento, origem `AFILIADOS`) e congela os valores (`afiliado_pagamentos` e
+  `afiliado_pagamento_itens`, uma reserva em um pagamento só). Comissões esquecidas de quinzenas anteriores entram junto.
+  **Desfazer** apaga a conta enquanto não foi paga nem conciliada; se a conta for excluída no financeiro, as comissões
+  voltam a ficar a pagar.
+- Relatório pela data do **passeio** ou da **venda**, filtro por afiliado e **ranking** (reservas, valor vendido e comissão).
+- API: `GET /api/afiliados/comissoes?de&ate&por&afiliadoId`, `GET|POST /api/afiliados/pagamentos`, `DELETE /api/afiliados/pagamentos/:id`.
+- Próximo passo: **portal do afiliado** (login próprio: comissões, dados bancários, link e QR code).

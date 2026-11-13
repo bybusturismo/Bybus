@@ -11,6 +11,7 @@ const ABAS = [
   { para: "/marketing/avaliacoes", rotulo: "Avaliações" },
   { para: "/marketing/retorno", rotulo: "Retorno e links" },
   { para: "/marketing/afiliados", rotulo: "Afiliados e QR codes" },
+  { para: "/marketing/comissoes", rotulo: "Comissões de afiliados" },
   { para: "/marketing/mensagens", rotulo: "Mensagens automáticas" },
   { para: "/marketing/nps", rotulo: "NPS" },
   { para: "/marketing/relatorios", rotulo: "Relatórios" },

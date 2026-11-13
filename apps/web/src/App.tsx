@@ -65,6 +65,7 @@ import { Perfis } from "./paginas/Perfis";
 import { Pracas } from "./paginas/Pracas";
 import { Biblioteca } from "./paginas/biblioteca/Biblioteca";
 import { Afiliados } from "./paginas/marketing/Afiliados";
+import { ComissoesAfiliados } from "./paginas/marketing/ComissoesAfiliados";
 import { Avaliacoes } from "./paginas/marketing/Avaliacoes";
 import { Campanhas } from "./paginas/marketing/Campanhas";
 import { Canais } from "./paginas/marketing/Canais";
@@ -420,6 +421,14 @@ export function Rotas() {
           element={
             <Exige permissao="marketing:ver">
               <Afiliados />
+            </Exige>
+          }
+        />
+        <Route
+          path="comissoes"
+          element={
+            <Exige permissao="marketing:ver">
+              <ComissoesAfiliados />
             </Exige>
           }
         />

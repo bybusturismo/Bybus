@@ -41,6 +41,7 @@ import { agendarAvaliacaoIa } from "./servicos/ia/agendamento.js";
 import { agendarLimpezaRastreio } from "./servicos/rastreio.js";
 import { agendarTempo } from "./servicos/tempo.js";
 import { rotasTempo } from "./rotas/tempo.js";
+import { rotasAfiliadosComissao } from "./rotas/afiliadosComissao.js";
 import { Cofre } from "./seguranca/cripto.js";
 import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
 
@@ -149,6 +150,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasReservasLista(app, ctx);
   await rotasTransfer(app, ctx);
   await rotasTempo(app, ctx);
+  await rotasAfiliadosComissao(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);

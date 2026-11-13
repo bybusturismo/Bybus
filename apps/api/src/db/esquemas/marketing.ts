@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, date, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { reservas, saidas, unidades, usuarios } from "../schema.js";
 
@@ -127,7 +128,7 @@ export const afiliados = pgTable("afiliados", {
   ativo: boolean().notNull().default(true),
   criadoEm: agora(),
   atualizadoEm: agora(),
-});
+}, (t) => [uniqueIndex("afiliados_paytour_uq").on(t.paytourAfiliadoId).where(sql`paytour_afiliado_id is not null`)]);
 
 /** Configurações simples do marketing (modelo da mensagem, link do Tripadvisor, endereço base da loja). */
 export const marketingConfig = pgTable("marketing_config", {
@@ -135,4 +136,29 @@ export const marketingConfig = pgTable("marketing_config", {
   valor: text().notNull(),
   atualizadoEm: agora(),
   atualizadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+});
+
+/**
+ * Pagamento quinzenal de comissões de um afiliado (13/11/2026): congela as comissões dos passeios realizados no período e
+ * gera a conta a pagar no financeiro (uma por afiliado e praça). Desfazer só enquanto a conta não foi paga.
+ */
+export const afiliadoPagamentos = pgTable("afiliado_pagamentos", {
+  id: uuid().primaryKey().defaultRandom(),
+  afiliadoId: uuid().notNull().references(() => afiliados.id),
+  unidadeId: uuid().references(() => unidades.id),
+  /** Dia do pagamento (01 ou 16). */
+  dataPagamento: date({ mode: "string" }).notNull(),
+  periodoDe: date({ mode: "string" }).notNull(),
+  periodoAte: date({ mode: "string" }).notNull(),
+  totalCentavos: integer().notNull(),
+  lancamentoId: uuid().notNull(),
+  criadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  criadoEm: agora(),
+}, (t) => [index("afiliado_pagamentos_data_idx").on(t.dataPagamento)]);
+
+/** Cada reserva entra em um pagamento só (valor da comissão congelado no momento do pagamento). */
+export const afiliadoPagamentoItens = pgTable("afiliado_pagamento_itens", {
+  pagamentoId: uuid().notNull().references(() => afiliadoPagamentos.id, { onDelete: "cascade" }),
+  reservaId: uuid().notNull().unique().references(() => reservas.id),
+  valorCentavos: integer().notNull(),
 });

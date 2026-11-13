@@ -1,3 +1,4 @@
+import { sincronizarAfiliadosPaytour } from "./afiliadosComissao.js";
 import { pedidoPaytourParaReservas, type PedidoPaytour } from "@bybus/core";
 import { auditar } from "../auditoria.js";
 import { deveAnonimizar, type Config } from "../config.js";
@@ -124,6 +125,8 @@ export async function sincronizarPaytour(
       : { previa: [], resumo: { CRIAR: 0, ATUALIZAR: 0, CANCELAR: 0, IGNORAR: 0 } };
 
     await anotarProdutosDesconhecidos(db, previa);
+    // Afiliados que aparecem nas vendas ganham cadastro no sistema (comissões e pagamento quinzenal, 13/11/2026).
+    await sincronizarAfiliadosPaytour(db, afiliados);
     const resultado = { de, ate, pedidos: pedidos.length, resumo, completo };
     // Janela maior que o limite de páginas: o cursor não avança (a próxima rodada relê a janela; a importação é idempotente).
     await gravarEstado(db, completo
