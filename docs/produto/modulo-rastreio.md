@@ -110,3 +110,13 @@ Enfileirada ao iniciar o rastreio, **uma por reserva confirmada** (índice únic
 - Com o traçado, a previsão (página do cliente e avisos do ônibus) mede a distância **pelo caminho**, do ônibus até o ponto do
   cliente; se o ônibus estiver a mais de 300 m do traçado (desvio), volta para a linha reta × 1,3. Código: `rastreio/kml.ts`.
 - Serve para BC e outros passeios: é só exportar o mapa de cada um.
+
+## Link do GPS de cada veículo (dono, 13/11/2026)
+- Em **Frota › Veículos › GPS**: a equipe cria um link por destinatário (hotel, parceiro, escritório), com validade opcional
+  (1, 7, 30, 90 dias ou sem prazo), vê o último acesso e pode **cancelar**. O link completo só aparece ao criar (o banco guarda
+  o hash do token; `veiculos_links_gps`). Criar e cancelar: `frota:gerenciar`, auditados.
+- Página pública `/gps/<token>`: mostra o veículo no mapa e o caminho dos últimos 30 min **só enquanto houver rastreio ligado
+  nele** (City Tour: placa no campo veículo da saída; transfer: veículo do dia). Fora de serviço não mostra posição (não
+  expõe a garagem). Sem passageiros, telefones ou nomes da equipe. Atualiza a cada 20 s.
+- Revisão de segurança da rota pública `GET /api/publico/gps/:token`: token aleatório de 24 bytes, só o hash no banco,
+  404 igual para inexistente, cancelado e vencido, 60 pedidos por minuto por IP, token mascarado no log (`/gps/***`).

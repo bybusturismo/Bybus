@@ -139,3 +139,20 @@ export const veiculosChecklists = pgTable("veiculos_checklists", {
   ordemId: uuid().references(() => veiculosOrdens.id),
   criadoEm: agora(),
 }, (t) => [index("veiculos_checklists_veiculo_idx").on(t.veiculoId, t.data)]);
+
+/**
+ * Link público do GPS de um veículo (dono, 13/11/2026): para compartilhar com hotéis, parceiros ou a equipe. Mostra a posição
+ * só enquanto houver rastreio ligado naquele veículo; nunca dados de passageiros. O token vai só no link (o banco guarda o hash).
+ */
+export const veiculosLinksGps = pgTable("veiculos_links_gps", {
+  id: uuid().primaryKey().defaultRandom(),
+  veiculoId: uuid().notNull().references(() => veiculos.id),
+  tokenHash: text().notNull().unique(),
+  /** Para quem é o link (ex.: "Recepção do hotel X"). */
+  descricao: text().notNull(),
+  expiraEm: timestamp({ withTimezone: true }),
+  revogadoEm: timestamp({ withTimezone: true }),
+  ultimoAcessoEm: timestamp({ withTimezone: true }),
+  criadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  criadoEm: agora(),
+}, (t) => [index("veiculos_links_gps_veiculo_idx").on(t.veiculoId)]);

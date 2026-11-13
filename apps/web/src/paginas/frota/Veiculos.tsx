@@ -7,6 +7,7 @@ import { Icone } from "../../componentes/Icone";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { nomePraca, useSessao } from "../../sessao/Sessao";
 import { CabecalhoFrota, FormModal, formatarKm, numeroDeTexto, useVeiculos } from "./comum";
+import { LinksGps } from "./LinksGps";
 import {
   ROTULO_SITUACAO_VEICULO, ROTULO_TIPO_VEICULO, SITUACOES_VEICULO, TIPOS_VEICULO,
   type SituacaoVeiculo, type TipoVeiculo, type Veiculo,
@@ -118,6 +119,7 @@ export function VeiculosPagina() {
   const [editando, setEditando] = useState<Veiculo | "novo" | null>(null);
   const [lendoKm, setLendoKm] = useState<Veiculo | null>(null);
   const [arquivos, setArquivos] = useState<Veiculo | null>(null);
+  const [gps, setGps] = useState<Veiculo | null>(null);
   const veiculos = (lista.dados ?? []).filter((v) => !situacao || v.situacao === situacao);
 
   return (
@@ -161,6 +163,7 @@ export function VeiculosPagina() {
                   <td>
                     <span className="frota-acoes">
                       {v.driveLink && <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setArquivos(v)} aria-label={`Gabaritos e arquivos de ${v.placa}`}><Icone nome="auditoria" /> Arquivos</button>}
+                      <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setGps(v)} aria-label={`Link do GPS de ${v.placa}`}><Icone nome="mapa" /> GPS</button>
                       {podeEditar && <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setLendoKm(v)} aria-label={`Registrar km de ${v.placa}`}>Km</button>}
                       {podeEditar && <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setEditando(v)} aria-label={`Editar ${v.placa}`}>Editar</button>}
                     </span>
@@ -179,6 +182,7 @@ export function VeiculosPagina() {
         />
       )}
       {arquivos && <ArquivosDrive veiculo={arquivos} aoFechar={() => setArquivos(null)} />}
+      {gps && <LinksGps veiculo={gps} podeEditar={podeEditar} aoFechar={() => setGps(null)} />}
       {lendoKm && <FormKm veiculo={lendoKm} aoFechar={() => setLendoKm(null)} aoSalvo={async () => { notificar("Km registrado."); await lista.recarregar(); }} />}
     </div>
   );

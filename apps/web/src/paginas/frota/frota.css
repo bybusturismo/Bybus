@@ -137,3 +137,4 @@
 .frota-anexos legend { padding: 0 4px; font-weight: 600; }
 .frota-anexos-lista { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 0.85rem; }
 .frota-anexos-lista a { display: inline-flex; align-items: center; gap: 4px; }
+.frota-link { word-break: break-all; user-select: all; }

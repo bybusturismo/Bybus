@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { criarDb } from "../src/db/cliente.js";
-import { auditoria, checklistItens, passeios, perfis, saidas, unidades, usuarios, usuariosUnidades } from "../src/db/schema.js";
+import { auditoria, checklistItens, passeios, perfis, rastreioPosicoes, rastreioSessoes, saidas, unidades, usuarios, usuariosUnidades } from "../src/db/schema.js";
 import { ITENS_CHECKLIST_PADRAO } from "@bybus/core";
 import { aplicarEscalaNaSaida } from "../src/servicos/escala.js";
 import { registrarLeituraKm } from "../src/servicos/frota.js";
@@ -38,6 +38,10 @@ async function logado(email: string) {
 
 const hoje = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 const somar = (dias: number) => new Date(Date.parse(`${hoje()}T12:00:00Z`) + dias * 86_400_000).toISOString().slice(0, 10);
+const comDb = async <T>(f: (db: ReturnType<typeof criarDb>["db"]) => Promise<T>) => {
+  const { db, pool } = criarDb(DATABASE_URL);
+  try { return await f(db); } finally { await pool.end(); }
+};
 
 async function criarVeiculo(c: Cliente, placa: string, extra: Record<string, unknown> = {}) {
   const r = await c.req("POST", "/api/frota/veiculos", { unidadeId: FLN, placa, tipo: "ONIBUS_DOIS_ANDARES", capacidade: 73, ano: 2012, apelido: "Fictício", kmAtual: 1000, ...extra });
@@ -162,6 +166,47 @@ describe("ordem de manutenção detalhada (13/11/2026)", () => {
     const guia = await logado("guia@bybus.test");
     expect((await guia.req("GET", `/api/frota/anexos/${nf.id}`)).statusCode).toBe(403);
     expect((await admin.req("DELETE", `/api/frota/anexos/${nf.id}`)).statusCode).toBe(200);
+  });
+});
+
+describe("link de GPS do veículo (13/11/2026)", () => {
+  it("cria link por destinatário; mostra o ônibus só com rastreio ligado nele; cancelar e vencer derrubam o link", async () => {
+    const admin = await logado("admin@bybus.test");
+    const v = await criarVeiculo(admin, "GPS1A11");
+    const criar = await admin.req("POST", `/api/frota/veiculos/${v.id}/links-gps`, { descricao: "Recepção do hotel fictício", dias: 30 });
+    expect(criar.statusCode, criar.body).toBe(201);
+    const caminho = criar.json().caminho as string;
+    expect(caminho).toMatch(/^\/gps\/[A-Za-z0-9_-]{32}$/);
+    const tok = caminho.split("/").pop()!;
+    const pub = new Cliente(app);
+    // Sem rastreio: fora de serviço e sem posição (não mostra onde o ônibus fica parado).
+    expect((await pub.req("GET", `/api/publico/gps/${tok}`)).json()).toMatchObject({ emServico: false, situacao: "FORA_DE_SERVICO", posicao: null, placa: "GPS1A11" });
+    // Motorista liga o rastreio numa saída com este ônibus.
+    await comDb(async (db) => {
+      const [p] = await db.select().from(passeios).where(eq(passeios.codigo, "TODA_ILHA"));
+      const [s] = await db.insert(saidas).values({ passeioId: p!.id, data: somar(70), capacidade: 73, veiculo: "GPS-1A11 (amarelo)" }).returning();
+      const [u] = await db.select().from(usuarios).where(eq(usuarios.email, "motorista@bybus.test"));
+      const agora = new Date();
+      const [sess] = await db.insert(rastreioSessoes).values({ saidaId: s!.id, motoristaUsuarioId: u!.id, tipo: "ONIBUS", iniciadaEm: new Date(agora.getTime() - 600_000), ultimaPosicaoEm: agora }).returning();
+      await db.insert(rastreioPosicoes).values([
+        { sessaoId: sess!.id, lat: -27.59, lng: -48.55, registradaEm: new Date(agora.getTime() - 60_000), velocidade: 10 },
+        { sessaoId: sess!.id, lat: -27.58, lng: -48.54, registradaEm: agora, velocidade: 12.5 },
+      ]);
+    });
+    const r = (await pub.req("GET", `/api/publico/gps/${tok}`)).json();
+    expect(r).toMatchObject({ emServico: true, situacao: "TRANSMITINDO", etapa: "City Tour", posicao: { lat: -27.58, lng: -48.54, velocidadeKmh: 45 } });
+    expect(r.trajeto).toHaveLength(2);
+    expect(JSON.stringify(r)).not.toMatch(/motorista|telefone|passageiro/i);
+    // Lista na gestão (sem o token) e cancelar.
+    const lista = (await admin.req("GET", `/api/frota/veiculos/${v.id}/links-gps`)).json();
+    expect(lista[0]).toMatchObject({ descricao: "Recepção do hotel fictício", ativo: true });
+    expect(lista[0]).not.toHaveProperty("tokenHash");
+    expect((await admin.req("DELETE", `/api/frota/links-gps/${lista[0].id}`)).statusCode).toBe(200);
+    expect((await pub.req("GET", `/api/publico/gps/${tok}`)).statusCode).toBe(404);
+    expect((await pub.req("GET", "/api/publico/gps/tokeninexistente0000000000")).statusCode).toBe(404);
+    // Quem só vê a frota não cria link.
+    const sup = await logado("supervisor@bybus.test");
+    expect((await sup.req("POST", `/api/frota/veiculos/${v.id}/links-gps`, { descricao: "x y" })).statusCode).toBe(403);
   });
 });
 

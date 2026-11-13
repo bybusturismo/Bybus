@@ -19,6 +19,7 @@ import { Fechamento } from "./paginas/Fechamento";
 import { Conversas } from "./paginas/Conversas";
 import { EmbarquePublico } from "./paginas/EmbarquePublico";
 import { RastreioPublico } from "./paginas/RastreioPublico";
+import { GpsPublico } from "./paginas/GpsPublico";
 import { BioPublica } from "./paginas/publico/BioPublica";
 import { RedefinirSenha } from "./paginas/RedefinirSenha";
 import { Cofre } from "./paginas/Cofre";
@@ -536,6 +537,9 @@ export function App() {
   // Link de acompanhamento do ônibus (sem login nem sessão).
   const rastreio = /^\/rastreio\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
   if (rastreio) return <RastreioPublico token={rastreio[1]!} />;
+  // Link de GPS de um veículo, para hotéis e parceiros (13/11/2026; sem login nem sessão).
+  const gps = /^\/gps\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
+  if (gps) return <GpsPublico token={gps[1]!} />;
   // Marketing: link na bio, pedido de orçamento de grupos e pesquisa NPS (sem login nem sessão).
   const caminho = window.location.pathname.replace(/\/$/, "");
   if (caminho === "/bio") return <BioPublica />;
