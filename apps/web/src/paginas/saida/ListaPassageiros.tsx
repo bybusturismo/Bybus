@@ -10,6 +10,7 @@ import { useSessao } from "../../sessao/Sessao";
 import { formatarData, formatarDataExtenso, formatarDataHora, formatarMoeda, hojeIso } from "../../util/formato";
 import { ROTULO_CANAL, ROTULO_CATEGORIA, ROTULO_DOCUMENTO, ROTULO_EMBARQUE, ROTULO_NIVEL } from "../../util/rotulos";
 import { useSaida } from "./SaidaLayout";
+import { imprimirPagina } from "../../util/appCelular";
 
 const ORDEM_NIVEL = { critico: 0, atencao: 1, info: 2 } as const;
 
@@ -328,9 +329,12 @@ export function ListaPassageiros() {
   const abaixoMinimo = t.pagantes < passeio.minimoConfirmacao;
   const categorias = useMemo(() => Object.entries(t.porCategoria).filter(([, n]) => n > 0) as Array<[keyof typeof ROTULO_CATEGORIA, number]>, [t]);
 
+  const [erroImpressao, setErroImpressao] = useState<string | null>(null);
   function imprimir() {
     setImpressoEm(new Date());
-    setTimeout(() => window.print(), 50);
+    setErroImpressao(null);
+    // No app By Bus, a impressão é a do Android (impressora portátil ou PDF); no navegador, a de sempre.
+    setTimeout(() => void imprimirPagina(`Lista de passageiros - ${passeio.nome}`).then(setErroImpressao), 50);
   }
 
   async function aplicarStatus() {
@@ -420,6 +424,7 @@ export function ListaPassageiros() {
         {saida.observacoes && <p className="resumo__obs">Obs.: {saida.observacoes}</p>}
       </section>
 
+      {erroImpressao && <div className="nao-imprimir"><Aviso tipo="erro">{erroImpressao}</Aviso></div>}
       <div className="barra-ferramentas nao-imprimir" role="toolbar" aria-label="Ações da lista">
         <div className="campo campo--busca">
           <label htmlFor="busca-manifesto" className="visualmente-oculto">

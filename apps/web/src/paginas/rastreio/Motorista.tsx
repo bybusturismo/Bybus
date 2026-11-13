@@ -344,6 +344,11 @@ export function Motorista() {
                       {abertaNoServidor ? "Continuar rastreio" : van ? "Iniciar rastreio do transfer" : temVan ? "Iniciar rastreio do City Tour" : "Iniciar rastreio"}
                     </button>
                   )}
+                  {!van && pode("manifesto:ver") && (
+                    <Link className="botao botao--secundario" to={`/saidas/${s.saidaId}`}>
+                      <Icone nome="imprimir" /> Lista de passageiros (imprimir)
+                    </Link>
+                  )}
                 </section>
               );
             })

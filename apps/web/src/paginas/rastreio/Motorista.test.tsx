@@ -204,6 +204,8 @@ describe("Tela do motorista", () => {
     const u = userEvent.setup();
     expect(await screen.findByRole("heading", { name: "Transfer · Toda a Ilha" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "City Tour · Toda a Ilha" })).toBeInTheDocument();
+    // Lista física para a fiscalização: um botão só por saída (no City Tour), que abre a lista com o Imprimir.
+    expect(screen.getAllByRole("link", { name: /Lista de passageiros/ })).toHaveLength(1);
     await u.click(screen.getByRole("button", { name: "Iniciar rastreio do transfer" }));
     expect(await screen.findByText("Transmitindo a posição do transfer")).toBeInTheDocument();
     const onibus = screen.getByRole("button", { name: "Iniciar rastreio do City Tour" });

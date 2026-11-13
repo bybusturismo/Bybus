@@ -9,6 +9,7 @@ import { useSessao } from "../../sessao/Sessao";
 import { formatarData, formatarDataHora, formatarMoeda, formatarNumero } from "../../util/formato";
 import { ROTULO_CANAL } from "../../util/rotulos";
 import { useCarregar } from "../../util/useCarregar";
+import { imprimirPagina } from "../../util/appCelular";
 import { BarrasLista, Variacao } from "./comum";
 
 interface Item { id: string; tipo: string; de: string; ate: string; praca: string; geradoEm: string; automatico: boolean; temResumoIa: boolean }
@@ -37,7 +38,7 @@ export function RelatorioDetalhe({ id }: { id: string }) {
   return (
     <div className="pagina m2-relatorio">
       <CabecalhoPagina titulo={`Relatório ${tipoRotulo(d.tipo).toLowerCase()}: ${x.periodo.rotulo}`} descricao={`${d.praca} · gerado em ${formatarDataHora(d.geradoEm)}. Só números agregados.`}
-        acoes={<><Link className="botao botao--fantasma nao-imprimir" to="/marketing/relatorios">Voltar à lista</Link><button type="button" className="botao botao--primario nao-imprimir" onClick={() => window.print()}><Icone nome="imprimir" /> Imprimir ou salvar em PDF</button></>} />
+        acoes={<><Link className="botao botao--fantasma nao-imprimir" to="/marketing/relatorios">Voltar à lista</Link><button type="button" className="botao botao--primario nao-imprimir" onClick={() => void imprimirPagina("Relatório de marketing")}><Icone nome="imprimir" /> Imprimir ou salvar em PDF</button></>} />
       <section className="cartao" aria-labelledby="r-res">
         <h2 id="r-res">Resumo</h2>
         {d.resumoIa ? <><p className="m2-relatorio__resumo">{d.resumoIa}</p><p className="texto-fraco">Resumo escrito pela IA a partir dos números abaixo.</p></> : <p className="m2-relatorio__resumo">{d.resumoNumeros}</p>}

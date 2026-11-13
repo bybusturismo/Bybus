@@ -11,6 +11,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(ImpressaoPlugin.class); // antes do super.onCreate: o plugin precisa existir quando a página abre
         super.onCreate(savedInstanceState);
         // Android 13+: o aviso fixo "By Bus — rastreio ligado" (GPS em segundo plano) só aparece com esta permissão.
         if (Build.VERSION.SDK_INT >= 33

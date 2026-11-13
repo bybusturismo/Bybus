@@ -12,6 +12,8 @@ interface PluginsNativos {
     removeWatcher: (o: { id: string }) => Promise<void>;
     openSettings: () => Promise<void>;
   };
+  /** Plugin próprio do app (MainActivity): abre a tela "Imprimir" do Android com a página atual. */
+  Impressao?: { imprimir: (o: { titulo: string }) => Promise<void> };
   CapacitorHttp?: {
     request: (o: { url: string; method: string; headers?: Record<string, string>; data?: unknown; responseType?: string }) => Promise<{ status: number; data: unknown }>;
   };
@@ -51,4 +53,25 @@ export async function postarPeloApp(url: string, corpo: unknown): Promise<{ stat
   if (!http) return null;
   const absoluta = new URL(url, window.location.origin).toString();
   return http.request({ url: absoluta, method: "POST", headers: { "Content-Type": "application/json", "X-Bybus": "1" }, data: corpo, responseType: "json" });
+}
+
+/**
+ * Imprime a página atual. No app By Bus usa a impressão do Android (o window.print() do navegador não funciona dentro do
+ * app); no navegador comum, o window.print() de sempre. Devolve uma mensagem de erro, ou null se abriu a impressão.
+ */
+export async function imprimirPagina(titulo: string): Promise<string | null> {
+  const c = capacitor();
+  if (c) {
+    const plugin = c.Plugins?.Impressao;
+    if (!plugin) return "Para imprimir pelo app, atualize o app By Bus (baixe a versão nova no link de instalação).";
+    window.dispatchEvent(new Event("beforeprint"));
+    try {
+      await plugin.imprimir({ titulo });
+      return null;
+    } catch {
+      return "Não foi possível abrir a impressão do celular. Tente de novo.";
+    }
+  }
+  window.print();
+  return null;
 }

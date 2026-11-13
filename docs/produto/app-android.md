@@ -27,3 +27,16 @@ O app tem o GPS em segundo plano para o motorista (ver `modulo-rastreio.md`). De
 ## Câmera no site
 O cabeçalho `Permissions-Policy` do Caddy bloqueava a câmera (`camera=()`); desde 11/11/2026 é `camera=(self)`, para o QR Code
 do voucher funcionar no navegador e no app.
+
+## Impressão da lista de passageiros (dono, 13/11/2026)
+- A legislação exige a **lista física** de passageiros no ônibus; a equipe imprime com uma **impressora portátil** em caso de
+  fiscalização. Dentro do app o `window.print()` do navegador não faz nada, então o app ganhou um plugin próprio
+  (`ImpressaoPlugin.java`, registrado na `MainActivity`) que abre a tela **Imprimir do Android** com a página atual, usando o
+  mesmo layout de impressão do sistema. No web, `imprimirPagina()` (`util/appCelular.ts`) escolhe sozinho entre o app e o navegador.
+- Funciona com qualquer impressora que apareça no Android: Wi-Fi/Wi-Fi Direct (Mopria, já vem no Android) ou Bluetooth com o
+  app/serviço de impressão do fabricante; também "Salvar como PDF". Impressoras térmicas de bobina (58/80 mm) só se tiverem
+  serviço de impressão para Android, e a lista sai estreita: para a fiscalização, prefira impressora portátil A4.
+- Na tela do motorista, o cartão do City Tour tem o botão **Lista de passageiros (imprimir)**. O CPF completo na lista segue o
+  perfil: o guia vê completo; o motorista vê mascarado, a menos que a supervisão dê "Ver documentos completos" ao perfil Motorista.
+- Precisa de internet para abrir a lista: imprima antes da saída. **Exige gerar o app de novo** (`gerar-app-android.sh`) e
+  atualizar nos celulares; app antigo mostra "atualize o app By Bus".
