@@ -122,6 +122,8 @@ export interface Abastecimento {
   valorCentavos: number;
   posto: string | null;
   tanqueCheio: boolean;
+  /** COMBUSTIVEL, OLEO ou LUBRIFICANTE (13/11/2026). */
+  tipo: "COMBUSTIVEL" | "OLEO" | "LUBRIFICANTE";
   kml: number | null;
   alerta: "ALTO" | "BAIXO" | null;
 }

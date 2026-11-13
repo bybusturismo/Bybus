@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { arquivosDoDrive, baixarDoDrive, contaDeServico, ErroGoogle, idDoDrive } from "../servicos/googlePlanilhas.js";
 import {
   DOCUMENTO_MAX_BYTES, GRUPOS_CUSTO_VEICULO, diasEntre, tipoDocumentoEmpresa, normalizarPlaca, placaValida, resumirChecklist, situacaoVencimento,
-  FONTES_KM, SITUACOES_VEICULO, STATUS_ORDEM, TIPOS_DOC_VEICULO, TIPOS_ORDEM, TIPOS_VEICULO,
+  FONTES_KM, SITUACOES_VEICULO, STATUS_ORDEM, TIPOS_ABASTECIMENTO, TIPOS_DOC_VEICULO, TIPOS_ORDEM, TIPOS_VEICULO,
 } from "@bybus/core";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
@@ -426,6 +426,7 @@ export async function rotasFrota(app: FastifyInstance, { db, config, cofre }: Co
     valorCentavos: z.number().int().min(0).max(100_000_000),
     posto: opcional(120),
     tanqueCheio: z.boolean().default(true),
+    tipo: z.enum(TIPOS_ABASTECIMENTO).default("COMBUSTIVEL"),
   });
 
   app.get("/api/frota/abastecimentos", ver, async (req) => {
@@ -444,20 +445,19 @@ export async function rotasFrota(app: FastifyInstance, { db, config, cofre }: Co
       const kmls = meus.map((a) => a.kml).filter((x): x is number => x != null);
       return {
         veiculoId: v.id, placa: v.placa, apelido: v.apelido,
-        litros: Math.round(meus.reduce((s, a) => s + a.litros, 0) * 100) / 100,
+        litros: Math.round(meus.filter((a) => a.tipo === "COMBUSTIVEL").reduce((s, a) => s + a.litros, 0) * 100) / 100,
         valorCentavos: meus.reduce((s, a) => s + a.valorCentavos, 0),
         mediaKml: kmls.length ? Math.round((kmls.reduce((s, x) => s + x, 0) / kmls.length) * 100) / 100 : null,
         alertas: meus.filter((a) => a.alerta).length,
       };
-    }).filter((r) => r.litros > 0);
+    }).filter((r) => r.litros > 0 || r.valorCentavos > 0);
     return { itens, resumo };
   });
 
   app.post("/api/frota/abastecimentos", gerenciar, async (req, reply) => {
     const c = corpoAbast.parse(req.body);
     await garantirVeiculo(db, req.usuario!, c.veiculoId);
-    const [dup] = await db.select({ id: veiculosAbastecimentos.id }).from(veiculosAbastecimentos).where(and(eq(veiculosAbastecimentos.veiculoId, c.veiculoId), eq(veiculosAbastecimentos.km, c.km)));
-    if (dup) throw new ErroHttp(409, "KM_REPETIDO", "Já existe um abastecimento deste veículo com este km.");
+    // Mesmo km é permitido (dono, 13/11/2026): duas linhas no mesmo cupom, ou óleo/lubrificante no mesmo dia; o km/l soma as linhas.
     const [a] = await db.insert(veiculosAbastecimentos).values({ ...c, criadoPor: req.usuario!.id }).returning();
     await registrarLeituraKm(db, { veiculoId: c.veiculoId, km: c.km, data: c.data, fonte: "ABASTECIMENTO", usuarioId: req.usuario!.id });
     const todos = await db.select().from(veiculosAbastecimentos).where(eq(veiculosAbastecimentos.veiculoId, c.veiculoId));

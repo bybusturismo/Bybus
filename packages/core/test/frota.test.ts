@@ -76,3 +76,17 @@ describe("checklist e bloqueio", () => {
     expect(motivosBloqueio(ruim)).toEqual(["Veículo em manutenção", "Documento vencido: Apólice", "Manutenção crítica vencida: Freios"]);
   });
 });
+
+describe("abastecimento com mesmo km e tipo de serviço (13/11/2026)", () => {
+  it("duas linhas de diesel no mesmo km somam os litros; óleo e lubrificante não entram no km/l", () => {
+    const r = consumoPorAbastecimento([
+      { id: "a1", km: 300_000, litros: 100, tanqueCheio: true },
+      { id: "b1", km: 300_175, litros: 188.8, tanqueCheio: true },
+      { id: "b2", km: 300_175, litros: 27.06, tanqueCheio: true },
+      { id: "o1", km: 300_175, litros: 5, tanqueCheio: true, tipo: "OLEO" },
+    ]);
+    expect(r.get("b2")).toBe(Math.round((175 / 215.86) * 100) / 100);
+    expect(r.get("b1")).toBeNull();
+    expect(r.get("o1")).toBeNull();
+  });
+});

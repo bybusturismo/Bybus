@@ -1,0 +1,1 @@
+ALTER TABLE "veiculos_abastecimentos" ADD COLUMN "tipo" text DEFAULT 'COMBUSTIVEL' NOT NULL;

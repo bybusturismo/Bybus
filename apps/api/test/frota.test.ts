@@ -210,6 +210,25 @@ describe("link de GPS do veículo (13/11/2026)", () => {
   });
 });
 
+describe("abastecimento: mesmo km e tipo de serviço (13/11/2026)", () => {
+  it("aceita duas linhas no mesmo km (somam no km/l) e óleo/lubrificante fora do km/l", async () => {
+    const admin = await logado("admin@bybus.test");
+    const v = await criarVeiculo(admin, "TIP1A11", { kmAtual: 0 });
+    const lancar = (km: number, litros: number, extra: Record<string, unknown> = {}) =>
+      admin.req("POST", "/api/frota/abastecimentos", { veiculoId: v.id, data: somar(-1), km, litros, valorCentavos: Math.round(litros * 769), ...extra });
+    expect((await lancar(300_000, 100)).statusCode).toBe(201);
+    expect((await lancar(300_175, 188.8)).statusCode).toBe(201);
+    const seg = await lancar(300_175, 27.06);
+    expect(seg.statusCode, seg.body).toBe(201);
+    expect(seg.json().kml).toBe(Math.round((175 / 215.86) * 100) / 100);
+    const oleo = await lancar(300_175, 5, { tipo: "OLEO" });
+    expect(oleo.json()).toMatchObject({ tipo: "OLEO", kml: null });
+    expect((await lancar(300_175, 1, { tipo: "GASOLINA_X" })).statusCode).toBe(400);
+    const r = (await admin.req("GET", `/api/frota/abastecimentos?veiculoId=${v.id}`)).json();
+    expect(r.resumo[0].litros).toBe(315.86); // só combustível
+  });
+});
+
 describe("abastecimento e consumo", () => {
   it("calcula km/l entre tanques cheios e alerta consumo fora da média", async () => {
     const admin = await logado("admin@bybus.test");
@@ -218,7 +237,6 @@ describe("abastecimento e consumo", () => {
       admin.req("POST", "/api/frota/abastecimentos", { veiculoId: v.id, data: somar(dias), km, litros, valorCentavos: Math.round(litros * 600), posto: "Posto Fictício", ...extra });
     expect((await lancar(1000, 100, -20)).statusCode).toBe(201);
     for (const [km, l, d] of [[1250, 100, -15], [1500, 100, -10], [1750, 100, -5]] as const) expect((await lancar(km, l, d)).statusCode).toBe(201); // 2,5 km/l
-    expect((await lancar(1750, 50, -4)).statusCode).toBe(409); // km repetido
     const ruim = await lancar(1900, 100, -1); // 150 km com 100 l = 1,5 km/l
     expect(ruim.statusCode).toBe(201);
     expect(ruim.json()).toMatchObject({ kml: 1.5, alerta: "ALTO" });

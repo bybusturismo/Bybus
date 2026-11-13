@@ -3,7 +3,13 @@ export interface AbastecimentoCalc {
   km: number;
   litros: number;
   tanqueCheio: boolean;
+  /** COMBUSTIVEL (padrão), OLEO ou LUBRIFICANTE (13/11/2026): só combustível entra no km/l. */
+  tipo?: string | null;
 }
+
+export const TIPOS_ABASTECIMENTO = ["COMBUSTIVEL", "OLEO", "LUBRIFICANTE"] as const;
+export type TipoAbastecimento = (typeof TIPOS_ABASTECIMENTO)[number];
+export const ROTULO_TIPO_ABASTECIMENTO: Record<TipoAbastecimento, string> = { COMBUSTIVEL: "Combustível", OLEO: "Óleo", LUBRIFICANTE: "Lubrificante" };
 
 /**
  * Consumo (km/l) entre tanques cheios: ao completar o tanque, km rodados desde o último tanque cheio
@@ -11,8 +17,15 @@ export interface AbastecimentoCalc {
  * Devolve km/l por id (null quando não dá para calcular). A lista pode vir em qualquer ordem.
  */
 export function consumoPorAbastecimento(lista: AbastecimentoCalc[]): Map<string, number | null> {
-  const ordenada = [...lista].sort((a, b) => a.km - b.km);
   const r = new Map<string, number | null>();
+  for (const a of lista) r.set(a.id, null);
+  // Só combustível; linhas com o mesmo km são o mesmo abastecimento (ex.: duas linhas de diesel no mesmo cupom, 13/11/2026):
+  // os litros somam e o km/l fica na última linha.
+  const porKm = new Map<number, AbastecimentoCalc[]>();
+  for (const a of lista) if (!a.tipo || a.tipo === "COMBUSTIVEL") porKm.set(a.km, [...(porKm.get(a.km) ?? []), a]);
+  const ordenada = [...porKm.entries()].sort((x, y) => x[0] - y[0]).map(([km, g]) => ({
+    id: [...g].sort((x, y) => x.id.localeCompare(y.id)).at(-1)!.id, km, litros: g.reduce((t, x) => t + x.litros, 0), tanqueCheio: g.some((x) => x.tanqueCheio),
+  }));
   let kmBase: number | null = null;
   let litros = 0;
   for (const a of ordenada) {

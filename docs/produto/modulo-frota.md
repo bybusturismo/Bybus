@@ -73,3 +73,7 @@ Painel (`/frota`), Veículos, Documentos, Manutenção (ordens e planos), Abaste
 - **Abastecimento — filtro por coluna (dono, 13/11/2026):** cada cabeçalho (data, veículo, km, litros, valor, km/l, posto)
   abre o menu como no Excel (classificar A–Z/Z–A ou menor/maior, buscar e marcar só os valores desejados), o mesmo do
   financeiro (`componentes/FiltroColuna.tsx`). Com filtro ativo, o rodapé mostra quantos aparecem e a soma de litros e valor.
+- **Abastecimento — serviço e mesmo km (dono, 13/11/2026):** campo **Serviço** (Combustível, Óleo, Lubrificante;
+  `veiculos_abastecimentos.tipo`). Só combustível entra no km/l e nos litros do resumo; óleo e lubrificante entram no gasto.
+  O **mesmo km** passou a ser aceito (antes dava "km repetido"): ex. cupom com duas linhas de diesel — cada linha é lançada
+  com o mesmo km e o km/l soma os litros das linhas (fica na última). Coluna e filtro "Serviço" na lista.

@@ -379,6 +379,13 @@
       "when": 1794591666202,
       "tag": "0053_portal_afiliado",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1794592227974,
+      "tag": "0054_tipo_abastecimento",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ROTULO_TIPO_ABASTECIMENTO, TIPOS_ABASTECIMENTO, type TipoAbastecimento } from "@bybus/core";
 import { aplicarColunas, CabecalhoFiltro, VAZIO, type DefinicaoColuna, type EstadoColunas } from "../../componentes/FiltroColuna";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
@@ -18,10 +19,11 @@ interface Resposta {
 const dec = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
 /** Filtro e classificação por coluna, como no Excel (dono, 13/11/2026). */
-type ColunaAbast = "data" | "veiculo" | "km" | "litros" | "valor" | "kml" | "posto";
+type ColunaAbast = "data" | "veiculo" | "servico" | "km" | "litros" | "valor" | "kml" | "posto";
 const COLUNAS_ABAST: Record<ColunaAbast, DefinicaoColuna<Abastecimento>> = {
   data: { valor: (a) => formatarData(a.data), ordenar: (a) => a.data },
   veiculo: { valor: (a) => a.placa },
+  servico: { valor: (a) => ROTULO_TIPO_ABASTECIMENTO[a.tipo ?? "COMBUSTIVEL"] },
   km: { valor: (a) => formatarKm(a.km), ordenar: (a) => a.km },
   litros: { valor: (a) => dec(a.litros), ordenar: (a) => a.litros },
   valor: { valor: (a) => formatarMoeda(a.valorCentavos), ordenar: (a) => a.valorCentavos },
@@ -38,6 +40,8 @@ function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: Veiculo[
   const [valor, setValor] = useState("");
   const [posto, setPosto] = useState("");
   const [cheio, setCheio] = useState(true);
+  const [tipo, setTipo] = useState<TipoAbastecimento>("COMBUSTIVEL");
+  const combustivel = tipo === "COMBUSTIVEL";
   const atual = veiculos.find((v) => v.id === veiculoId);
   async function enviar() {
     const k = numeroDeTexto(km);
@@ -45,26 +49,33 @@ function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: Veiculo[
     const v = centavosDeTexto(valor);
     if (!veiculoId) throw new Error("Escolha o veículo.");
     if (k == null || Number.isNaN(k)) throw new Error("Informe o km do hodômetro.");
-    if (l == null || Number.isNaN(l) || l <= 0) throw new Error("Informe os litros abastecidos (ex.: 45,5).");
+    if (l == null || Number.isNaN(l) || l <= 0) throw new Error(combustivel ? "Informe os litros abastecidos (ex.: 45,5)." : "Informe a quantidade em litros (ex.: 5).");
     if (v == null || Number.isNaN(v)) throw new Error("Informe o valor total em reais (ex.: 1.234,56).");
-    const salvo = await api.post<Abastecimento>("/api/frota/abastecimentos", { veiculoId, data, km: k, litros: l, valorCentavos: v, posto: posto.trim() || null, tanqueCheio: cheio });
+    const salvo = await api.post<Abastecimento>("/api/frota/abastecimentos", { veiculoId, data, km: k, litros: l, valorCentavos: v, posto: posto.trim() || null, tanqueCheio: combustivel ? cheio : false, tipo });
     await aoSalvo(salvo);
   }
   return (
     <FormModal titulo="Novo abastecimento" aoFechar={aoFechar} aoEnviar={enviar}>
       <div className="grade-campos">
+        <div className="campo">
+          <label htmlFor="fa-tipo">Serviço</label>
+          <select id="fa-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as TipoAbastecimento)}>
+            {TIPOS_ABASTECIMENTO.map((t) => <option key={t} value={t}>{ROTULO_TIPO_ABASTECIMENTO[t]}</option>)}
+          </select>
+        </div>
         <div className="campo"><label htmlFor="fa-veiculo">Veículo</label><SeletorVeiculo id="fa-veiculo" valor={veiculoId} aoMudar={setVeiculoId} veiculos={veiculos} /></div>
         <div className="campo"><label htmlFor="fa-data">Data</label><input id="fa-data" type="date" value={data} onChange={(e) => setData(e.target.value)} /></div>
         <div className="campo">
           <label htmlFor="fa-km">Km do hodômetro</label>
           <input id="fa-km" inputMode="numeric" value={km} onChange={(e) => setKm(e.target.value)} />
-          {atual && <span className="campo__ajuda">Km atual: {formatarKm(atual.kmAtual)}</span>}
+          {atual && <span className="campo__ajuda">Km atual: {formatarKm(atual.kmAtual)}. Pode repetir o km de outro lançamento do mesmo cupom.</span>}
         </div>
-        <div className="campo"><label htmlFor="fa-litros">Litros</label><input id="fa-litros" inputMode="decimal" value={litros} onChange={(e) => setLitros(e.target.value)} /></div>
+        <div className="campo"><label htmlFor="fa-litros">{combustivel ? "Litros" : "Quantidade (litros)"}</label><input id="fa-litros" inputMode="decimal" value={litros} onChange={(e) => setLitros(e.target.value)} /></div>
         <div className="campo"><label htmlFor="fa-valor">Valor total (R$)</label><input id="fa-valor" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" /></div>
         <div className="campo"><label htmlFor="fa-posto">Posto</label><input id="fa-posto" value={posto} maxLength={120} onChange={(e) => setPosto(e.target.value)} /></div>
       </div>
-      <label className="interruptor"><input type="checkbox" checked={cheio} onChange={(e) => setCheio(e.target.checked)} /> Completou o tanque (necessário para calcular km/l)</label>
+      {combustivel && <label className="interruptor"><input type="checkbox" checked={cheio} onChange={(e) => setCheio(e.target.checked)} /> Completou o tanque (necessário para calcular km/l)</label>}
+      {combustivel && <p className="texto-fraco">Cupom com duas linhas de combustível? Lance cada linha com o mesmo km: o km/l soma os litros.</p>}
     </FormModal>
   );
 }
@@ -141,6 +152,7 @@ export function AbastecimentoPagina() {
                 <thead><tr>
                   <CabecalhoFiltro coluna="data" rotulo="Data" linhas={r.itens} definicao={COLUNAS_ABAST.data} estado={colunas} mudar={setColunas} textos={{ asc: "Mais antigo primeiro", desc: "Mais recente primeiro" }} />
                   <CabecalhoFiltro coluna="veiculo" rotulo="Veículo" linhas={r.itens} definicao={COLUNAS_ABAST.veiculo} estado={colunas} mudar={setColunas} />
+                  <CabecalhoFiltro coluna="servico" rotulo="Serviço" linhas={r.itens} definicao={COLUNAS_ABAST.servico} estado={colunas} mudar={setColunas} />
                   <CabecalhoFiltro coluna="km" rotulo="Km" linhas={r.itens} definicao={COLUNAS_ABAST.km} estado={colunas} mudar={setColunas} className="frota-numero" textos={NUMERO} />
                   <CabecalhoFiltro coluna="litros" rotulo="Litros" linhas={r.itens} definicao={COLUNAS_ABAST.litros} estado={colunas} mudar={setColunas} className="frota-numero" textos={NUMERO} />
                   <CabecalhoFiltro coluna="valor" rotulo="Valor" linhas={r.itens} definicao={COLUNAS_ABAST.valor} estado={colunas} mudar={setColunas} className="frota-numero" textos={NUMERO} />
@@ -153,6 +165,7 @@ export function AbastecimentoPagina() {
                     <tr key={a.id}>
                       <td className="sem-quebra">{formatarData(a.data)}</td>
                       <td><strong>{a.placa}</strong></td>
+                      <td>{a.tipo && a.tipo !== "COMBUSTIVEL" ? <span className="etiqueta etiqueta--neutra">{ROTULO_TIPO_ABASTECIMENTO[a.tipo]}</span> : ROTULO_TIPO_ABASTECIMENTO.COMBUSTIVEL}</td>
                       <td className="frota-numero">{formatarKm(a.km)}</td>
                       <td className="frota-numero">{dec(a.litros)}{!a.tanqueCheio && <span className="texto-fraco"> (parcial)</span>}</td>
                       <td className="frota-numero">{formatarMoeda(a.valorCentavos)}</td>
@@ -168,7 +181,7 @@ export function AbastecimentoPagina() {
                 {filtrando && (
                   <tfoot>
                     <tr className="fin-total">
-                      <td colSpan={3}>{visiveis.length} de {r.itens.length} abastecimento(s) no filtro das colunas</td>
+                      <td colSpan={4}>{visiveis.length} de {r.itens.length} abastecimento(s) no filtro das colunas</td>
                       <td className="frota-numero">{dec(visiveis.reduce((t, a) => t + a.litros, 0))}</td>
                       <td className="frota-numero">{formatarMoeda(visiveis.reduce((t, a) => t + a.valorCentavos, 0))}</td>
                       <td colSpan={podeEditar ? 3 : 2} />

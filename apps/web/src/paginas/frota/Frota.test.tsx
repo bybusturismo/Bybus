@@ -121,6 +121,28 @@ describe("Abastecimento: filtro por coluna (13/11/2026)", () => {
   });
 });
 
+describe("Abastecimento: serviço (combustível, óleo, lubrificante) (13/11/2026)", () => {
+  it("lança óleo sem a opção de tanque cheio e envia o tipo", async () => {
+    const spy = simularApi({
+      "GET /api/frota/veiculos": [veiculo()],
+      "GET /api/frota/abastecimentos": { itens: [], resumo: [] },
+      "POST /api/frota/abastecimentos": { id: "n1", veiculoId: "v1", placa: "ABC1D23", apelido: null, data: "2026-11-13", km: 120_000, litros: 5, valorCentavos: 25_000, posto: null, tanqueCheio: false, tipo: "OLEO", kml: null, alerta: null },
+    });
+    renderizar(<AbastecimentoPagina />, { sessao: gerenciar });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: /Novo abastecimento|Registrar/ }));
+    const d = within(await screen.findByRole("dialog"));
+    await u.selectOptions(d.getByLabelText("Serviço"), "OLEO");
+    expect(d.queryByLabelText(/Completou o tanque/)).not.toBeInTheDocument();
+    await u.type(d.getByLabelText("Km do hodômetro"), "120000");
+    await u.type(d.getByLabelText("Quantidade (litros)"), "5");
+    await u.type(d.getByLabelText("Valor total (R$)"), "250,00");
+    await u.click(d.getByRole("button", { name: "Salvar" }));
+    await screen.findByText("Abastecimento lançado.");
+    expect(corpoEnviado(spy, "POST", "/api/frota/abastecimentos")).toMatchObject({ tipo: "OLEO", tanqueCheio: false, km: 120_000, litros: 5, valorCentavos: 25_000 });
+  });
+});
+
 describe("Abastecimento", () => {
   it("mostra km/l e o alerta de consumo fora da média", async () => {
     simularApi({

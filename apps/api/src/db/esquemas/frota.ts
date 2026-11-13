@@ -101,6 +101,8 @@ export const veiculosAbastecimentos = pgTable("veiculos_abastecimentos", {
   valorCentavos: integer().notNull(),
   posto: text(),
   tanqueCheio: boolean().notNull().default(true),
+  /** COMBUSTIVEL, OLEO ou LUBRIFICANTE (13/11/2026). */
+  tipo: text().notNull().default("COMBUSTIVEL"),
   criadoPor: uuid().references(() => usuarios.id),
   criadoEm: agora(),
 }, (t) => [index("veiculos_abastecimentos_veiculo_idx").on(t.veiculoId, t.km)]);
