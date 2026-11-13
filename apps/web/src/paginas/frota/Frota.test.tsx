@@ -95,6 +95,32 @@ describe("Documentos", () => {
   });
 });
 
+describe("Abastecimento: filtro por coluna (13/11/2026)", () => {
+  it("filtra só um veículo, mostra a soma e classifica do maior para o menor valor", async () => {
+    const a = (id: string, placa: string, valor: number, data: string) => ({ id, veiculoId: placa, placa, apelido: null, data, km: 1000, litros: 50, valorCentavos: valor, posto: "Posto Fictício", tanqueCheio: true, kml: 2, alerta: null });
+    simularApi({
+      "GET /api/frota/veiculos": [veiculo()],
+      "GET /api/frota/abastecimentos": { itens: [a("1", "ABC1D23", 30_000, "2026-11-01"), a("2", "XYZ9K88", 50_000, "2026-11-02"), a("3", "ABC1D23", 40_000, "2026-11-03")], resumo: [] },
+    });
+    renderizar(<AbastecimentoPagina />, { sessao: ver });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: /^Veículo/ }));
+    const menu = screen.getByRole("dialog", { name: "Filtrar Veículo" });
+    await u.click(within(menu).getByLabelText("(Selecionar tudo)"));
+    await u.click(within(menu).getByLabelText("XYZ9K88"));
+    await u.click(within(menu).getByRole("button", { name: "Aplicar" }));
+    expect(screen.getByText("1 de 3 abastecimento(s) no filtro das colunas")).toBeInTheDocument();
+    expect(screen.queryAllByRole("row", { name: /ABC1D23/ })).toHaveLength(0);
+    await u.click(screen.getByRole("button", { name: /^Veículo/ }));
+    await u.click(within(screen.getByRole("dialog", { name: "Filtrar Veículo" })).getByRole("button", { name: "Limpar" }));
+    await u.click(screen.getByRole("button", { name: /^Valor/ }));
+    await u.click(screen.getByRole("button", { name: "Do maior para o menor" }));
+    const linhas = screen.getAllByRole("row").slice(1).map((x) => x.textContent ?? "");
+    expect(linhas[0]).toMatch(/500,00/);
+    expect(linhas[2]).toMatch(/300,00/);
+  });
+});
+
 describe("Abastecimento", () => {
   it("mostra km/l e o alerta de consumo fora da média", async () => {
     simularApi({

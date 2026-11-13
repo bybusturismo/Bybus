@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { aplicarColunas, CabecalhoFiltro, VAZIO, type DefinicaoColuna, type EstadoColunas } from "../../componentes/FiltroColuna";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
 import { Icone } from "../../componentes/Icone";
@@ -15,6 +16,19 @@ interface Resposta {
 }
 
 const dec = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+
+/** Filtro e classificação por coluna, como no Excel (dono, 13/11/2026). */
+type ColunaAbast = "data" | "veiculo" | "km" | "litros" | "valor" | "kml" | "posto";
+const COLUNAS_ABAST: Record<ColunaAbast, DefinicaoColuna<Abastecimento>> = {
+  data: { valor: (a) => formatarData(a.data), ordenar: (a) => a.data },
+  veiculo: { valor: (a) => a.placa },
+  km: { valor: (a) => formatarKm(a.km), ordenar: (a) => a.km },
+  litros: { valor: (a) => dec(a.litros), ordenar: (a) => a.litros },
+  valor: { valor: (a) => formatarMoeda(a.valorCentavos), ordenar: (a) => a.valorCentavos },
+  kml: { valor: (a) => (a.kml == null ? VAZIO : `${dec(a.kml)}${a.alerta ? (a.alerta === "ALTO" ? " · gasto alto" : " · conferir") : ""}`), ordenar: (a) => a.kml ?? -1 },
+  posto: { valor: (a) => a.posto ?? VAZIO },
+};
+const NUMERO = { asc: "Do menor para o maior", desc: "Do maior para o menor" };
 
 function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: Veiculo[]; aoFechar: () => void; aoSalvo: (a: Abastecimento) => Promise<void> }) {
   const [veiculoId, setVeiculoId] = useState(veiculos[0]?.id ?? "");
@@ -68,6 +82,9 @@ export function AbastecimentoPagina() {
   const [aviso, setAviso] = useState<string | null>(null);
   const dados = useCarregar((sinal) => api.get<Resposta>(`/api/frota/abastecimentos${qs({ veiculoId, de, ate })}`, sinal), [veiculoId, de, ate]);
   const r = dados.dados;
+  const [colunas, setColunas] = useState<EstadoColunas<ColunaAbast>>({ ordem: null, selecionados: {} });
+  const visiveis = useMemo(() => (r ? aplicarColunas(r.itens, COLUNAS_ABAST, colunas) : []), [r, colunas]);
+  const filtrando = Object.keys(colunas.selecionados).length > 0;
 
   async function excluir(a: Abastecimento) {
     if (!window.confirm(`Excluir o abastecimento de ${formatarData(a.data)} de ${a.placa}?`)) return;
@@ -121,9 +138,18 @@ export function AbastecimentoPagina() {
             <div className="tabela-rolagem">
               <table className="tabela">
                 <caption className="visualmente-oculto">Abastecimentos</caption>
-                <thead><tr><th>Data</th><th>Veículo</th><th className="frota-numero">Km</th><th className="frota-numero">Litros</th><th className="frota-numero">Valor</th><th className="frota-numero">km/l</th><th>Posto</th>{podeEditar && <th><span className="visualmente-oculto">Ações</span></th>}</tr></thead>
+                <thead><tr>
+                  <CabecalhoFiltro coluna="data" rotulo="Data" linhas={r.itens} definicao={COLUNAS_ABAST.data} estado={colunas} mudar={setColunas} textos={{ asc: "Mais antigo primeiro", desc: "Mais recente primeiro" }} />
+                  <CabecalhoFiltro coluna="veiculo" rotulo="Veículo" linhas={r.itens} definicao={COLUNAS_ABAST.veiculo} estado={colunas} mudar={setColunas} />
+                  <CabecalhoFiltro coluna="km" rotulo="Km" linhas={r.itens} definicao={COLUNAS_ABAST.km} estado={colunas} mudar={setColunas} className="frota-numero" textos={NUMERO} />
+                  <CabecalhoFiltro coluna="litros" rotulo="Litros" linhas={r.itens} definicao={COLUNAS_ABAST.litros} estado={colunas} mudar={setColunas} className="frota-numero" textos={NUMERO} />
+                  <CabecalhoFiltro coluna="valor" rotulo="Valor" linhas={r.itens} definicao={COLUNAS_ABAST.valor} estado={colunas} mudar={setColunas} className="frota-numero" textos={NUMERO} />
+                  <CabecalhoFiltro coluna="kml" rotulo="km/l" linhas={r.itens} definicao={COLUNAS_ABAST.kml} estado={colunas} mudar={setColunas} className="frota-numero" textos={NUMERO} />
+                  <CabecalhoFiltro coluna="posto" rotulo="Posto" linhas={r.itens} definicao={COLUNAS_ABAST.posto} estado={colunas} mudar={setColunas} />
+                  {podeEditar && <th><span className="visualmente-oculto">Ações</span></th>}
+                </tr></thead>
                 <tbody>
-                  {r.itens.map((a) => (
+                  {visiveis.map((a) => (
                     <tr key={a.id}>
                       <td className="sem-quebra">{formatarData(a.data)}</td>
                       <td><strong>{a.placa}</strong></td>
@@ -139,6 +165,16 @@ export function AbastecimentoPagina() {
                     </tr>
                   ))}
                 </tbody>
+                {filtrando && (
+                  <tfoot>
+                    <tr className="fin-total">
+                      <td colSpan={3}>{visiveis.length} de {r.itens.length} abastecimento(s) no filtro das colunas</td>
+                      <td className="frota-numero">{dec(visiveis.reduce((t, a) => t + a.litros, 0))}</td>
+                      <td className="frota-numero">{formatarMoeda(visiveis.reduce((t, a) => t + a.valorCentavos, 0))}</td>
+                      <td colSpan={podeEditar ? 3 : 2} />
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           )}

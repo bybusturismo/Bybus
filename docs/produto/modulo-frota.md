@@ -69,3 +69,7 @@ Painel (`/frota`), Veículos, Documentos, Manutenção (ordens e planos), Abaste
 
 ## Testes
 `packages/core/test/frota.test.ts` (regras puras), `apps/api/test/frota.test.ts` (API com Postgres real: escopo por praça, documentos, bloqueio, planos/ordens, consumo, checklist e painel) e `apps/web/src/paginas/frota/Frota.test.tsx`. Dados e placas fictícios (ex.: ABC1D23).
+
+- **Abastecimento — filtro por coluna (dono, 13/11/2026):** cada cabeçalho (data, veículo, km, litros, valor, km/l, posto)
+  abre o menu como no Excel (classificar A–Z/Z–A ou menor/maior, buscar e marcar só os valores desejados), o mesmo do
+  financeiro (`componentes/FiltroColuna.tsx`). Com filtro ativo, o rodapé mostra quantos aparecem e a soma de litros e valor.
