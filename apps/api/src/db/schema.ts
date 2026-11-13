@@ -28,6 +28,9 @@ export const unidades = pgTable("unidades", {
   nome: text().notNull(),
   cidade: text().notNull(),
   uf: text().notNull(),
+  /** Centro da praça, para a previsão do tempo (13/11/2026). */
+  latitude: doublePrecision(),
+  longitude: doublePrecision(),
   ativa: boolean().notNull().default(true),
   criadoEm: agora(),
 });
@@ -376,6 +379,7 @@ export * from "./esquemas/frota.js";
 export * from "./esquemas/marketing.js";
 export * from "./esquemas/biblioteca.js";
 export * from "./esquemas/ia.js";
+export * from "./esquemas/tempo.js";
 export * from "./esquemas/financeiro.js";
 export * from "./esquemas/rastreio.js";
 export * from "./esquemas/whatsapp.js";

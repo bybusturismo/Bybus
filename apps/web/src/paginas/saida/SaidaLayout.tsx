@@ -8,6 +8,7 @@ import { formatarDataExtenso } from "../../util/formato";
 import { ROTULO_STATUS_SAIDA } from "../../util/rotulos";
 import { EtiquetaLinha } from "../../componentes/Etiquetas";
 import { useCarregar, type Carregamento } from "../../util/useCarregar";
+import { TempoDoDia, useTempo } from "../../componentes/Tempo";
 
 interface ValorSaida {
   id: string;
@@ -31,6 +32,11 @@ export function useSaida(): ValorSaida {
  * Carrega a saída (via manifesto, que traz saída + passeio + lista) uma vez e compartilha entre as abas
  * Lista de passageiros / Reservas / Modo embarque.
  */
+function TempoSaida({ unidadeId, data }: { unidadeId: string | null; data: string }) {
+  const tempo = useTempo(data, data, unidadeId);
+  return <TempoDoDia unidadeId={unidadeId} data={data} porPraca={tempo} tamanho={22} />;
+}
+
 export function SaidaLayout() {
   const { id = "" } = useParams();
   const { pode, unidades } = useSessao();
@@ -61,7 +67,8 @@ export function SaidaLayout() {
         <div className="pagina__cabecalho nao-imprimir">
           <div>
             <h1>
-              {formatarDataExtenso(saida.data)}{" "}
+              {formatarDataExtenso(saida.data)}
+              <TempoSaida unidadeId={passeio.unidadeId} data={saida.data} />{" "}
               <span className={`etiqueta etiqueta--status-${saida.status.toLowerCase()}`}>{ROTULO_STATUS_SAIDA[saida.status]}</span>
             </h1>
             <p className="pagina__descricao">

@@ -34,7 +34,7 @@ export interface Resumo {
   faturamentoMes: { mes: string; reservas: number; semValor: number; valorCentavos: number | null; mesAnteriorCentavos: number | null };
   cupons: { usos: number; descontoCentavos: number | null; porCupom: Array<{ cupomId: string; usos: number; descontoCentavos: number | null }> };
   pendencias: { aConferir: number; semPonto: number; aPagarNoEmbarque: number; formularioPendente: number };
-  saidasHoje: Array<{ id: string; passeio: string; status: string; capacidade: number; vendidos: number; ocupacao: number; veiculo: string | null; guia: string | null; motorista: string | null; checkinsPendentes: number }>;
+  saidasHoje: Array<{ id: string; passeio: string; unidadeId?: string; status: string; capacidade: number; vendidos: number; ocupacao: number; veiculo: string | null; guia: string | null; motorista: string | null; checkinsPendentes: number }>;
   aguardandoPagamento: { pedidos: number; saldoCentavos: number | null };
   comissaoAfiliados: { pedidos: number; totalCentavos: number | null };
   whatsapp: { disponivel: boolean; naoLidas: number | null };

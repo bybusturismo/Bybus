@@ -17,6 +17,7 @@ import { rotearIa } from "./iaDemo";
 import { rotearMarketing } from "./marketingDemo";
 import { rotearMkt2 } from "./mkt2Demo";
 import { rotearRastreio } from "./rastreioDemo";
+import { rotearTempo } from "./tempoDemo";
 import { criarTransferDemo } from "./transferDemo";
 import { criarWhatsappDemo } from "./whatsappDemo";
 import { rotearInstagram } from "./instagramDemo";
@@ -477,7 +478,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
     const rs = reservas.filter((x) => x.status === "CONFIRMADA" && futuras.some((sa) => sa.id === x.saidaId));
     const hojeSaidas = saidas.filter((sa) => dosUsuario(sa) && sa.data === hoje && sa.status !== "CANCELADA").map((sa) => {
       const ps = pax.filter((p) => reservas.some((x) => x.id === p.reservaId && x.saidaId === sa.id && x.status === "CONFIRMADA") && p.categoria !== "COLO");
-      return { id: sa.id, passeio: passeioDe(sa.passeioId).nome, status: sa.status, capacidade: sa.capacidade, vendidos: ps.length, ocupacao: Math.round((ps.length / sa.capacidade) * 1000) / 10, veiculo: sa.veiculo, guia: sa.guia, motorista: sa.motorista, checkinsPendentes: ps.filter((p) => p.embarque === "PENDENTE").length };
+      return { id: sa.id, passeio: passeioDe(sa.passeioId).nome, unidadeId: passeioDe(sa.passeioId).unidadeId, status: sa.status, capacidade: sa.capacidade, vendidos: ps.length, ocupacao: Math.round((ps.length / sa.capacidade) * 1000) / 10, veiculo: sa.veiculo, guia: sa.guia, motorista: sa.motorista, checkinsPendentes: ps.filter((p) => p.embarque === "PENDENTE").length };
     });
     const v = resumoDeVendas(hoje, sessao!.todasUnidades ? null : sessao!.unidadeIds, un, pode("financeiro:ver"));
     return {
@@ -862,7 +863,7 @@ function rotear(metodo: string, caminho: string, q: URLSearchParams, c: Corpo): 
   }
 
   if (metodo === "GET" && caminho === "/api/auditoria") { exigir("auditoria:ver"); return auditoria.slice(0, Number(q.get("limite") ?? 200)); }
-  for (const rotear of [rotearFinanceiro, rotearFrota, rotearInstagram, rotearMkt2, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, whatsappDemo.rotear, rotearVisaoGeral, transferDemo.rotear]) {
+  for (const rotear of [rotearFinanceiro, rotearFrota, rotearInstagram, rotearMkt2, rotearMarketing, rotearBiblioteca, rotearIa, rotearRastreio, whatsappDemo.rotear, rotearVisaoGeral, transferDemo.rotear, rotearTempo]) {
     const resposta = rotear(ctxModulos, metodo, caminho, q, c);
     if (resposta !== NAO) return resposta;
   }

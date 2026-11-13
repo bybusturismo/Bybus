@@ -781,3 +781,18 @@
 .filtro-coluna__item { display: flex; gap: 8px; align-items: center; padding: 3px 4px; cursor: pointer; }
 .filtro-coluna__acoes { display: flex; justify-content: flex-end; gap: 6px; }
 @media print { .filtro-coluna__botao span[aria-hidden] { display: none; } }
+
+/* Previsão do tempo (13/11/2026): ícone discreto ao lado da data */
+:root { --tempo-sol: #e7a400; --tempo-nuvem: #8b97a3; --tempo-chuva: #2f7fc1; --tempo-raio: #e7791e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tempo-sol: #ffcc4d; --tempo-nuvem: #b8c2cc; --tempo-chuva: #6cb4f0; } }
+:root[data-theme="dark"] { --tempo-sol: #ffcc4d; --tempo-nuvem: #b8c2cc; --tempo-chuva: #6cb4f0; }
+.tempo { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; margin-left: 6px; font-size: 0.8rem; color: var(--cor-texto-fraco); cursor: help; white-space: nowrap; }
+.tempo svg { display: block; flex: none; }
+.tempo--historico { opacity: 0.55; }
+.tempo__sol { fill: var(--tempo-sol); }
+.tempo__raio line { stroke: var(--tempo-sol); stroke-width: 1.8; stroke-linecap: round; }
+.tempo__nuvem { fill: var(--tempo-nuvem); }
+.tempo__gota line, .tempo__linha line { stroke: var(--tempo-chuva); stroke-width: 1.8; stroke-linecap: round; }
+.tempo__linha line { stroke: var(--tempo-nuvem); }
+.tempo__raio-tempestade { fill: var(--tempo-raio); }
+@media print { .tempo { display: none; } }

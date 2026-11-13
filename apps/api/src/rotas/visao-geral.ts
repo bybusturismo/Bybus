@@ -187,7 +187,7 @@ export async function rotasVisaoGeral(app: FastifyInstance, { db, config }: Cont
 
     // Saídas de hoje: ocupação, equipe e check-ins pendentes.
     const condHoje = juntar([filtroUnidade(u), unidadeId ? eq(passeios.unidadeId, unidadeId) : undefined, sql`${saidas.data} = ${hoje}::date`, sql`${saidas.status} <> 'CANCELADA'`]);
-    const saidasHoje = await consultar(db, sql`select ${saidas.id} as id, ${passeios.nome} as passeio, ${saidas.status} as status, ${saidas.capacidade} as capacidade,
+    const saidasHoje = await consultar(db, sql`select ${saidas.id} as id, ${passeios.nome} as passeio, ${passeios.unidadeId} as unidade_id, ${saidas.status} as status, ${saidas.capacidade} as capacidade,
       ${saidas.veiculo} as veiculo, ${saidas.guia} as guia, ${saidas.motorista} as motorista,
       coalesce((select count(*) from ${passageiros} join ${reservas} on ${reservas.id} = ${passageiros.reservaId} where ${reservas.saidaId} = ${saidas.id} and ${reservas.status} = 'CONFIRMADA' and ${passageiros.categoria} <> 'COLO'), 0)::int as vendidos,
       coalesce((select count(*) from ${passageiros} join ${reservas} on ${reservas.id} = ${passageiros.reservaId} where ${reservas.saidaId} = ${saidas.id} and ${reservas.status} = 'CONFIRMADA' and ${passageiros.categoria} <> 'COLO' and ${passageiros.embarque} = 'PENDENTE'), 0)::int as checkins_pendentes
@@ -214,7 +214,7 @@ export async function rotasVisaoGeral(app: FastifyInstance, { db, config }: Cont
       },
       pendencias: { aConferir: n(pend?.a_conferir), semPonto: n(pend?.sem_ponto), aPagarNoEmbarque: n(pend?.a_pagar), formularioPendente: n(pend?.formulario) },
       saidasHoje: saidasHoje.map((s) => ({
-        id: String(s.id), passeio: String(s.passeio), status: String(s.status), capacidade: n(s.capacidade), vendidos: n(s.vendidos),
+        id: String(s.id), passeio: String(s.passeio), unidadeId: String(s.unidade_id), status: String(s.status), capacidade: n(s.capacidade), vendidos: n(s.vendidos),
         ocupacao: pct(n(s.vendidos), n(s.capacidade)), veiculo: (s.veiculo as string | null) ?? null, guia: (s.guia as string | null) ?? null,
         motorista: (s.motorista as string | null) ?? null, checkinsPendentes: n(s.checkins_pendentes),
       })),

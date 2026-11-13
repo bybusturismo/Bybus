@@ -12,6 +12,7 @@ import { ROTULO_STATUS_SAIDA } from "../util/rotulos";
 import { EtiquetaLinha } from "../componentes/Etiquetas";
 import { CabecalhoPagina, FaixaNumeros } from "../componentes/Pagina";
 import { useCarregar } from "../util/useCarregar";
+import { TempoDoDia, useTempo } from "../componentes/Tempo";
 
 const DIAS = 14;
 const CHAVE_PASSEIO = "bybus.saidas.passeio";
@@ -142,6 +143,8 @@ export function Saidas() {
     }
   }
 
+  // Previsão do tempo de cada dia (13/11/2026).
+  const tempo = useTempo(inicio, fim, praca);
   const porData = new Map<string, SaidaResumo[]>();
   for (const s of saidas.dados ?? []) porData.set(s.data, [...(porData.get(s.data) ?? []), s]);
   const podeCriar = pode("saidas:gerenciar");
@@ -260,6 +263,7 @@ export function Saidas() {
                           {k === 0 && (
                             <>
                               <Link to={destino} className="saida__link" title={formatarDataExtenso(data)}>{formatarDataCurta(data)}</Link>
+                              <TempoDoDia unidadeId={s.unidadeId} data={data} porPraca={tempo} />
                               {relativo && <span className="etiqueta etiqueta--hoje">{relativo}</span>}
                             </>
                           )}

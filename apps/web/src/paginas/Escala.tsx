@@ -6,7 +6,8 @@ import { Aviso, Carregando, ErroCarga, Vazio } from "../componentes/Estados";
 import { Modal } from "../componentes/Modal";
 import { useNotificar } from "../componentes/Notificacoes";
 import { useSessao } from "../sessao/Sessao";
-import { formatarDataCurta, hojeIso, nomeMes, somarMes } from "../util/formato";
+import { formatarDataCurta, hojeIso, nomeMes, somarMes, ultimoDiaDoMes } from "../util/formato";
+import { TempoDoDia, useTempo } from "../componentes/Tempo";
 import { useCarregar } from "../util/useCarregar";
 
 type Plano = Record<string, { guiaId: string | null; motoristaId: string | null }>;
@@ -74,6 +75,8 @@ export function Escala() {
   const atual = opcoes.find((p) => p.id === passeioId) ?? opcoes[0] ?? null;
 
   const escala = useCarregar((s) => (atual ? api.get<RespostaEscala>(`/api/escala${qs({ passeioId: atual.id, mes })}`, s) : Promise.resolve(null)), [atual?.id, mes]);
+  // Previsão do tempo do mês (13/11/2026).
+  const tempo = useTempo(`${mes}-01`, ultimoDiaDoMes(mes), atual?.unidadeId);
   const equipe = useCarregar((s) => (atual ? api.get<EquipeEscala>(`/api/escala/equipe${qs({ passeioId: atual.id })}`, s) : Promise.resolve(null)), [atual?.id]);
 
   const [plano, setPlano] = useState<Plano>({});
@@ -182,7 +185,7 @@ export function Escala() {
                   const fimDeSemana = [0, 6].includes(new Date(`${d.data}T12:00:00Z`).getUTCDay());
                   return (
                     <tr key={d.data} className={`${passado ? "linha--inativa" : ""}${fimDeSemana ? " escala__fds" : ""}`}>
-                      <td className="sem-quebra">{formatarDataCurta(d.data)}</td>
+                      <td className="sem-quebra">{formatarDataCurta(d.data)}<TempoDoDia unidadeId={atual.unidadeId} data={d.data} porPraca={tempo} /></td>
                       <td>
                         {d.publicada || !podeEditar || passado ? (d.guia ?? <span className="texto-fraco">—</span>) : (
                           <select aria-label={`Guia em ${formatarDataCurta(d.data)}`} value={p.guiaId ?? ""} onChange={(ev) => definir(d.data, "guiaId", ev.target.value)}>

@@ -35,6 +35,7 @@ export * from "./financeiro/cartao.js";
 export * from "./rastreio/previsao.js";
 export * from "./rastreio/avisos.js";
 export * from "./rastreio/kml.js";
+export * from "./clima/tempo.js";
 export * from "./biblioteca/html.js";
 export * from "./biblioteca/acesso.js";
 export * from "./vendas/vendas.js";

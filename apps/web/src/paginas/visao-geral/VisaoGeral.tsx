@@ -7,6 +7,7 @@ import { Carregando, ErroCarga } from "../../componentes/Estados";
 import { Icone, type NomeIcone } from "../../componentes/Icone";
 import { useSessao } from "../../sessao/Sessao";
 import { formatarMoeda, formatarNumero, hojeIso, somarDias } from "../../util/formato";
+import { TempoDoDia, useTempo } from "../../componentes/Tempo";
 import { useCarregar } from "../../util/useCarregar";
 import { BarrasEmpilhadas, BarrasSimples, Linhas, Pizza, type Serie } from "./graficos";
 import {
@@ -121,6 +122,7 @@ export function VisaoGeral() {
   const faturamento = useCarregar((s) => (verAnalise && verValores ? api.get<Faturamento>(`/api/visao-geral/faturamento${qs({ ...base, passeioId: passeioFat, canal: canalFat })}`, s) : Promise.resolve(null)), [verAnalise, verValores, periodo.de, periodo.ate, praca, passeioFat, canalFat]);
 
   const so = r?.saidasHoje ?? [];
+  const tempoHoje = useTempo(hojeIso(), hojeIso());
   const checkinDe = so.length === 1 ? `/saidas/${so[0]!.id}/embarque` : "/listas/saidas";
   const checkinsPendentes = so.reduce((t, s) => t + s.checkinsPendentes, 0);
   const totalPendencias = r ? r.pendencias.aConferir + r.pendencias.semPonto + r.pendencias.aPagarNoEmbarque + r.pendencias.formularioPendente : 0;
@@ -228,7 +230,7 @@ export function VisaoGeral() {
               <div className="vg-hoje">
                 {so.map((s) => (
                   <div key={s.id} className="vg-hoje__linha">
-                    <Link to={`/saidas/${s.id}`}><strong>{s.passeio}</strong></Link>
+                    <span><Link to={`/saidas/${s.id}`}><strong>{s.passeio}</strong></Link><TempoDoDia unidadeId={s.unidadeId} data={hojeIso()} porPraca={tempoHoje} /></span>
                     <div className={`vg-ocupacao${s.ocupacao >= 90 ? " vg-ocupacao--cheia" : ""}`} role="img" aria-label={`${s.vendidos} de ${s.capacidade} lugares, ${s.ocupacao}% de ocupação`}>
                       <span className="vg-ocupacao__trilho" aria-hidden="true"><span style={{ width: `${Math.min(100, s.ocupacao)}%` }} /></span>
                       <span>{s.vendidos}/{s.capacidade} ({s.ocupacao}%)</span>

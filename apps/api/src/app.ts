@@ -39,6 +39,8 @@ import { rotasBiblioteca } from "./rotas/biblioteca.js";
 import { rotasIa } from "./rotas/ia.js";
 import { agendarAvaliacaoIa } from "./servicos/ia/agendamento.js";
 import { agendarLimpezaRastreio } from "./servicos/rastreio.js";
+import { agendarTempo } from "./servicos/tempo.js";
+import { rotasTempo } from "./rotas/tempo.js";
 import { Cofre } from "./seguranca/cripto.js";
 import { carregarUsuario, ErroHttp, nomeCookie } from "./seguranca/sessao.js";
 
@@ -146,6 +148,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   await rotasVisaoGeral(app, ctx);
   await rotasReservasLista(app, ctx);
   await rotasTransfer(app, ctx);
+  await rotasTempo(app, ctx);
 
   const pararPaytour = agendarPaytour(db, ctx.cofre, config, app.log);
   const pararFechamento = agendarFechamento(db, ctx.cofre, config, app.log);
@@ -153,6 +156,7 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
   const pararRastreio = agendarLimpezaRastreio(db, config, app.log);
   const pararInstagram = agendarInstagram(db, config, app.log);
   const pararMarketing = agendarMarketing(db, config, app.log);
+  const pararTempo = agendarTempo(db, config, app.log);
 
-  return { app, fechar: async () => { pararPaytour(); pararFechamento(); pararIa(); pararRastreio(); pararInstagram(); pararMarketing(); await app.close(); await pool.end(); } };
+  return { app, fechar: async () => { pararPaytour(); pararFechamento(); pararIa(); pararRastreio(); pararInstagram(); pararMarketing(); pararTempo(); await app.close(); await pool.end(); } };
 }
