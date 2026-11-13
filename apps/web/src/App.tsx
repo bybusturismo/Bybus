@@ -81,6 +81,7 @@ import { Relatorios } from "./paginas/marketing/Relatorios";
 import { LinkBio } from "./paginas/marketing/LinkBio";
 import { Orcamentos } from "./paginas/orcamentos/Orcamentos";
 import { GrupoFicha, Grupos } from "./paginas/grupos/Grupos";
+import { ListaGrupoPublica } from "./paginas/grupos/ListaGrupoPublica";
 import { ProvedorSessao, useSessao } from "./sessao/Sessao";
 
 /** Esconde a tela de quem não tem a permissão (o servidor também recusa). */
@@ -543,6 +544,9 @@ export function App() {
   // Link de GPS de um veículo, para hotéis e parceiros (13/11/2026; sem login nem sessão).
   const gps = /^\/gps\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
   if (gps) return <GpsPublico token={gps[1]!} />;
+  // Lista de passageiros de grupo fechado, preenchida pelo representante (13/11/2026; sem login nem sessão).
+  const listaGrupo = /^\/lista-grupo\/([A-Za-z0-9_-]{20,64})$/.exec(window.location.pathname);
+  if (listaGrupo) return <ListaGrupoPublica token={listaGrupo[1]!} />;
   // Marketing: link na bio, pedido de orçamento de grupos e pesquisa NPS (sem login nem sessão).
   const caminho = window.location.pathname.replace(/\/$/, "");
   if (caminho === "/bio") return <BioPublica />;

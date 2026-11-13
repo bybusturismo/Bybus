@@ -13,6 +13,8 @@ import { nomePraca, useSessao } from "../../sessao/Sessao";
 import { lerBase64 } from "../../util/foto";
 import { centavosDeTexto, formatarData, formatarMoeda, hojeIso, textoDeCentavos } from "../../util/formato";
 import { useAtraso } from "../../util/useAtraso";
+import { imprimirPagina } from "../../util/appCelular";
+import { corpoLista, EditorLista, linhaVazia, paraLinhas, type LinhaLista } from "./EditorLista";
 import { useCarregar } from "../../util/useCarregar";
 
 interface GrupoLista {
@@ -28,7 +30,7 @@ interface GrupoDetalhe {
   pessoas: number | null; pessoasMinimo: number | null; cortesias: number; valorPorPessoaCentavos: number | null; valorTotalCentavos: number | null; sinalPercentual: number;
   nfEmitida: boolean; nfNumero: string | null; razaoSocial: string | null; cnpj: string | null; endereco: string | null;
   representanteNome: string | null; representanteCargo: string | null; representanteTelefone: string | null; representanteEmail: string | null; representanteCpf: string | null;
-  observacoes: string | null; cobrancas: Cobranca[]; anexos: Anexo[];
+  observacoes: string | null; cobrancas: Cobranca[]; anexos: Anexo[]; passageirosNaLista: number;
   anteriores: Array<{ id: string; dataPasseio: string | null; status: StatusGrupo; pessoas: number | null; valorPorPessoaCentavos: number | null; valorTotalCentavos: number | null; roteiro: string | null }>;
 }
 
@@ -106,6 +108,87 @@ function doDetalhe(g: GrupoDetalhe): Form {
   };
 }
 const inteiro = (t: string | boolean) => (t === "" ? null : Number(t));
+
+interface RespostaLista {
+  passageiros: Array<{ nome: string; tipoDocumento: string | null; documento: string | null; nascimento: string | null; categoria: string; origem: string }>;
+  totais: Record<string, number>;
+  link: { ativo: boolean; expiraEm: string | null; atualizadaEm: string | null };
+}
+
+/** Lista de passageiros do grupo: planilha online da equipe, link para o representante e impressão (13/11/2026). */
+function ListaDoGrupo({ grupoId, nome, estilo }: { grupoId: string; nome: string; estilo: TipoGrupo }) {
+  const notificar = useNotificar();
+  const dados = useCarregar((s) => api.get<RespostaLista>(`/api/grupos/${grupoId}/passageiros`, s), [grupoId]);
+  const padrao = estilo === "ESCOLA" ? "ALUNO" : "OUTRO";
+  const [linhas, setLinhas] = useState<LinhaLista[] | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  useEffect(() => { if (dados.dados) setLinhas(dados.dados.passageiros.length ? paraLinhas(dados.dados.passageiros as never) : Array.from({ length: 5 }, () => linhaVazia(padrao))); }, [dados.dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function salvar() {
+    if (!linhas) return;
+    setErro(null);
+    setSalvando(true);
+    try {
+      const r = await api.put<{ quantidade: number }>(`/api/grupos/${grupoId}/passageiros`, { passageiros: corpoLista(linhas) });
+      notificar(`Lista salva: ${r.quantidade} pessoa(s).`);
+      await dados.recarregar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    } finally {
+      setSalvando(false);
+    }
+  }
+  async function gerarLink() {
+    setErro(null);
+    try {
+      const r = await api.post<{ caminho: string }>(`/api/grupos/${grupoId}/link-lista`, { dias: 30 });
+      setLink(`${window.location.origin}${r.caminho}`);
+      await dados.recarregar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    }
+  }
+  async function cancelarLink() {
+    try {
+      await api.delete(`/api/grupos/${grupoId}/link-lista`);
+      setLink(null);
+      notificar("Link cancelado.");
+      await dados.recarregar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    }
+  }
+  const d = dados.dados;
+  return (
+    <section className="cartao" aria-labelledby="g-tit-lista">
+      <h2 id="g-tit-lista">Lista de passageiros <span className="so-impressao">— {nome}</span></h2>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      {d && (
+        <div className="nao-imprimir">
+          <p className="texto-fraco">
+            {d.passageiros.length} na lista ({Object.entries(d.totais).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k === "ALUNO" ? "aluno(s)" : k === "PROFESSOR" ? "professor(es)/monitor(es)" : k === "ACOMPANHANTE" ? "acompanhante(s)" : "outro(s)"}`).join(", ") || "vazia"})
+            {d.link.atualizadaEm ? ` · atualizada em ${new Date(d.link.atualizadaEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}
+          </p>
+          <div className="filtros">
+            <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void gerarLink()}>{d.link.ativo ? "Gerar novo link para o representante" : "Link para o representante preencher"}</button>
+            {d.link.ativo && <button type="button" className="botao botao--fantasma botao--pequeno" onClick={() => void cancelarLink()}>Cancelar link</button>}
+            <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => void imprimirPagina(`Lista de passageiros - ${nome}`)}><Icone nome="imprimir" tamanho={14} /> Imprimir lista</button>
+            {d.link.ativo && !link && <span className="texto-fraco">Link ativo até {d.link.expiraEm ? new Date(d.link.expiraEm).toLocaleDateString("pt-BR") : "—"}.</span>}
+          </div>
+          {link && (
+            <Aviso tipo="sucesso">
+              Link criado (vale 30 dias; o anterior deixa de valer). Copie e mande ao representante: <br /><code className="frota-link">{link}</code>{" "}
+              <button type="button" className="botao botao--pequeno botao--primario" onClick={() => void navigator.clipboard.writeText(link).then(() => notificar("Link copiado."), () => setErro("Selecione o link e copie à mão."))}>Copiar link</button>
+            </Aviso>
+          )}
+        </div>
+      )}
+      {linhas && <EditorLista linhas={linhas} mudar={setLinhas} padrao={padrao} />}
+      <div className="barra-acoes nao-imprimir"><button type="button" className="botao botao--primario" disabled={salvando || !linhas} onClick={() => void salvar()}>{salvando ? "Salvando…" : "Salvar lista"}</button></div>
+    </section>
+  );
+}
 
 /** Cadastro e acompanhamento de um grupo: dados, cobrança (financeiro), anexos e histórico. */
 export function GrupoFicha() {
@@ -195,10 +278,10 @@ export function GrupoFicha() {
   const g = det.dados;
   return (
     <div className="pagina">
-      <nav className="migalhas" aria-label="Você está em"><Link to="/grupos">Grupos fechados</Link> <span aria-hidden="true">›</span> <span aria-current="page">{novo ? "Novo grupo" : g?.nome}</span></nav>
+      <nav className="migalhas nao-imprimir" aria-label="Você está em"><Link to="/grupos">Grupos fechados</Link> <span aria-hidden="true">›</span> <span aria-current="page">{novo ? "Novo grupo" : g?.nome}</span></nav>
       <h1>{novo ? "Novo grupo" : g?.nome}</h1>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
-      <form onSubmit={(e) => void salvar(e)} className="grupo-ficha">
+      <form onSubmit={(e) => void salvar(e)} className="grupo-ficha nao-imprimir">
         <fieldset className="cartao"><legend>Grupo e passeio</legend>
           <div className="grade-campos">
             <div className="campo campo--largo"><label htmlFor="g-nome">Nome do grupo / instituição</label><input id="g-nome" maxLength={160} {...campo("nome")} /></div>
@@ -251,7 +334,9 @@ export function GrupoFicha() {
 
       {g && (
         <>
-          <section className="cartao" aria-labelledby="g-tit-cobranca">
+          <ListaDoGrupo grupoId={g.id} nome={g.nome} estilo={g.estilo} />
+
+          <section className="cartao nao-imprimir" aria-labelledby="g-tit-cobranca">
             <h2 id="g-tit-cobranca">Pagamentos</h2>
             {g.cobrancas.length === 0 ? (
               <>
@@ -280,7 +365,7 @@ export function GrupoFicha() {
             )}
           </section>
 
-          <section className="cartao" aria-labelledby="g-tit-anexos">
+          <section className="cartao nao-imprimir" aria-labelledby="g-tit-anexos">
             <h2 id="g-tit-anexos">Contrato, comprovantes e anexos</h2>
             <div className="filtros">
               <div className="campo campo--linha"><label htmlFor="g-tipo-anexo">Tipo</label><select id="g-tipo-anexo" value={tipoAnexo} onChange={(e) => setTipoAnexo(e.target.value as TipoAnexoGrupo)}>{TIPOS_ANEXO_GRUPO.map((t) => <option key={t} value={t}>{ROTULO_ANEXO_GRUPO[t]}</option>)}</select></div>
@@ -298,7 +383,7 @@ export function GrupoFicha() {
             )}
           </section>
 
-          <section className="cartao" aria-labelledby="g-tit-hist">
+          <section className="cartao nao-imprimir" aria-labelledby="g-tit-hist">
             <h2 id="g-tit-hist">Histórico deste grupo</h2>
             {g.anteriores.length === 0 ? <p className="texto-fraco">Nenhum outro passeio deste grupo (mesmo nome ou CNPJ).</p> : (
               <div className="tabela-rolagem">

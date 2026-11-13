@@ -18,7 +18,18 @@ quem já fez passeio e para conferir valores e roteiros de anos anteriores. Regr
   total e roteiro. A lista tem busca por grupo, representante ou roteiro, e filtros de situação, estilo e ano.
 - Regras puras no core (`grupos/grupos.ts`): `totalDoGrupo`, `planoDeCobranca`, `valorPorExtenso` (para contrato e recibo).
 
+## Etapa 2 — lista de passageiros (pronta)
+- Na ficha do grupo, **Lista de passageiros** em forma de planilha online (nome completo, tipo e número do documento,
+  nascimento, função: aluno, professor/monitor, acompanhante, outro), com **importar Excel (.xlsx) ou .csv** (acha o
+  cabeçalho sozinho; aponta linhas com problema: CPF inválido, data inválida, nome curto), salvar e **Imprimir lista** (versão
+  de papel com documento, para a fiscalização). Documento **cifrado** no banco (`grupos_passageiros`).
+- **Link para o representante** (`/lista-grupo/<token>`, 30 dias; gerar de novo invalida o anterior; cancelar): ele vê só o
+  nome, data e local do passeio e a lista; preenche ou importa e envia com o **aceite de autorização** (LGPD; auditado).
+  Fecha no dia seguinte ao passeio. Sem valores, CNPJ ou dados do representante na página.
+- Revisão de segurança da rota pública `GET|PUT /api/publico/lista-grupo/:token`: token aleatório de 24 bytes, só o hash no
+  banco, vence, cancelável, 404 igual para inválido/vencido/cancelado/grupo cancelado, 20–30 pedidos por minuto por IP,
+  no máximo 500 pessoas, token mascarado no log, aceite obrigatório.
+
 ## Próximas etapas
-2. Lista de passageiros: link para o representante preencher (planilha online) e importação de Excel.
 3. Contrato padrão (modelo do dono, 16 cláusulas) e recibo em PDF no papel timbrado.
 4. Assinatura eletrônica (link por e-mail, código de confirmação, registro de data/hora/IP, código de verificação).

@@ -351,6 +351,13 @@
       "when": 1794588374462,
       "tag": "0049_grupos_fechados",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794589347220,
+      "tag": "0050_grupos_passageiros",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { criarDb } from "../src/db/cliente.js";
-import { finLancamentos, gruposFechados } from "../src/db/schema.js";
+import { finLancamentos, gruposFechados, gruposPassageiros } from "../src/db/schema.js";
 import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
 
 let app: FastifyInstance;
@@ -56,6 +56,37 @@ describe("grupos fechados (13/11/2026)", () => {
     const novo = await c.req("POST", "/api/grupos", { ...grupo, dataPasseio: "2028-03-18", status: "ORCAMENTO" });
     const ant = (await c.req("GET", `/api/grupos/${novo.json().id}`)).json().anteriores;
     expect(ant[0]).toMatchObject({ dataPasseio: "2027-03-20", valorPorPessoaCentavos: 13000, valorTotalCentavos: 325000 });
+  });
+
+  it("lista de passageiros: equipe salva; link do representante preenche (com aceite); documento cifrado; fecha após o passeio", async () => {
+    const c = new Cliente(app);
+    await c.login("supervisor@bybus.test");
+    const id = (await c.req("POST", "/api/grupos", { ...grupo, nome: "Escola Fictícia Lista", dataPasseio: "2099-05-10" })).json().id as string;
+    const ruim = await c.req("PUT", `/api/grupos/${id}/passageiros`, { passageiros: [{ nome: "Aluno Fictício", documento: "111.111.111-11" }] });
+    expect(ruim.statusCode).toBe(400);
+    expect(ruim.json().mensagem).toMatch(/linha 1: CPF inválido/);
+    expect((await c.req("PUT", `/api/grupos/${id}/passageiros`, { passageiros: [{ nome: "Aluno Fictício", documento: "529.982.247-25", nascimento: "10/05/2014" }, { nome: "", documento: "" }] })).json()).toEqual({ quantidade: 1 });
+    const [bruto] = await comDb((db) => db.select().from(gruposPassageiros).where(eq(gruposPassageiros.grupoId, id)));
+    expect(bruto!.documentoCifrado).not.toContain("52998224725");
+
+    const link = await c.req("POST", `/api/grupos/${id}/link-lista`, { dias: 15 });
+    const tok = String(link.json().caminho).split("/").pop()!;
+    const pub = new Cliente(app);
+    const ver = (await pub.req("GET", `/api/publico/lista-grupo/${tok}`)).json();
+    expect(ver).toMatchObject({ grupo: { nome: "Escola Fictícia Lista" }, aberta: true, passageiros: [{ nome: "Aluno Fictício", documento: "52998224725", tipoDocumento: "CPF", categoria: "ALUNO" }] });
+    expect(JSON.stringify(ver)).not.toMatch(/valor|cnpj|representante/i);
+    expect((await pub.req("PUT", `/api/publico/lista-grupo/${tok}`, { passageiros: [{ nome: "Professora Fictícia", categoria: "PROFESSOR" }] })).statusCode).toBe(400); // sem aceite
+    const env = await pub.req("PUT", `/api/publico/lista-grupo/${tok}`, { aceite: true, passageiros: [{ nome: "Aluno Fictício", documento: "529.982.247-25" }, { nome: "Professora Fictícia", categoria: "PROFESSOR" }] });
+    expect(env.json()).toEqual({ quantidade: 2 });
+    const equipe = (await c.req("GET", `/api/grupos/${id}/passageiros`)).json();
+    expect(equipe).toMatchObject({ totais: { ALUNO: 1, PROFESSOR: 1 }, link: { ativo: true } });
+    expect(equipe.passageiros[1]).toMatchObject({ nome: "Professora Fictícia", origem: "REPRESENTANTE" });
+    // Passeio já realizado: lista fechada para o representante.
+    await comDb((db) => db.update(gruposFechados).set({ dataPasseio: "2020-01-01" }).where(eq(gruposFechados.id, id)));
+    expect((await pub.req("PUT", `/api/publico/lista-grupo/${tok}`, { aceite: true, passageiros: [] })).statusCode).toBe(409);
+    // Cancelar o link derruba o acesso.
+    await c.req("DELETE", `/api/grupos/${id}/link-lista`);
+    expect((await pub.req("GET", `/api/publico/lista-grupo/${tok}`)).statusCode).toBe(404);
   });
 
   it("quem não lança reservas não acessa", async () => {

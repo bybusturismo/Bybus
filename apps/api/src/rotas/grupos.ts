@@ -1,12 +1,15 @@
-import { and, desc, eq, ilike, inArray, ne, or, sql, type SQL } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql, type SQL } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
-  DOCUMENTO_MAX_BYTES, STATUS_GRUPO, TIPOS_ANEXO_GRUPO, TIPOS_GRUPO, planoDeCobranca, tipoDocumentoEmpresa, totalDoGrupo,
+  CATEGORIAS_PASSAGEIRO_GRUPO, DOCUMENTO_MAX_BYTES, MAX_PASSAGEIROS_GRUPO, STATUS_GRUPO, TIPOS_ANEXO_GRUPO, TIPOS_GRUPO, contarPorCategoria,
+  normalizarPassageiro, planoDeCobranca, tipoDocumentoEmpresa, totalDoGrupo, type PassageiroGrupo,
 } from "@bybus/core";
 import type { Contexto } from "../app.js";
 import { auditar } from "../auditoria.js";
-import { finCategorias, finLancamentos, gruposAnexos, gruposFechados, pessoas } from "../db/schema.js";
+import { finCategorias, finLancamentos, gruposAnexos, gruposFechados, gruposPassageiros, pessoas } from "../db/schema.js";
+import { hashToken } from "../servicos/linkEmbarque.js";
 import { podeUnidade } from "../seguranca/escopo.js";
 import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
 import { garantirPlano } from "../servicos/financeiro.js";
@@ -131,7 +134,9 @@ export async function rotasGrupos(app: FastifyInstance, { db, config, cofre }: C
     }).from(gruposFechados).where(and(ne(gruposFechados.id, id), escopo(req.usuario!),
       g.cnpj ? or(eq(gruposFechados.cnpj, g.cnpj), sql`lower(${gruposFechados.nome}) = lower(${g.nome})`) : sql`lower(${gruposFechados.nome}) = lower(${g.nome})`))
       .orderBy(desc(gruposFechados.dataPasseio)).limit(20);
-    return { ...resto, representanteCpf: representanteCpfCifrado ? cofre.decifrar(representanteCpfCifrado) : null, cobrancas, anexos, anteriores };
+    const { listaTokenHash: _l, ...semToken } = resto;
+    const [n] = await db.select({ n: sql<number>`count(*)`.mapWith(Number) }).from(gruposPassageiros).where(eq(gruposPassageiros.grupoId, id));
+    return { ...semToken, representanteCpf: representanteCpfCifrado ? cofre.decifrar(representanteCpfCifrado) : null, passageirosNaLista: n?.n ?? 0, cobrancas, anexos, anteriores };
   });
 
   app.post("/api/grupos", acesso, async (req, reply) => {
@@ -176,6 +181,116 @@ export async function rotasGrupos(app: FastifyInstance, { db, config, cofre }: C
     })));
     await auditar(db, req, "GRUPO_COBRANCA_GERADA", { tipo: "grupo_fechado", id }, { parcelas: plano.length, totalCentavos: g.valorTotalCentavos });
     return { parcelas: plano };
+  });
+
+  // ---------- Lista de passageiros (13/11/2026) ----------
+  const linhaPassageiro = z.object({
+    nome: z.string().max(200), tipoDocumento: z.string().max(20).nullish(), documento: z.string().max(60).nullish(),
+    nascimento: z.string().max(20).nullish(), categoria: z.string().max(20).nullish(),
+  });
+  const listaCorpo = z.object({ passageiros: z.array(linhaPassageiro).max(MAX_PASSAGEIROS_GRUPO, `No máximo ${MAX_PASSAGEIROS_GRUPO} passageiros.`) });
+
+  function validarLista(linhas: Array<z.infer<typeof linhaPassageiro>>, padrao: "ALUNO" | "OUTRO"): PassageiroGrupo[] {
+    const ok: PassageiroGrupo[] = [];
+    const erros: string[] = [];
+    linhas.forEach((l, i) => {
+      if (!l.nome.trim() && !l.documento?.trim()) return; // linha em branco
+      const r = normalizarPassageiro(l, padrao);
+      if ("erro" in r) erros.push(`linha ${i + 1}: ${r.erro}`);
+      else ok.push(r);
+    });
+    if (erros.length) throw new ErroHttp(400, "LISTA_INVALIDA", `Corrija antes de salvar — ${erros.slice(0, 8).join("; ")}${erros.length > 8 ? ` e mais ${erros.length - 8}` : ""}.`);
+    return ok;
+  }
+
+  async function salvarLista(grupoId: string, lista: PassageiroGrupo[], origem: "EQUIPE" | "REPRESENTANTE" | "PLANILHA") {
+    await db.transaction(async (tx) => {
+      await tx.delete(gruposPassageiros).where(eq(gruposPassageiros.grupoId, grupoId));
+      if (lista.length) {
+        await tx.insert(gruposPassageiros).values(lista.map((p, i) => ({
+          grupoId, ordem: i, nome: p.nome, tipoDocumento: p.tipoDocumento, documentoCifrado: p.documento ? cofre.cifrar(p.documento) : null,
+          nascimento: p.nascimento, categoria: p.categoria, origem,
+        })));
+      }
+      await tx.update(gruposFechados).set({ listaAtualizadaEm: new Date() }).where(eq(gruposFechados.id, grupoId));
+    });
+  }
+
+  async function lerLista(grupoId: string) {
+    const linhas = await db.select().from(gruposPassageiros).where(eq(gruposPassageiros.grupoId, grupoId)).orderBy(asc(gruposPassageiros.ordem));
+    return linhas.map((l) => ({
+      nome: l.nome, tipoDocumento: l.tipoDocumento as PassageiroGrupo["tipoDocumento"], documento: l.documentoCifrado ? cofre.decifrar(l.documentoCifrado) : null,
+      nascimento: l.nascimento, categoria: l.categoria as PassageiroGrupo["categoria"], origem: l.origem,
+    }));
+  }
+
+  app.get("/api/grupos/:id/passageiros", acesso, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const g = await grupoDoUsuario(req.usuario!, id);
+    const passageiros = await lerLista(id);
+    const agora = new Date();
+    return {
+      passageiros, totais: contarPorCategoria(passageiros),
+      link: { ativo: !!g.listaTokenHash && (!g.listaExpiraEm || g.listaExpiraEm > agora), expiraEm: g.listaExpiraEm, atualizadaEm: g.listaAtualizadaEm },
+    };
+  });
+
+  app.put("/api/grupos/:id/passageiros", acesso, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const { passageiros, origem } = listaCorpo.extend({ origem: z.enum(["EQUIPE", "PLANILHA"]).default("EQUIPE") }).parse(req.body);
+    const g = await grupoDoUsuario(req.usuario!, id);
+    const lista = validarLista(passageiros, g.estilo === "ESCOLA" ? "ALUNO" : "OUTRO");
+    await salvarLista(id, lista, origem);
+    await auditar(db, req, "GRUPO_LISTA_SALVA", { tipo: "grupo_fechado", id }, { quantidade: lista.length, origem });
+    return { quantidade: lista.length };
+  });
+
+  /** Link para o representante preencher a lista (planilha online). Gerar de novo invalida o anterior. */
+  app.post("/api/grupos/:id/link-lista", acesso, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const { dias } = z.object({ dias: z.number().int().min(1).max(180).default(30) }).parse(req.body ?? {});
+    await grupoDoUsuario(req.usuario!, id);
+    const t = randomBytes(24).toString("base64url");
+    const expiraEm = new Date(Date.now() + dias * 86_400_000);
+    await db.update(gruposFechados).set({ listaTokenHash: hashToken(t), listaExpiraEm: expiraEm }).where(eq(gruposFechados.id, id));
+    await auditar(db, req, "GRUPO_LINK_LISTA", { tipo: "grupo_fechado", id }, { dias });
+    return { caminho: `/lista-grupo/${t}`, expiraEm };
+  });
+  app.delete("/api/grupos/:id/link-lista", acesso, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    await grupoDoUsuario(req.usuario!, id);
+    await db.update(gruposFechados).set({ listaTokenHash: null, listaExpiraEm: null }).where(eq(gruposFechados.id, id));
+    await auditar(db, req, "GRUPO_LINK_LISTA_CANCELADO", { tipo: "grupo_fechado", id }, {});
+    return { ok: true };
+  });
+
+  // Página pública do representante: só o grupo do link; recebe a lista inteira (substitui). Fecha no dia do passeio.
+  const tokenPublico = z.string().regex(/^[A-Za-z0-9_-]{20,64}$/);
+  async function grupoDoLink(t: string) {
+    const [g] = await db.select().from(gruposFechados).where(eq(gruposFechados.listaTokenHash, hashToken(t)));
+    if (!g || !g.listaExpiraEm || g.listaExpiraEm < new Date() || g.status === "CANCELADO") throw new ErroHttp(404, "LINK_INVALIDO", "Link inválido, cancelado ou vencido. Peça um novo link à By Bus.");
+    return g;
+  }
+  const listaAberta = (g: { dataPasseio: string | null }) => !g.dataPasseio || g.dataPasseio >= hojeSp();
+
+  app.get("/api/publico/lista-grupo/:token", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
+    const { token: t } = z.object({ token: tokenPublico }).parse(req.params);
+    const g = await grupoDoLink(t);
+    return {
+      grupo: { nome: g.nome, estilo: g.estilo, dataPasseio: g.dataPasseio, horarioInicio: g.horarioInicio, localInicio: g.localInicio },
+      aberta: listaAberta(g), passageiros: await lerLista(g.id), atualizadaEm: g.listaAtualizadaEm,
+    };
+  });
+
+  app.put("/api/publico/lista-grupo/:token", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
+    const { token: t } = z.object({ token: tokenPublico }).parse(req.params);
+    const { passageiros, aceite } = listaCorpo.extend({ aceite: z.literal(true, { errorMap: () => ({ message: "Confirme que tem autorização para enviar os dados dos participantes." }) }) }).parse(req.body);
+    const g = await grupoDoLink(t);
+    if (!listaAberta(g)) throw new ErroHttp(409, "LISTA_FECHADA", "O passeio já aconteceu: a lista não pode mais ser alterada.");
+    const lista = validarLista(passageiros, g.estilo === "ESCOLA" ? "ALUNO" : "OUTRO");
+    await salvarLista(g.id, lista, "REPRESENTANTE");
+    await auditar(db, null, "GRUPO_LISTA_ENVIADA_REPRESENTANTE", { tipo: "grupo_fechado", id: g.id }, { quantidade: lista.length, aceite: true });
+    return { quantidade: lista.length };
   });
 
   // ---------- Anexos ----------

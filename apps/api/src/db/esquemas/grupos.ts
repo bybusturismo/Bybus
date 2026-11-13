@@ -46,6 +46,10 @@ export const gruposFechados = pgTable("grupos_fechados", {
   /** CPF do representante, cifrado (LGPD). */
   representanteCpfCifrado: text(),
   observacoes: text(),
+  /** Link da lista de passageiros para o representante (só o hash do token; 13/11/2026). */
+  listaTokenHash: text().unique(),
+  listaExpiraEm: timestamp({ withTimezone: true }),
+  listaAtualizadaEm: timestamp({ withTimezone: true }),
   orcamentoId: uuid().references(() => orcamentosGrupo.id, { onDelete: "set null" }),
   criadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
   criadoEm: agora(),
@@ -65,3 +69,19 @@ export const gruposAnexos = pgTable("grupos_anexos", {
   enviadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
   criadoEm: agora(),
 }, (t) => [index("grupos_anexos_grupo_idx").on(t.grupoId)]);
+
+/** Passageiros do grupo (nome e documento; o documento fica cifrado). */
+export const gruposPassageiros = pgTable("grupos_passageiros", {
+  id: uuid().primaryKey().defaultRandom(),
+  grupoId: uuid().notNull().references(() => gruposFechados.id, { onDelete: "cascade" }),
+  ordem: integer().notNull(),
+  nome: text().notNull(),
+  tipoDocumento: text(),
+  documentoCifrado: text(),
+  nascimento: date({ mode: "string" }),
+  /** ALUNO, PROFESSOR, ACOMPANHANTE ou OUTRO. */
+  categoria: text().notNull().default("ALUNO"),
+  /** EQUIPE, REPRESENTANTE ou PLANILHA. */
+  origem: text().notNull().default("EQUIPE"),
+  criadoEm: agora(),
+}, (t) => [index("grupos_passageiros_grupo_idx").on(t.grupoId, t.ordem)]);
