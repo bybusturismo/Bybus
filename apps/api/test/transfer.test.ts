@@ -5,7 +5,7 @@ import { criarDb } from "../src/db/cliente.js";
 import { auditoria, mensagens, passageiros, passeios, perfis, pessoas, pontosEmbarque, reservas, saidas, transferBairros, usuarios, usuariosUnidades } from "../src/db/schema.js";
 import { SENHA_DEMO } from "../src/db/ficticios.js";
 import { gerarHashSenha } from "../src/seguranca/senha.js";
-import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
+import { Cliente, DATABASE_URL, diaSp, prepararBanco, subirApp } from "./ajuda.js";
 
 let app: FastifyInstance;
 let fechar: () => Promise<void>;
@@ -367,7 +367,7 @@ describe("o transfer acompanha mudanças da reserva", () => {
     const sup = await logado("supervisor@bybus.test");
     const rid = ids.r["1"]!;
     expect((await pegar(sup)).reservas.some((x) => x.reservaId === rid)).toBe(true);
-    const amanha = new Date(Date.now() + 61 * 86_400_000).toISOString().slice(0, 10);
+    const amanha = diaSp(61);
     const novaSaida = await comDb(async (db) => {
       const [s] = await db.insert(saidas).values({ passeioId: ids.passeio, data: amanha, capacidade: 73 }).returning();
       await db.update(reservas).set({ saidaId: s!.id }).where(eq(reservas.id, rid));
@@ -414,7 +414,7 @@ describe("fechamento da lista", () => {
 
   it("saída sem reservas de transfer não cria transfer nem mensagem", async () => {
     const sup = await logado("supervisor@bybus.test");
-    const data = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+    const data = diaSp(30);
     const saidaId = await comDb(async (db) => {
       const [s] = await db.insert(saidas).values({ passeioId: ids.passeio, data, capacidade: 73 }).returning();
       const [r] = await db.insert(reservas).values({ saidaId: s!.id, canal: "BALCAO", origem: "FICTICIO", contatoNome: "Sem Transfer Fictício", pontoEmbarqueId: ids.pontoVilla }).returning();

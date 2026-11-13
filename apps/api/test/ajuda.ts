@@ -9,6 +9,12 @@ import { semearFicticios, SENHA_DEMO } from "../src/db/ficticios.js";
 export const DATABASE_URL = process.env.DATABASE_URL_TESTE ?? "postgres://bybus:bybus_dev_local@localhost:5432/bybus_test";
 export const CHAVE = Buffer.alloc(32, 7).toString("base64");
 
+/**
+ * Data (AAAA-MM-DD) em America/Sao_Paulo, deslocada `dias` a partir de agora — a mesma regra do sistema.
+ * Não use `toISOString().slice(0, 10)` para "hoje": é a data em UTC, que já virou entre 21h e 24h de Brasília.
+ */
+export const diaSp = (dias = 0) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(Date.now() + dias * 86_400_000));
+
 /** Recria o banco de teste do zero com dados fictícios. */
 export async function prepararBanco() {
   const c = new pg.Client({ connectionString: DATABASE_URL });

@@ -9,7 +9,7 @@ import { conteudoMidias, conteudos, igComentarios, igMetricasDia, igMidiaTokens,
 import { definirClienteIA, type ClienteIA } from "../src/servicos/ia/cliente.js";
 import { sincronizarInstagram } from "../src/servicos/instagram/dados.js";
 import { hashToken, publicarPendentes } from "../src/servicos/instagram/publicacao.js";
-import { Cliente, CHAVE, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
+import { Cliente, CHAVE, DATABASE_URL, diaSp, prepararBanco, subirApp } from "./ajuda.js";
 
 const SEGREDO = "segredo-do-app-de-teste-0123456789";
 const VERIFICA = "verifica-webhook-teste-0123456789";
@@ -258,8 +258,8 @@ describe("comentários dos posts", () => {
 
 describe("dados do Marketing (aba Instagram)", () => {
   it("devolve resumo, série, ranking e melhores horários só para quem tem marketing:ver", async () => {
-    const hoje = new Date().toISOString().slice(0, 10);
-    const dia = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+    const hoje = diaSp();
+    const dia = (n: number) => diaSp(-n);
     await db.insert(igMetricasDia).values([
       { data: dia(2), seguidores: 1000, alcance: 500, visualizacoes: 900, visitasPerfil: 40, cliquesSite: 5 },
       { data: dia(1), seguidores: 1010, alcance: 700, visualizacoes: 1200, visitasPerfil: 60, cliquesSite: 7 },
@@ -299,7 +299,7 @@ describe("dados do Marketing (aba Instagram)", () => {
     }) as unknown as typeof fetch;
     const r1 = await sincronizarInstagram(db, configReal(), { buscar: meta });
     expect(r1).toMatchObject({ executou: true, dias: 2, posts: 2 });
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = diaSp();
     const [m] = await db.select().from(igMetricasDia).where(eq(igMetricasDia.data, hoje));
     expect(m).toMatchObject({ seguidores: 1111, alcance: 321 });
     const [p1] = await db.select().from(igPosts).where(eq(igPosts.idExterno, "p1"));

@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { criarDb } from "../src/db/cliente.js";
 import { semearBiblioteca, PAGINAS_SEMENTE } from "../src/db/biblioteca-seed.js";
 import { auditoria, bibliotecaPaginas, passageiros, passeios, reservas, saidas } from "../src/db/schema.js";
-import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
+import { Cliente, DATABASE_URL, diaSp, prepararBanco, subirApp } from "./ajuda.js";
 
 let app: FastifyInstance;
 let fechar: () => Promise<void>;
@@ -17,9 +17,7 @@ let flnId = "";
 let bcId = "";
 const { db, pool } = criarDb(DATABASE_URL);
 
-function dias(n: number) {
-  return new Date(Date.now() + n * 86400_000).toISOString().slice(0, 10);
-}
+const dias = diaSp;
 
 async function novoUsuario(perfil: string, permissoes: string[], email: string, unidadeIds: string[]) {
   const a = admin;
