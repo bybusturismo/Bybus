@@ -363,6 +363,28 @@ describe("o transfer acompanha mudanças da reserva", () => {
     expect((await pegar(sup)).reservas.find((x) => x.reservaId === rid)!.endereco).toBe("Hotel corrigido pela equipe");
   });
 
+  it("reserva que muda de data (ex.: alterada na Paytour) passa para o transfer do novo dia sem erro", async () => {
+    const sup = await logado("supervisor@bybus.test");
+    const rid = ids.r["1"]!;
+    expect((await pegar(sup)).reservas.some((x) => x.reservaId === rid)).toBe(true);
+    const amanha = new Date(Date.now() + 61 * 86_400_000).toISOString().slice(0, 10);
+    const novaSaida = await comDb(async (db) => {
+      const [s] = await db.insert(saidas).values({ passeioId: ids.passeio, data: amanha, capacidade: 73 }).returning();
+      await db.update(reservas).set({ saidaId: s!.id }).where(eq(reservas.id, rid));
+      return s!.id;
+    });
+    const r = await sup.req("POST", "/api/transfer/montar", { saidaId: novaSaida });
+    expect(r.statusCode, r.body).toBe(200);
+    expect((r.json() as Dto).reservas.find((x) => x.reservaId === rid)).toMatchObject({ endereco: "Hotel Fictício Jurerê" });
+    // O dia antigo deixa de mostrá-la ao ser atualizado.
+    expect((await sup.req("POST", "/api/transfer/montar", { saidaId: ids.saida })).statusCode).toBe(200);
+    expect((await pegar(sup)).reservas.some((x) => x.reservaId === rid)).toBe(false);
+    // Volta para a data original: volta para o transfer de hoje.
+    await comDb((db) => db.update(reservas).set({ saidaId: ids.saida }).where(eq(reservas.id, rid)));
+    expect((await sup.req("POST", "/api/transfer/montar", { saidaId: ids.saida })).statusCode).toBe(200);
+    expect((await pegar(sup)).reservas.some((x) => x.reservaId === rid)).toBe(true);
+  });
+
   it("passageiro de colo não aumenta a taxa; adulto novo aumenta (taxa automática)", async () => {
     const sup = await logado("supervisor@bybus.test");
     const rid = ids.r["2"]!; // Marta: adulto + colo = 4500

@@ -69,6 +69,18 @@ export async function sincronizarTransfer(db: Db, saidaId: string, criar: "sempr
   const diaId = dia!.id;
   const existentes = await db.select().from(transferReservas).where(eq(transferReservas.transferDiaId, diaId));
   const porReserva = new Map(existentes.map((e) => [e.reservaId, e]));
+  // Reserva que mudou de data (ex.: alterada na Paytour) ainda está no transfer do dia antigo (uma linha por reserva):
+  // traz para este dia, começando a busca do zero (situação, horário e ordem). Hotel, ponto no mapa e taxa recebida seguem.
+  const deOutroDia = elegiveis.length
+    ? await db.select().from(transferReservas).where(and(inArray(transferReservas.reservaId, elegiveis.map((e) => e.reserva.id)), sql`${transferReservas.transferDiaId} <> ${diaId}`))
+    : [];
+  for (const e of deOutroDia) {
+    const [movida] = await db.update(transferReservas).set({
+      transferDiaId: diaId, ativo: false, ordem: 9999, situacao: "A_CONFIRMAR", situacaoEm: null, situacaoPor: null, horarioBusca: null,
+      editados: e.editados.filter((x) => x !== "horario"), atualizadoEm: new Date(),
+    }).where(eq(transferReservas.id, e.id)).returning();
+    porReserva.set(e.reservaId, movida!); // inativa aqui: o laço abaixo a reativa e coloca na ordem
+  }
   const idsElegiveis = new Set(elegiveis.map((e) => e.reserva.id));
   const ordemDoBairro = (id: string | null) => bairrosCore.find((b) => b.id === id)?.ordemBusca ?? null;
 
