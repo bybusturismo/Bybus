@@ -6,6 +6,7 @@ import { AbastecimentoPagina } from "./Abastecimento";
 import { numeroDeTexto } from "./comum";
 import { ChecklistPagina } from "./Checklist";
 import { DocumentosPagina } from "./Documentos";
+import { ManutencaoPagina } from "./Manutencao";
 import { PainelFrotaPagina } from "./Painel";
 import type { PainelFrota, Veiculo } from "./tipos";
 import { VeiculosPagina } from "./Veiculos";
@@ -207,5 +208,41 @@ describe("Arquivos do Drive do veículo (gabaritos)", () => {
     expect(abrir).toHaveAttribute("href", "/api/frota/veiculos/v1/drive/1ArqFrente000001");
     expect(within(janela).getAllByRole("link", { name: /Baixar/ })[1]).toHaveAttribute("href", "/api/frota/veiculos/v1/drive/1ArqLado00000002?baixar=1");
     expect(janela).toHaveTextContent("2,4 MB");
+  });
+});
+
+describe("Nova ordem de manutenção (13/11/2026)", () => {
+  it("descrição longa, valores de peças e serviço, km e anexos; mostra os anexos na lista", async () => {
+    const spy = simularApi({
+      "GET /api/frota/veiculos": [veiculo()],
+      "GET /api/frota/planos": [],
+      "GET /api/frota/ordens": [{
+        id: "o1", veiculoId: "v1", planoId: null, placa: "ABC1D23", apelido: null, tipo: "CORRETIVA", status: "ABERTA", descricao: "Linha 1\nLinha 2", oficina: null, pecas: null,
+        imobiliza: false, abertaEm: "2026-11-10", concluidaEm: null, km: 120_100, kmRevisao: 130_000, valorPecasCentavos: 10_000, valorServicoCentavos: 5_000, custoCentavos: 15_000,
+        diasParado: 3, anexos: [{ id: "x1", tipo: "NFSE", nomeArquivo: "nfse.pdf", tamanho: 100 }],
+      }],
+      "POST /api/frota/ordens": { id: "o2" },
+      "POST /api/frota/ordens/o2/anexos": { id: "x2" },
+    });
+    renderizar(<ManutencaoPagina />, { sessao: gerenciar });
+    expect(await screen.findByRole("link", { name: /NFS-e \(serviço\)/ })).toHaveAttribute("href", "/api/frota/anexos/x1");
+    expect(screen.getByText(/revisão\/garantia em 130.000 km/)).toBeInTheDocument();
+    const u = userEvent.setup();
+    await u.click(screen.getByRole("button", { name: /Nova ordem/ }));
+    const d = within(await screen.findByRole("dialog"));
+    const desc = d.getByLabelText("Descrição do serviço");
+    expect(desc.tagName).toBe("TEXTAREA");
+    expect(desc).toHaveAttribute("rows", "10");
+    await u.type(desc, "Troca da embreagem fictícia");
+    await u.type(d.getByLabelText("Valor das peças (R$)"), "1.500,00");
+    await u.type(d.getByLabelText("Valor do serviço (R$)"), "450,00");
+    expect(d.getByText("R$ 1.950,00")).toBeInTheDocument();
+    await u.type(d.getByLabelText("KM atual"), "120100");
+    await u.type(d.getByLabelText("KM da revisão / garantia"), "130100");
+    await u.upload(d.getByLabelText("Ordem de serviço"), new File(["%PDF-1.4"], "os.pdf", { type: "application/pdf" }));
+    await u.click(d.getByRole("button", { name: "Abrir ordem" }));
+    await screen.findByText("Ordem aberta.");
+    expect(corpoEnviado(spy, "POST", "/api/frota/ordens")).toMatchObject({ descricao: "Troca da embreagem fictícia", valorPecasCentavos: 150_000, valorServicoCentavos: 45_000, km: 120_100, kmRevisao: 130_100 });
+    expect(corpoEnviado(spy, "POST", "/api/frota/ordens/o2/anexos")).toMatchObject({ tipo: "OS", nome: "os.pdf" });
   });
 });

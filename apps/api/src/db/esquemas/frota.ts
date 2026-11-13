@@ -66,11 +66,31 @@ export const veiculosOrdens = pgTable("veiculos_ordens", {
   imobiliza: boolean().notNull().default(false),
   abertaEm: date({ mode: "string" }).notNull(),
   concluidaEm: date({ mode: "string" }),
+  /** Km atual do veículo na ordem. */
   km: integer(),
+  /** Km da próxima revisão ou do fim da garantia do serviço (13/11/2026). */
+  kmRevisao: integer(),
+  /** Valor de peças e de mão de obra (13/11/2026); o custo total é a soma dos dois quando informados. */
+  valorPecasCentavos: integer().notNull().default(0),
+  valorServicoCentavos: integer().notNull().default(0),
   custoCentavos: integer().notNull().default(0),
   criadoPor: uuid().references(() => usuarios.id),
   criadoEm: agora(),
 }, (t) => [index("veiculos_ordens_veiculo_idx").on(t.veiculoId)]);
+
+/** Anexos da ordem (13/11/2026): ordem de serviço, NF de peças, NFS-e do serviço. Conteúdo cifrado, como os documentos. */
+export const veiculosOrdensAnexos = pgTable("veiculos_ordens_anexos", {
+  id: uuid().primaryKey().defaultRandom(),
+  ordemId: uuid().notNull().references(() => veiculosOrdens.id),
+  /** OS, NF, NFSE ou OUTRO. */
+  tipo: text().notNull(),
+  nomeArquivo: text().notNull(),
+  mime: text().notNull(),
+  tamanho: integer().notNull(),
+  dadosCifrados: text().notNull(),
+  enviadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  criadoEm: agora(),
+}, (t) => [index("veiculos_ordens_anexos_ordem_idx").on(t.ordemId)]);
 
 export const veiculosAbastecimentos = pgTable("veiculos_abastecimentos", {
   id: uuid().primaryKey().defaultRandom(),

@@ -130,3 +130,10 @@
   font-size: 1rem;
   margin: var(--esp-3) 0 var(--esp-1);
 }
+
+/* Ordem de manutenção (13/11/2026): descrição longa, anexos */
+.frota-descricao { white-space: pre-line; display: block; max-width: 48ch; }
+.frota-anexos { border: 1px solid var(--cor-borda); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+.frota-anexos legend { padding: 0 4px; font-weight: 600; }
+.frota-anexos-lista { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 0.85rem; }
+.frota-anexos-lista a { display: inline-flex; align-items: center; gap: 4px; }

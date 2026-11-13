@@ -133,6 +133,38 @@ describe("planos e ordens de manutenção", () => {
   });
 });
 
+describe("ordem de manutenção detalhada (13/11/2026)", () => {
+  it("descrição longa, peças + serviço = custo, km da revisão e anexos (OS, NF, NFS-e em XML)", async () => {
+    const admin = await logado("admin@bybus.test");
+    const v = await criarVeiculo(admin, "ORD1A11", { kmAtual: 80_000 });
+    const descricao = Array.from({ length: 15 }, (_, i) => `Linha ${i + 1} do serviço fictício`).join("\n");
+    const o = await admin.req("POST", "/api/frota/ordens", { veiculoId: v.id, tipo: "CORRETIVA", descricao, valorPecasCentavos: 150_000, valorServicoCentavos: 45_000, km: 80_100, kmRevisao: 90_100 });
+    expect(o.statusCode, o.body).toBe(201);
+    expect(o.json()).toMatchObject({ descricao, custoCentavos: 195_000, km: 80_100, kmRevisao: 90_100 });
+    const id = o.json().id as string;
+    const pdf = Buffer.from("%PDF-1.4\n%fictício\n").toString("base64");
+    const xml = Buffer.from("<?xml version=\"1.0\"?><nfeProc>fictícia</nfeProc>").toString("base64");
+    expect((await admin.req("POST", `/api/frota/ordens/${id}/anexos`, { tipo: "OS", nome: "os.pdf", base64: pdf })).statusCode).toBe(201);
+    expect((await admin.req("POST", `/api/frota/ordens/${id}/anexos`, { tipo: "NF", nome: "nota.xml", base64: xml })).statusCode).toBe(201);
+    expect((await admin.req("POST", `/api/frota/ordens/${id}/anexos`, { tipo: "NFSE", nome: "virus.exe", base64: Buffer.from("MZ executável").toString("base64") })).statusCode).toBe(400);
+    const lista = (await admin.req("GET", `/api/frota/ordens?veiculoId=${v.id}`)).json();
+    expect(lista[0].anexos.map((a: { tipo: string }) => a.tipo).sort()).toEqual(["NF", "OS"]);
+    const nf = lista[0].anexos.find((a: { tipo: string }) => a.tipo === "NF");
+    const baixado = await admin.req("GET", `/api/frota/anexos/${nf.id}`);
+    expect(baixado.statusCode).toBe(200);
+    expect(baixado.headers["content-type"]).toContain("application/xml");
+    expect(baixado.headers["content-disposition"]).toMatch(/^attachment/);
+    expect(baixado.body).toContain("nfeProc");
+    // Concluir mudando só o serviço recalcula o total.
+    const fim = await admin.req("PATCH", `/api/frota/ordens/${id}`, { status: "CONCLUIDA", valorServicoCentavos: 50_000 });
+    expect(fim.json()).toMatchObject({ custoCentavos: 200_000, valorPecasCentavos: 150_000 });
+    // Quem não vê a frota não baixa anexo.
+    const guia = await logado("guia@bybus.test");
+    expect((await guia.req("GET", `/api/frota/anexos/${nf.id}`)).statusCode).toBe(403);
+    expect((await admin.req("DELETE", `/api/frota/anexos/${nf.id}`)).statusCode).toBe(200);
+  });
+});
+
 describe("abastecimento e consumo", () => {
   it("calcula km/l entre tanques cheios e alerta consumo fora da média", async () => {
     const admin = await logado("admin@bybus.test");

@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql, type SQL } from 
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { arquivosDoDrive, baixarDoDrive, contaDeServico, ErroGoogle, idDoDrive } from "../servicos/googlePlanilhas.js";
 import {
-  GRUPOS_CUSTO_VEICULO, diasEntre, normalizarPlaca, placaValida, resumirChecklist, situacaoVencimento,
+  DOCUMENTO_MAX_BYTES, GRUPOS_CUSTO_VEICULO, diasEntre, tipoDocumentoEmpresa, normalizarPlaca, placaValida, resumirChecklist, situacaoVencimento,
   FONTES_KM, SITUACOES_VEICULO, STATUS_ORDEM, TIPOS_DOC_VEICULO, TIPOS_ORDEM, TIPOS_VEICULO,
 } from "@bybus/core";
 import { z } from "zod";
@@ -11,7 +11,7 @@ import type { Contexto } from "../app.js";
 import type { Db } from "../db/cliente.js";
 import {
   checklistItens, finCategorias, finLancamentos, unidades, usuarios, veiculos, veiculosAbastecimentos, veiculosChecklists, veiculosDocumentos,
-  veiculosKm, veiculosOrdens, veiculosPlanos,
+  veiculosKm, veiculosOrdens, veiculosOrdensAnexos, veiculosPlanos,
 } from "../db/schema.js";
 import { podeUnidade } from "../seguranca/escopo.js";
 import { pode, type Permissao } from "../seguranca/permissoes.js";
@@ -68,7 +68,7 @@ const corpoVeiculo = z.object({
     .refine((v) => v === null || idDoDrive(v) !== null, "Cole o link de uma pasta ou arquivo do Google Drive."),
 });
 
-export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto) {
+export async function rotasFrota(app: FastifyInstance, { db, config, cofre }: Contexto) {
   const ver = { preHandler: exigir(config, "frota:ver") };
   const gerenciar = { preHandler: exigir(config, "frota:gerenciar") };
 
@@ -303,14 +303,24 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
     veiculoId: uuid,
     planoId: uuid.nullish(),
     tipo: z.enum(TIPOS_ORDEM),
-    descricao: texto(500).min(3),
+    // Descrição longa do serviço (dono, 13/11/2026: mais de 10 linhas).
+    descricao: texto(5000).min(3),
     oficina: opcional(120),
-    pecas: opcional(500),
+    pecas: opcional(2000),
     imobiliza: z.boolean().default(false),
     abertaEm: dataIso.optional(),
     km: z.number().int().min(0).max(5_000_000).nullish(),
+    kmRevisao: z.number().int().min(0).max(5_000_000).nullish(),
+    valorPecasCentavos: z.number().int().min(0).max(100_000_000).default(0),
+    valorServicoCentavos: z.number().int().min(0).max(100_000_000).default(0),
     custoCentavos: z.number().int().min(0).max(100_000_000).default(0),
   });
+  /** Custo total = peças + serviço quando um deles foi informado; senão, o custo digitado. */
+  const comCusto = <T extends { valorPecasCentavos?: number; valorServicoCentavos?: number; custoCentavos?: number }>(c: T, atual?: { valorPecasCentavos: number; valorServicoCentavos: number }) => {
+    const pecas = c.valorPecasCentavos ?? atual?.valorPecasCentavos ?? 0;
+    const servico = c.valorServicoCentavos ?? atual?.valorServicoCentavos ?? 0;
+    return pecas + servico > 0 && (c.valorPecasCentavos !== undefined || c.valorServicoCentavos !== undefined) ? { ...c, custoCentavos: pecas + servico } : c;
+  };
 
   app.get("/api/frota/ordens", ver, async (req) => {
     const q = z.object({ veiculoId: uuid.optional(), status: z.enum(STATUS_ORDEM).optional(), tipo: z.enum(TIPOS_ORDEM).optional() }).parse(req.query);
@@ -318,8 +328,10 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
       .where(and(escopoVeiculos(req.usuario!), q.veiculoId ? eq(veiculosOrdens.veiculoId, q.veiculoId) : undefined, q.status ? eq(veiculosOrdens.status, q.status) : undefined, q.tipo ? eq(veiculosOrdens.tipo, q.tipo) : undefined))
       .orderBy(desc(veiculosOrdens.abertaEm), desc(veiculosOrdens.criadoEm)).limit(300);
     const hoje = hojeSp();
+    const anexos = linhas.length ? await db.select({ id: veiculosOrdensAnexos.id, ordemId: veiculosOrdensAnexos.ordemId, tipo: veiculosOrdensAnexos.tipo, nomeArquivo: veiculosOrdensAnexos.nomeArquivo, tamanho: veiculosOrdensAnexos.tamanho })
+      .from(veiculosOrdensAnexos).where(inArray(veiculosOrdensAnexos.ordemId, linhas.map((l) => l.o.id))) : [];
     return linhas.map(({ o, placa, apelido }) => ({
-      ...o, placa, apelido,
+      ...o, placa, apelido, anexos: anexos.filter((a) => a.ordemId === o.id),
       diasParado: o.status === "CANCELADA" ? null : diasEntre(o.abertaEm, o.concluidaEm ?? hoje),
     }));
   });
@@ -331,7 +343,7 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
       const [pl] = await db.select({ veiculoId: veiculosPlanos.veiculoId }).from(veiculosPlanos).where(eq(veiculosPlanos.id, c.planoId));
       if (!pl || pl.veiculoId !== v.id) throw new ErroHttp(400, "PLANO_INVALIDO", "O plano não pertence a este veículo.");
     }
-    const [o] = await db.insert(veiculosOrdens).values({ ...c, abertaEm: c.abertaEm ?? hojeSp(), criadoPor: req.usuario!.id }).returning();
+    const [o] = await db.insert(veiculosOrdens).values({ ...comCusto(c), abertaEm: c.abertaEm ?? hojeSp(), criadoPor: req.usuario!.id }).returning();
     if (c.imobiliza) await reavaliarSituacao(db, v.id);
     await auditar(db, req, "VEICULO_ORDEM_ABERTA", { tipo: "veiculo_ordem", id: o!.id }, { veiculoId: v.id, tipo: c.tipo, imobiliza: c.imobiliza });
     reply.code(201);
@@ -350,7 +362,7 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
     const concluidaEm = encerrando ? (resto.concluidaEm ?? hoje) : undefined;
     if (concluidaEm && concluidaEm < (resto.abertaEm ?? atual.abertaEm)) throw new ErroHttp(400, "DATA_INVALIDA", "A conclusão não pode ser anterior à abertura.");
     const { concluidaEm: _c, ...campos } = resto;
-    const [o] = await db.update(veiculosOrdens).set({ ...campos, ...(concluidaEm ? { concluidaEm } : {}) }).where(eq(veiculosOrdens.id, id)).returning();
+    const [o] = await db.update(veiculosOrdens).set({ ...comCusto(campos, atual), ...(concluidaEm ? { concluidaEm } : {}) }).where(eq(veiculosOrdens.id, id)).returning();
     if (resto.status === "CONCLUIDA") {
       const km = o!.km ?? v.kmAtual;
       if (o!.km != null) await registrarLeituraKm(db, { veiculoId: v.id, km: o!.km, data: concluidaEm!, fonte: "ORDEM", usuarioId: req.usuario!.id });
@@ -359,6 +371,50 @@ export async function rotasFrota(app: FastifyInstance, { db, config }: Contexto)
     await reavaliarSituacao(db, v.id);
     await auditar(db, req, "VEICULO_ORDEM_ALTERADA", { tipo: "veiculo_ordem", id }, { status: o!.status, custoCentavos: o!.custoCentavos });
     return o;
+  });
+
+  // ---------- Anexos da ordem: OS, NF de peças, NFS-e (13/11/2026) ----------
+  const ordemDoUsuario = async (u: UsuarioSessao, id: string) => {
+    const [o] = await db.select().from(veiculosOrdens).where(eq(veiculosOrdens.id, id));
+    if (!o) throw naoEncontrado("Ordem");
+    await garantirVeiculo(db, u, o.veiculoId).catch(() => { throw naoEncontrado("Ordem"); });
+    return o;
+  };
+  app.post("/api/frota/ordens/:id/anexos", { ...gerenciar, bodyLimit: 22 * 1024 * 1024, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const b = z.object({ tipo: z.enum(["OS", "NF", "NFSE", "OUTRO"]), nome: z.string().trim().min(1).max(160), base64: z.string().min(8) }).parse(req.body);
+    await ordemDoUsuario(req.usuario!, id);
+    const bytes = Buffer.from(b.base64, "base64");
+    if (bytes.length > DOCUMENTO_MAX_BYTES) throw new ErroHttp(400, "ARQUIVO_GRANDE", "O arquivo pode ter até 15 MB.");
+    const nome = b.nome.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_");
+    // PDF, imagens, Word/Excel e o XML da nota fiscal.
+    const ehXml = /\.xml$/i.test(nome) && /^\s*</.test(bytes.subarray(0, 200).toString("utf8").replace(/^\uFEFF/, ""));
+    const mime = tipoDocumentoEmpresa(bytes, nome) ?? (ehXml ? "application/xml" : null);
+    if (!mime) throw new ErroHttp(400, "ARQUIVO_TIPO", "Envie PDF, JPG, PNG, o XML da nota ou documento do Word/Excel.");
+    const [a] = await db.insert(veiculosOrdensAnexos).values({ ordemId: id, tipo: b.tipo, nomeArquivo: nome, mime, tamanho: bytes.length, dadosCifrados: cofre.cifrar(bytes.toString("base64")), enviadoPor: req.usuario!.id }).returning({ id: veiculosOrdensAnexos.id });
+    await auditar(db, req, "VEICULO_ORDEM_ANEXO", { tipo: "veiculo_ordem", id }, { anexoId: a!.id, tipoAnexo: b.tipo, tamanho: bytes.length });
+    reply.code(201);
+    return { id: a!.id };
+  });
+  app.get("/api/frota/anexos/:id", ver, async (req, reply) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const { baixar } = z.object({ baixar: z.string().optional() }).parse(req.query);
+    const [a] = await db.select().from(veiculosOrdensAnexos).where(eq(veiculosOrdensAnexos.id, id));
+    if (!a) throw naoEncontrado("Anexo");
+    await ordemDoUsuario(req.usuario!, a.ordemId).catch(() => { throw naoEncontrado("Anexo"); });
+    const bytes = Buffer.from(cofre.decifrar(a.dadosCifrados), "base64");
+    const exibir = !baixar && /^(application\/pdf|image\/(jpeg|png))$/.test(a.mime);
+    return reply.header("Content-Type", a.mime).header("Cache-Control", "no-store").header("X-Content-Type-Options", "nosniff")
+      .header("Content-Disposition", `${exibir ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(a.nomeArquivo)}`).send(bytes);
+  });
+  app.delete("/api/frota/anexos/:id", gerenciar, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const [a] = await db.select().from(veiculosOrdensAnexos).where(eq(veiculosOrdensAnexos.id, id));
+    if (!a) throw naoEncontrado("Anexo");
+    await ordemDoUsuario(req.usuario!, a.ordemId).catch(() => { throw naoEncontrado("Anexo"); });
+    await db.delete(veiculosOrdensAnexos).where(eq(veiculosOrdensAnexos.id, id));
+    await auditar(db, req, "VEICULO_ORDEM_ANEXO_EXCLUIDO", { tipo: "veiculo_ordem", id: a.ordemId }, { anexoId: id, tipoAnexo: a.tipo });
+    return { ok: true };
   });
 
   // ---------- Abastecimentos ----------

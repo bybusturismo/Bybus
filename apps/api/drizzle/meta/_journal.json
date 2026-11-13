@@ -330,6 +330,13 @@
       "when": 1794580702513,
       "tag": "0046_pagamento_afiliados",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794583556313,
+      "tag": "0047_ordem_detalhes_anexos",
+      "breakpoints": true
     }
   ]
 }

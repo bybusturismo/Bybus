@@ -102,8 +102,12 @@ export interface OrdemManutencao {
   abertaEm: string;
   concluidaEm: string | null;
   km: number | null;
+  kmRevisao: number | null;
+  valorPecasCentavos: number;
+  valorServicoCentavos: number;
   custoCentavos: number;
   diasParado: number | null;
+  anexos: AnexoOrdem[];
 }
 export const ROTULO_STATUS_ORDEM: Record<StatusOrdem, string> = { ABERTA: "Aberta", EM_ANDAMENTO: "Em andamento", CONCLUIDA: "Concluída", CANCELADA: "Cancelada" };
 
@@ -182,3 +186,7 @@ export interface PainelFrota {
 }
 
 export const rotuloVeiculo = (v: { placa: string; apelido?: string | null }) => (v.apelido ? `${v.placa} — ${v.apelido}` : v.placa);
+
+export type TipoAnexoOrdem = "OS" | "NF" | "NFSE" | "OUTRO";
+export const ROTULO_ANEXO_ORDEM: Record<TipoAnexoOrdem, string> = { OS: "Ordem de serviço", NF: "NF (peças)", NFSE: "NFS-e (serviço)", OUTRO: "Outro" };
+export interface AnexoOrdem { id: string; tipo: TipoAnexoOrdem; nomeArquivo: string; tamanho: number }
