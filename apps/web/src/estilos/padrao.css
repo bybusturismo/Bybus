@@ -767,3 +767,17 @@
 .cofre__item { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0; border-top: 1px solid var(--cor-borda, #e5e5e5); }
 .cofre__nome { min-width: 0; overflow-wrap: anywhere; }
 .cofre__notas { white-space: pre-wrap; font-size: 0.85rem; margin: 0.25rem 0 0; }
+
+/* Filtro de coluna "como no Excel" (13/11/2026) */
+.filtro-coluna { position: relative; }
+.filtro-coluna__botao { all: unset; cursor: pointer; font: inherit; text-transform: inherit; letter-spacing: inherit; white-space: nowrap; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; }
+.filtro-coluna__botao:hover, .filtro-coluna__botao:focus-visible { background: var(--cor-superficie-2); outline: 2px solid var(--cor-primaria); outline-offset: 1px; }
+.filtro-coluna__botao--ativo { color: var(--cor-primaria); }
+.filtro-coluna__menu { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: min(280px, 80vw); background: var(--cor-superficie); color: var(--cor-texto); border: 1px solid var(--cor-borda); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.16); padding: 8px; display: grid; gap: 6px; text-transform: none; letter-spacing: normal; font-weight: 400; }
+.filtro-coluna__menu hr { border: 0; border-top: 1px solid var(--cor-borda); margin: 2px 0; width: 100%; }
+.filtro-coluna__opcao { all: unset; cursor: pointer; padding: 6px 8px; border-radius: 4px; }
+.filtro-coluna__opcao:hover, .filtro-coluna__opcao:focus-visible { background: var(--cor-primaria-suave); }
+.filtro-coluna__lista { max-height: 220px; overflow: auto; display: grid; gap: 2px; }
+.filtro-coluna__item { display: flex; gap: 8px; align-items: center; padding: 3px 4px; cursor: pointer; }
+.filtro-coluna__acoes { display: flex; justify-content: flex-end; gap: 6px; }
+@media print { .filtro-coluna__botao span[aria-hidden] { display: none; } }

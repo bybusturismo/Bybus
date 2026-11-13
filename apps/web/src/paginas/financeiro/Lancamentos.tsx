@@ -3,6 +3,7 @@ import { api, mensagemDeErro, qs } from "../../api/cliente";
 import { LINHAS_NEGOCIO, type LinhaNegocio } from "../../api/tipos";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
 import { EtiquetaLinha } from "../../componentes/Etiquetas";
+import { aplicarColunas, CabecalhoFiltro, VAZIO, type DefinicaoColuna, type EstadoColunas } from "../../componentes/FiltroColuna";
 import { Modal } from "../../componentes/Modal";
 import { useNotificar } from "../../componentes/Notificacoes";
 import { Icone } from "../../componentes/Icone";
@@ -261,6 +262,36 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
   );
 }
 
+type Coluna = "vencimento" | "centro" | "descricao" | "categoria" | "valor" | "situacao";
+const valorMostrado = (l: LancamentoFin) => (l.situacao === "REALIZADO" ? (l.valorPagoCentavos ?? l.valorCentavos) : l.valorCentavos);
+/** Centro de custo em texto: praça · linha · veículo (placa ou trem). */
+export function textoCentro(l: LancamentoFin, praca: (id: string) => string): string {
+  return [l.unidadeId ? praca(l.unidadeId) : "Empresa toda", l.linha ? ROTULO_LINHA[l.linha] : null, l.veiculo].filter(Boolean).join(" · ");
+}
+
+/**
+ * Saldo da conta escolhida no filtro (pedido do dono, 13/11/2026): no mês, o que entrou (contas a receber recebidas nesta
+ * conta) menos o que saiu (contas a pagar pagas por ela), e o saldo atual da conta (saldo inicial + tudo o que já entrou e saiu).
+ */
+function SaldoDaConta({ conta, mes, praca }: { conta: ContaFin; mes: string; praca: string | null }) {
+  const filtro = (t: TipoLancamento) => qs({ tipo: t, situacao: "REALIZADO", contaId: conta.id, unidadeId: praca, de: `${mes}-01`, ate: ultimoDiaDoMes(mes), limite: 1 });
+  const r = useCarregar(async (s) => {
+    const [rec, pag] = await Promise.all([
+      api.get<RespostaLancamentos>(`/api/financeiro/lancamentos${filtro("RECEBER")}`, s),
+      api.get<RespostaLancamentos>(`/api/financeiro/lancamentos${filtro("PAGAR")}`, s),
+    ]);
+    return { entrou: rec.somaRealizadoCentavos, saiu: pag.somaRealizadoCentavos };
+  }, [conta.id, mes, praca]);
+  return (
+    <Indicadores rotulo={`Saldo de ${conta.nome}`}>
+      <Indicador tinta="verde" icone="check" rotulo={`Recebido em ${nomeMes(mes)}`} valor={r.dados ? formatarMoeda(r.dados.entrou) : "…"} detalhe="Contas a receber nesta conta" />
+      <Indicador tinta="rosa" icone="alerta" rotulo={`Pago em ${nomeMes(mes)}`} valor={r.dados ? formatarMoeda(r.dados.saiu) : "…"} detalhe="Contas a pagar nesta conta" />
+      <Indicador tinta="azul" icone="lista" rotulo="Resultado do mês" valor={r.dados ? formatarMoeda(r.dados.entrou - r.dados.saiu) : "…"} detalhe="Recebido menos pago" />
+      <Indicador tinta="ambar" icone="calendario" rotulo="Saldo atual da conta" valor={formatarMoeda(conta.saldoCentavos)} detalhe={conta.banco ?? conta.nome} />
+    </Indicadores>
+  );
+}
+
 export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
   const { praca, unidades, pode } = useSessao();
   const notificar = useNotificar();
@@ -287,6 +318,8 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
   const [erro, setErro] = useState<string | null>(null);
   const categorias = useCategorias();
   const contas = useContas();
+  // Filtros de coluna como no Excel (13/11/2026): classificar A–Z / Z–A e escolher valores (ex.: só uma placa ou o trem).
+  const [colunas, setColunas] = useState<EstadoColunas<Coluna>>({ ordem: null, selecionados: {} });
 
   const lista = useCarregar((s) => api.get<RespostaLancamentos>(`/api/financeiro/lancamentos${qs({
     tipo, situacao, unidadeId: praca, q: busca, limite: 300,
@@ -300,6 +333,16 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
     : { titulo: "Contas a receber", novo: "Nova conta a receber", baixa: "Receber", realizado: "Recebido", descricao: "Repasses dos canais, fretamentos, publicidade e demais receitas." };
   const d = lista.dados;
   const nomes = useMemo(() => new Map((contas.dados ?? []).map((c) => [c.id, c.nome])), [contas.dados]);
+  const defs = useMemo<Record<Coluna, DefinicaoColuna<LancamentoFin>>>(() => ({
+    vencimento: { valor: (l) => formatarData(l.vencimento), ordenar: (l) => l.vencimento },
+    centro: { valor: (l) => textoCentro(l, (id) => nomePraca(unidades, id)) },
+    descricao: { valor: (l) => l.descricao || VAZIO },
+    categoria: { valor: (l) => l.categoriaNome || VAZIO },
+    valor: { valor: (l) => formatarMoeda(valorMostrado(l)), ordenar: (l) => valorMostrado(l) },
+    situacao: { valor: (l) => (l.situacao === "REALIZADO" ? rotulos.realizado : l.vencido ? "Vencida" : "Em aberto") },
+  }), [unidades, rotulos.realizado]);
+  const visiveis = useMemo(() => (d ? aplicarColunas(d.itens, defs, colunas) : []), [d, defs, colunas]);
+  const filtrandoColunas = Object.keys(colunas.selecionados).length > 0;
 
   async function recarregarTudo() {
     setEdicao(null);
@@ -404,6 +447,9 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
         </div>
       )}
 
+      {contaFiltro && contas.dados?.find((c) => c.id === contaFiltro) && (
+        <SaldoDaConta conta={contas.dados.find((c) => c.id === contaFiltro)!} mes={mes} praca={praca} />
+      )}
       {d && (
         <Indicadores rotulo="Totais do filtro">
           <Indicador tinta="azul" icone="lista" rotulo="Lançamentos" valor={String(d.total)} detalhe={`Total ${formatarMoeda(d.somaDevidoCentavos)}`} />
@@ -419,25 +465,29 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
           <table className="tabela">
             <thead>
               <tr>
-                <th scope="col">Vencimento</th><th scope="col">Descrição</th><th scope="col" className="fin-esconder-celular">Categoria</th>
-                <th scope="col" className="fin-esconder-celular">Centro de custo</th><th scope="col" className="fin-valor">Valor</th><th scope="col">Situação</th>
+                <CabecalhoFiltro coluna="vencimento" rotulo="Vencimento" linhas={d.itens} definicao={defs.vencimento} estado={colunas} mudar={setColunas} textos={{ asc: "Mais antigo primeiro", desc: "Mais recente primeiro" }} />
+                <CabecalhoFiltro coluna="centro" rotulo="Centro de custo" linhas={d.itens} definicao={defs.centro} estado={colunas} mudar={setColunas} />
+                <CabecalhoFiltro coluna="descricao" rotulo="Descrição" linhas={d.itens} definicao={defs.descricao} estado={colunas} mudar={setColunas} />
+                <CabecalhoFiltro coluna="categoria" rotulo="Categoria" linhas={d.itens} definicao={defs.categoria} estado={colunas} mudar={setColunas} className="fin-esconder-celular" />
+                <CabecalhoFiltro coluna="valor" rotulo="Valor" linhas={d.itens} definicao={defs.valor} estado={colunas} mudar={setColunas} className="fin-valor" textos={{ asc: "Do menor para o maior", desc: "Do maior para o menor" }} />
+                <CabecalhoFiltro coluna="situacao" rotulo="Situação" linhas={d.itens} definicao={defs.situacao} estado={colunas} mudar={setColunas} />
                 {podeEditar && <th scope="col"><span className="fin-oculto-visual">Ações</span></th>}
               </tr>
             </thead>
             <tbody>
-              {d.itens.map((l) => (
+              {visiveis.map((l) => (
                 <tr key={l.id}>
                   <td className="sem-quebra">{formatarData(l.vencimento)}</td>
+                  <td>
+                    {l.unidadeId ? nomePraca(unidades, l.unidadeId) : "Empresa toda"} <EtiquetaLinha linha={l.linha} />
+                    {l.veiculo && <div className="texto-fraco">{l.veiculo}</div>}
+                  </td>
                   <td>
                     {l.descricao}
                     {l.recorrente && <span className="etiqueta etiqueta--neutra">recorrente</span>}
                     {l.contraparte && <div className="texto-fraco">{l.contraparte}</div>}
                   </td>
                   <td className="fin-esconder-celular">{l.categoriaNome}</td>
-                  <td className="fin-esconder-celular">
-                    {l.unidadeId ? nomePraca(unidades, l.unidadeId) : "Empresa toda"} <EtiquetaLinha linha={l.linha} />
-                    {l.veiculo && <div className="texto-fraco">{l.veiculo}</div>}
-                  </td>
                   <td className="fin-valor">
                     {formatarMoeda(l.situacao === "REALIZADO" ? (l.valorPagoCentavos ?? l.valorCentavos) : l.valorCentavos)}
                     {l.situacao === "REALIZADO" && l.valorPagoCentavos !== l.valorCentavos && <div className="texto-fraco">devido {formatarMoeda(l.valorCentavos)}</div>}
@@ -462,10 +512,19 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
             </tbody>
             <tfoot>
               <tr className="fin-total">
-                <td colSpan={4}>{d.total} lançamento(s)</td>
-                <td className="fin-valor" colSpan={podeEditar ? 3 : 2}>
-                  Em aberto {formatarMoeda(d.somaAbertoCentavos)} · {rotulos.realizado} {formatarMoeda(d.somaRealizadoCentavos)}
-                </td>
+                {filtrandoColunas ? (
+                  <>
+                    <td colSpan={4}>{visiveis.length} de {d.itens.length} lançamento(s) no filtro das colunas</td>
+                    <td className="fin-valor" colSpan={podeEditar ? 3 : 2}>Soma {formatarMoeda(visiveis.reduce((a, l) => a + valorMostrado(l), 0))}</td>
+                  </>
+                ) : (
+                  <>
+                    <td colSpan={4}>{d.total} lançamento(s)</td>
+                    <td className="fin-valor" colSpan={podeEditar ? 3 : 2}>
+                      Em aberto {formatarMoeda(d.somaAbertoCentavos)} · {rotulos.realizado} {formatarMoeda(d.somaRealizadoCentavos)}
+                    </td>
+                  </>
+                )}
               </tr>
             </tfoot>
           </table>

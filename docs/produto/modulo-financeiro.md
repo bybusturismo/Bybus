@@ -92,3 +92,12 @@ Observação técnica: para gerar a migração, `drizzle-kit` não resolve impor
 Estrutura, decisões e o que ficou "a confirmar": ver `docs/conhecimento/financeiro.md` (seção DRE gerencial).
 Cálculo em `packages/core/src/financeiro/dre.ts` (`montarDreGerencial`, `SECOES_DRE`, `GRUPOS_DA_SECAO`); rota `GET /api/financeiro/dre?ano&regime&unidadeId&linha`.
 Categoria nova escolhe o grupo numa lista com as linhas da DRE (não é mais texto livre).
+
+## Filtros de coluna e saldo da conta (dono, 13/11/2026)
+- Em **A pagar** e **A receber**, cada cabeçalho da tabela abre um menu como no Excel: **Classificar de A a Z / Z a A** (datas:
+  mais antigo/mais recente; valor: menor/maior), busca e caixinhas para marcar só os valores desejados (ex.: só a placa de um
+  ônibus ou o trem). Vale sobre os lançamentos do mês carregados na tela; com filtro de coluna ativo, o rodapé mostra quantos
+  aparecem e a soma deles.
+- A coluna **Centro de custo** (praça · linha · veículo/placa/trem) passou para logo depois do Vencimento e aparece também no celular.
+- Ao escolher o **banco/conta** nos filtros, o topo mostra, para aquela conta: recebido no mês, pago no mês, **resultado do mês**
+  (recebido − pago) e o **saldo atual** da conta (saldo inicial + tudo o que já entrou e saiu, o mesmo de Caixa e saldos).

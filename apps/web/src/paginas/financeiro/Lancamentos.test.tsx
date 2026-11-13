@@ -31,6 +31,45 @@ function api(itens: LancamentoFin[]) {
 const gerente = () => sessaoFicticia("FIN", ["financeiro:ver", "financeiro:gerenciar"], { unidades: [FLN] });
 
 describe("Contas a pagar", () => {
+  it("filtra pela coluna como no Excel (só uma placa) e classifica de Z a A", async () => {
+    api([
+      lanc(),
+      lanc({ id: "l2", descricao: "Óleo do trem", veiculo: "TREM 01", valorCentavos: 5000 }),
+      lanc({ id: "l3", descricao: "Aluguel", veiculo: null, linha: null, unidadeId: null, valorCentavos: 300000 }),
+    ]);
+    renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    await screen.findByText("Óleo do trem");
+    await u.click(screen.getByRole("button", { name: /Centro de custo/ }));
+    const menu = screen.getByRole("dialog", { name: "Filtrar Centro de custo" });
+    await u.click(within(menu).getByLabelText("(Selecionar tudo)"));
+    await u.click(within(menu).getByLabelText(/TREM 01/));
+    await u.click(within(menu).getByRole("button", { name: "Aplicar" }));
+    expect(screen.getByText("Óleo do trem")).toBeInTheDocument();
+    expect(screen.queryByText("Combustível outubro")).not.toBeInTheDocument();
+    expect(screen.getByText(/1 de 3 lançamento\(s\) no filtro das colunas/)).toBeInTheDocument();
+    expect(screen.getByText(/Soma R\$\s?50,00/)).toBeInTheDocument();
+    // Limpa e ordena a descrição de Z a A.
+    await u.click(screen.getByRole("button", { name: /Centro de custo/ }));
+    await u.click(within(screen.getByRole("dialog", { name: "Filtrar Centro de custo" })).getByRole("button", { name: "Limpar" }));
+    await u.click(screen.getByRole("button", { name: /Descrição/ }));
+    await u.click(screen.getByRole("button", { name: "Classificar de Z a A" }));
+    const linhas = screen.getAllByRole("row").slice(1, 4).map((r) => r.textContent ?? "");
+    expect(linhas[0]).toMatch(/Óleo do trem/);
+    expect(linhas[2]).toMatch(/Aluguel/);
+  });
+
+  it("ao escolher o banco no filtro mostra recebido, pago, resultado e saldo da conta", async () => {
+    api([lanc()]);
+    renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    await screen.findByText("Combustível outubro");
+    await u.click(screen.getByRole("button", { name: /Filtros/ }));
+    await u.selectOptions(await screen.findByLabelText(/Banco/), "k1");
+    expect(await screen.findByText("Resultado do mês")).toBeInTheDocument();
+    expect(screen.getByText("Saldo atual da conta")).toBeInTheDocument();
+  });
+
   it("lista com situação, centro de custo e totais; leitor não vê botões de ação", async () => {
     api([lanc({ vencido: true }), lanc({ id: "l2", descricao: "Peças", situacao: "REALIZADO", pagoEm: "2026-11-02", valorPagoCentavos: 12000, valorCentavos: 11000, conciliado: true })]);
     renderizar(<Lancamentos tipo="PAGAR" />, { sessao: sessaoFicticia("LEITOR", ["financeiro:ver"], { unidades: [FLN] }) });
