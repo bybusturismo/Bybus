@@ -89,4 +89,13 @@ describe("abastecimento com mesmo km e tipo de serviço (13/11/2026)", () => {
     expect(r.get("b1")).toBeNull();
     expect(r.get("o1")).toBeNull();
   });
+  it("no mesmo km, o km/l fica na linha lançada por último, qualquer que seja o id", () => {
+    const r = consumoPorAbastecimento([
+      { id: "a1", km: 1000, litros: 100, tanqueCheio: true, criadoEm: "2026-11-13T10:00:00Z" },
+      { id: "zz", km: 1250, litros: 80, tanqueCheio: true, criadoEm: "2026-11-13T11:00:00Z" },
+      { id: "aa", km: 1250, litros: 20, tanqueCheio: true, criadoEm: "2026-11-13T11:00:05Z" },
+    ]);
+    expect(r.get("aa")).toBe(2.5);
+    expect(r.get("zz")).toBeNull();
+  });
 });

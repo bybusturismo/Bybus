@@ -40,7 +40,7 @@ export async function retratoFrotaExtra(db: Db, hoje: string): Promise<Record<st
     .where(and(eq(veiculosChecklists.aprovado, false), sql`${veiculosChecklists.data} >= ${somarDias(hoje, -7)}::date`));
 
   // Consumo (km/l): compara cada abastecimento dos últimos 30 dias com a média anterior do mesmo veículo.
-  const abast = await db.select({ id: veiculosAbastecimentos.id, veiculoId: veiculosAbastecimentos.veiculoId, km: veiculosAbastecimentos.km, litros: veiculosAbastecimentos.litros, tanqueCheio: veiculosAbastecimentos.tanqueCheio, data: veiculosAbastecimentos.data }).from(veiculosAbastecimentos);
+  const abast = await db.select({ id: veiculosAbastecimentos.id, veiculoId: veiculosAbastecimentos.veiculoId, km: veiculosAbastecimentos.km, litros: veiculosAbastecimentos.litros, tanqueCheio: veiculosAbastecimentos.tanqueCheio, tipo: veiculosAbastecimentos.tipo, criadoEm: veiculosAbastecimentos.criadoEm, data: veiculosAbastecimentos.data }).from(veiculosAbastecimentos);
   const alertas = { ALTO: 0, BAIXO: 0 };
   const dataPorId = new Map(abast.map((a) => [a.id, a.data]));
   for (const vid of new Set(abast.map((a) => a.veiculoId))) {

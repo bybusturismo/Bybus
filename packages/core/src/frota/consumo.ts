@@ -5,7 +5,10 @@ export interface AbastecimentoCalc {
   tanqueCheio: boolean;
   /** COMBUSTIVEL (padrão), OLEO ou LUBRIFICANTE (13/11/2026): só combustível entra no km/l. */
   tipo?: string | null;
+  /** Quando foi lançado: entre linhas do mesmo km, o km/l fica na lançada por último (o id é aleatório). */
+  criadoEm?: Date | string | number | null;
 }
+const instante = (a: AbastecimentoCalc) => (a.criadoEm == null ? 0 : new Date(a.criadoEm).getTime() || 0);
 
 export const TIPOS_ABASTECIMENTO = ["COMBUSTIVEL", "OLEO", "LUBRIFICANTE"] as const;
 export type TipoAbastecimento = (typeof TIPOS_ABASTECIMENTO)[number];
@@ -24,7 +27,7 @@ export function consumoPorAbastecimento(lista: AbastecimentoCalc[]): Map<string,
   const porKm = new Map<number, AbastecimentoCalc[]>();
   for (const a of lista) if (!a.tipo || a.tipo === "COMBUSTIVEL") porKm.set(a.km, [...(porKm.get(a.km) ?? []), a]);
   const ordenada = [...porKm.entries()].sort((x, y) => x[0] - y[0]).map(([km, g]) => ({
-    id: [...g].sort((x, y) => x.id.localeCompare(y.id)).at(-1)!.id, km, litros: g.reduce((t, x) => t + x.litros, 0), tanqueCheio: g.some((x) => x.tanqueCheio),
+    id: [...g].sort((x, y) => instante(x) - instante(y) || x.id.localeCompare(y.id)).at(-1)!.id, km, litros: g.reduce((t, x) => t + x.litros, 0), tanqueCheio: g.some((x) => x.tanqueCheio),
   }));
   let kmBase: number | null = null;
   let litros = 0;
