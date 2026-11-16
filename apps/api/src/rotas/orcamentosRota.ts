@@ -180,10 +180,11 @@ export async function rotasOrcamentosRota(app: FastifyInstance, { db, config }: 
     const total = o.valorFinalCentavos ?? o.valorCalculadoCentavos ?? null;
     const [g] = await db.insert(gruposFechados).values({
       unidadeId: o.unidadeId, nome: o.cliente, status: "CONFIRMADO", dataPasseio: o.dataPasseio, horarioInicio: o.horarioInicio, localInicio: pontos[0]?.nome ?? null,
-      veiculo: { VAN: "Van", MICRO: "Micro-ônibus", ONIBUS: "Ônibus" }[o.veiculo] ?? o.veiculo, roteiro: pontos.map((p) => `${p.nome}${p.permanenciaMin ? ` (${p.permanenciaMin} min)` : ""}`).join("\n"),
+      // O veículo do grupo é escolhido da frota (placa) na ficha; o tipo orçado vai nas observações.
+      veiculo: null, roteiro: pontos.map((p) => `${p.nome}${p.permanenciaMin ? ` (${p.permanenciaMin} min)` : ""}`).join("\n"),
       duracaoTexto: o.cargaHorariaMin ? `${Math.floor(o.cargaHorariaMin / 60)}h${String(o.cargaHorariaMin % 60).padStart(2, "0")}` : null,
       pessoas: o.pessoas, valorTotalCentavos: total, valorPorPessoaCentavos: total && o.pessoas ? Math.round(total / o.pessoas) : null,
-      representanteNome: o.contato, observacoes: `Criado do orçamento ${o.numero}.${o.observacoes ? `\n${o.observacoes}` : ""}`, criadoPor: req.usuario!.id,
+      representanteNome: o.contato, observacoes: `Criado do orçamento ${o.numero} (veículo orçado: ${{ VAN: "van", MICRO: "micro-ônibus", ONIBUS: "ônibus" }[o.veiculo] ?? o.veiculo}).${o.observacoes ? `\n${o.observacoes}` : ""}`, criadoPor: req.usuario!.id,
     }).returning({ id: gruposFechados.id });
     await db.update(orcamentosRota).set({ grupoId: g!.id, atualizadoEm: new Date() }).where(eq(orcamentosRota.id, id));
     await auditar(db, req, "ORCAMENTO_ROTA_VIROU_GRUPO", { tipo: "orcamento_rota", id }, { grupoId: g!.id });

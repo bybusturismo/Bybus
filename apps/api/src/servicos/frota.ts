@@ -119,3 +119,16 @@ export async function motivosIndisponibilidade(db: Db, placa: string, data: stri
 
 export const itensAtivos = (db: Db) => db.select().from(checklistItens).where(eq(checklistItens.ativo, true)).orderBy(asc(checklistItens.ordem), asc(checklistItens.descricao));
 
+
+/**
+ * Veículo escolhido numa tela (saída, escala): precisa ser um veículo cadastrado na frota (dono, 16/11/2026: "só selecionar").
+ * Devolve a placa no formato do cadastro. Um valor antigo digitado antes da regra pode continuar enquanto não for trocado.
+ */
+export async function placaDoCadastro(db: Db, texto: string | null | undefined, atual: string | null | undefined): Promise<string | null> {
+  const t = texto?.trim();
+  if (!t) return null;
+  if (atual && t === atual.trim()) return atual;
+  const [v] = await db.select({ placa: veiculos.placa, situacao: veiculos.situacao }).from(veiculos).where(eq(veiculos.placa, normalizarPlaca(t)));
+  if (!v || v.situacao === "INATIVO") throw new ErroHttp(400, "VEICULO_FORA_DO_CADASTRO", "Escolha um veículo cadastrado na Frota (Frota › Veículos).");
+  return v.placa;
+}

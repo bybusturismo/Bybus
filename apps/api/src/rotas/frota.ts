@@ -101,9 +101,10 @@ export async function rotasFrota(app: FastifyInstance, { db, config, cofre }: Co
 
   /**
    * Lista enxuta para escolher o veículo em outras telas (ex.: Saídas, onde `saidas.veiculo` continua sendo o texto da placa).
+   * Desde 16/11/2026 (dono: "só selecionar") é a fonte de toda lista suspensa de veículo: saída, escala, grupos e financeiro.
    * Traz a disponibilidade para a tela poder avisar ou bloquear quando houver motivo.
    */
-  app.get("/api/frota/veiculos/opcoes", umaDe("frota:ver", "saidas:gerenciar", "escala:gerenciar", "frota:checklist"), async (req) => {
+  app.get("/api/frota/veiculos/opcoes", umaDe("frota:ver", "saidas:gerenciar", "escala:gerenciar", "frota:checklist", "reservas:editar", "financeiro:gerenciar"), async (req) => {
     const q = z.object({ unidadeId: uuid.optional() }).parse(req.query);
     const lista = await db.select().from(veiculos)
       .where(and(escopoVeiculos(req.usuario!), q.unidadeId ? eq(veiculos.unidadeId, q.unidadeId) : undefined, sql`${veiculos.situacao} <> 'INATIVO'`))

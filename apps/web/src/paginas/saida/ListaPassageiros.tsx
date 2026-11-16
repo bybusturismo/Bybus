@@ -1,3 +1,4 @@
+import { EscolherVeiculo } from "../../componentes/EscolherVeiculo";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
 import type { Alerta, BlocoManifesto, LinhaManifesto, Pessoa, RespostaManifesto, Saida, StatusSaida } from "../../api/tipos";
@@ -229,8 +230,9 @@ export function EditarEquipe({
         {erroEquipe && <Aviso tipo="erro">Não foi possível carregar guias e motoristas: {erroEquipe}</Aviso>}
         <div className="grade-campos">
           <div className="campo">
-            <label htmlFor="eq-veiculo">Veículo (placa)</label>
-            <input id="eq-veiculo" maxLength={40} value={veiculo} onChange={(e) => setVeiculo(e.target.value)} />
+            <label htmlFor="eq-veiculo">Veículo</label>
+            <EscolherVeiculo id="eq-veiculo" valor={veiculo} unidadeId={unidadeId}
+              aoMudar={(placa, v) => { setVeiculo(placa); if (v?.capacidade) setCapacidade(String(v.capacidade)); }} />
           </div>
           <div className="campo">
             <label htmlFor="eq-capacidade">Capacidade (assentos)</label>

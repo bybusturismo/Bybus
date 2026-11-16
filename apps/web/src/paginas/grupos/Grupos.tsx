@@ -17,6 +17,7 @@ import { imprimirPagina } from "../../util/appCelular";
 import { corpoLista, EditorLista, linhaVazia, paraLinhas, type LinhaLista } from "./EditorLista";
 import { Modal } from "../../componentes/Modal";
 import { AssinaturaGrupo } from "./AssinaturaGrupo";
+import { EscolherVeiculo } from "../../componentes/EscolherVeiculo";
 
 interface DadosEmpresa { razaoSocial: string; cnpj: string; endereco: string; cidadeForo: string; assinanteNome: string | null; assinanteCargo: string | null }
 
@@ -352,7 +353,7 @@ export function GrupoFicha() {
             <div className="campo"><label htmlFor="g-hora">Horário de início</label><input id="g-hora" type="time" {...campo("horarioInicio")} /></div>
             <div className="campo"><label htmlFor="g-local">Local de início</label><input id="g-local" maxLength={200} {...campo("localInicio")} /></div>
             <div className="campo"><label htmlFor="g-guia">Guia</label><select id="g-guia" {...campo("guiaId")}><option value="">A definir</option>{(guias.dados ?? []).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></div>
-            <div className="campo"><label htmlFor="g-veiculo">Veículo</label><input id="g-veiculo" maxLength={120} {...campo("veiculo")} placeholder="Ex.: ônibus, van, placa" /></div>
+            <div className="campo"><label htmlFor="g-veiculo">Veículo</label><EscolherVeiculo id="g-veiculo" valor={String(f.veiculo ?? "")} unidadeId={String(f.unidadeId ?? "") || null} aoMudar={(placa) => setF({ ...f, veiculo: placa })} /></div>
             <div className="campo"><label htmlFor="g-duracao">Duração</label><input id="g-duracao" maxLength={120} {...campo("duracaoTexto")} placeholder="Ex.: 8h a 8h30" /></div>
             <div className="campo campo--largo"><label htmlFor="g-roteiro">Roteiro</label><textarea id="g-roteiro" rows={8} maxLength={8000} {...campo("roteiro")} placeholder="Paradas, tempos e observações do roteiro" /></div>
           </div>

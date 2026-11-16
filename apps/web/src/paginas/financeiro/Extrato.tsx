@@ -1,3 +1,4 @@
+import { EscolherVeiculo } from "../../componentes/EscolherVeiculo";
 import { useState, type FormEvent } from "react";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
 import { LINHAS_NEGOCIO, type LinhaNegocio } from "../../api/tipos";
@@ -176,7 +177,7 @@ function FormLancar({ linha, categorias, aoConcluir, aoCancelar }: { linha: Linh
         <div className="campo"><label htmlFor="lc-cat">Categoria</label><select id="lc-cat" value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}><option value="">Escolha…</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
         <div className="campo"><label htmlFor="lc-praca">Praça</label><select id="lc-praca" value={unidadeId} onChange={(e) => setUnidadeId(e.target.value)}><option value="">{usuario?.todasUnidades ? "Praça da conta" : "Escolha…"}</option>{unidades.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}</select></div>
         <div className="campo"><label htmlFor="lc-linha">Linha de negócio</label><select id="lc-linha" value={linhaNeg} onChange={(e) => setLinhaNeg(e.target.value)}><option value="">Sem linha</option>{LINHAS_NEGOCIO.map((l) => <option key={l} value={l}>{ROTULO_LINHA[l]}</option>)}</select></div>
-        <div className="campo"><label htmlFor="lc-veiculo">Veículo (placa)</label><input id="lc-veiculo" value={veiculo} maxLength={10} onChange={(e) => setVeiculo(e.target.value.toUpperCase())} placeholder="Opcional" /></div>
+        <div className="campo"><label htmlFor="lc-veiculo">Veículo</label><EscolherVeiculo id="lc-veiculo" valor={veiculo} vazio="Nenhum (opcional)" aoMudar={(placa) => setVeiculo(placa)} /></div>
       </div>
       <div className="modal__acoes">
         <button type="button" className="botao botao--secundario" onClick={aoCancelar}>Cancelar</button>

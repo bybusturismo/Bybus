@@ -13,7 +13,7 @@ import "./transfer.css";
 
 function EditarDia({ dia, resposta, aoFechar, aoSalvar }: { dia: DiaTransfer; resposta: RespostaTransfer; aoFechar: () => void; aoSalvar: (r: RespostaTransfer) => void }) {
   const [veiculoId, setVeiculoId] = useState(dia.veiculoId ?? "");
-  const [veiculoTexto, setVeiculoTexto] = useState(dia.veiculoTexto ?? "");
+  const veiculoTexto = dia.veiculoTexto ?? "";
   const [motoristaId, setMotoristaId] = useState(dia.motoristaId ?? "");
   const [lugares, setLugares] = useState(dia.lugares ? String(dia.lugares) : "");
   const [pontoId, setPontoId] = useState(dia.pontoEncontroId ?? resposta.encontro?.id ?? "");
@@ -51,16 +51,10 @@ function EditarDia({ dia, resposta, aoFechar, aoSalvar }: { dia: DiaTransfer; re
         <div className="campo">
           <label htmlFor="tr-veiculo">Veículo (frota)</label>
           <select id="tr-veiculo" value={veiculoId} onChange={(e) => setVeiculoId(e.target.value)}>
-            <option value="">Outro (digitar placa)</option>
+            <option value="">{veiculoTexto ? `${veiculoTexto} (digitado antes, fora do cadastro)` : "Sem veículo"}</option>
             {resposta.opcoes?.veiculos.map((v) => <option key={v.id} value={v.id}>{v.apelido ? `${v.apelido} (${v.placa})` : v.placa}</option>)}
           </select>
         </div>
-        {!veiculoId && (
-          <div className="campo">
-            <label htmlFor="tr-veiculo-texto">Placa ou descrição da van</label>
-            <input id="tr-veiculo-texto" maxLength={60} value={veiculoTexto} onChange={(e) => setVeiculoTexto(e.target.value)} />
-          </div>
-        )}
         <div className="campo">
           <label htmlFor="tr-lugares">Lugares na van</label>
           <input id="tr-lugares" inputMode="numeric" value={lugares} onChange={(e) => setLugares(e.target.value)} />

@@ -55,3 +55,32 @@ describe("Veículo e equipe", () => {
     expect(corpoEnviado(api, "PATCH", "/api/saidas/s1")).toEqual({ veiculo: "QJQ2A16", capacidade: 46, observacoes: null });
   });
 });
+
+describe("Veículo só da frota (16/11/2026)", () => {
+  it("lista os veículos cadastrados da praça, mantém o antigo como opção e ao escolher envia a placa e ajusta a capacidade", async () => {
+    const api = simularApi({
+      "GET /api/pessoas": [],
+      "GET /api/frota/veiculos/opcoes": [
+        { id: "v1", placa: "DEM1A23", apelido: "Floripa 01", tipo: "ONIBUS_DOIS_ANDARES", capacidade: 73, unidadeId: FLN.id, disponivel: true },
+        { id: "v2", placa: "BCX2B34", apelido: null, tipo: "VAN", capacidade: 15, unidadeId: BC.id, disponivel: true },
+      ],
+      "PATCH /api/saidas/s1": { ...saida },
+    });
+    renderizar(<EditarEquipe saida={{ ...saida, veiculo: "ANT1234" }} unidadeId={FLN.id} aberto aoFechar={vi.fn()} aoSalvar={vi.fn(async () => {})} />, {
+      sessao: sessaoFicticia("SUPERVISOR", ["saidas:gerenciar", "pessoas:ver"]),
+    });
+    const veiculo = screen.getByLabelText("Veículo");
+    await vi.waitFor(() => expect(veiculo).toBeEnabled());
+    expect(veiculo.tagName).toBe("SELECT");
+    expect(within(veiculo).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "A definir",
+      "ANT1234 (digitado antes, fora do cadastro)",
+      "DEM1A23 — Floripa 01 (Ônibus de dois andares, 73 lugares)",
+    ]);
+    const u = userEvent.setup();
+    await u.selectOptions(veiculo, "DEM1A23");
+    expect(screen.getByLabelText("Capacidade (assentos)")).toHaveValue(73);
+    await u.click(screen.getByRole("button", { name: "Salvar" }));
+    expect(corpoEnviado(api, "PATCH", "/api/saidas/s1")).toMatchObject({ veiculo: "DEM1A23", capacidade: 73 });
+  });
+});

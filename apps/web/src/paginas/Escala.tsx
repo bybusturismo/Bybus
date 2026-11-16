@@ -1,3 +1,4 @@
+import { EscolherVeiculo } from "../componentes/EscolherVeiculo";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api, mensagemDeErro, qs } from "../api/cliente";
@@ -155,7 +156,7 @@ export function Escala() {
         </div>
         <div className="campo campo--linha">
           <label htmlFor="escala-veiculo">Veículo padrão</label>
-          <input id="escala-veiculo" value={veiculo} maxLength={40} disabled={!podeEditar} onChange={(ev) => setVeiculo(ev.target.value)} placeholder="Placa" />
+          <EscolherVeiculo id="escala-veiculo" valor={veiculo} unidadeId={atual.unidadeId} desabilitado={!podeEditar} vazio="Nenhum" aoMudar={(placa) => setVeiculo(placa)} />
         </div>
       </div>
         <div className="barra-acoes">

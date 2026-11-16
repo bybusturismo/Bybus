@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { criarDb } from "../src/db/cliente.js";
 import { auditoria, checklistItens, passeios, perfis, rastreioPosicoes, rastreioSessoes, saidas, unidades, usuarios, usuariosUnidades } from "../src/db/schema.js";
 import { ITENS_CHECKLIST_PADRAO } from "@bybus/core";
@@ -336,7 +336,7 @@ describe("regressões de concorrência e bloqueio no back-end", () => {
     expect(total).toHaveLength(ITENS_CHECKLIST_PADRAO.length);
   });
 
-  it("escala recusa veículo padrão indisponível, aceita placa fora da frota e a saída não copia indisponível", async () => {
+  it("escala recusa veículo padrão indisponível e placa fora da frota; a saída não copia indisponível", async () => {
     const admin = await logado("admin@bybus.test");
     const v = await criarVeiculo(admin, "ESC1A11");
     await admin.req("POST", "/api/frota/documentos", { veiculoId: v.id, tipo: "CRLV", vencimento: somar(-3) });
@@ -346,7 +346,10 @@ describe("regressões de concorrência e bloqueio no back-end", () => {
     expect(recusa.statusCode).toBe(409);
     expect(recusa.json().codigo).toBe("VEICULO_INDISPONIVEL");
     expect(recusa.json().mensagem).toContain("Documento vencido: CRLV");
-    expect((await put("ZZZ9Z99")).statusCode).toBe(200); // fora da frota: aceito
+    // Fora da frota: recusado (dono, 16/11/2026: veículo só por lista do cadastro).
+    const fora = await put("ZZZ9Z99");
+    expect(fora.statusCode).toBe(400);
+    expect(fora.json().codigo).toBe("VEICULO_FORA_DO_CADASTRO");
 
     const { db, pool } = criarDb(DATABASE_URL);
     await db.update(passeios).set({ veiculoPadrao: "ESC1A11" }).where(eq(passeios.id, toda.id));
@@ -359,5 +362,31 @@ describe("regressões de concorrência e bloqueio no back-end", () => {
     await pool.end();
     expect(depois!.veiculo).toBeNull();
     expect(livre!.veiculo).toBe("ZZZ9Z99");
+  });
+});
+
+describe("veículo só do cadastro (16/11/2026)", () => {
+  it("saída aceita só placa cadastrada (gravada no formato do cadastro), mantém valor antigo e a lista de opções serve a quem escala", async () => {
+    const admin = await logado("admin@bybus.test");
+    await criarVeiculo(admin, "SEL1A11");
+    const { db, pool } = criarDb(DATABASE_URL);
+    const [saida] = await db.select().from(saidas).where(sql`${saidas.veiculo} is not null`).limit(1);
+    await pool.end();
+    expect(saida).toBeTruthy();
+    // Valor antigo (digitado antes da regra) pode ser mantido.
+    expect((await admin.req("PATCH", `/api/saidas/${saida!.id}`, { veiculo: saida!.veiculo })).statusCode).toBe(200);
+    const fora = await admin.req("PATCH", `/api/saidas/${saida!.id}`, { veiculo: "XYZ9Z99" });
+    expect(fora.statusCode).toBe(400);
+    expect(fora.json().codigo).toBe("VEICULO_FORA_DO_CADASTRO");
+    const ok = await admin.req("PATCH", `/api/saidas/${saida!.id}`, { veiculo: "sel-1a11" });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().veiculo).toBe("SEL1A11");
+    expect((await admin.req("PATCH", `/api/saidas/${saida!.id}`, { veiculo: null })).json().veiculo).toBeNull();
+
+    const sup = await logado("supervisor@bybus.test");
+    const opcoes = await sup.req("GET", "/api/frota/veiculos/opcoes");
+    expect(opcoes.statusCode).toBe(200);
+    const guia = await logado("guia@bybus.test");
+    expect((await guia.req("GET", "/api/frota/veiculos/opcoes")).statusCode).toBe(403);
   });
 });

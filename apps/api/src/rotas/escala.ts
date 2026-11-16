@@ -7,7 +7,7 @@ import { escalas, passeios, pessoas, saidas } from "../db/schema.js";
 import { garantirPasseio } from "../seguranca/escopo.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { aplicarEscalaNaSaida, validarPessoaDaPraca } from "../servicos/escala.js";
-import { hojeSp, motivosIndisponibilidade } from "../servicos/frota.js";
+import { hojeSp, motivosIndisponibilidade, placaDoCadastro } from "../servicos/frota.js";
 
 const uuid = z.string().uuid();
 const mesIso = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mês no formato AAAA-MM");
@@ -68,7 +68,8 @@ export async function rotasEscala(app: FastifyInstance, { db, config }: Contexto
       dias: z.array(z.object({ data: dataIso, guiaId: uuid.nullable(), motoristaId: uuid.nullable() })).max(31),
     }).parse(req.body);
     const unidadeId = await garantirPasseio(db, req.usuario!, corpo.passeioId);
-    const [antes] = await db.select({ motoristaPadraoId: passeios.motoristaPadraoId }).from(passeios).where(eq(passeios.id, corpo.passeioId));
+    const [antes] = await db.select({ motoristaPadraoId: passeios.motoristaPadraoId, veiculoPadrao: passeios.veiculoPadrao }).from(passeios).where(eq(passeios.id, corpo.passeioId));
+    if (corpo.veiculoPadrao !== undefined) corpo.veiculoPadrao = await placaDoCadastro(db, corpo.veiculoPadrao, antes?.veiculoPadrao);
     const mudouPadrao = corpo.motoristaPadraoId !== undefined && (corpo.motoristaPadraoId ?? null) !== (antes?.motoristaPadraoId ?? null);
     const validos = new Set(diasDoMes(corpo.mes));
     if (corpo.dias.some((d) => !validos.has(d.data))) throw new ErroHttp(400, "DATA_FORA_DO_MES", "Há dias fora do mês informado.");

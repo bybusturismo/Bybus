@@ -1,3 +1,4 @@
+import { EscolherVeiculo } from "../../componentes/EscolherVeiculo";
 import { useMemo, useState, type FormEvent } from "react";
 import { api, ErroApi, mensagemDeErro, qs } from "../../api/cliente";
 import { LINHAS_NEGOCIO, type LinhaNegocio } from "../../api/tipos";
@@ -162,8 +163,8 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
           </select>
         </div>
         <div className="campo">
-          <label htmlFor="lan-veiculo">Veículo (placa)</label>
-          <input id="lan-veiculo" value={veiculo} maxLength={10} onChange={(e) => setVeiculo(e.target.value.toUpperCase())} placeholder="Opcional" />
+          <label htmlFor="lan-veiculo">Veículo</label>
+          <EscolherVeiculo id="lan-veiculo" valor={veiculo} vazio="Nenhum (opcional)" aoMudar={(placa) => setVeiculo(placa)} />
         </div>
         {tipo === "RECEBER" && (
           <div className="campo">

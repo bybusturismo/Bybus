@@ -77,3 +77,20 @@ Painel (`/frota`), Veículos, Documentos, Manutenção (ordens e planos), Abaste
   `veiculos_abastecimentos.tipo`). Só combustível entra no km/l e nos litros do resumo; óleo e lubrificante entram no gasto.
   O **mesmo km** passou a ser aceito (antes dava "km repetido"): ex. cupom com duas linhas de diesel — cada linha é lançada
   com o mesmo km e o km/l soma os litros das linhas (fica na última). Coluna e filtro "Serviço" na lista.
+
+## Veículo só por lista suspensa (16/11/2026)
+Pedido do dono: "o veículo apareça todos cadastrados em uma lista suspensa só pra selecionar… todo sistema precisa ser assim".
+- **Onde mudou:**
+  - saída (Veículo e equipe);
+  - escala (veículo padrão);
+  - transfer e configuração do transfer (saiu o "Outro (digitar placa)");
+  - financeiro (lançamentos e lançamento pelo extrato);
+  - grupos fechados.
+
+  Em todas essas telas o veículo é escolhido na lista dos veículos da Frota, ativos e em manutenção, mostrando placa, apelido, tipo e lugares. Os inativos ficam fora da lista.
+- **Saída:** ao escolher o veículo, a capacidade da saída passa a ser a quantidade de lugares do veículo (dá para mudar depois).
+- **Servidor:** a saída e a escala só aceitam uma placa cadastrada (erro `VEICULO_FORA_DO_CADASTRO`). A regra antiga ("placa fora da frota é aceita") deixou de valer.
+- **Valores antigos:** o que foi digitado antes continua aparecendo como opção "(digitado antes, fora do cadastro)" até alguém trocar. Nada se perde.
+- **Grupo criado de um orçamento:** o veículo fica para escolher na ficha, e o tipo orçado (van, micro ou ônibus) vai para as observações.
+- **Fonte da lista:** `GET /api/frota/veiculos/opcoes`, liberada para quem gerencia saídas, escala, frota, reservas ou financeiro.
+- **Guia e motorista** já eram escolhidos da lista do cadastro Equipe em todo o sistema (saída, escala, transfer e grupos).

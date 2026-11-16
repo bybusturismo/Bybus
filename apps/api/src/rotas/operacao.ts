@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { CANAIS, CATEGORIAS, STATUS_EMBARQUE, TIPOS_DOCUMENTO, compararPontos, comprimentoKm, lerKml, tracadoDaRota, validarSequenciaTransfer } from "@bybus/core";
 import { z } from "zod";
+import { placaDoCadastro } from "../servicos/frota.js";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
 import { LINHAS_NEGOCIO, passageiros, passeios, pessoas, pontosEmbarque, reservas, saidas, unidades } from "../db/schema.js";
@@ -248,7 +249,11 @@ export async function rotasOperacao(app: FastifyInstance, { db, config, cofre }:
     }).parse(req.body);
     const unidadeId = await garantirSaida(db, req.usuario!, id);
     // Guia/motorista do cadastro: valida e mantém o nome em texto (compatibilidade com telas atuais).
-    const extras: { guia?: string | null; motorista?: string | null } = {};
+    const extras: { guia?: string | null; motorista?: string | null; veiculo?: string | null } = {};
+    if (corpo.veiculo !== undefined) {
+      const [atual] = await db.select({ veiculo: saidas.veiculo }).from(saidas).where(eq(saidas.id, id));
+      extras.veiculo = await placaDoCadastro(db, corpo.veiculo, atual?.veiculo);
+    }
     if (corpo.guiaId !== undefined) extras.guia = (await validarPessoa(corpo.guiaId, "GUIA", unidadeId))?.nome ?? null;
     if (corpo.motoristaId !== undefined) extras.motorista = (await validarPessoa(corpo.motoristaId, "MOTORISTA", unidadeId))?.nome ?? null;
     if (corpo.status !== undefined && !pode(req.usuario!, "saidas:decidir")) {

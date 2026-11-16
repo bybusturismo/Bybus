@@ -84,10 +84,9 @@ export function ConfigTransfer({ passeio }: { passeio: Passeio }) {
           </select></div>
         <div className="campo"><label htmlFor="cfg-veiculo">Van padrão (frota)</label>
           <select id="cfg-veiculo" disabled={!editar} value={cfg.veiculoPadraoId ?? ""} onChange={(e) => setCfg({ ...cfg, veiculoPadraoId: e.target.value || null })}>
-            <option value="">Outra (digitar)</option>
+            <option value="">{cfg.veiculoPadraoTexto ? `${cfg.veiculoPadraoTexto} (digitado antes, fora do cadastro)` : "Nenhuma"}</option>
             {d.veiculos.map((v) => <option key={v.id} value={v.id}>{v.apelido ? `${v.apelido} (${v.placa})` : v.placa}</option>)}
           </select></div>
-        {!cfg.veiculoPadraoId && <div className="campo"><label htmlFor="cfg-veic-texto">Placa ou descrição da van</label><input id="cfg-veic-texto" disabled={!editar} maxLength={60} value={cfg.veiculoPadraoTexto ?? ""} onChange={(e) => setCfg({ ...cfg, veiculoPadraoTexto: e.target.value || null })} /></div>}
         <div className="campo"><label htmlFor="cfg-lugares">Lugares na van</label><input id="cfg-lugares" inputMode="numeric" disabled={!editar} value={cfg.lugaresPadrao ?? ""} onChange={(e) => setCfg({ ...cfg, lugaresPadrao: e.target.value ? Number(e.target.value.replace(/\D/g, "")) || null : null })} /></div>
       </div>
       <p className="campo__ajuda">O motorista, a van e o ponto de encontro padrão valem para cada novo dia de transfer; dá para ajustar em cada dia na tela Transfer.</p>
