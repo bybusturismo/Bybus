@@ -119,3 +119,17 @@ saldo ficou R$ 25 mil acima do banco. Regras novas:
    `GET /api/financeiro/contas/:id/conferencia?data&saldoBancoCentavos` (`financeiro:ver`, escopo da praça).
 - Rotina recomendada ao dono: transferências/aplicações/resgates só como transferência; planilha **ou** lançamento à mão
   para o mesmo período; importar o extrato (OFX) toda semana; saldo inicial = saldo do banco no fim do dia anterior.
+
+## Conferir com o banco: corrigir na própria tela (16/11/2026)
+O dono excluiu os lançamentos sugeridos e o saldo do Sicredi continuou errado (R$ 29.771,94 contra R$ 4.771,42 no banco).
+- **Causa:** o saldo é o saldo inicial + as linhas do extrato do banco + as transferências entre contas + os lançamentos baixados fora do período do extrato. O PIX de R$ 25.000,00 estava no extrato do banco e também numa "transferência entre contas" criada pela importação da planilha. Excluir lançamentos não muda nenhuma das duas. A tela só apontava a linha do banco e não dava como agir.
+- **O que mudou:**
+  - A conferência aponta também a transferência (motivo "mesmo valor como transferência e também como entrada/saída").
+  - Cada suspeito traz uma ação:
+    - **Desfazer transferência**, para a criada pela planilha ou à mão: apaga as duas pontas e as linhas do banco ficam;
+    - **É repetida**, para uma linha do banco que entrou duas vezes;
+    - para um lançamento, a orientação de reabrir a baixa e excluir.
+
+    As ações pedem confirmação e depois a tela confere de novo.
+- **Linha "Repetida":** status novo (`REPETIDA`) que deixa de contar no saldo. Só vale se houver outra linha do banco (não criada no sistema) da mesma conta, com o mesmo valor, em até 5 dias. Volta a contar com "Desfazer" (aba "Repetidas" em Extrato e conciliação). Fica registrado na auditoria (`FIN_LINHA_REPETIDA`).
+- Rota nova: `POST /api/financeiro/extrato/linhas/:id/repetida` (financeiro:gerenciar).

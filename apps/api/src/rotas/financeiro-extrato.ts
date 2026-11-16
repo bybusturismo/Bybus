@@ -12,7 +12,7 @@ import type { Contexto } from "../app.js";
 import { finCategorias, finContas, finExtratoLinhas, finExtratos, finLancamentos, finRecusas, finRegras } from "../db/schema.js";
 import { ErroHttp } from "../seguranca/sessao.js";
 import { dataIso, uuid, veiculoOpcional } from "./financeiro-comum.js";
-import { estaConciliado, filtroPraca, garantirConta, garantirLancamento, garantirLinha, hojeSP, validarCategoria, validarPracaDoRegistro } from "../servicos/financeiro.js";
+import { estaConciliado, filtroPraca, linhaTemGemea, garantirConta, garantirLancamento, garantirLinha, hojeSP, validarCategoria, validarPracaDoRegistro } from "../servicos/financeiro.js";
 
 const MAX_LINHAS = 20_000;
 
@@ -93,7 +93,7 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
   app.get("/api/financeiro/extrato/linhas", ver, async (req) => {
     const u = req.usuario!;
     const q = z.object({
-      contaId: uuid, status: z.enum(["PENDENTE", "CONCILIADO", "TRANSFERENCIA", "IGNORADO"]).optional(),
+      contaId: uuid, status: z.enum(["PENDENTE", "CONCILIADO", "TRANSFERENCIA", "IGNORADO", "REPETIDA"]).optional(),
       de: dataIso.optional(), ate: dataIso.optional(), q: z.string().trim().max(100).optional(),
       pagina: z.coerce.number().int().min(1).max(10_000).default(1), limite: z.coerce.number().int().min(1).max(200).default(100),
     }).parse(req.query);
@@ -260,6 +260,25 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
       .where(and(eq(finExtratoLinhas.id, id), eq(finExtratoLinhas.status, "PENDENTE"))).returning({ id: finExtratoLinhas.id });
     if (r.length === 0) throw new ErroHttp(409, "LINHA_JA_DECIDIDA", "Esta linha já foi decidida.");
     await auditar(db, req, "FIN_LINHA_IGNORADA", { tipo: "fin_extrato_linha", id });
+    return { ok: true };
+  });
+
+  /**
+   * Linha do banco que entrou duas vezes (ex.: o mesmo extrato importado em formatos diferentes): fica marcada como
+   * repetida e deixa de contar no saldo (dono, 16/11/2026). Só vale se houver outra linha da conta com o mesmo valor em
+   * até 5 dias. "Desfazer" volta a linha para pendente.
+   */
+  app.post("/api/financeiro/extrato/linhas/:id/repetida", gerenciar, async (req) => {
+    const u = req.usuario!;
+    const { id } = idLinha.parse(req.params);
+    const { linha } = await garantirLinha(db, u, id);
+    if (linha.manual) throw new ErroHttp(409, "LINHA_MANUAL", "Esta linha foi criada no sistema: use “Desfazer transferência”.");
+    if (linha.status !== "PENDENTE" && linha.status !== "IGNORADO") throw new ErroHttp(409, "LINHA_JA_DECIDIDA", "Desfaça a conciliação ou a transferência desta linha antes.");
+    const vizinhas = await db.select().from(finExtratoLinhas).where(and(eq(finExtratoLinhas.contaId, linha.contaId), eq(finExtratoLinhas.valorCentavos, linha.valorCentavos),
+      gte(finExtratoLinhas.data, somarDiasIso(linha.data, -5)), lte(finExtratoLinhas.data, somarDiasIso(linha.data, 5))));
+    if (!linhaTemGemea(linha, vizinhas)) throw new ErroHttp(409, "SEM_GEMEA", "Não há outra linha com o mesmo valor em até 5 dias: ela não parece repetida.");
+    await db.update(finExtratoLinhas).set({ status: "REPETIDA", decididoPor: u.id, decididoEm: new Date() }).where(eq(finExtratoLinhas.id, id));
+    await auditar(db, req, "FIN_LINHA_REPETIDA", { tipo: "fin_extrato_linha", id }, { valorCentavos: linha.valorCentavos, data: linha.data });
     return { ok: true };
   });
 

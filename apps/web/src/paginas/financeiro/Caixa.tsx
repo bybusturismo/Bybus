@@ -15,21 +15,38 @@ const sinal = (v: number) => (v < 0 ? "fin-valor--saida" : "");
 interface Conferencia {
   saldoSistemaCentavos: number; saldoBancoCentavos: number; diferencaCentavos: number;
   composicao: { saldoInicialCentavos: number; saldoInicialEm: string | null; transferenciasCentavos: number; extratoCentavos: number; entradasCentavos: number; saidasCentavos: number };
-  suspeitos: Array<{ id: string; origem: "LINHA" | "LANCAMENTO"; data: string; valorCentavos: number; descricao: string; transferencia: boolean; criadoPelaPlanilha: boolean; motivos: MotivoSuspeita[] }>;
+  suspeitos: Array<{
+    id: string; origem: "LINHA" | "LANCAMENTO"; data: string; valorCentavos: number; descricao: string; transferencia: boolean; criadoPelaPlanilha: boolean; motivos: MotivoSuspeita[];
+    acao?: "DESFAZER_TRANSFERENCIA" | "MARCAR_REPETIDA" | "ABRIR_LANCAMENTO" | null;
+  }>;
 }
 
 /**
  * Conferência com o banco (dono, 13/11/2026): digita o saldo que o banco mostra num dia e o sistema compara, mostra de que é
  * feito o saldo e aponta os lançamentos que provavelmente explicam a diferença (repetidos, transferência em dobro…).
  */
-function ConferenciaComBanco({ contaId }: { contaId: string }) {
+function ConferenciaComBanco({ contaId, podeEditar }: { contaId: string; podeEditar: boolean }) {
+  const notificar = useNotificar();
+  const [confirmar, setConfirmar] = useState<string | null>(null);
   const [data, setData] = useState(hojeIso());
   const [saldoBanco, setSaldoBanco] = useState("");
   const [r, setR] = useState<Conferencia | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
-  async function conferir(e: FormEvent) {
-    e.preventDefault();
+  /** Corrige ali mesmo (dono, 16/11/2026): desfaz a transferência em dobro ou marca a linha do banco repetida; depois confere de novo. */
+  async function corrigir(x: Conferencia["suspeitos"][number]) {
+    setErro(null);
+    try {
+      await api.post(`/api/financeiro/extrato/linhas/${x.id}/${x.acao === "DESFAZER_TRANSFERENCIA" ? "desfazer" : "repetida"}`, {});
+      notificar(x.acao === "DESFAZER_TRANSFERENCIA" ? "Transferência desfeita (as duas pontas)." : "Linha marcada como repetida: não conta mais no saldo.");
+      setConfirmar(null);
+      await conferir();
+    } catch (z) {
+      setErro(mensagemDeErro(z));
+    }
+  }
+  async function conferir(e?: FormEvent) {
+    e?.preventDefault();
     setErro(null);
     const texto = saldoBanco.trim();
     const negativo = texto.startsWith("-");
@@ -78,7 +95,7 @@ function ConferenciaComBanco({ contaId }: { contaId: string }) {
             <div className="tabela-rolagem">
               <table className="tabela">
                 <caption className="fin-oculto-visual">Possíveis causas da diferença</caption>
-                <thead><tr><th scope="col">Data</th><th scope="col">Descrição</th><th scope="col">Origem</th><th scope="col" className="fin-valor">Valor</th><th scope="col">Por que conferir</th></tr></thead>
+                <thead><tr><th scope="col">Data</th><th scope="col">Descrição</th><th scope="col">Origem</th><th scope="col" className="fin-valor">Valor</th><th scope="col">Por que conferir</th><th scope="col">O que fazer</th></tr></thead>
                 <tbody>
                   {r.suspeitos.map((x) => (
                     <tr key={x.id}>
@@ -87,6 +104,25 @@ function ConferenciaComBanco({ contaId }: { contaId: string }) {
                       <td>{x.transferencia ? (x.criadoPelaPlanilha ? "Transferência (planilha)" : "Transferência") : x.origem === "LINHA" ? "Extrato do banco" : x.criadoPelaPlanilha ? "Lançamento (planilha)" : "Lançamento (à mão)"}</td>
                       <td className={`fin-valor ${sinal(x.valorCentavos)}`}>{formatarMoeda(x.valorCentavos)}</td>
                       <td>{x.motivos.map((m) => ROTULO_SUSPEITA[m]).join("; ")}</td>
+                      <td>
+                        {x.acao === "ABRIR_LANCAMENTO" ? (
+                          <span className="texto-fraco">Abra em Contas a {x.valorCentavos < 0 ? "pagar" : "receber"}, reabra a baixa e exclua se for repetido.</span>
+                        ) : !x.acao || !podeEditar ? (
+                          <span className="texto-fraco">{x.origem === "LINHA" && !x.transferencia ? "Veio do banco: confira a outra linha." : "—"}</span>
+                        ) : confirmar === x.id ? (
+                          <span className="barra-acoes">
+                            <button type="button" className="botao botao--perigo botao--pequeno" onClick={() => void corrigir(x)}>
+                              {x.acao === "DESFAZER_TRANSFERENCIA" ? "Sim, desfazer" : "Sim, é repetida"}
+                            </button>
+                            <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setConfirmar(null)}>Não</button>
+                          </span>
+                        ) : (
+                          <button type="button" className="botao botao--secundario botao--pequeno" onClick={() => setConfirmar(x.id)}
+                            title={x.acao === "DESFAZER_TRANSFERENCIA" ? "Apaga esta transferência nas duas contas (a da planilha/à mão). As linhas do extrato do banco ficam." : "A linha deixa de contar no saldo. Dá para desfazer em Extrato e conciliação."}>
+                            {x.acao === "DESFAZER_TRANSFERENCIA" ? "Desfazer transferência" : "É repetida"}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -231,7 +267,7 @@ export function Caixa() {
             <span>Saldo atual: <strong className={`fin-valor ${sinal(conta.saldoCentavos)}`}>{formatarMoeda(conta.saldoCentavos)}</strong></span>
           </div>
           {conta.tipo === "CAIXA" && <FechamentoDoDia key={`fech-${conta.id}`} contaId={conta.id} podeEditar={pode("financeiro:gerenciar")} />}
-          <ConferenciaComBanco key={`conf-${conta.id}`} contaId={conta.id} />
+          <ConferenciaComBanco key={`conf-${conta.id}`} contaId={conta.id} podeEditar={pode("financeiro:gerenciar")} />
           <SaldoDiarioDaConta key={`dia-${conta.id}`} contaId={conta.id} />
         </>
       )}

@@ -41,7 +41,9 @@ export function suspeitosDaDiferenca(movs: readonly MovimentoConferencia[], dife
     if (diferencaCentavos !== 0 && s.valorCentavos === diferencaCentavos) s.motivos.push("VALOR_DA_DIFERENCA");
     const outros = saida.filter((o) => o !== s && o.valorCentavos === s.valorCentavos && dias(o.data, s.data) <= 5);
     if (outros.length) {
-      if (!s.transferencia && outros.some((o) => o.transferencia)) s.motivos.push("TRANSFERENCIA_EM_DOBRO");
+      // Transferência e outro movimento do mesmo valor: as duas pontas são suspeitas (a transferência costuma ser a que sobra,
+      // quando a planilha registra como transferência um valor que já veio no extrato do banco).
+      if (outros.some((o) => o.transferencia !== s.transferencia)) s.motivos.push("TRANSFERENCIA_EM_DOBRO");
       else if (!s.transferencia || outros.some((o) => o.transferencia)) s.motivos.push("REPETIDO");
     }
     if (s.origem === "LANCAMENTO" && pareceTransferencia(s.descricao)) s.motivos.push("PARECE_TRANSFERENCIA");
@@ -58,6 +60,6 @@ export function suspeitosDaDiferenca(movs: readonly MovimentoConferencia[], dife
 export const ROTULO_SUSPEITA: Record<MotivoSuspeita, string> = {
   VALOR_DA_DIFERENCA: "valor igual à diferença",
   REPETIDO: "mesmo valor duas vezes em até 5 dias",
-  TRANSFERENCIA_EM_DOBRO: "lançado à mão e também como transferência",
+  TRANSFERENCIA_EM_DOBRO: "mesmo valor como transferência e também como entrada/saída",
   PARECE_TRANSFERENCIA: "parece transferência lançada como receita/despesa",
 };

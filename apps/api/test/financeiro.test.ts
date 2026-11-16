@@ -3,7 +3,7 @@ import { like } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { criarDb } from "../src/db/cliente.js";
 import { SENHA_DEMO } from "../src/db/ficticios.js";
-import { auditoria, perfis, unidades, usuarios, usuariosUnidades } from "../src/db/schema.js";
+import { auditoria, finExtratoLinhas, perfis, unidades, usuarios, usuariosUnidades } from "../src/db/schema.js";
 import { gerarHashSenha } from "../src/seguranca/senha.js";
 import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
 
@@ -126,6 +126,50 @@ describe("saldo do banco: transferência contada em dobro (caso do Sicredi, 13/1
     expect(j.suspeitos[0]).toMatchObject({ id, origem: "LANCAMENTO", motivos: expect.arrayContaining(["VALOR_DA_DIFERENCA", "TRANSFERENCIA_EM_DOBRO", "PARECE_TRANSFERENCIA"]) });
     // Outra praça não confere a conta.
     expect((await usuarioBc.req("GET", `/api/financeiro/contas/${sicredi}/conferencia?data=${hoje}&saldoBancoCentavos=0`)).statusCode).toBe(404);
+  });
+});
+
+describe("conferência com o banco: corrigir pela própria tela (16/11/2026)", () => {
+  it("transferência da planilha em dobro com o extrato: desfaz e o saldo volta; linha do banco repetida deixa de contar", async () => {
+    const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    const dia = (n: number) => new Date(Date.parse(`${hoje}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+    const sicredi = await conta(usuarioFln, { nome: "Sicredi Dobro", tipo: "CORRENTE", unidadeId: fln, saldoInicialCentavos: 100000, saldoInicialEm: dia(-6) });
+    const outra = await conta(usuarioFln, { nome: "Outra Dobro", tipo: "CORRENTE", unidadeId: fln, saldoInicialCentavos: 5000000, saldoInicialEm: dia(-6) });
+    const { db, pool } = criarDb(DATABASE_URL);
+    // Extrato real: entra 25 mil (dia -4) e sai 25 mil (dia -3); Cielo de 300,00 duas vezes (mesmo arquivo importado em dois formatos).
+    await db.insert(finExtratoLinhas).values([
+      { contaId: sicredi, idUnico: "ofx-1", data: dia(-4), valorCentavos: 2500000, descricao: "RECEBIMENTO PIX BY BUS" },
+      { contaId: sicredi, idUnico: "ofx-2", data: dia(-3), valorCentavos: -2500000, descricao: "PAGAMENTO PIX" },
+      { contaId: sicredi, idUnico: "ofx-3", data: dia(-2), valorCentavos: 30000, descricao: "CIELO" },
+      { contaId: sicredi, idUnico: "csv-3", data: dia(-2), valorCentavos: 30000, descricao: "CIELO" },
+    ]);
+    await pool.end();
+    // A planilha trouxe o mesmo PIX como transferência entre contas (dia -2).
+    expect((await usuarioFln.req("POST", "/api/financeiro/transferencias", { contaOrigemId: outra, contaDestinoId: sicredi, valorCentavos: 2500000, data: dia(-2) })).statusCode).toBe(200);
+
+    // Banco: 1.000 + 300 = 1.300,00. Sistema: 1.000 + 0 + 600 + 25.000 = 26.600,00.
+    const conferir = async () => json(await usuarioFln.req("GET", `/api/financeiro/contas/${sicredi}/conferencia?data=${hoje}&saldoBancoCentavos=130000`));
+    const c1 = await conferir();
+    expect(c1.diferencaCentavos).toBe(2530000);
+    const transf = c1.suspeitos.find((x: { transferencia: boolean }) => x.transferencia);
+    expect(transf).toMatchObject({ valorCentavos: 2500000, acao: "DESFAZER_TRANSFERENCIA" });
+    // A linha do banco de 25 mil não é "repetida" (a outra é transferência): não oferece marcar.
+    expect(c1.suspeitos.find((x: { id: string; transferencia: boolean; valorCentavos: number }) => !x.transferencia && x.valorCentavos === 2500000)?.acao ?? null).toBeNull();
+    expect((await usuarioFln.req("POST", `/api/financeiro/extrato/linhas/${transf.id}/desfazer`, {})).statusCode).toBe(200);
+
+    const c2 = await conferir();
+    expect(c2.diferencaCentavos).toBe(30000);
+    const cielo = c2.suspeitos.filter((x: { acao: string | null }) => x.acao === "MARCAR_REPETIDA");
+    expect(cielo).toHaveLength(2);
+    expect((await usuarioFln.req("POST", `/api/financeiro/extrato/linhas/${cielo[0].id}/repetida`, {})).statusCode).toBe(200);
+    // A outra já não tem gêmea que conte: recusa.
+    expect((await usuarioFln.req("POST", `/api/financeiro/extrato/linhas/${cielo[1].id}/repetida`, {})).statusCode).toBe(409);
+    const c3 = await conferir();
+    expect(c3).toMatchObject({ diferencaCentavos: 0, saldoSistemaCentavos: 130000 });
+    expect((await usuarioFln.req("GET", "/api/financeiro/contas")).json().find((x: { id: string }) => x.id === sicredi).saldoCentavos).toBe(130000);
+    // Desfazer volta a contar.
+    expect((await usuarioFln.req("POST", `/api/financeiro/extrato/linhas/${cielo[0].id}/desfazer`, {})).statusCode).toBe(200);
+    expect((await conferir()).diferencaCentavos).toBe(30000);
   });
 });
 

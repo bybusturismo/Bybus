@@ -4,7 +4,7 @@ import type { LinhaNegocio } from "../../api/tipos";
 export type TipoLancamento = "PAGAR" | "RECEBER";
 export type TipoConta = "CORRENTE" | "APLICACAO" | "CAIXA" | "CARTAO";
 export type FormaPagamento = "PIX" | "BOLETO" | "TRANSFERENCIA" | "DEBITO" | "CARTAO" | "DINHEIRO" | "OUTRA";
-export type StatusLinha = "PENDENTE" | "CONCILIADO" | "TRANSFERENCIA" | "IGNORADO";
+export type StatusLinha = "PENDENTE" | "CONCILIADO" | "TRANSFERENCIA" | "IGNORADO" | "REPETIDA";
 
 export const TIPOS_CONTA: TipoConta[] = ["CORRENTE", "APLICACAO", "CAIXA", "CARTAO"];
 export const FORMAS: FormaPagamento[] = ["PIX", "BOLETO", "TRANSFERENCIA", "DEBITO", "CARTAO", "DINHEIRO", "OUTRA"];

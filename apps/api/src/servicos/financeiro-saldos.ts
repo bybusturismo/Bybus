@@ -1,4 +1,4 @@
-import { and, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, lte, ne, sql } from "drizzle-orm";
 import type { Db } from "../db/cliente.js";
 import { finExtratoLinhas, finLancamentos } from "../db/schema.js";
 import { naoConciliadoSql, type Conta } from "./financeiro.js";
@@ -21,7 +21,7 @@ export async function movimentosPorDia(db: Db, conta: Conta, de: string, ate: st
     mapa.set(data, m);
   };
   const linhas = await db.select({ data: finExtratoLinhas.data, valor: finExtratoLinhas.valorCentavos }).from(finExtratoLinhas)
-    .where(and(eq(finExtratoLinhas.contaId, conta.id), gte(finExtratoLinhas.data, inicio), lte(finExtratoLinhas.data, ate)));
+    .where(and(eq(finExtratoLinhas.contaId, conta.id), ne(finExtratoLinhas.status, "REPETIDA"), gte(finExtratoLinhas.data, inicio), lte(finExtratoLinhas.data, ate)));
   for (const l of linhas) soma(l.data, l.valor);
   const avulsos = await db.select({ data: finLancamentos.pagoEm, tipo: finLancamentos.tipo, valor: finLancamentos.valorPagoCentavos }).from(finLancamentos)
     .where(and(

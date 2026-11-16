@@ -1,5 +1,5 @@
 import { PLANO_CATEGORIAS, SINONIMOS_PADRAO, type TipoCategoria } from "@bybus/core";
-import { and, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, ne, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "../db/cliente.js";
 import { finCategorias, finContas, finExtratoLinhas, finFechamentosCaixa, finLancamentos, finRegras, finSinonimos, unidades } from "../db/schema.js";
@@ -120,7 +120,7 @@ export async function saldosDasContas(db: Db, contas: Conta[], antesDe?: string)
   const ids = contas.map((c) => c.id);
   const linhas = await db.select({ contaId: finExtratoLinhas.contaId, total: sql<number>`coalesce(sum(${finExtratoLinhas.valorCentavos}), 0)`.mapWith(Number) })
     .from(finExtratoLinhas).innerJoin(finContas, eq(finContas.id, finExtratoLinhas.contaId))
-    .where(and(inArray(finExtratoLinhas.contaId, ids), sql`(${finContas.saldoInicialEm} is null or ${finExtratoLinhas.data} >= ${finContas.saldoInicialEm})`, antesDe ? sql`${finExtratoLinhas.data} < ${antesDe}` : undefined))
+    .where(and(inArray(finExtratoLinhas.contaId, ids), ne(finExtratoLinhas.status, "REPETIDA"), sql`(${finContas.saldoInicialEm} is null or ${finExtratoLinhas.data} >= ${finContas.saldoInicialEm})`, antesDe ? sql`${finExtratoLinhas.data} < ${antesDe}` : undefined))
     .groupBy(finExtratoLinhas.contaId);
   for (const l of linhas) saldos.set(l.contaId, (saldos.get(l.contaId) ?? 0) + l.total);
   const avulsos = await db.select({
@@ -156,4 +156,13 @@ export async function garantirRegra(db: Db, u: UsuarioSessao, id: string) {
   const [r] = await db.select().from(finRegras).where(eq(finRegras.id, id));
   if (!r || !(u.todasUnidades || (r.unidadeId && podeUnidade(u, r.unidadeId)))) throw naoEncontrado("Regra");
   return r;
+}
+
+/**
+ * Há outra linha DO BANCO (não criada no sistema) da mesma conta, com o mesmo valor, em até 5 dias, que ainda conta no saldo?
+ * Então esta pode ser a repetida. Transferência lançada pela planilha ou à mão não conta como gêmea: nesse caso é ela que se desfaz.
+ */
+export function linhaTemGemea(l: { id: string; contaId: string; data: string; valorCentavos: number }, outras: ReadonlyArray<{ id: string; contaId: string; data: string; valorCentavos: number; status: string; manual: boolean }>) {
+  const dia = (d: string) => Date.parse(`${d}T12:00:00Z`) / 86_400_000;
+  return outras.some((o) => o.id !== l.id && o.contaId === l.contaId && o.valorCentavos === l.valorCentavos && !o.manual && o.status !== "REPETIDA" && Math.abs(dia(o.data) - dia(l.data)) <= 5);
 }

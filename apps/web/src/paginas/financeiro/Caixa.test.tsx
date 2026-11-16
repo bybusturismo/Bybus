@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { FLN, renderizar, sessaoFicticia, simularApi } from "../../teste/ajuda";
+import { corpoEnviado, FLN, renderizar, sessaoFicticia, simularApi } from "../../teste/ajuda";
 import { Caixa } from "./Caixa";
 import type { ContaFin } from "./tipos";
 
@@ -29,6 +29,39 @@ describe("Conferir com o banco (13/11/2026)", () => {
     expect(await sec.findByText(/a mais no sistema/)).toBeInTheDocument();
     const linha = sec.getByRole("row", { name: /TRANSF ENTRE CONTAS/ });
     expect(linha).toHaveTextContent("Lançamento (à mão)");
-    expect(linha).toHaveTextContent("valor igual à diferença; lançado à mão e também como transferência");
+    expect(linha).toHaveTextContent("valor igual à diferença; mesmo valor como transferência e também como entrada/saída");
+  });
+});
+
+describe("Conferir com o banco: corrigir na tela (16/11/2026)", () => {
+  it("desfaz a transferência da planilha com confirmação e confere de novo", async () => {
+    let corrigido = false;
+    const api = simularApi({
+      "GET /api/financeiro/contas": [conta],
+      "GET /api/financeiro/contas/k1/saldo-diario": { conta: { id: "k1", nome: "Banco Teste", tipo: "CORRENTE" }, saldoInicialCentavos: 0, dias: [] },
+      "GET /api/financeiro/contas/k1/conferencia": () => corrigido
+        ? { saldoSistemaCentavos: 2600000, saldoBancoCentavos: 2600000, diferencaCentavos: 0, composicao: { saldoInicialCentavos: 100000, saldoInicialEm: "2026-11-01", transferenciasCentavos: 0, extratoCentavos: 2500000, entradasCentavos: 0, saidasCentavos: 0 }, suspeitos: [] }
+        : {
+          saldoSistemaCentavos: 5100000, saldoBancoCentavos: 2600000, diferencaCentavos: 2500000,
+          composicao: { saldoInicialCentavos: 100000, saldoInicialEm: "2026-11-01", transferenciasCentavos: 2500000, extratoCentavos: 2500000, entradasCentavos: 0, saidasCentavos: 0 },
+          suspeitos: [
+            { id: "t1", origem: "LINHA", data: "2026-11-05", valorCentavos: 2500000, descricao: "Transferência Outra → Banco", transferencia: true, criadoPelaPlanilha: true, motivos: ["VALOR_DA_DIFERENCA", "TRANSFERENCIA_EM_DOBRO"], acao: "DESFAZER_TRANSFERENCIA" },
+            { id: "b1", origem: "LINHA", data: "2026-11-03", valorCentavos: 2500000, descricao: "RECEBIMENTO PIX", transferencia: false, criadoPelaPlanilha: false, motivos: ["VALOR_DA_DIFERENCA", "TRANSFERENCIA_EM_DOBRO"], acao: null },
+          ],
+        },
+      "POST /api/financeiro/extrato/linhas/t1/desfazer": () => { corrigido = true; return { ok: true }; },
+    });
+    renderizar(<Caixa />, { sessao: sessaoFicticia("FIN", ["financeiro:ver", "financeiro:gerenciar"], { unidades: [FLN] }) });
+    const u = userEvent.setup();
+    const sec = within(await screen.findByRole("region", { name: "Conferir com o banco" }));
+    await u.type(sec.getByLabelText("Saldo no banco (R$)"), "26.000,00");
+    await u.click(sec.getByRole("button", { name: "Conferir" }));
+    const linha = within(await sec.findByRole("row", { name: /Transferência Outra/ }));
+    expect(linha.getByRole("cell", { name: "Transferência (planilha)" })).toBeInTheDocument();
+    expect(sec.getByRole("row", { name: /RECEBIMENTO PIX/ })).toHaveTextContent("Veio do banco");
+    await u.click(linha.getByRole("button", { name: "Desfazer transferência" }));
+    await u.click(linha.getByRole("button", { name: "Sim, desfazer" }));
+    expect(await sec.findByText(/Saldo confere com o banco/)).toBeInTheDocument();
+    expect(corpoEnviado(api, "POST", "/api/financeiro/extrato/linhas/t1/desfazer")).toEqual({});
   });
 });

@@ -14,8 +14,8 @@ import { useCategorias, useContas } from "./dados";
 import type { CategoriaFin, ContaFin, LinhaExtratoFin, PreviaImportacao, RespostaLinhas, StatusLinha, SugestaoConc } from "./tipos";
 import { decodificarArquivo, ROTULO_TIPO_CONTA } from "./util";
 
-const ROTULO_STATUS: Record<StatusLinha, string> = { PENDENTE: "Pendente", CONCILIADO: "Conciliada", TRANSFERENCIA: "Transferência", IGNORADO: "Ignorada" };
-const CLASSE_STATUS: Record<StatusLinha, string> = { PENDENTE: "etiqueta--atencao", CONCILIADO: "etiqueta--sucesso", TRANSFERENCIA: "etiqueta--neutra", IGNORADO: "etiqueta--neutra" };
+const ROTULO_STATUS: Record<StatusLinha, string> = { PENDENTE: "Pendente", CONCILIADO: "Conciliada", TRANSFERENCIA: "Transferência", IGNORADO: "Ignorada", REPETIDA: "Repetida (não conta no saldo)" };
+const CLASSE_STATUS: Record<StatusLinha, string> = { PENDENTE: "etiqueta--atencao", CONCILIADO: "etiqueta--sucesso", TRANSFERENCIA: "etiqueta--neutra", IGNORADO: "etiqueta--neutra", REPETIDA: "etiqueta--neutra" };
 
 /** Importa OFX ou CSV de uma conta: lê o arquivo, mostra a prévia (nada é gravado) e só grava ao confirmar. */
 export function ImportadorExtrato({ conta, aoImportar }: { conta: ContaFin; aoImportar: () => void }) {
@@ -230,7 +230,7 @@ export function PainelLinhas({ conta, versao }: { conta: ContaFin; versao: numbe
     void agir(`/api/financeiro/extrato/linhas/${linha.id}/conciliar`, { lancamentoId: s.lancamentoId }, "Conciliado.");
   }
 
-  const abas: Array<[StatusLinha | "", string]> = [["PENDENTE", "Pendentes"], ["CONCILIADO", "Conciliadas"], ["TRANSFERENCIA", "Transferências"], ["IGNORADO", "Ignoradas"], ["", "Todas"]];
+  const abas: Array<[StatusLinha | "", string]> = [["PENDENTE", "Pendentes"], ["CONCILIADO", "Conciliadas"], ["TRANSFERENCIA", "Transferências"], ["IGNORADO", "Ignoradas"], ["REPETIDA", "Repetidas"], ["", "Todas"]];
 
   return (
     <section className="cartao" aria-labelledby="titulo-linhas">
