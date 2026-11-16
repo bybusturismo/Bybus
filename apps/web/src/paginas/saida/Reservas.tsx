@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, mensagemDeErro } from "../../api/cliente";
 import { CANAIS, type Canal, type PassageiroReserva, type PontoEmbarque, type Reserva } from "../../api/tipos";
@@ -360,7 +360,8 @@ export function Reservas() {
   const verContatos = pode("manifesto:contatos");
   const [params] = useSearchParams();
   const [dialogo, setDialogo] = useState<Dialogo | null>(() => (params.get("nova") === "1" && pode("reservas:editar") ? { tipo: "nova" } : null));
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useState(() => params.get("busca") ?? "");
+  useEffect(() => { const b = params.get("busca"); if (b != null) setBusca(b); }, [params]);
   const [verCanceladas, setVerCanceladas] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);

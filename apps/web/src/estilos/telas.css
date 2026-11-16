@@ -2524,3 +2524,170 @@
 .lista-grupo__tabela td:nth-child(2) input { min-width: 14rem; }
 .assinatura-doc { border-top: 1px solid var(--cor-borda); padding-top: 8px; margin-top: 8px; }
 .assinatura-signatario { border: 1px solid var(--cor-borda); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+/* ---------- Busca geral no topo (16/11/2026) ---------- */
+.busca-geral {
+  position: relative;
+  flex: 1 1 14rem;
+  max-width: 24rem;
+  min-width: 0;
+  margin-left: auto;
+}
+@media (min-width: 1100px) {
+  /* O menu das áreas não encolhe (senão passa por cima do logo); a busca fica com o espaço que sobra. */
+  .menu-topo {
+    flex: 0 1 auto;
+  }
+}
+.busca-geral + .topo__praca,
+.busca-geral + .topo__usuario {
+  margin-left: var(--esp-2);
+}
+.busca-geral__lupa {
+  display: none;
+}
+.busca-geral__campo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: 0 var(--esp-3);
+  min-height: 36px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-fundo);
+  color: var(--cor-texto-fraco);
+}
+.busca-geral__campo:focus-within {
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cor-primaria) 25%, transparent);
+}
+.app .topo .busca-geral__campo input[type="search"],
+.app .topo .busca-geral__campo input[type="search"]:hover,
+.app .topo .busca-geral__campo input[type="search"]:focus,
+.app .topo .busca-geral__campo input[type="search"]:focus-visible {
+  border: 0;
+  background: transparent;
+  min-height: 34px;
+  padding: 0;
+  width: 100%;
+  min-width: 0;
+  box-shadow: none;
+  outline: none;
+  color: var(--cor-texto);
+}
+.busca-geral__painel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max(100%, 26rem);
+  max-width: calc(100vw - 16px);
+  max-height: min(70vh, 32rem);
+  overflow-y: auto;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
+  padding: var(--esp-1) 0;
+  z-index: 40;
+}
+.busca-geral__lista,
+.busca-geral__lista ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.busca-geral__grupo {
+  padding: var(--esp-2) var(--esp-3) var(--esp-1);
+  font-size: var(--texto-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cor-texto-fraco);
+}
+.busca-geral__item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--esp-2) var(--esp-3);
+  cursor: pointer;
+}
+.busca-geral__item--marcado {
+  background: color-mix(in srgb, var(--cor-primaria) 12%, transparent);
+}
+.busca-geral__titulo {
+  font-weight: var(--peso-medio);
+  overflow-wrap: anywhere;
+}
+.busca-geral__detalhe {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-fraco);
+  overflow-wrap: anywhere;
+}
+.busca-geral__vazio {
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  color: var(--cor-texto-fraco);
+  font-size: var(--texto-sm);
+}
+/* Celular, tablet e telas estreitas: vira uma lupa; ao tocar, o campo ocupa a largura do topo. */
+@media (max-width: 1259px) {
+  .busca-geral {
+    flex: 0 0 auto;
+    position: static;
+  }
+  .busca-geral__lupa {
+    display: inline-flex;
+  }
+  .busca-geral__campo {
+    display: none;
+  }
+  .busca-geral--expandida .busca-geral__campo {
+    display: flex;
+    position: absolute;
+    left: var(--esp-2);
+    right: var(--esp-2);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 41;
+    background: var(--cor-superficie);
+  }
+  .busca-geral__painel {
+    left: var(--esp-2);
+    right: var(--esp-2);
+    width: auto;
+    top: calc(100% + 2px);
+  }
+}
+/* Notebook: a barra continua visível, um pouco mais estreita (a praça cede espaço). */
+@media (min-width: 1260px) and (max-width: 1399px) {
+  .busca-geral {
+    flex-basis: 10rem;
+  }
+  .topo__praca select {
+    max-width: 9.5rem;
+  }
+  .busca-geral__painel {
+    width: max(100%, 24rem);
+  }
+}
+@media (min-width: 721px) and (max-width: 1259px) {
+  .busca-geral--expandida .busca-geral__campo {
+    left: auto;
+    right: var(--esp-3);
+    width: min(28rem, calc(100% - 2 * var(--esp-3)));
+  }
+  .busca-geral__painel {
+    left: auto;
+    right: var(--esp-3);
+    width: min(28rem, calc(100% - 2 * var(--esp-3)));
+  }
+}
+/* Telas de 1100 a 1259 px: o menu das áreas não cabia com o logo (passava por cima). A praça e o nome do usuário cedem espaço. */
+@media (min-width: 1100px) and (max-width: 1259px) {
+  .menu-topo {
+    flex: 0 0 auto;
+  }
+  .topo__praca select {
+    max-width: 9rem;
+  }
+  .topo__quem {
+    display: none;
+  }
+}

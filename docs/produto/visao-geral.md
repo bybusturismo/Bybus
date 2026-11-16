@@ -20,3 +20,18 @@ Pedido do dono: tela inicial inspirada no admin da Paytour (ver `levantamento-pa
 ## API
 `GET /api/visao-geral/{resumo,emissores,comparativo,dia-semana,horario-compra,passeios,pagamentos,faturamento}` (período padrão: 30 dias, por data da compra; filtros `de, ate, unidadeId, passeioId, canal`) e `GET /api/reservas` (listagem geral; filtros de período do passeio, passeio, canal, situação, conferência, `pendencia`, busca, paginação).
 WhatsApp não lido: bloco preparado e oculto (não existe a central de conversas nesta versão). GetYourGuide aparece como "não integrado". Cupons: mostra o id da Paytour até existir o cadastro (ADR 0008).
+
+## Busca geral no topo (16/11/2026)
+Pedido do dono: "é fundamental essa barra". A caixa **Buscar no sistema** fica no topo de todas as telas.
+- **O que encontra:**
+  - **Telas** do menu (ex.: "abastecimento");
+  - **Reservas**, pelo titular, pelo passageiro, pelo código do canal ou pela referência. Abre a saída já filtrada;
+  - **Grupos fechados**, pelo nome, pelo representante ou pela razão social;
+  - **Orçamentos com rota**, pelo número ou pelo cliente;
+  - **Guias e equipe**, que abre a Equipe já filtrada;
+  - **Veículos**, pela placa, pelo apelido ou pelo modelo;
+  - **Afiliados**, pelo nome ou pelo código.
+- **Permissões:** cada grupo de resultados só aparece para quem pode abrir aquela tela, e só com dados das praças da pessoa. A busca não mostra telefone, e-mail nem documento (LGPD).
+- **Como usar:** tecla **/** ou **Ctrl+K** para ir à busca; as setas escolhem, **Enter** abre e **Esc** fecha.
+- **Tamanho de tela:** em telas de 1260 px ou mais, a barra fica sempre visível. Em telas menores e no celular, vira uma lupa que abre o campo.
+- Rota: `GET /api/busca?q=` (mínimo de 2 letras, até 6 resultados por grupo).

@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, mensagemDeErro, qs } from "../api/cliente";
 import { PAPEIS_PESSOA, TIPOS_DOCUMENTO, type PapelPessoa, type Pessoa, type TipoDocumento, type UnidadeResumo } from "../api/tipos";
@@ -315,7 +316,10 @@ export function Equipe() {
   const podeEditar = pode("pessoas:gerenciar");
   const [papel, setPapel] = useState<PapelPessoa | "">("");
   const [filtroPraca, setFiltroPraca] = useState(praca);
-  const [busca, setBusca] = useState("");
+  const [params] = useSearchParams();
+  const [busca, setBusca] = useState(() => params.get("busca") ?? "");
+  // A busca do topo abre esta tela já filtrada (e troca o filtro se buscar de novo daqui).
+  useEffect(() => { const b = params.get("busca"); if (b != null) setBusca(b); }, [params]);
   const [inativos, setInativos] = useState(false);
   const [formulario, setFormulario] = useState<{ pessoa: Pessoa | null } | null>(null);
   const campoBusca = useRef<HTMLInputElement>(null);

@@ -10,6 +10,7 @@ import { MenuUsuario } from "./MenuUsuario";
 import { MenuTopo } from "./MenuTopo";
 import { TuristinhaFlutuante } from "./TuristinhaFlutuante";
 import { BotaoTema } from "./Tema";
+import { BuscaGeral } from "./BuscaGeral";
 
 // Menu organizado pela rotina (pedido do dono, 04/11/2026): operação do dia primeiro, depois reservas, cadastros e gestão.
 export const AREAS = ["Operação", "Reservas", "Cadastros", "Financeiro", "Frota", "Marketing", "Gestão", "Configurações"] as const;
@@ -166,6 +167,11 @@ export function Layout() {
     () => itens.filter((i) => matchPath({ path: i.prefixo ?? i.para, end: false }, local.pathname)).sort((a, b) => b.para.length - a.para.length)[0]?.para,
     [itens, local.pathname],
   );
+  // Telas que a busca do topo encontra pelo nome (só as que o perfil pode abrir).
+  const telasBusca = useMemo(
+    () => [...itens.filter((i) => !i.planejado).map((i) => ({ para: i.para, rotulo: i.rotulo, area: i.area })), ...ATALHOS_ABAS.filter((a) => pode(a.permissao)).map((a) => ({ para: a.para, rotulo: a.rotulo }))],
+    [itens, pode],
+  );
   const emConfiguracoes = local.pathname === "/configuracoes" || itens.some((i) => i.area === "Configurações" && i.para === ativo);
 
   return (
@@ -182,6 +188,7 @@ export function Layout() {
           <span className="topo__nome">Gestão</span>
         </Link>
         <MenuTopo areas={areas} ativo={ativo} />
+        <BuscaGeral telas={telasBusca} />
         {unidades.length > 1 && (
           <div className="topo__praca">
             <label htmlFor="seletor-praca">Praça</label>
