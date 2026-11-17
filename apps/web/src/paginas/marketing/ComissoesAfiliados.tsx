@@ -25,7 +25,7 @@ interface Resposta {
   /** Passeios até esta data: comissões já pagas fora do sistema (corte do histórico). */
   pagasForaAte: string | null;
 }
-interface Pagamento { id: string; afiliadoId: string; dataPagamento: string; periodoDe: string; periodoAte: string; totalCentavos: number; afiliado: string; situacaoConta: string }
+interface Pagamento { id: string; afiliadoId: string; dataPagamento: string; periodoDe: string; periodoAte: string; totalCentavos: number; afiliado: string; situacaoConta: string; conciliado?: boolean }
 
 const ETIQUETA: Record<SituacaoComissao, string> = { PREVISTA: "etiqueta--neutra", A_PAGAR: "etiqueta--atencao", PAGA: "etiqueta--sucesso", CANCELADA: "etiqueta--perigo", RETIDA: "etiqueta--info" };
 const SITUACOES: SituacaoComissao[] = ["A_PAGAR", "PREVISTA", "PAGA", "RETIDA", "CANCELADA"];
@@ -246,7 +246,12 @@ export function ComissoesAfiliados() {
                     <td className="sem-quebra">{formatarData(p.periodoDe)} a {formatarData(p.periodoAte)}</td>
                     <td>{p.afiliado}</td>
                     <td className="num">{formatarMoeda(p.totalCentavos)}</td>
-                    <td><span className={`etiqueta ${p.situacaoConta === "REALIZADO" ? "etiqueta--sucesso" : "etiqueta--atencao"}`}>{p.situacaoConta === "REALIZADO" ? "Pago" : "Em aberto no financeiro"}</span></td>
+                    <td>
+                      {/* Pago só com a conciliação do extrato (dono, 17/11/2026). */}
+                      {p.situacaoConta === "REALIZADO" && p.conciliado ? <span className="etiqueta etiqueta--sucesso">Pago (conciliado)</span>
+                        : p.situacaoConta === "REALIZADO" ? <span className="etiqueta etiqueta--atencao" title="Baixado no contas a pagar, mas ainda sem conciliação com o extrato do banco: as comissões continuam a pagar.">Baixado, falta conciliar</span>
+                        : <span className="etiqueta etiqueta--atencao">Em aberto no financeiro</span>}
+                    </td>
                     {podePagar && <td><span className="frota-acoes">
                       <button type="button" className="botao botao--pequeno botao--secundario" onClick={() => void verBanco(p)}>Dados bancários</button>
                       {p.situacaoConta !== "REALIZADO" && <button type="button" className="botao botao--pequeno botao--secundario" onClick={() => setDesfazer(p)}>Desfazer</button>}

@@ -165,3 +165,9 @@ Pedidos do dono:
   Rota `GET /api/afiliados/comissoes/relatorio.pdf` (marketing:ver ou financeiro:ver). Fica registrado na auditoria (`AFILIADO_RELATORIO_PDF`).
 - O PDF timbrado ganhou um bloco de tabela, com cabeçalho repetido quando a tabela continua na página seguinte e total em negrito.
 - **A confirmar:** como as vendas da Inzama chegam ao sistema. O cálculo vale para vendas da Paytour ligadas ao afiliado Inzama. Se ela vender por outro caminho (e-mail, planilha), é preciso ligar esse caminho.
+
+## Comissão "Paga" só depois da conciliação (17/11/2026)
+Pedido do dono: a comissão só conta como paga depois da conciliação financeira. Até lá, continua "A pagar".
+- A situação **Paga** exige que a conta a pagar do pagamento quinzenal tenha baixa **e** esteja conciliada com uma linha do extrato do banco. Só com a baixa, a comissão continua **A pagar**.
+- Na lista de pagamentos aparecem três situações: "Pago (conciliado)", "Baixado, falta conciliar" e "Em aberto no financeiro". No portal, o afiliado só vê "pago em…" depois da conciliação.
+- As comissões anteriores à **data de corte** continuam contando como pagas, porque foram pagas fora do sistema e não têm o que conciliar.

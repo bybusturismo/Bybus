@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { criarDb } from "../src/db/cliente.js";
-import { afiliados, finLancamentos, passageiros, passeios, reservas, saidas, vendas } from "../src/db/schema.js";
+import { afiliados, finContas, finExtratoLinhas, finLancamentos, passageiros, passeios, reservas, saidas, vendas } from "../src/db/schema.js";
 import { sincronizarAfiliadosPaytour } from "../src/servicos/afiliadosComissao.js";
 import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
 import { emailsDeTeste } from "../src/servicos/email.js";
@@ -91,6 +91,23 @@ describe("comissões de afiliados (13/11/2026)", () => {
     expect(l).toMatchObject({ tipo: "PAGAR", valorCentavos: 750, vencimento: "2026-11-01", contraparte: "Hotel Fictício Sol", origem: "AFILIADOS" });
     const it = (await c.req("GET", `/api/afiliados/comissoes?de=2026-10-01&ate=2026-10-31`)).json().itens.find((x: { reservaId: string }) => x.reservaId === ids.realizada);
     expect(it).toMatchObject({ situacao: "A_PAGAR", pagamentoId: lista[0].id });
+    // Paga só depois da conciliação com o extrato (17/11/2026): a baixa sozinha ainda é "a pagar".
+    const comissaoDa = async () => (await c.req("GET", `/api/afiliados/comissoes?de=2026-10-01&ate=2026-10-31`)).json().itens.find((x: { reservaId: string }) => x.reservaId === ids.realizada);
+    await comDb((db) => db.update(finLancamentos).set({ situacao: "REALIZADO", pagoEm: "2026-11-01", valorPagoCentavos: 750 }).where(eq(finLancamentos.id, lista[0].lancamentoId)));
+    expect(await comissaoDa()).toMatchObject({ situacao: "A_PAGAR" });
+    expect((await c.req("GET", "/api/afiliados/pagamentos")).json()[0]).toMatchObject({ situacaoConta: "REALIZADO", conciliado: false });
+    const linhaId = await comDb(async (db) => {
+      const [k] = await db.insert(finContas).values({ nome: "Banco Fictício Comissões", tipo: "CORRENTE" }).returning();
+      const [ln] = await db.insert(finExtratoLinhas).values({ contaId: k!.id, idUnico: "com-1", data: "2026-11-01", valorCentavos: -750, descricao: "PIX AFILIADO", status: "CONCILIADO", lancamentoId: lista[0].lancamentoId }).returning();
+      return ln!.id;
+    });
+    expect(await comissaoDa()).toMatchObject({ situacao: "PAGA" });
+    expect((await c.req("GET", "/api/afiliados/pagamentos")).json()[0]).toMatchObject({ conciliado: true });
+    // Volta ao estado anterior para o resto do teste (desfazer só vale com a conta em aberto).
+    await comDb(async (db) => {
+      await db.delete(finExtratoLinhas).where(eq(finExtratoLinhas.id, linhaId));
+      await db.update(finLancamentos).set({ situacao: "ABERTO", pagoEm: null, valorPagoCentavos: null }).where(eq(finLancamentos.id, lista[0].lancamentoId));
+    });
     expect((await c.req("DELETE", `/api/afiliados/pagamentos/${lista[0].id}`)).statusCode).toBe(200);
     expect(await comDb((db) => db.select().from(finLancamentos).where(eq(finLancamentos.id, lista[0].lancamentoId)))).toHaveLength(0);
     const depois = (await c.req("GET", `/api/afiliados/comissoes?de=2026-10-01&ate=2026-10-31`)).json().itens.find((x: { reservaId: string }) => x.reservaId === ids.realizada);

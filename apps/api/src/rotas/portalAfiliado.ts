@@ -10,6 +10,7 @@ import { podeUnidade } from "../seguranca/escopo.js";
 import { gerarHashSenha } from "../seguranca/senha.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import { calcularComissoes } from "../servicos/afiliadosComissao.js";
+import { conciliadoSql } from "../servicos/financeiro.js";
 import { criarEnvioEmail, emailConfigurado } from "../servicos/email.js";
 import { hojeSp } from "../servicos/marketingComum.js";
 
@@ -110,7 +111,7 @@ export async function rotasPortalAfiliado(app: FastifyInstance, { db, config, co
       .map(({ afiliadoId: _a, paytourAfiliadoId: _p, unidadeId: _u, afiliadoNome: _n, ...c }) => c);
     const soma = (s: string) => comissoes.filter((c) => c.situacao === s).reduce((t, c) => t + c.comissaoCentavos, 0);
     const proximo = proximoPagamento(hoje);
-    const pagamentos = await db.select({ dataPagamento: afiliadoPagamentos.dataPagamento, periodoDe: afiliadoPagamentos.periodoDe, periodoAte: afiliadoPagamentos.periodoAte, totalCentavos: afiliadoPagamentos.totalCentavos, situacao: finLancamentos.situacao, pagoEm: finLancamentos.pagoEm })
+    const pagamentos = await db.select({ dataPagamento: afiliadoPagamentos.dataPagamento, periodoDe: afiliadoPagamentos.periodoDe, periodoAte: afiliadoPagamentos.periodoAte, totalCentavos: afiliadoPagamentos.totalCentavos, situacao: finLancamentos.situacao, pagoEm: finLancamentos.pagoEm, conciliado: conciliadoSql })
       .from(afiliadoPagamentos).innerJoin(finLancamentos, eq(finLancamentos.id, afiliadoPagamentos.lancamentoId))
       .where(eq(afiliadoPagamentos.afiliadoId, a.id)).orderBy(desc(afiliadoPagamentos.dataPagamento)).limit(48);
     return {

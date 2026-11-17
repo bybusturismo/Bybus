@@ -4,6 +4,7 @@ import type { Db } from "../db/cliente.js";
 import {
   afiliadoPagamentoItens, afiliadoPagamentos, afiliados, finCategorias, finLancamentos, marketingConfig, passageiros, passeios, reservas, saidas, vendas,
 } from "../db/schema.js";
+import { conciliadoSql } from "./financeiro.js";
 import { ErroHttp, type UsuarioSessao } from "../seguranca/sessao.js";
 import { garantirPlano } from "./financeiro.js";
 
@@ -113,7 +114,7 @@ export async function calcularComissoes(db: Db, unidadeIds: string[] | null, hoj
   }
   const pagos = await db.select({
     reservaId: afiliadoPagamentoItens.reservaId, valor: afiliadoPagamentoItens.valorCentavos, pagamentoId: afiliadoPagamentos.id,
-    dataPagamento: afiliadoPagamentos.dataPagamento, situacaoConta: finLancamentos.situacao,
+    dataPagamento: afiliadoPagamentos.dataPagamento, situacaoConta: finLancamentos.situacao, conciliado: conciliadoSql,
   }).from(afiliadoPagamentoItens)
     .innerJoin(afiliadoPagamentos, eq(afiliadoPagamentos.id, afiliadoPagamentoItens.pagamentoId))
     .innerJoin(finLancamentos, eq(finLancamentos.id, afiliadoPagamentos.lancamentoId))
@@ -125,7 +126,8 @@ export async function calcularComissoes(db: Db, unidadeIds: string[] | null, hoj
     const p = pagoPor.get(l.reservaId);
     const a = afiliadoDe.get(l.paytourAfiliadoId!);
     const situacao: SituacaoComissao = p
-      ? (p.situacaoConta === "REALIZADO" ? "PAGA" : "A_PAGAR")
+      // Paga só depois de conciliada com o extrato do banco (dono, 17/11/2026); só a baixa no financeiro ainda é "a pagar".
+      ? (p.situacaoConta === "REALIZADO" && p.conciliado ? "PAGA" : "A_PAGAR")
       : situacaoComissao({ retem: retem.has(l.paytourAfiliadoId!), reservaCancelada: l.status === "CANCELADA", dataPasseio: l.dataPasseio, hoje, compareceu: embarque.get(l.reservaId) ?? null, paga: !!corte && l.dataPasseio <= corte });
     return {
       reservaId: l.reservaId, pedidoCodigo: l.pedidoCodigo, afiliadoId: a?.id ?? null, afiliadoNome: a?.nome ?? `Afiliado Paytour ${l.paytourAfiliadoId}`,

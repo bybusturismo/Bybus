@@ -9,6 +9,7 @@ import { auditar } from "../auditoria.js";
 import { afiliadoPagamentos, afiliados, finLancamentos, marketingConfig } from "../db/schema.js";
 import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
+import { conciliadoSql } from "../servicos/financeiro.js";
 import { CHAVE_CORTE, calcularComissoes, desfazerPagamentoComissao, gerarPagamentosComissao, lerCorte } from "../servicos/afiliadosComissao.js";
 import { dataIso, hojeSp } from "../servicos/marketingComum.js";
 
@@ -83,7 +84,7 @@ export async function rotasAfiliadosComissao(app: FastifyInstance, { db, config 
     const lista = await db.select({
       id: afiliadoPagamentos.id, afiliadoId: afiliadoPagamentos.afiliadoId, dataPagamento: afiliadoPagamentos.dataPagamento, periodoDe: afiliadoPagamentos.periodoDe, periodoAte: afiliadoPagamentos.periodoAte,
       totalCentavos: afiliadoPagamentos.totalCentavos, unidadeId: afiliadoPagamentos.unidadeId, afiliado: afiliados.nome, lancamentoId: afiliadoPagamentos.lancamentoId,
-      situacaoConta: finLancamentos.situacao,
+      situacaoConta: finLancamentos.situacao, conciliado: conciliadoSql,
     }).from(afiliadoPagamentos).innerJoin(afiliados, eq(afiliados.id, afiliadoPagamentos.afiliadoId))
       .innerJoin(finLancamentos, eq(finLancamentos.id, afiliadoPagamentos.lancamentoId))
       .where(u.todasUnidades ? undefined : inArray(afiliadoPagamentos.unidadeId, u.unidadeIds.length ? u.unidadeIds : ["00000000-0000-0000-0000-000000000000"]))

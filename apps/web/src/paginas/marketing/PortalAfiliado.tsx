@@ -14,7 +14,7 @@ interface Portal {
   totais: { previstaCentavos: number; aPagarCentavos: number; pagaCentavos: number };
   proximoPagamento: { data: string; totalCentavos: number };
   comissoes: Array<{ reservaId: string; pedidoCodigo: string; passeio: string; dataVenda: string | null; dataPasseio: string; valorReservaCentavos: number; comissaoCentavos: number; situacao: SituacaoComissao; dataPagamento: string }>;
-  pagamentos: Array<{ dataPagamento: string; periodoDe: string; periodoAte: string; totalCentavos: number; situacao: string; pagoEm: string | null }>;
+  pagamentos: Array<{ dataPagamento: string; periodoDe: string; periodoAte: string; totalCentavos: number; situacao: string; pagoEm: string | null; conciliado?: boolean }>;
   dadosBancarios: DadosBancarios | null;
 }
 const ETIQUETA: Record<SituacaoComissao, string> = { PREVISTA: "etiqueta--neutra", A_PAGAR: "etiqueta--atencao", PAGA: "etiqueta--sucesso", CANCELADA: "etiqueta--perigo", RETIDA: "etiqueta--info" };
@@ -104,7 +104,7 @@ export function PortalAfiliado() {
         <section className="cartao" aria-labelledby="pa-pagamentos">
           <h2 id="pa-pagamentos">Pagamentos</h2>
           <ul className="lista-simples">
-            {d.pagamentos.map((p, i) => <li key={i}>{formatarData(p.dataPagamento)} — {formatarMoeda(p.totalCentavos)} (passeios de {formatarData(p.periodoDe)} a {formatarData(p.periodoAte)}) — {p.situacao === "REALIZADO" ? `pago em ${formatarData(p.pagoEm)}` : "programado"}</li>)}
+            {d.pagamentos.map((p, i) => <li key={i}>{formatarData(p.dataPagamento)} — {formatarMoeda(p.totalCentavos)} (passeios de {formatarData(p.periodoDe)} a {formatarData(p.periodoAte)}) — {p.situacao === "REALIZADO" && p.conciliado ? `pago em ${formatarData(p.pagoEm)}` : "programado"}</li>)}
           </ul>
         </section>
       )}
