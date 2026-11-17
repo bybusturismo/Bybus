@@ -1,0 +1,1 @@
+ALTER TABLE "fin_lancamentos" ADD COLUMN "pix_chave" text;

@@ -46,6 +46,16 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
   const [repeticao, setRepeticao] = useState<Repeticao>("UNICA");
   const [quantidade, setQuantidade] = useState("2");
   const [observacao, setObservacao] = useState(lancamento?.observacao ?? "");
+  const [pixChave, setPixChave] = useState(lancamento?.pixChave ?? "");
+  const [pixSugerido, setPixSugerido] = useState(false);
+  /** Ao sair do campo Fornecedor: traz a chave PIX usada da última vez para ele, se o campo estiver vazio. */
+  async function sugerirPix() {
+    if (tipo !== "PAGAR" || pixChave.trim() || contraparte.trim().length < 2) return;
+    try {
+      const r = await api.get<{ pixChave: string | null }>(`/api/financeiro/pix-do-fornecedor${qs({ nome: contraparte.trim() })}`);
+      if (r.pixChave) { setPixChave(r.pixChave); setPixSugerido(true); }
+    } catch { /* sem sugestão */ }
+  }
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   // Avisos que pedem confirmação (13/11/2026): lançamento igual a outro recente; descrição de transferência.
@@ -75,7 +85,7 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
       const comuns = {
         descricao: descricao.trim(), contraparte: contraparte.trim() || null, categoriaId, unidadeId: unidadeId || null,
         linha: (linha || null) as LinhaNegocio | null, veiculo: veiculo.trim() || null, canal: canal || null, forma: (forma || null) as FormaPagamento | null,
-        contaId: contaId || null, observacao: observacao.trim() || null,
+        contaId: contaId || null, observacao: observacao.trim() || null, pixChave: pixChave.trim() || null,
       };
       if (lancamento) {
         await api.patch(`/api/financeiro/lancamentos/${lancamento.id}`, {
@@ -126,7 +136,7 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
         </div>
         <div className="campo">
           <label htmlFor="lan-contraparte">{tipo === "PAGAR" ? "Fornecedor" : "Cliente ou canal"}</label>
-          <input id="lan-contraparte" value={contraparte} maxLength={150} onChange={(e) => setContraparte(e.target.value)} />
+          <input id="lan-contraparte" value={contraparte} maxLength={150} onChange={(e) => setContraparte(e.target.value)} onBlur={() => void sugerirPix()} />
         </div>
         <div className="campo">
           <label htmlFor="lan-categoria">Categoria</label>
@@ -206,6 +216,13 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
               </div>
             )}
           </>
+        )}
+        {tipo === "PAGAR" && (
+          <div className="campo">
+            <label htmlFor="lan-pix">Chave PIX para pagamento</label>
+            <input id="lan-pix" value={pixChave} maxLength={140} placeholder="CNPJ, e-mail, telefone ou chave aleatória" onChange={(e) => { setPixChave(e.target.value); setPixSugerido(false); }} />
+            {pixSugerido && <span className="campo__ajuda">Chave usada da última vez para este fornecedor. Confira antes de pagar.</span>}
+          </div>
         )}
         <div className="campo campo--largo">
           <label htmlFor="lan-obs">Observação</label>
@@ -533,6 +550,7 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
                     {l.descricao}
                     {l.recorrente && <span className="etiqueta etiqueta--neutra">recorrente</span>}
                     {l.contraparte && <div className="texto-fraco">{l.contraparte}</div>}
+                    {l.pixChave && l.situacao !== "REALIZADO" && <ChavePix chave={l.pixChave} />}
                   </td>
                   <td className="fin-esconder-celular">{l.categoriaNome}</td>
                   <td className="fin-valor">
@@ -600,5 +618,23 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
         )}
       </Modal>
     </>
+  );
+}
+
+/** Chave PIX da conta com botão de copiar (para colar no app do banco). */
+function ChavePix({ chave }: { chave: string }) {
+  const [copiado, setCopiado] = useState(false);
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(chave);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch { /* sem acesso à área de transferência: a chave continua visível para copiar à mão */ }
+  }
+  return (
+    <div className="texto-fraco">
+      PIX: <span className="sem-quebra">{chave}</span>{" "}
+      <button type="button" className="botao botao--link botao--pequeno" onClick={() => void copiar()} aria-label={`Copiar a chave PIX ${chave}`}>{copiado ? "Copiada" : "Copiar"}</button>
+    </div>
   );
 }

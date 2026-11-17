@@ -173,6 +173,19 @@ describe("conferência com o banco: corrigir pela própria tela (16/11/2026)", (
   });
 });
 
+describe("chave PIX na conta a pagar (17/11/2026)", () => {
+  it("grava, devolve na lista e sugere a última chave do mesmo fornecedor", async () => {
+    const r = await lancar(usuarioFln, { descricao: "Peças", contraparte: "Fornecedor PIX Fictício", pixChave: "  pix@fornecedor.test  " });
+    expect(r.statusCode, r.body).toBe(200);
+    const id = json(r).ids[0] as string;
+    const lista = (await usuarioFln.req("GET", "/api/financeiro/lancamentos?tipo=PAGAR&fornecedor=PIX Fictício")).json();
+    const item = (lista.itens ?? lista).find((x: { id: string }) => x.id === id);
+    expect(item).toMatchObject({ pixChave: "pix@fornecedor.test" });
+    expect((await usuarioFln.req("GET", "/api/financeiro/pix-do-fornecedor?nome=fornecedor pix fictício")).json()).toEqual({ pixChave: "pix@fornecedor.test" });
+    expect((await usuarioFln.req("GET", "/api/financeiro/pix-do-fornecedor?nome=Outro Fornecedor")).json()).toEqual({ pixChave: null });
+  });
+});
+
 describe("permissões e escopo", () => {
   it("sem financeiro:ver/gerenciar nada é acessível; leitor só consulta; gerenciar também consulta", async () => {
     expect((await atendente.req("GET", "/api/financeiro/contas")).statusCode).toBe(403);

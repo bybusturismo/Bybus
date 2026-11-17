@@ -3,7 +3,7 @@ import {
   calcularBaixa, centavosParaTexto, faturaDaData, pareceTransferencia, fimDoMes, inicioDaSemana, montarDre, montarDreGerencial, montarFluxoSemanal, parcelar, somarDiasIso, somarMeses,
   type CategoriaInfo, type LancamentoDre, type LancamentoRelatorio,
 } from "@bybus/core";
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
@@ -188,6 +188,8 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     canal: z.enum(CANAIS).nullish(),
     forma: z.enum(FORMAS_PAGAMENTO).nullish(),
     observacao: z.string().trim().max(1000).nullish(),
+    /** Chave PIX para o pagamento (17/11/2026). */
+    pixChave: z.string().trim().max(140).nullish().transform((v) => v || null),
   };
   const esquemaNovo = z.object({
     ...camposComuns,
@@ -206,7 +208,7 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
   });
 
   const colunasLista = {
-    id: finLancamentos.id, tipo: finLancamentos.tipo, descricao: finLancamentos.descricao, contraparte: finLancamentos.contraparte,
+    id: finLancamentos.id, tipo: finLancamentos.tipo, descricao: finLancamentos.descricao, contraparte: finLancamentos.contraparte, pixChave: finLancamentos.pixChave,
     categoriaId: finLancamentos.categoriaId, categoriaNome: finCategorias.nome, contaId: finLancamentos.contaId, contaNome: finContas.nome,
     unidadeId: finLancamentos.unidadeId, linha: finLancamentos.linha, veiculo: finLancamentos.veiculo, canal: finLancamentos.canal, forma: finLancamentos.forma,
     valorCentavos: finLancamentos.valorCentavos, competencia: finLancamentos.competencia, vencimento: finLancamentos.vencimento, situacao: finLancamentos.situacao,
@@ -272,6 +274,15 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       hoje, itens: itens.map((i) => ({ ...i, vencido: i.situacao === "ABERTO" && i.vencimento < hoje })), total: tot!.qtd,
       somaDevidoCentavos: tot!.devido, somaAbertoCentavos: tot!.aberto, somaRealizadoCentavos: tot!.realizado, somaVencidoCentavos: tot!.vencido, qtdVencido: tot!.qtdVencido,
     };
+  });
+
+  /** Última chave PIX usada para este fornecedor (preenche a conta nova sozinho, 17/11/2026). */
+  app.get("/api/financeiro/pix-do-fornecedor", gerenciar, async (req) => {
+    const { nome } = z.object({ nome: z.string().trim().min(2).max(150) }).parse(req.query);
+    const [l] = await db.select({ pixChave: finLancamentos.pixChave }).from(finLancamentos)
+      .where(and(filtroPraca(req.usuario!, finLancamentos.unidadeId), eq(finLancamentos.tipo, "PAGAR"), sql`lower(${finLancamentos.contraparte}) = lower(${nome})`, isNotNull(finLancamentos.pixChave)))
+      .orderBy(desc(finLancamentos.criadoEm)).limit(1);
+    return { pixChave: l?.pixChave ?? null };
   });
 
   app.post("/api/financeiro/lancamentos", gerenciar, async (req) => {

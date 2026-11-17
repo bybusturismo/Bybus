@@ -407,6 +407,13 @@
       "when": 1794915786188,
       "tag": "0057_afiliado_parceiro_paytour",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1794916711853,
+      "tag": "0058_lancamento_pix",
+      "breakpoints": true
     }
   ]
 }
