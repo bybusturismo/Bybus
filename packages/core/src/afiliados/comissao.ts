@@ -6,13 +6,29 @@
  *   pagos no dia 01 do mês seguinte.
  */
 
-export type SituacaoComissao = "PREVISTA" | "A_PAGAR" | "CANCELADA" | "PAGA";
+export type SituacaoComissao = "PREVISTA" | "A_PAGAR" | "CANCELADA" | "PAGA" | "RETIDA";
 
 export const ROTULO_SITUACAO_COMISSAO: Record<SituacaoComissao, string> = {
   PREVISTA: "Prevista (passeio ainda não realizado)",
   A_PAGAR: "A pagar (passeio realizado)",
   CANCELADA: "Cancelada",
   PAGA: "Paga",
+  RETIDA: "Retida pelo afiliado na venda",
+};
+
+/**
+ * Como a comissão do afiliado funciona (dono, 17/11/2026):
+ * - PAGAMOS: a By Bus paga a comissão (quinzenal, vira conta a pagar) — o padrão;
+ * - RETEM: o afiliado vende e já fica com a parte dele, repassando o líquido (ex.: Inzama Travel, 15%, repassa 85%). Aparece
+ *   no relatório, identificado, mas nunca vai para o contas a pagar;
+ * - NENHUMA: canal interno da By Bus (ex.: "Tripadvisor interno"); não aparece nas comissões.
+ */
+export const MODOS_COMISSAO = ["PAGAMOS", "RETEM", "NENHUMA"] as const;
+export type ModoComissao = (typeof MODOS_COMISSAO)[number];
+export const ROTULO_MODO_COMISSAO: Record<ModoComissao, string> = {
+  PAGAMOS: "A By Bus paga a comissão (contas a pagar)",
+  RETEM: "Afiliado retém a comissão na venda e repassa o líquido",
+  NENHUMA: "Canal interno: sem comissão",
 };
 
 const ultimoDia = (ano: number, mes: number) => new Date(Date.UTC(ano, mes, 0)).getUTCDate();
@@ -61,8 +77,9 @@ export function ratearComissao(comissaoCentavos: number, valoresReservas: readon
  * Situação da comissão de uma reserva. `compareceu`: null = embarque não registrado (vale como realizado depois do dia, pois
  * a lista é conferida pelo guia), false = todos os passageiros marcados como "não veio".
  */
-export function situacaoComissao(p: { reservaCancelada: boolean; dataPasseio: string; hoje: string; compareceu: boolean | null; paga: boolean }): SituacaoComissao {
-  if (p.paga) return "PAGA";
+export function situacaoComissao(p: { reservaCancelada: boolean; dataPasseio: string; hoje: string; compareceu: boolean | null; paga: boolean; retem?: boolean }): SituacaoComissao {
+  if (p.paga && !p.retem) return "PAGA";
   if (p.reservaCancelada || p.compareceu === false) return "CANCELADA";
+  if (p.retem) return p.dataPasseio < p.hoje ? "RETIDA" : "PREVISTA";
   return p.dataPasseio < p.hoje ? "A_PAGAR" : "PREVISTA";
 }

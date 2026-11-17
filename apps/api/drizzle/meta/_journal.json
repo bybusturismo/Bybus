@@ -397,8 +397,8 @@
     {
       "idx": 56,
       "version": "7",
-      "when": 1794882585390,
-      "tag": "0056_afiliado_sem_comissao",
+      "when": 1794883039918,
+      "tag": "0056_afiliado_modo_comissao",
       "breakpoints": true
     }
   ]

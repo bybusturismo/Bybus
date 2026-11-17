@@ -151,7 +151,7 @@ describe("comissões de afiliados (13/11/2026)", () => {
       return r!.id;
     });
     const [interno] = await comDb((db) => db.select().from(afiliados).where(eq(afiliados.paytourAfiliadoId, "999")));
-    expect(interno).toMatchObject({ nome: "Tripadvisor interno", semComissao: true });
+    expect(interno).toMatchObject({ nome: "Tripadvisor interno", modoComissao: "NENHUMA" });
     const c = new Cliente(app);
     await c.login("admin@bybus.test");
     const ver = async () => (await c.req("GET", `/api/afiliados/comissoes?de=2026-10-01&ate=${futuro}&por=PASSEIO`)).json();
@@ -159,8 +159,44 @@ describe("comissões de afiliados (13/11/2026)", () => {
     expect(j.itens.some((x: { reservaId: string }) => x.reservaId === reservaId)).toBe(false);
     expect(j.ranking.some((x: { nome: string }) => x.nome === "Tripadvisor interno")).toBe(false);
     // Desmarcado na ficha do afiliado, volta a aparecer.
-    await comDb((db) => db.update(afiliados).set({ semComissao: false }).where(eq(afiliados.id, interno!.id)));
+    await comDb((db) => db.update(afiliados).set({ modoComissao: "PAGAMOS" }).where(eq(afiliados.id, interno!.id)));
     expect((await ver()).itens.some((x: { reservaId: string }) => x.reservaId === reservaId)).toBe(true);
-    await comDb((db) => db.update(afiliados).set({ semComissao: true }).where(eq(afiliados.id, interno!.id)));
+    await comDb((db) => db.update(afiliados).set({ modoComissao: "NENHUMA" }).where(eq(afiliados.id, interno!.id)));
+  });
+
+  it("Inzama Travel retém 15% na venda: aparece como retida, nunca vai para o contas a pagar; relatório em PDF (17/11/2026)", async () => {
+    const reservaId = await comDb(async (db) => {
+      const [s] = await db.select().from(saidas).where(eq(saidas.data, "2026-10-20"));
+      // A Paytour não informa comissão (ela retém por fora): vale o percentual do cadastro (15%).
+      const [v] = await db.insert(vendas).values({ pedidoCodigo: "PAYTOUR-T-INZ", fonte: "PAYTOUR_API", canalVenda: "AFILIADO", valorCentavos: 20000, afiliadoId: "555", afiliadoComissaoCentavos: 0, dataHoraCompra: new Date("2026-10-02T15:00:00Z") }).returning();
+      const [r] = await db.insert(reservas).values({ saidaId: s!.id, vendaId: v!.id, canal: "PAYTOUR", origem: "FICTICIO", contatoNome: "Cliente Fictício", valorCentavos: 20000 }).returning();
+      await db.insert(passageiros).values({ reservaId: r!.id, nome: "Passageiro Fictício", categoria: "ADULTO", embarque: "EMBARCOU" });
+      await sincronizarAfiliadosPaytour(db, { "555": "Inzama Travel" });
+      await db.update(afiliados).set({ modoComissao: "RETEM", comissaoPontosBase: 1500 }).where(eq(afiliados.paytourAfiliadoId, "555"));
+      return r!.id;
+    });
+    const c = new Cliente(app);
+    await c.login("admin@bybus.test");
+    const j = (await c.req("GET", `/api/afiliados/comissoes?de=2026-10-01&ate=${futuro}&por=PASSEIO`)).json();
+    const inz = j.itens.find((x: { reservaId: string }) => x.reservaId === reservaId);
+    expect(inz).toMatchObject({ afiliadoNome: "Inzama Travel", situacao: "RETIDA", comissaoCentavos: 3000, retem: true });
+    expect(j.totais.retidaCentavos).toBe(3000);
+    expect(j.ranking.find((x: { nome: string }) => x.nome === "Inzama Travel")).toMatchObject({ retem: true, comissaoCentavos: 3000 });
+
+    // O pagamento quinzenal não inclui a retida.
+    await c.req("PUT", "/api/afiliados/corte", { pagasAte: "2026-09-30" });
+    const g = await c.req("POST", "/api/afiliados/pagamentos", { dataPagamento: "2026-11-01" });
+    expect([200, 201, 409]).toContain(g.statusCode);
+    const contas = await comDb((db) => db.select().from(finLancamentos));
+    expect(contas.some((l) => /inzama/i.test(l.descricao))).toBe(false);
+
+    const pdf = await c.req("GET", `/api/afiliados/comissoes/relatorio.pdf?de=2026-10-01&ate=${futuro}&por=PASSEIO`);
+    expect(pdf.statusCode, pdf.body.slice(0, 200)).toBe(200);
+    expect(pdf.headers["content-type"]).toContain("application/pdf");
+    expect(pdf.rawPayload.subarray(0, 4).toString()).toBe("%PDF");
+    expect((await c.req("GET", `/api/afiliados/comissoes/relatorio.pdf?de=2026-10-01&ate=${futuro}&situacao=RETIDA`)).statusCode).toBe(200);
+    const semPermissao = new Cliente(app);
+    await semPermissao.login("guia@bybus.test");
+    expect((await semPermissao.req("GET", `/api/afiliados/comissoes/relatorio.pdf?de=2026-10-01&ate=${futuro}`)).statusCode).toBe(403);
   });
 });

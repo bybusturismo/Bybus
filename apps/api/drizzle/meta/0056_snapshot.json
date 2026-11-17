@@ -1,5 +1,5 @@
 {
-  "id": "ec86e992-079f-4168-b68e-7d245956db98",
+  "id": "cb48fc0f-6832-4a71-8e3a-d199a6e496fc",
   "prevId": "62f0b82c-a16d-4de1-a0ba-7f7fd3a0e774",
   "version": "7",
   "dialect": "postgresql",
@@ -4004,12 +4004,12 @@
           "primaryKey": false,
           "notNull": false
         },
-        "sem_comissao": {
-          "name": "sem_comissao",
-          "type": "boolean",
+        "modo_comissao": {
+          "name": "modo_comissao",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": false
+          "default": "'PAGAMOS'"
         },
         "ativo": {
           "name": "ativo",

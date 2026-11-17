@@ -17,7 +17,7 @@ interface Portal {
   pagamentos: Array<{ dataPagamento: string; periodoDe: string; periodoAte: string; totalCentavos: number; situacao: string; pagoEm: string | null }>;
   dadosBancarios: DadosBancarios | null;
 }
-const ETIQUETA: Record<SituacaoComissao, string> = { PREVISTA: "etiqueta--neutra", A_PAGAR: "etiqueta--atencao", PAGA: "etiqueta--sucesso", CANCELADA: "etiqueta--perigo" };
+const ETIQUETA: Record<SituacaoComissao, string> = { PREVISTA: "etiqueta--neutra", A_PAGAR: "etiqueta--atencao", PAGA: "etiqueta--sucesso", CANCELADA: "etiqueta--perigo", RETIDA: "etiqueta--info" };
 const vazio: DadosBancarios = { titular: "", documento: "", pix: "", banco: "", agencia: "", conta: "", tipoConta: "CORRENTE" };
 
 /**

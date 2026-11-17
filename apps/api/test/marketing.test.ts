@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
+import { hojeSp, somarDias } from "../src/servicos/marketingComum.js";
 import { criarDb } from "../src/db/cliente.js";
 import { semearBiblioteca, PAGINAS_SEMENTE } from "../src/db/biblioteca-seed.js";
 import { auditoria, bibliotecaPaginas, passageiros, passeios, reservas, saidas } from "../src/db/schema.js";
@@ -17,8 +18,9 @@ let flnId = "";
 let bcId = "";
 const { db, pool } = criarDb(DATABASE_URL);
 
+/** Hoje + n dias no fuso de São Paulo (o mesmo "hoje" do sistema; em UTC, entre 21h e 24h o dia já virou e os testes falhavam). */
 function dias(n: number) {
-  return new Date(Date.now() + n * 86400_000).toISOString().slice(0, 10);
+  return somarDias(hojeSp(), n);
 }
 
 async function novoUsuario(perfil: string, permissoes: string[], email: string, unidadeIds: string[]) {

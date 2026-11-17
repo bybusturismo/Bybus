@@ -42,4 +42,27 @@ describe("Comissões de afiliados (13/11/2026)", () => {
     expect(screen.getByText(/informe até que data de passeio as comissões já foram pagas/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Gerar contas a pagar" })).not.toBeInTheDocument();
   });
+
+  it("Inzama Travel aparece destacada como retida (sem data de pagamento) e o PDF usa os filtros da tela (17/11/2026)", async () => {
+    simularApi({
+      "GET /api/afiliados/comissoes": {
+        itens: [{ reservaId: "r9", pedidoCodigo: "PAYTOUR-9", afiliadoId: "a9", afiliadoNome: "Inzama Travel", passeio: "Toda a Ilha", dataVenda: "2026-10-02", dataPasseio: "2026-10-20", valorReservaCentavos: 20000, comissaoCentavos: 3000, situacao: "RETIDA", dataPagamento: "2026-11-01", pagamentoId: null, retem: true }],
+        totais: { previstaCentavos: 0, aPagarCentavos: 0, pagaCentavos: 0, canceladaCentavos: 0, retidaCentavos: 3000 },
+        ranking: [{ afiliadoId: "a9", nome: "Inzama Travel", reservas: 1, vendidoCentavos: 20000, comissaoCentavos: 3000, retem: true }],
+        proximoPagamento: { data: "2026-11-16", pendentes: 0, totalCentavos: 0 }, pagasForaAte: "2026-10-15",
+      },
+      "GET /api/afiliados/pagamentos": [],
+    });
+    renderizar(<ComissoesAfiliados />, { sessao: sessaoFicticia("MKT", ["marketing:ver"], { unidades: [FLN] }) });
+    const linha = await screen.findByRole("row", { name: /PAYTOUR-9/ });
+    expect(linha).toHaveClass("linha--destaque");
+    expect(linha).toHaveTextContent("Retém na venda");
+    expect(linha).toHaveTextContent("Retida pelo afiliado na venda");
+    expect(linha).not.toHaveTextContent("01/11/2026");
+    expect(screen.getByText("Retidas na venda")).toBeInTheDocument();
+    const u = userEvent.setup();
+    await u.selectOptions(screen.getByLabelText("Situação"), "RETIDA");
+    const pdf = screen.getByRole("link", { name: /Relatório em PDF/ });
+    expect(pdf.getAttribute("href")).toMatch(/^\/api\/afiliados\/comissoes\/relatorio\.pdf\?.*situacao=RETIDA/);
+  });
 });

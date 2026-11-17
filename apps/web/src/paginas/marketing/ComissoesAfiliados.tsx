@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ROTULO_SITUACAO_COMISSAO, type SituacaoComissao } from "@bybus/core";
 import { api, mensagemDeErro, qs } from "../../api/cliente";
 import { Aviso, Carregando, ErroCarga, Vazio } from "../../componentes/Estados";
+import { Icone } from "../../componentes/Icone";
 import { Indicador, Indicadores } from "../../componentes/Indicador";
 import { Confirmar, Modal } from "../../componentes/Modal";
 import { useNotificar } from "../../componentes/Notificacoes";
@@ -13,18 +14,23 @@ interface Comissao {
   reservaId: string; pedidoCodigo: string; afiliadoId: string | null; afiliadoNome: string; passeio: string;
   dataVenda: string | null; dataPasseio: string; valorReservaCentavos: number; comissaoCentavos: number;
   situacao: SituacaoComissao; dataPagamento: string; pagamentoId: string | null;
+  /** Retém a comissão na venda e repassa o líquido (ex.: Inzama Travel): nunca vai para o contas a pagar. */
+  retem?: boolean;
 }
 interface Resposta {
   itens: Comissao[];
-  totais: { previstaCentavos: number; aPagarCentavos: number; pagaCentavos: number; canceladaCentavos: number };
-  ranking: Array<{ afiliadoId: string | null; nome: string; reservas: number; vendidoCentavos: number; comissaoCentavos: number }>;
+  totais: { previstaCentavos: number; aPagarCentavos: number; pagaCentavos: number; canceladaCentavos: number; retidaCentavos?: number };
+  ranking: Array<{ afiliadoId: string | null; nome: string; reservas: number; vendidoCentavos: number; comissaoCentavos: number; retem?: boolean }>;
   proximoPagamento: { data: string; pendentes: number; totalCentavos: number };
   /** Passeios até esta data: comissões já pagas fora do sistema (corte do histórico). */
   pagasForaAte: string | null;
 }
 interface Pagamento { id: string; afiliadoId: string; dataPagamento: string; periodoDe: string; periodoAte: string; totalCentavos: number; afiliado: string; situacaoConta: string }
 
-const ETIQUETA: Record<SituacaoComissao, string> = { PREVISTA: "etiqueta--neutra", A_PAGAR: "etiqueta--atencao", PAGA: "etiqueta--sucesso", CANCELADA: "etiqueta--perigo" };
+const ETIQUETA: Record<SituacaoComissao, string> = { PREVISTA: "etiqueta--neutra", A_PAGAR: "etiqueta--atencao", PAGA: "etiqueta--sucesso", CANCELADA: "etiqueta--perigo", RETIDA: "etiqueta--info" };
+const SITUACOES: SituacaoComissao[] = ["A_PAGAR", "PREVISTA", "PAGA", "RETIDA", "CANCELADA"];
+/** Destaque de quem retém a comissão na venda (dono, 17/11/2026: Inzama Travel fica com 15% e repassa 85%). */
+const SeloRetem = () => <span className="etiqueta etiqueta--info" title="Vende e já retém a comissão, repassando o líquido. Não gera conta a pagar.">Retém na venda</span>;
 
 /** Datas de pagamento (dia 01 e 16) já alcançadas, da mais recente para trás. */
 export function datasDePagamento(hoje: string, quantas = 6): string[] {
@@ -54,6 +60,7 @@ export function ComissoesAfiliados() {
   const [ate, setAte] = useState(somarDias(hoje, 60));
   const [por, setPor] = useState<"PASSEIO" | "VENDA">("PASSEIO");
   const [afiliadoId, setAfiliadoId] = useState("");
+  const [situacao, setSituacao] = useState<SituacaoComissao | "">("");
   const [dataPagamento, setDataPagamento] = useState(() => datasDePagamento(hoje)[0]!);
   const [gerando, setGerando] = useState(false);
   const [desfazer, setDesfazer] = useState<Pagamento | null>(null);
@@ -68,7 +75,8 @@ export function ComissoesAfiliados() {
       setErro(mensagemDeErro(x));
     }
   }
-  const dados = useCarregar((s) => api.get<Resposta>(`/api/afiliados/comissoes${qs({ de, ate, por, afiliadoId: afiliadoId || undefined })}`, s), [de, ate, por, afiliadoId]);
+  const dados = useCarregar((s) => api.get<Resposta>(`/api/afiliados/comissoes${qs({ de, ate, por, afiliadoId: afiliadoId || undefined, situacao: situacao || undefined })}`, s), [de, ate, por, afiliadoId, situacao]);
+  const linkPdf = `/api/afiliados/comissoes/relatorio.pdf${qs({ de, ate, por, afiliadoId: afiliadoId || undefined, situacao: situacao || undefined })}`;
   const pagamentos = useCarregar((s) => api.get<Pagamento[]>("/api/afiliados/pagamentos", s), []);
   const afiliados = useMemo(() => (dados.dados?.ranking ?? []).filter((r) => r.afiliadoId).sort((a, b) => a.nome.localeCompare(b.nome)), [dados.dados]);
   const podePagar = pode("financeiro:gerenciar");
@@ -163,6 +171,13 @@ export function ComissoesAfiliados() {
             {afiliados.map((a) => <option key={a.afiliadoId!} value={a.afiliadoId!}>{a.nome}</option>)}
           </select>
         </div>
+        <div className="campo campo--linha"><label htmlFor="cm-situacao">Situação</label>
+          <select id="cm-situacao" value={situacao} onChange={(e) => setSituacao(e.target.value as SituacaoComissao | "")}>
+            <option value="">Todas</option>
+            {SITUACOES.map((x) => <option key={x} value={x}>{ROTULO_SITUACAO_COMISSAO[x]}</option>)}
+          </select>
+        </div>
+        <a className="botao botao--secundario" href={linkPdf} target="_blank" rel="noreferrer"><Icone nome="baixar" /> Relatório em PDF</a>
       </div>
 
       {dados.carregando && !d ? <Carregando /> : dados.erro ? <ErroCarga mensagem={dados.erro} tentarDeNovo={dados.recarregar} /> : d && (
@@ -172,6 +187,7 @@ export function ComissoesAfiliados() {
             <Indicador tinta="ambar" icone="alerta" rotulo="A pagar" valor={formatarMoeda(d.totais.aPagarCentavos)} detalhe="Passeio realizado" />
             <Indicador tinta="verde" icone="check" rotulo="Pagas" valor={formatarMoeda(d.totais.pagaCentavos)} />
             <Indicador tinta="rosa" icone="lista" rotulo="Canceladas" valor={formatarMoeda(d.totais.canceladaCentavos)} detalhe="Não compareceu ou cancelou" />
+            {!!d.totais.retidaCentavos && <Indicador tinta="violeta" icone="dinheiro" rotulo="Retidas na venda" valor={formatarMoeda(d.totais.retidaCentavos)} detalhe="O afiliado já ficou com a parte dele: não vai para o contas a pagar" />}
           </Indicadores>
 
           <section className="cartao" aria-labelledby="titulo-ranking">
@@ -182,7 +198,7 @@ export function ComissoesAfiliados() {
                   <thead><tr><th scope="col">#</th><th scope="col">Afiliado</th><th scope="col" className="num">Reservas</th><th scope="col" className="num">Vendido</th><th scope="col" className="num">Comissão</th></tr></thead>
                   <tbody>
                     {d.ranking.map((r, i) => (
-                      <tr key={r.afiliadoId ?? r.nome}><td>{i + 1}º</td><td>{r.nome}</td><td className="num">{r.reservas}</td><td className="num">{formatarMoeda(r.vendidoCentavos)}</td><td className="num">{formatarMoeda(r.comissaoCentavos)}</td></tr>
+                      <tr key={r.afiliadoId ?? r.nome}><td>{i + 1}º</td><td>{r.nome}{r.retem && <> <SeloRetem /></>}</td><td className="num">{r.reservas}</td><td className="num">{formatarMoeda(r.vendidoCentavos)}</td><td className="num">{formatarMoeda(r.comissaoCentavos)}</td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -198,15 +214,15 @@ export function ComissoesAfiliados() {
                   <thead><tr><th scope="col">Venda</th><th scope="col">Passeio</th><th scope="col">Afiliado</th><th scope="col">Pedido</th><th scope="col" className="num">Valor</th><th scope="col" className="num">Comissão</th><th scope="col">Situação</th><th scope="col">Pagamento</th></tr></thead>
                   <tbody>
                     {d.itens.map((c) => (
-                      <tr key={c.reservaId}>
+                      <tr key={c.reservaId} className={c.retem ? "linha--destaque" : undefined}>
                         <td className="sem-quebra">{c.dataVenda ? formatarData(c.dataVenda) : "—"}</td>
                         <td>{formatarData(c.dataPasseio)}<div className="texto-fraco">{c.passeio}</div></td>
-                        <td>{c.afiliadoNome}</td>
+                        <td>{c.afiliadoNome}{c.retem && <div><SeloRetem /></div>}</td>
                         <td className="sem-quebra">{c.pedidoCodigo}</td>
                         <td className="num">{formatarMoeda(c.valorReservaCentavos)}</td>
                         <td className="num"><strong>{formatarMoeda(c.comissaoCentavos)}</strong></td>
                         <td><span className={`etiqueta ${ETIQUETA[c.situacao]}`}>{ROTULO_SITUACAO_COMISSAO[c.situacao]}</span></td>
-                        <td className="sem-quebra">{c.situacao === "CANCELADA" ? "—" : formatarData(c.dataPagamento)}{c.pagamentoId && c.situacao !== "PAGA" ? <div className="texto-fraco">conta gerada</div> : null}</td>
+                        <td className="sem-quebra">{c.situacao === "CANCELADA" || c.retem ? "—" : formatarData(c.dataPagamento)}{c.pagamentoId && c.situacao !== "PAGA" ? <div className="texto-fraco">conta gerada</div> : null}</td>
                       </tr>
                     ))}
                   </tbody>

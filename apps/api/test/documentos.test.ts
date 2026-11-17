@@ -6,6 +6,7 @@ import { SENHA_DEMO } from "../src/db/ficticios.js";
 import { auditoria, perfis, usuarios } from "../src/db/schema.js";
 import { gerarHashSenha } from "../src/seguranca/senha.js";
 import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
+import { hojeSp, somarDias } from "../src/servicos/marketingComum.js";
 
 let app: FastifyInstance;
 let fechar: () => Promise<void>;
@@ -53,7 +54,7 @@ describe("Documentos da empresa (11/11/2026)", () => {
     const pastas = json(await admin.req("GET", "/api/documentos")).pastas as Array<{ id: string; nome: string }>;
     const contratos = pastas.find((p) => p.nome === "Contratos")!.id;
     const socios = pastas.find((p) => p.nome === "Sócios")!.id;
-    const ontem = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const ontem = somarDias(hojeSp(), -1); // fuso de São Paulo, como o sistema
     const r = await gestor.req("POST", "/api/documentos/arquivos", { pastaId: contratos, titulo: "Contrato fictício de aluguel", vencimento: ontem, nome: "aluguel.pdf", base64: PDF });
     expect(r.statusCode).toBe(201);
     const id = json(r).id;

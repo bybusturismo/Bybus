@@ -145,8 +145,23 @@ Regras do dono em `docs/conhecimento/canais-e-integracoes.md`. Tela **Marketing 
   dados em "Comissões de afiliados › Pagamentos gerados › Dados bancários" (`financeiro:gerenciar`, auditado). A lista de
   afiliados nunca devolve os dados bancários (só "tem dados bancários"/"tem acesso"). "Remover acesso" desativa o login.
 
-## Canais internos fora das comissões (17/11/2026)
-Pedido do dono: "Tripadvisor interno" e "Decolar.com interno" não devem aparecer em Comissões de afiliados.
-- No cadastro do afiliado há a opção nova **"Canal interno: não entra nas comissões"** (campo `semComissao`). Quem estiver marcado sai das comissões, do ranking, dos pagamentos quinzenais e do portal.
-- A migração 0056 marca os afiliados que já existem com a palavra "interno" no nome. Os que vierem da Paytour com "interno" no nome já nascem marcados.
-- Pagamentos já gerados antes da marcação continuam no financeiro. Se houver algum, a exclusão é manual.
+## Tipo de comissão do afiliado e relatório em PDF (17/11/2026)
+Pedidos do dono:
+- "Tripadvisor interno" e "Decolar.com interno" não devem aparecer em Comissões de afiliados.
+- A **Inzama Travel** tem uma negociação diferente: vende e já retém os seus 15%, repassando os 85% líquidos. Não pagamos comissão a ela, então nunca vai para o contas a pagar, mas ela precisa aparecer identificada no relatório.
+- Relatório de comissões em PDF.
+
+**O que foi feito:**
+- O cadastro do afiliado ganhou o campo **Tipo de comissão** (`modoComissao`):
+  - **A By Bus paga** (padrão): o fluxo de sempre, com pagamento quinzenal e conta a pagar;
+  - **Afiliado retém na venda e repassa o líquido**: depois do passeio, a comissão fica com a situação **"Retida pelo afiliado na venda"**. Na tela tem o selo "Retém na venda", a linha em destaque e um total à parte ("Retidas na venda"). Não tem data de pagamento e nunca entra no pagamento quinzenal. Se a Paytour não informar a comissão, o sistema usa o percentual do cadastro sobre o valor das reservas (padrão de 15%);
+  - **Canal interno: sem comissão**: some das comissões, do ranking, dos pagamentos e do portal.
+- A migração 0056 marca como "sem comissão" os afiliados com "interno" no nome, e a Inzama (nome com "inzama") como "retém", com 15% se o percentual estiver vazio. Afiliados novos da Paytour com "interno" no nome já nascem sem comissão.
+- **Relatório em PDF:** botão "Relatório em PDF" em Marketing › Comissões de afiliados. Usa os mesmos filtros da tela: período (pela data do passeio ou da venda), afiliado e situação (filtro novo). Sai no papel timbrado com:
+  - totais por situação;
+  - resumo por afiliado (vendido, a pagar, prevista, paga, retida; quem retém vem marcado com *);
+  - o detalhe de cada afiliado, reserva por reserva. A Inzama traz a nota "Negociação diferente", com o retido e o líquido repassado.
+
+  Rota `GET /api/afiliados/comissoes/relatorio.pdf` (marketing:ver ou financeiro:ver). Fica registrado na auditoria (`AFILIADO_RELATORIO_PDF`).
+- O PDF timbrado ganhou um bloco de tabela, com cabeçalho repetido quando a tabela continua na página seguinte e total em negrito.
+- **A confirmar:** como as vendas da Inzama chegam ao sistema. O cálculo vale para vendas da Paytour ligadas ao afiliado Inzama. Se ela vender por outro caminho (e-mail, planilha), é preciso ligar esse caminho.

@@ -39,6 +39,50 @@ function escrever(doc: PDFKit.PDFDocument, texto: string, opcoes: PDFKit.Mixins.
   });
 }
 
+type Tabela = Extract<BlocoContrato, { tipo: "tabela" }>;
+/** Tabela simples: cabeçalho em fundo claro (repetido na página nova), linhas zebradas, total em negrito, valores à direita. */
+function desenharTabela(doc: PDFKit.PDFDocument, t: Tabela, largura: number) {
+  const soma = t.colunas.reduce((a, c) => a + c.largura, 0);
+  const larg = t.colunas.map((c) => (c.largura / soma) * largura);
+  const pad = 3;
+  const fonte = 8;
+  const limite = () => A4.h - MARGEM.base - 4;
+  const altura = (celulas: string[], negrito: boolean) => {
+    doc.font(negrito ? "Helvetica-Bold" : "Helvetica").fontSize(fonte);
+    return Math.max(...celulas.map((c, i) => doc.heightOfString(c || " ", { width: larg[i]! - 2 * pad }))) + 2 * pad;
+  };
+  const linha = (celulas: string[], opc: { negrito?: boolean; fundo?: string }) => {
+    const h = altura(celulas, !!opc.negrito);
+    const y = doc.y;
+    if (opc.fundo) doc.save().rect(MARGEM.esquerda, y, largura, h).fill(opc.fundo).restore();
+    let x = MARGEM.esquerda;
+    doc.fillColor("#1f2933").font(opc.negrito ? "Helvetica-Bold" : "Helvetica").fontSize(fonte);
+    celulas.forEach((c, i) => {
+      doc.text(c ?? "", x + pad, y + pad, { width: larg[i]! - 2 * pad, align: t.colunas[i]?.direita ? "right" : "left", lineBreak: true });
+      x += larg[i]!;
+    });
+    doc.fillColor("#000000");
+    doc.x = MARGEM.esquerda;
+    doc.y = y + h;
+    return h;
+  };
+  const cabecalho = () => {
+    linha(t.colunas.map((c) => c.titulo), { negrito: true, fundo: "#dfe7ef" });
+    doc.save().moveTo(MARGEM.esquerda, doc.y).lineTo(MARGEM.esquerda + largura, doc.y).lineWidth(0.6).strokeColor("#7b8794").stroke().restore();
+  };
+  if (doc.y + altura(t.colunas.map((c) => c.titulo), true) * 3 > limite()) doc.addPage();
+  cabecalho();
+  t.linhas.forEach((l, i) => {
+    if (doc.y + altura(l, false) > limite()) { doc.addPage(); cabecalho(); }
+    linha(l, { fundo: i % 2 ? "#f4f6f8" : undefined });
+  });
+  if (t.total) {
+    if (doc.y + altura(t.total, true) > limite()) { doc.addPage(); cabecalho(); }
+    doc.save().moveTo(MARGEM.esquerda, doc.y).lineTo(MARGEM.esquerda + largura, doc.y).lineWidth(0.6).strokeColor("#7b8794").stroke().restore();
+    linha(t.total, { negrito: true });
+  }
+}
+
 export function gerarPdfTimbrado(titulo: string, blocos: BlocoContrato[], rodape?: string): Promise<Buffer> {
   return new Promise((ok, falha) => {
     const doc = new PDFDocument({ size: "A4", margins: { top: MARGEM.topo, bottom: MARGEM.base, left: MARGEM.esquerda, right: MARGEM.direita }, info: { Title: titulo, Author: "By Bus Turismo" }, bufferPages: true });
@@ -64,6 +108,9 @@ export function gerarPdfTimbrado(titulo: string, blocos: BlocoContrato[], rodape
       } else if (b.tipo === "paragrafo") {
         escrever(doc, b.texto, { align: "justify", width: largura, lineGap: 1.5 });
         doc.moveDown(0.45);
+      } else if (b.tipo === "tabela") {
+        desenharTabela(doc, b, largura);
+        doc.moveDown(0.6);
       } else {
         for (const parte of b.partes) {
           if (doc.y > A4.h - MARGEM.base - 110) doc.addPage();

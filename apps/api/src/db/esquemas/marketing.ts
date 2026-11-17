@@ -130,8 +130,12 @@ export const afiliados = pgTable("afiliados", {
   dadosBancariosCifrado: text(),
   dadosBancariosEm: timestamp({ withTimezone: true }),
   observacoes: text(),
-  /** Canal interno da própria By Bus cadastrado como afiliado na Paytour (ex.: "Tripadvisor interno"): fora das comissões (dono, 17/11/2026). */
-  semComissao: boolean().notNull().default(false),
+  /**
+   * Como funciona a comissão (dono, 17/11/2026): PAGAMOS (padrão, vira conta a pagar), RETEM (o afiliado fica com a parte dele
+   * na venda e repassa o líquido, ex.: Inzama Travel 15%; aparece no relatório, nunca no contas a pagar) ou NENHUMA (canal
+   * interno da By Bus, ex.: "Tripadvisor interno"; fora das comissões). Ver MODOS_COMISSAO no core.
+   */
+  modoComissao: text().notNull().default("PAGAMOS"),
   ativo: boolean().notNull().default(true),
   criadoEm: agora(),
   atualizadoEm: agora(),

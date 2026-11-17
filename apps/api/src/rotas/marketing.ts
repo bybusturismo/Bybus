@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
   codigoAfiliadoValido, indicadoresCampanha, linkAfiliado, MIDIAS_CAMPANHA, MODELO_AVALIACAO_PADRAO, normalizarCodigoAfiliado,
-  percentuais, REDES_CONTEUDO, STATUS_CONTEUDO, TIPOS_AFILIADO,
+  MODOS_COMISSAO, percentuais, REDES_CONTEUDO, STATUS_CONTEUDO, TIPOS_AFILIADO,
 } from "@bybus/core";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
@@ -376,8 +376,8 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     contato: textoOpc(200),
     paytourAfiliadoId: textoOpc(60),
     observacoes: textoOpc(1000),
-    /** Canal interno (ex.: "Tripadvisor interno", "Decolar.com interno"): não aparece nas comissões (dono, 17/11/2026). */
-    semComissao: z.boolean().default(false),
+    /** PAGAMOS, RETEM (ex.: Inzama Travel) ou NENHUMA (canal interno, ex.: "Tripadvisor interno") — dono, 17/11/2026. */
+    modoComissao: z.enum(MODOS_COMISSAO).default("PAGAMOS"),
     ativo: z.boolean().default(true),
   });
 

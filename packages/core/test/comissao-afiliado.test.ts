@@ -30,6 +30,10 @@ describe("comissão de afiliados (13/11/2026)", () => {
     expect(situacaoComissao({ ...base, compareceu: null })).toBe("A_PAGAR");
     expect(situacaoComissao({ ...base, compareceu: false })).toBe("CANCELADA");
     expect(situacaoComissao({ ...base, reservaCancelada: true })).toBe("CANCELADA");
+    // Afiliado que retém a comissão na venda (Inzama Travel, 17/11/2026): realizada vira "retida", nunca "a pagar" nem "paga".
+    expect(situacaoComissao({ ...base, retem: true })).toBe("RETIDA");
+    expect(situacaoComissao({ ...base, retem: true, paga: true })).toBe("RETIDA");
+    expect(situacaoComissao({ ...base, retem: true, compareceu: false })).toBe("CANCELADA");
     expect(situacaoComissao({ ...base, dataPasseio: "2026-11-13" })).toBe("PREVISTA");
     expect(situacaoComissao({ ...base, paga: true })).toBe("PAGA");
   });

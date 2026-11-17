@@ -1,7 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { proximoPagamento, type SituacaoComissao } from "@bybus/core";
+import { montarRelatorioComissoes, proximoPagamento, type SituacaoComissao } from "@bybus/core";
+import { gerarPdfTimbrado } from "../servicos/pdfTimbrado.js";
+import { dadosEmpresaContrato } from "./grupos.js";
 import type { Contexto } from "../app.js";
 import { auditar } from "../auditoria.js";
 import { afiliadoPagamentos, afiliados, finLancamentos, marketingConfig } from "../db/schema.js";
@@ -22,24 +24,32 @@ export async function rotasAfiliadosComissao(app: FastifyInstance, { db, config 
   const pagar = { preHandler: exigir(config, "financeiro:gerenciar") };
   const escopo = (req: FastifyRequest) => (req.usuario!.todasUnidades ? null : req.usuario!.unidadeIds);
 
-  app.get("/api/afiliados/comissoes", ver, async (req) => {
-    const q = z.object({
-      de: dataIso, ate: dataIso, por: z.enum(["PASSEIO", "VENDA"]).default("PASSEIO"), afiliadoId: z.string().uuid().optional(),
-    }).parse(req.query);
+  const filtros = z.object({
+    de: dataIso, ate: dataIso, por: z.enum(["PASSEIO", "VENDA"]).default("PASSEIO"), afiliadoId: z.string().uuid().optional(),
+    situacao: z.enum(["PREVISTA", "A_PAGAR", "CANCELADA", "PAGA", "RETIDA"]).optional(),
+  });
+  /** As comissões do período (mesmos filtros na tela e no PDF). */
+  async function doPeriodo(req: FastifyRequest, q: z.infer<typeof filtros>) {
     if (q.ate < q.de) throw new ErroHttp(400, "DADOS_INVALIDOS", "Período inválido.");
     const hoje = hojeSp();
     const todas = await calcularComissoes(db, escopo(req), hoje);
     const itens = todas
-      .filter((c) => (!q.afiliadoId || c.afiliadoId === q.afiliadoId))
+      .filter((c) => (!q.afiliadoId || c.afiliadoId === q.afiliadoId) && (!q.situacao || c.situacao === q.situacao))
       .filter((c) => { const d = q.por === "VENDA" ? c.dataVenda : c.dataPasseio; return !!d && d >= q.de && d <= q.ate; })
       .sort((a, b) => (q.por === "VENDA" ? (a.dataVenda ?? "").localeCompare(b.dataVenda ?? "") : a.dataPasseio.localeCompare(b.dataPasseio)));
+    return { hoje, todas, itens };
+  }
+
+  app.get("/api/afiliados/comissoes", ver, async (req) => {
+    const q = filtros.parse(req.query);
+    const { hoje, todas, itens } = await doPeriodo(req, q);
     const soma = (s: SituacaoComissao) => itens.filter((c) => c.situacao === s).reduce((a, c) => a + c.comissaoCentavos, 0);
     // Ranking: vendas, valor vendido e comissão por afiliado no período (sem as canceladas).
-    const porAfiliado = new Map<string, { afiliadoId: string | null; nome: string; reservas: number; vendidoCentavos: number; comissaoCentavos: number }>();
+    const porAfiliado = new Map<string, { afiliadoId: string | null; nome: string; reservas: number; vendidoCentavos: number; comissaoCentavos: number; retem: boolean }>();
     for (const c of itens) {
       if (c.situacao === "CANCELADA") continue;
       const k = c.afiliadoId ?? c.paytourAfiliadoId;
-      const r = porAfiliado.get(k) ?? { afiliadoId: c.afiliadoId, nome: c.afiliadoNome, reservas: 0, vendidoCentavos: 0, comissaoCentavos: 0 };
+      const r = porAfiliado.get(k) ?? { afiliadoId: c.afiliadoId, nome: c.afiliadoNome, reservas: 0, vendidoCentavos: 0, comissaoCentavos: 0, retem: c.retem };
       r.reservas++; r.vendidoCentavos += c.valorReservaCentavos; r.comissaoCentavos += c.comissaoCentavos;
       porAfiliado.set(k, r);
     }
@@ -48,11 +58,24 @@ export async function rotasAfiliadosComissao(app: FastifyInstance, { db, config 
     const aPagarSemLote = todas.filter((c) => c.situacao === "A_PAGAR" && !c.pagamentoId);
     return {
       itens,
-      totais: { previstaCentavos: soma("PREVISTA"), aPagarCentavos: soma("A_PAGAR"), pagaCentavos: soma("PAGA"), canceladaCentavos: soma("CANCELADA") },
+      totais: { previstaCentavos: soma("PREVISTA"), aPagarCentavos: soma("A_PAGAR"), pagaCentavos: soma("PAGA"), canceladaCentavos: soma("CANCELADA"), retidaCentavos: soma("RETIDA") },
       ranking: [...porAfiliado.values()].sort((a, b) => b.vendidoCentavos - a.vendidoCentavos),
       pagasForaAte: await lerCorte(db),
       proximoPagamento: { data: proximo, pendentes: aPagarSemLote.length, totalCentavos: aPagarSemLote.reduce((a, c) => a + c.comissaoCentavos, 0) },
     };
+  });
+
+  /** Relatório de comissões em PDF no papel timbrado (dono, 17/11/2026), com os mesmos filtros da tela. */
+  app.get("/api/afiliados/comissoes/relatorio.pdf", ver, async (req, reply) => {
+    const q = filtros.parse(req.query);
+    const { hoje, itens } = await doPeriodo(req, q);
+    const [a] = q.afiliadoId ? await db.select({ nome: afiliados.nome }).from(afiliados).where(eq(afiliados.id, q.afiliadoId)) : [];
+    const empresa = await dadosEmpresaContrato(db);
+    const blocos = montarRelatorioComissoes({ de: q.de, ate: q.ate, por: q.por, emitidoEm: hoje, cidade: empresa.cidadeForo, afiliado: a?.nome ?? null, situacao: q.situacao ?? null, itens });
+    const pdf = await gerarPdfTimbrado("Relatório de comissões de afiliados", blocos, `Comissões de afiliados · ${q.de.split("-").reverse().join("/")} a ${q.ate.split("-").reverse().join("/")}`);
+    await auditar(db, req, "AFILIADO_RELATORIO_PDF", { tipo: "afiliados", id: q.afiliadoId ?? "todos" }, { de: q.de, ate: q.ate, por: q.por, linhas: itens.length });
+    return reply.header("Content-Type", "application/pdf").header("Cache-Control", "no-store")
+      .header("Content-Disposition", `inline; filename="comissoes-${q.de}-a-${q.ate}.pdf"`).send(pdf);
   });
 
   app.get("/api/afiliados/pagamentos", ver, async (req) => {

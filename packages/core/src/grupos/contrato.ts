@@ -47,7 +47,9 @@ export type BlocoContrato =
   | { tipo: "titulo"; texto: string }
   | { tipo: "clausula"; texto: string }
   | { tipo: "paragrafo"; texto: string }
-  | { tipo: "assinaturas"; partes: Array<{ papel: string; nome: string; linhas: string[] }> };
+  | { tipo: "assinaturas"; partes: Array<{ papel: string; nome: string; linhas: string[] }> }
+  /** Tabela (relatórios, 17/11/2026): larguras em proporção; a última linha pode ser o total (em negrito). */
+  | { tipo: "tabela"; colunas: Array<{ titulo: string; largura: number; direita?: boolean }>; linhas: string[][]; total?: string[] };
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 export const dataBr = (iso: string) => iso.split("-").reverse().join("/");

@@ -1,3 +1,4 @@
+import { MODOS_COMISSAO, ROTULO_MODO_COMISSAO, type ModoComissao } from "@bybus/core";
 import QRCode from "qrcode";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, mensagemDeErro } from "../../api/cliente";
@@ -12,8 +13,8 @@ import { ROTULO_TIPO_AFILIADO } from "./comum";
 interface Afiliado {
   id: string; unidadeId: string | null; nome: string; tipo: string; codigo: string; comissaoPontosBase: number | null; contato: string | null;
   paytourAfiliadoId: string | null; observacoes: string | null; ativo: boolean; link: string;
-  /** Canal interno: fora das comissões (17/11/2026). */
-  semComissao?: boolean;
+  /** PAGAMOS, RETEM (ex.: Inzama Travel) ou NENHUMA (canal interno) — 17/11/2026. */
+  modoComissao?: ModoComissao;
   /** Portal do afiliado (13/11/2026). */
   temAcesso?: boolean; temDadosBancarios?: boolean;
 }
@@ -81,7 +82,7 @@ function FormAfiliado({ afiliado, aoSalvar, aoCancelar }: { afiliado: Afiliado |
   const [paytourId, setPaytourId] = useState(afiliado?.paytourAfiliadoId ?? "");
   const [obs, setObs] = useState(afiliado?.observacoes ?? "");
   const [ativo, setAtivo] = useState(afiliado?.ativo ?? true);
-  const [semComissao, setSemComissao] = useState(afiliado?.semComissao ?? false);
+  const [modoComissao, setModoComissao] = useState<ModoComissao>(afiliado?.modoComissao ?? "PAGAMOS");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -99,7 +100,7 @@ function FormAfiliado({ afiliado, aoSalvar, aoCancelar }: { afiliado: Afiliado |
     }
     setSalvando(true);
     try {
-      const corpo = { nome: nome.trim(), tipo, codigo: cod, unidadeId: unidadeId || null, comissaoPontosBase: pb, contato: contato.trim() || null, paytourAfiliadoId: paytourId.trim() || null, observacoes: obs.trim() || null, ativo, semComissao };
+      const corpo = { nome: nome.trim(), tipo, codigo: cod, unidadeId: unidadeId || null, comissaoPontosBase: pb, contato: contato.trim() || null, paytourAfiliadoId: paytourId.trim() || null, observacoes: obs.trim() || null, ativo, modoComissao };
       if (afiliado) await api.patch(`/api/marketing/afiliados/${afiliado.id}`, corpo);
       else await api.post("/api/marketing/afiliados", corpo);
       await aoSalvar();
@@ -125,7 +126,14 @@ function FormAfiliado({ afiliado, aoSalvar, aoCancelar }: { afiliado: Afiliado |
         <div className="campo campo--largo"><label htmlFor="af-obs">Observações</label><textarea id="af-obs" rows={2} value={obs} maxLength={1000} onChange={(e) => setObs(e.target.value)} /></div>
       </div>
       <label className="interruptor"><input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Afiliado ativo</label>
-      <label className="interruptor"><input type="checkbox" checked={semComissao} onChange={(e) => setSemComissao(e.target.checked)} /> Canal interno: não entra nas comissões</label>
+      <div className="campo">
+        <label htmlFor="af-modo">Tipo de comissão</label>
+        <select id="af-modo" value={modoComissao} onChange={(e) => setModoComissao(e.target.value as ModoComissao)}>
+          {MODOS_COMISSAO.map((m) => <option key={m} value={m}>{ROTULO_MODO_COMISSAO[m]}</option>)}
+        </select>
+        {modoComissao === "RETEM" && <span className="campo__ajuda">Aparece nas comissões e no relatório, identificado, mas nunca vai para o contas a pagar. Sem comissão informada pela Paytour, usa o percentual acima (padrão 15%).</span>}
+        {modoComissao === "NENHUMA" && <span className="campo__ajuda">Não aparece nas comissões, no ranking nem nos pagamentos.</span>}
+      </div>
       <div className="modal__acoes">
         <button type="button" className="botao botao--secundario" onClick={aoCancelar}>Cancelar</button>
         <button type="submit" className="botao botao--primario" disabled={salvando}>{salvando ? "Salvando…" : afiliado ? "Salvar" : "Cadastrar afiliado"}</button>
@@ -193,7 +201,7 @@ export function Afiliados() {
             <tbody>
               {d.afiliados.map((a) => (
                 <tr key={a.id} className={a.ativo ? "" : "linha--inativa"}>
-                  <td><strong>{a.nome}</strong><div className="texto-fraco">{ROTULO_TIPO_AFILIADO[a.tipo] ?? a.tipo}{!a.ativo ? " · inativo" : ""}{a.semComissao ? " · canal interno, sem comissão" : ""}{a.paytourAfiliadoId ? ` · Paytour ${a.paytourAfiliadoId}` : ""}</div></td>
+                  <td><strong>{a.nome}</strong><div className="texto-fraco">{ROTULO_TIPO_AFILIADO[a.tipo] ?? a.tipo}{!a.ativo ? " · inativo" : ""}{a.modoComissao === "NENHUMA" ? " · canal interno, sem comissão" : a.modoComissao === "RETEM" ? " · retém a comissão na venda" : ""}{a.paytourAfiliadoId ? ` · Paytour ${a.paytourAfiliadoId}` : ""}</div></td>
                   <td><code>{a.codigo}</code></td>
                   <td>{nomePraca(unidades, a.unidadeId)}</td>
                   <td className="num">{comissaoTexto(a.comissaoPontosBase)}</td>

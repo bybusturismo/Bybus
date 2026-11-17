@@ -2691,3 +2691,7 @@
     display: none;
   }
 }
+/* Linha em destaque numa tabela (ex.: comissão retida pelo afiliado na venda, 17/11/2026). */
+.tabela .linha--destaque > td {
+  background: color-mix(in srgb, var(--cor-primaria) 7%, transparent);
+}
