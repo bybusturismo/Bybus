@@ -12,7 +12,7 @@ import { ROTULO_TIPO_AFILIADO } from "./comum";
 
 interface Afiliado {
   id: string; unidadeId: string | null; nome: string; tipo: string; codigo: string; comissaoPontosBase: number | null; contato: string | null;
-  paytourAfiliadoId: string | null; observacoes: string | null; ativo: boolean; link: string;
+  paytourAfiliadoId: string | null; paytourParceiroId?: string | null; observacoes: string | null; ativo: boolean; link: string;
   /** PAGAMOS, RETEM (ex.: Inzama Travel) ou NENHUMA (canal interno) — 17/11/2026. */
   modoComissao?: ModoComissao;
   /** Portal do afiliado (13/11/2026). */
@@ -201,7 +201,7 @@ export function Afiliados() {
             <tbody>
               {d.afiliados.map((a) => (
                 <tr key={a.id} className={a.ativo ? "" : "linha--inativa"}>
-                  <td><strong>{a.nome}</strong><div className="texto-fraco">{ROTULO_TIPO_AFILIADO[a.tipo] ?? a.tipo}{!a.ativo ? " · inativo" : ""}{a.modoComissao === "NENHUMA" ? " · canal interno, sem comissão" : a.modoComissao === "RETEM" ? " · retém a comissão na venda" : ""}{a.paytourAfiliadoId ? ` · Paytour ${a.paytourAfiliadoId}` : ""}</div></td>
+                  <td><strong>{a.nome}</strong><div className="texto-fraco">{ROTULO_TIPO_AFILIADO[a.tipo] ?? a.tipo}{!a.ativo ? " · inativo" : ""}{a.modoComissao === "NENHUMA" ? " · canal interno, sem comissão" : a.modoComissao === "RETEM" ? " · retém a comissão na venda" : ""}{a.paytourAfiliadoId ? ` · Paytour ${a.paytourAfiliadoId}` : ""}{a.paytourParceiroId ? ` · parceiro Paytour ${a.paytourParceiroId}` : ""}</div></td>
                   <td><code>{a.codigo}</code></td>
                   <td>{nomePraca(unidades, a.unidadeId)}</td>
                   <td className="num">{comissaoTexto(a.comissaoPontosBase)}</td>

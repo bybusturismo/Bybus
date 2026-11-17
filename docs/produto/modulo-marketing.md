@@ -171,3 +171,9 @@ Pedido do dono: a comissão só conta como paga depois da conciliação financei
 - A situação **Paga** exige que a conta a pagar do pagamento quinzenal tenha baixa **e** esteja conciliada com uma linha do extrato do banco. Só com a baixa, a comissão continua **A pagar**.
 - Na lista de pagamentos aparecem três situações: "Pago (conciliado)", "Baixado, falta conciliar" e "Em aberto no financeiro". No portal, o afiliado só vê "pago em…" depois da conciliação.
 - As comissões anteriores à **data de corte** continuam contando como pagas, porque foram pagas fora do sistema e não têm o que conciliar.
+
+## Parceiros (agências) da Paytour nas comissões (17/11/2026)
+A Inzama Travel não apareceu no relatório. A consulta no servidor mostrou que nenhum afiliado tinha "Inzama" no nome e que havia vendas pelo campo **parceiro** do pedido da Paytour, que é diferente do campo de afiliado. O parceiro 11980 tinha 41 vendas sem comissão informada, o padrão de quem retém por fora: provavelmente a Inzama.
+- **Cadastro:** os parceiros que aparecem nas vendas ganham cadastro em Afiliados (código `PP-<id>`, campo `paytourParceiroId`). O nome vem da rota `/parceiros` da Paytour (formato **a confirmar**). Sem resposta, o cadastro fica como "Parceiro Paytour <id>" e ganha o nome quando ele aparecer. Nome editado pela equipe não é trocado.
+- **Tipo de comissão:** todo parceiro nasce como **"retém na venda"**, com 15%. Ele aparece no relatório, identificado, e nunca gera conta a pagar. Se a By Bus deve pagar comissão a algum parceiro, a equipe troca o tipo no cadastro.
+- **Cálculo:** a venda com afiliado continua pelo afiliado. A venda só com parceiro usa o parceiro e a comissão de parceiro da Paytour. Sem comissão informada, o sistema usa o percentual do cadastro.

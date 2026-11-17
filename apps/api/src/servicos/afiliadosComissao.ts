@@ -62,6 +62,34 @@ export async function sincronizarAfiliadosPaytour(db: Db, nomes: Record<string, 
   return { criados };
 }
 
+/**
+ * Parceiros (agências) da Paytour que aparecem nas vendas ganham cadastro (código PP-<id>), como os afiliados (17/11/2026:
+ * a Inzama Travel vende como parceiro). Nascem como "retém na venda": aparecem no relatório e nunca geram conta a pagar
+ * sem alguém decidir que a By Bus paga a comissão. Nome com "interno": sem comissão.
+ */
+export async function sincronizarParceirosPaytour(db: Db, nomes: Record<string, string>) {
+  const usados = await db.selectDistinct({ id: vendas.parceiroId }).from(vendas).where(isNotNull(vendas.parceiroId));
+  const existentes = await db.select({ id: afiliados.id, parceiro: afiliados.paytourParceiroId, nome: afiliados.nome }).from(afiliados).where(isNotNull(afiliados.paytourParceiroId));
+  const ligados = new Set(existentes.map((x) => x.parceiro));
+  // Quem entrou sem nome (a Paytour não respondeu) ganha o nome quando ele aparecer; nome editado pela equipe fica.
+  for (const e of existentes) {
+    const nome = e.parceiro ? nomes[e.parceiro] : undefined;
+    if (nome && e.nome === `Parceiro Paytour ${e.parceiro}`) await db.update(afiliados).set({ nome, atualizadoEm: new Date() }).where(eq(afiliados.id, e.id));
+  }
+  let criados = 0;
+  for (const { id } of usados) {
+    if (!id || ligados.has(id)) continue;
+    const codigo = `PP-${id}`.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+    const nome = nomes[id] || `Parceiro Paytour ${id}`;
+    const r = await db.insert(afiliados).values({
+      nome, tipo: "AGENCIA", codigo, paytourParceiroId: id, comissaoPontosBase: 1500,
+      modoComissao: /\binterno\b/i.test(nome) ? "NENHUMA" : "RETEM",
+    }).onConflictDoNothing().returning({ id: afiliados.id });
+    criados += r.length;
+  }
+  return { criados };
+}
+
 /** Pagamentos cuja conta a pagar foi excluída no financeiro deixam de valer (as comissões voltam a ficar a pagar). */
 async function limparPagamentosSemConta(db: Db) {
   await db.delete(afiliadoPagamentos).where(sql`not exists (select 1 from fin_lancamentos l where l.id = ${afiliadoPagamentos.lancamentoId})`);
@@ -69,21 +97,27 @@ async function limparPagamentosSemConta(db: Db) {
 
 export async function calcularComissoes(db: Db, unidadeIds: string[] | null, hoje: string): Promise<ComissaoReserva[]> {
   await limparPagamentosSemConta(db);
-  const cadastro = await db.select({ id: afiliados.id, nome: afiliados.nome, paytour: afiliados.paytourAfiliadoId, modo: afiliados.modoComissao, pontosBase: afiliados.comissaoPontosBase })
-    .from(afiliados).where(isNotNull(afiliados.paytourAfiliadoId));
-  const afiliadoDe = new Map(cadastro.map((a) => [a.paytour!, a]));
+  // Chave da venda: o id do afiliado da Paytour, ou "P:<id>" quando a venda vem pelo parceiro (agência) — 17/11/2026.
+  const cadastro = (await db.select({ id: afiliados.id, nome: afiliados.nome, afiliado: afiliados.paytourAfiliadoId, parceiro: afiliados.paytourParceiroId, modo: afiliados.modoComissao, pontosBase: afiliados.comissaoPontosBase })
+    .from(afiliados).where(or(isNotNull(afiliados.paytourAfiliadoId), isNotNull(afiliados.paytourParceiroId))))
+    .map((a) => ({ ...a, paytour: a.afiliado ?? `P:${a.parceiro}` }));
+  const afiliadoDe = new Map(cadastro.map((a) => [a.paytour, a]));
   // Canais internos (NENHUMA) não aparecem; quem retém (RETEM) entra mesmo sem comissão informada pela Paytour.
   const foraDasComissoes = new Set(cadastro.filter((a) => a.modo === "NENHUMA").map((a) => a.paytour!));
   const retem = new Set(cadastro.filter((a) => a.modo === "RETEM").map((a) => a.paytour!));
   const linhas = await db.select({
     reservaId: reservas.id, vendaId: reservas.vendaId, status: reservas.status, valor: reservas.valorCentavos,
     dataPasseio: saidas.data, passeio: passeios.nome, unidadeId: passeios.unidadeId,
-    pedidoCodigo: vendas.pedidoCodigo, compra: vendas.dataHoraCompra, paytourAfiliadoId: vendas.afiliadoId, comissao: vendas.afiliadoComissaoCentavos,
+    pedidoCodigo: vendas.pedidoCodigo, compra: vendas.dataHoraCompra,
+    paytourAfiliadoId: sql<string>`case when ${vendas.afiliadoId} is not null then ${vendas.afiliadoId} else 'P:' || ${vendas.parceiroId} end`,
+    comissao: sql<number | null>`case when ${vendas.afiliadoId} is not null then ${vendas.afiliadoComissaoCentavos} else ${vendas.parceiroComissaoCentavos} end`.mapWith((v) => (v == null ? null : Number(v))),
   }).from(reservas)
     .innerJoin(vendas, eq(vendas.id, reservas.vendaId))
     .innerJoin(saidas, eq(saidas.id, reservas.saidaId))
     .innerJoin(passeios, eq(passeios.id, saidas.passeioId))
-    .where(and(isNotNull(vendas.afiliadoId), retem.size ? or(gt(vendas.afiliadoComissaoCentavos, 0), inArray(vendas.afiliadoId, [...retem])) : gt(vendas.afiliadoComissaoCentavos, 0)));
+    .where(or(isNotNull(vendas.afiliadoId), isNotNull(vendas.parceiroId)))
+    // Entra quem tem comissão informada ou quem retém na venda (comissão calculada pelo percentual do cadastro).
+    .then((l) => l.filter((x) => (x.comissao ?? 0) > 0 || retem.has(x.paytourAfiliadoId)));
   if (!linhas.length) return [];
   // Rateio pelo pedido inteiro (todas as reservas do pedido, mesmo de outra praça), depois o filtro de praça.
   const porVenda = new Map<string, typeof linhas>();
@@ -130,7 +164,7 @@ export async function calcularComissoes(db: Db, unidadeIds: string[] | null, hoj
       ? (p.situacaoConta === "REALIZADO" && p.conciliado ? "PAGA" : "A_PAGAR")
       : situacaoComissao({ retem: retem.has(l.paytourAfiliadoId!), reservaCancelada: l.status === "CANCELADA", dataPasseio: l.dataPasseio, hoje, compareceu: embarque.get(l.reservaId) ?? null, paga: !!corte && l.dataPasseio <= corte });
     return {
-      reservaId: l.reservaId, pedidoCodigo: l.pedidoCodigo, afiliadoId: a?.id ?? null, afiliadoNome: a?.nome ?? `Afiliado Paytour ${l.paytourAfiliadoId}`,
+      reservaId: l.reservaId, pedidoCodigo: l.pedidoCodigo, afiliadoId: a?.id ?? null, afiliadoNome: a?.nome ?? (l.paytourAfiliadoId.startsWith("P:") ? `Parceiro Paytour ${l.paytourAfiliadoId.slice(2)}` : `Afiliado Paytour ${l.paytourAfiliadoId}`),
       paytourAfiliadoId: l.paytourAfiliadoId!, unidadeId: l.unidadeId, passeio: l.passeio, dataVenda: diaSp(l.compra), dataPasseio: l.dataPasseio,
       valorReservaCentavos: l.valor ?? 0, comissaoCentavos: p ? p.valor : (parte.get(l.reservaId) ?? 0),
       situacao, dataPagamento: p ? p.dataPagamento : dataPagamentoComissao(l.dataPasseio), pagamentoId: p?.pagamentoId ?? null,

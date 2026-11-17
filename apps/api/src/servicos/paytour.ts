@@ -1,4 +1,4 @@
-import { sincronizarAfiliadosPaytour } from "./afiliadosComissao.js";
+import { sincronizarAfiliadosPaytour, sincronizarParceirosPaytour } from "./afiliadosComissao.js";
 import { pedidoPaytourParaReservas, type PedidoPaytour } from "@bybus/core";
 import { auditar } from "../auditoria.js";
 import { deveAnonimizar, type Config } from "../config.js";
@@ -127,6 +127,8 @@ export async function sincronizarPaytour(
     await anotarProdutosDesconhecidos(db, previa);
     // Afiliados que aparecem nas vendas ganham cadastro no sistema (comissões e pagamento quinzenal, 13/11/2026).
     await sincronizarAfiliadosPaytour(db, afiliados);
+    // Parceiros (agências, ex.: Inzama Travel) também entram nas comissões (17/11/2026).
+    await sincronizarParceirosPaytour(db, await carregarParceiros(cliente));
     const resultado = { de, ate, pedidos: pedidos.length, resumo, completo };
     // Janela maior que o limite de páginas: o cursor não avança (a próxima rodada relê a janela; a importação é idempotente).
     await gravarEstado(db, completo
@@ -160,6 +162,28 @@ async function carregarAfiliados(cliente: ClientePaytour): Promise<Record<string
     if (!r.itens?.length || pagina >= (r.info?.total_paginas ?? 1)) break;
   }
   cacheAfiliados.set(cliente, { em: Date.now(), mapa });
+  return mapa;
+}
+
+const cacheParceiros = new WeakMap<ClientePaytour, { em: number; mapa: Record<string, string> }>();
+/**
+ * Nomes dos parceiros (agências) da Paytour. [A CONFIRMAR] o formato exato da rota "/parceiros" (lida como a de afiliados):
+ * se ela não responder, os parceiros entram com o nome "Parceiro Paytour <id>" e a equipe ajusta o nome no cadastro.
+ */
+async function carregarParceiros(cliente: ClientePaytour): Promise<Record<string, string>> {
+  const guardado = cacheParceiros.get(cliente);
+  if (guardado && Date.now() - guardado.em < VALIDADE_AFILIADOS_MS) return guardado.mapa;
+  const mapa: Record<string, string> = {};
+  try {
+    for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
+      const r = await cliente.get<{ info?: { total_paginas?: number }; itens?: Array<{ id: string | number; nome?: string | null; empresa?: string | null; razao_social?: string | null; nome_fantasia?: string | null }> }>("/parceiros", { page: pagina, perPage: 100 });
+      for (const a of r.itens ?? []) mapa[String(a.id)] = (a.nome_fantasia || a.empresa || a.nome || a.razao_social || "").trim();
+      if (!r.itens?.length || pagina >= (r.info?.total_paginas ?? 1)) break;
+    }
+  } catch {
+    /* rota indisponível: segue sem os nomes */
+  }
+  cacheParceiros.set(cliente, { em: Date.now(), mapa });
   return mapa;
 }
 

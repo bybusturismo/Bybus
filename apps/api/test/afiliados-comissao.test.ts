@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { criarDb } from "../src/db/cliente.js";
 import { afiliados, finContas, finExtratoLinhas, finLancamentos, passageiros, passeios, reservas, saidas, vendas } from "../src/db/schema.js";
-import { sincronizarAfiliadosPaytour } from "../src/servicos/afiliadosComissao.js";
+import { sincronizarAfiliadosPaytour, sincronizarParceirosPaytour } from "../src/servicos/afiliadosComissao.js";
 import { Cliente, DATABASE_URL, prepararBanco, subirApp } from "./ajuda.js";
 import { emailsDeTeste } from "../src/servicos/email.js";
 
@@ -215,5 +215,27 @@ describe("comissões de afiliados (13/11/2026)", () => {
     const semPermissao = new Cliente(app);
     await semPermissao.login("guia@bybus.test");
     expect((await semPermissao.req("GET", `/api/afiliados/comissoes/relatorio.pdf?de=2026-10-01&ate=${futuro}`)).statusCode).toBe(403);
+  });
+
+  it("parceiro da Paytour (agência, ex.: Inzama) entra nas comissões como retida, ganha o nome e nunca gera conta a pagar (17/11/2026)", async () => {
+    const reservaId = await comDb(async (db) => {
+      const [s] = await db.select().from(saidas).where(eq(saidas.data, "2026-10-20"));
+      const [v] = await db.insert(vendas).values({ pedidoCodigo: "PAYTOUR-T-PARC", fonte: "PAYTOUR_API", canalVenda: "PARCEIRO", valorCentavos: 10000, parceiroId: "11980", parceiroComissaoCentavos: null, dataHoraCompra: new Date("2026-10-02T15:00:00Z") }).returning();
+      const [r] = await db.insert(reservas).values({ saidaId: s!.id, vendaId: v!.id, canal: "PAYTOUR", origem: "FICTICIO", contatoNome: "Cliente Fictício", valorCentavos: 10000 }).returning();
+      await db.insert(passageiros).values({ reservaId: r!.id, nome: "Passageiro Fictício", categoria: "ADULTO", embarque: "EMBARCOU" });
+      await sincronizarParceirosPaytour(db, {}); // a Paytour não devolveu o nome
+      return r!.id;
+    });
+    const [p0] = await comDb((db) => db.select().from(afiliados).where(eq(afiliados.paytourParceiroId, "11980")));
+    expect(p0).toMatchObject({ nome: "Parceiro Paytour 11980", codigo: "PP-11980", modoComissao: "RETEM", comissaoPontosBase: 1500 });
+    const c = new Cliente(app);
+    await c.login("admin@bybus.test");
+    const item = async () => (await c.req("GET", `/api/afiliados/comissoes?de=2026-10-01&ate=${futuro}&por=PASSEIO`)).json().itens.find((x: { reservaId: string }) => x.reservaId === reservaId);
+    expect(await item()).toMatchObject({ afiliadoNome: "Parceiro Paytour 11980", situacao: "RETIDA", comissaoCentavos: 1500, retem: true });
+    // Quando a Paytour devolver o nome, o cadastro é atualizado (nome editado pela equipe não muda).
+    await comDb((db) => sincronizarParceirosPaytour(db, { "11980": "Inzama Travel" }));
+    expect(await item()).toMatchObject({ afiliadoNome: "Inzama Travel", situacao: "RETIDA" });
+    await comDb((db) => sincronizarParceirosPaytour(db, { "11980": "Outro Nome" }));
+    expect((await item()).afiliadoNome).toBe("Inzama Travel");
   });
 });

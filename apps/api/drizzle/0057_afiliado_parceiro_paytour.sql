@@ -1,0 +1,2 @@
+ALTER TABLE "afiliados" ADD COLUMN "paytour_parceiro_id" text;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "afiliados_paytour_parceiro_uq" ON "afiliados" USING btree ("paytour_parceiro_id") WHERE paytour_parceiro_id is not null;

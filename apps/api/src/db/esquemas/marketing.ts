@@ -124,6 +124,11 @@ export const afiliados = pgTable("afiliados", {
   contato: text(),
   /** Id do afiliado correspondente na Paytour (ligação pendente: a confirmar). */
   paytourAfiliadoId: text(),
+  /**
+   * Id do PARCEIRO (agência) na Paytour, quando a venda vem pelo campo "parceiro" do pedido e não pelo de afiliado
+   * (ex.: Inzama Travel, 17/11/2026). Um cadastro é afiliado OU parceiro da Paytour.
+   */
+  paytourParceiroId: text(),
   /** Usuário do portal do afiliado (perfil Afiliado, 13/11/2026). */
   usuarioId: uuid().references(() => usuarios.id, { onDelete: "set null" }),
   /** Dados bancários/PIX informados pelo próprio afiliado no portal (JSON cifrado). */
@@ -139,7 +144,10 @@ export const afiliados = pgTable("afiliados", {
   ativo: boolean().notNull().default(true),
   criadoEm: agora(),
   atualizadoEm: agora(),
-}, (t) => [uniqueIndex("afiliados_paytour_uq").on(t.paytourAfiliadoId).where(sql`paytour_afiliado_id is not null`)]);
+}, (t) => [
+  uniqueIndex("afiliados_paytour_uq").on(t.paytourAfiliadoId).where(sql`paytour_afiliado_id is not null`),
+  uniqueIndex("afiliados_paytour_parceiro_uq").on(t.paytourParceiroId).where(sql`paytour_parceiro_id is not null`),
+]);
 
 /** Configurações simples do marketing (modelo da mensagem, link do Tripadvisor, endereço base da loja). */
 export const marketingConfig = pgTable("marketing_config", {
