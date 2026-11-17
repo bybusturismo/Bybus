@@ -2323,7 +2323,7 @@
     max-width: 12rem;
   }
 }
-@media (max-width: 1300px) and (min-width: 1100px) {
+@media (max-width: 1499px) and (min-width: 1100px) {
   .menu-topo__area > .icone:first-child {
     display: none;
   }
@@ -2533,9 +2533,18 @@
   margin-left: auto;
 }
 @media (min-width: 1100px) {
-  /* O menu das áreas não encolhe (senão passa por cima do logo); a busca fica com o espaço que sobra. */
+  /* O menu das áreas nunca encolhe (encolhido, o logo e a seta de "Gestão" ficavam por baixo); a busca fica com o espaço
+     que sobra, com folga de um lado e do outro (dono, 17/11/2026: "a busca ficou sobreposta ao menu de Gestão"). */
   .menu-topo {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
+  }
+  .menu-topo__areas {
+    flex-wrap: nowrap;
+  }
+}
+@media (min-width: 1260px) {
+  .busca-geral {
+    margin-left: var(--esp-4);
   }
 }
 .busca-geral + .topo__praca,
@@ -2656,7 +2665,7 @@
   }
 }
 /* Notebook: a barra continua visível, um pouco mais estreita (a praça cede espaço). */
-@media (min-width: 1260px) and (max-width: 1399px) {
+@media (min-width: 1260px) and (max-width: 1499px) {
   .busca-geral {
     flex-basis: 10rem;
   }

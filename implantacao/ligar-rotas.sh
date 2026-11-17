@@ -18,4 +18,4 @@ COMPOSE=(docker compose -f /opt/bybus/implantacao/docker-compose.yml --env-file 
 grep -q '^WHATSAPP_PROVEDOR=evolution' "$ENV" && COMPOSE+=(--profile whatsapp)
 "${COMPOSE[@]}" up -d >/dev/null
 echo "PRONTO: rota dos orçamentos ligada."
-echo "Teste em https://$(grep '^DOMINIO=' "$ENV" | cut -d= -f2-): Reservas > Orçamento com rota > Calcular rota."
+echo "Teste em https://$(grep '^DOMINIO=' "$ENV" | cut -d= -f2-): Reservas > Orçamento com rota > Novo orçamento (inclua dois pontos: deve aparecer \"pelas ruas\")."
