@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Atualizador automático do Bybus Gestão (decisão do dono, 09/11/2026): roda a cada 10 minutos pelo systemd.
+# Atualizador automático do Bybus Gestão (decisão do dono, 09/11/2026): roda a cada 1 minuto pelo systemd (antes 10; dono, 17/11/2026). Sem versão nova, só um "git fetch" e sai.
 # Só publica o que estiver na área "producao" do projeto (liberada pelo dono). Antes: cópia do banco. Depois: confere a saúde;
 # se o sistema não voltar, retorna à versão anterior do código sozinho. Registro em /var/log/bybus-atualizacao.log.
 set -uo pipefail
@@ -49,6 +49,6 @@ registrar "a versão ${NOVA:0:7} não subiu: voltando para ${ATUAL:0:7} (cópia 
 git checkout -q -B "$RAMO" "$ATUAL"
 "${COMPOSE[@]}" up -d --build >>"$LOG" 2>&1
 if saudavel; then registrar "voltou para ${ATUAL:0:7}"; else registrar "ATENÇÃO: o sistema não voltou nem na versão anterior"; fi
-# Não tenta de novo a mesma versão a cada 10 min: só quando sair outra.
+# Não tenta de novo a mesma versão a cada minuto: só quando sair outra.
 git update-ref "refs/bybus/recusada" "$NOVA"
 exit 1

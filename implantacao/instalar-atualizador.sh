@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Instala o atualizador automático (rodar UMA vez no servidor, como root): systemd confere a área "producao" a cada 10 minutos.
+# Instala o atualizador automático (rodar UMA vez no servidor, como root): systemd confere a área "producao" a cada 1 minuto (dono, 17/11/2026: publicar logo após o "pode publicar").
 set -euo pipefail
 cat > /etc/systemd/system/bybus-atualizar.service <<'UNIT'
 [Unit]
@@ -13,11 +13,11 @@ ExecStart=/bin/bash /opt/bybus/implantacao/atualizar-auto.sh
 UNIT
 cat > /etc/systemd/system/bybus-atualizar.timer <<'UNIT'
 [Unit]
-Description=Bybus Gestão: confere atualização a cada 10 minutos
+Description=Bybus Gestão: confere atualização a cada 1 minuto
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=10min
+OnBootSec=2min
+OnUnitActiveSec=1min
 Persistent=true
 
 [Install]
