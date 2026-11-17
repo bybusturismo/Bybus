@@ -400,6 +400,13 @@
       "when": 1794883039918,
       "tag": "0056_afiliado_modo_comissao",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1794917136370,
+      "tag": "0057_lancamento_pix",
+      "breakpoints": true
     }
   ]
 }

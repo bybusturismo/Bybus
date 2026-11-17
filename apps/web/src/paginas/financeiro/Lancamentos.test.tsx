@@ -91,6 +91,34 @@ describe("Contas a pagar", () => {
     expect(enviados.at(-1)).toMatchObject({ confirmarNaoTransferencia: true });
   });
 
+  it("conta a pagar: chave PIX do fornecedor vem da última conta e vai no lançamento (17/11/2026)", async () => {
+    api([]);
+    const original = globalThis.fetch;
+    const enviados: unknown[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (u, init) => {
+      const url = String(u).split("?")[0];
+      if (url === "/api/financeiro/pix-do-fornecedor") return respostaJson(200, { pixChave: "00.000.000/0001-00" });
+      if (url === "/api/financeiro/lancamentos" && init?.method === "POST") {
+        enviados.push(JSON.parse(String(init.body)));
+        return respostaJson(200, { ids: ["x"], lancamentos: [] });
+      }
+      return (original as typeof fetch)(u, init);
+    });
+    renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Nova conta a pagar" }));
+    const d = within(await screen.findByRole("dialog"));
+    await u.type(d.getByLabelText("Descrição"), "Manutenção");
+    await u.type(d.getByLabelText("Fornecedor"), "Oficina Fictícia");
+    await u.click(d.getByLabelText("Descrição"));
+    expect(await d.findByDisplayValue("00.000.000/0001-00")).toBe(d.getByLabelText("Chave PIX para pagamento"));
+    expect(d.getByText(/Chave usada da última vez/)).toBeInTheDocument();
+    await u.selectOptions(d.getByLabelText("Categoria"), "c-comb");
+    await u.type(d.getByLabelText(/^Valor/), "500");
+    await u.click(d.getByRole("button", { name: "Lançar" }));
+    await vi.waitFor(() => expect(enviados.at(-1)).toMatchObject({ contraparte: "Oficina Fictícia", pixChave: "00.000.000/0001-00" }));
+  });
+
   it("ao escolher o banco no filtro mostra recebido, pago, resultado e saldo da conta", async () => {
     api([lanc()]);
     renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });

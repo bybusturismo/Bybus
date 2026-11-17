@@ -54,6 +54,8 @@ export interface LancamentoFin {
   tipo: TipoLancamento;
   descricao: string;
   contraparte: string | null;
+  /** Chave PIX para pagar (17/11/2026). */
+  pixChave?: string | null;
   categoriaId: string;
   categoriaNome: string;
   contaId: string | null;

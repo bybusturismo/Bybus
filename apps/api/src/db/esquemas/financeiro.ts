@@ -93,6 +93,8 @@ export const finLancamentos = pgTable("fin_lancamentos", {
   descricao: text().notNull(),
   /** Fornecedor/cliente/canal em texto livre (empresa, nunca dado pessoal de passageiro). */
   contraparte: text(),
+  /** Chave PIX para pagar a conta (CNPJ, e-mail, telefone ou aleatória do fornecedor) — dono, 17/11/2026. */
+  pixChave: text(),
   categoriaId: uuid().notNull().references(() => finCategorias.id),
   contaId: uuid().references(() => finContas.id),
   unidadeId: uuid().references(() => unidades.id),

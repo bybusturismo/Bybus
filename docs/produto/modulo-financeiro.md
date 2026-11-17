@@ -133,3 +133,10 @@ O dono excluiu os lançamentos sugeridos e o saldo do Sicredi continuou errado (
     As ações pedem confirmação e depois a tela confere de novo.
 - **Linha "Repetida":** status novo (`REPETIDA`) que deixa de contar no saldo. Só vale se houver outra linha do banco (não criada no sistema) da mesma conta, com o mesmo valor, em até 5 dias. Volta a contar com "Desfazer" (aba "Repetidas" em Extrato e conciliação). Fica registrado na auditoria (`FIN_LINHA_REPETIDA`).
 - Rota nova: `POST /api/financeiro/extrato/linhas/:id/repetida` (financeiro:gerenciar).
+
+## Chave PIX na conta a pagar (17/11/2026)
+Pedido do dono: um campo com a identificação do PIX para pagar a conta.
+- O formulário da conta a pagar ganhou o campo **"Chave PIX para pagamento"** (`pixChave`, texto de até 140 caracteres). Pode ser CNPJ, e-mail, telefone ou chave aleatória.
+- **Preenchimento automático:** ao sair do campo Fornecedor com a chave PIX vazia, o sistema traz a última chave usada para o mesmo fornecedor (sem diferenciar maiúsculas de minúsculas) e avisa "confira antes de pagar". Rota: `GET /api/financeiro/pix-do-fornecedor?nome=`, para quem gerencia o financeiro.
+- **Na lista:** contas ainda não pagas mostram "PIX: …" com o botão **Copiar**, para colar no app do banco.
+- Só para contas a pagar. As contas a receber não mostram o campo.
