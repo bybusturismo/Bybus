@@ -1,5 +1,5 @@
 {
-  "id": "62a9b326-0071-4361-aa7a-393ee518fdb9",
+  "id": "d5bb07bb-a266-41ff-8e72-f08820a433ba",
   "prevId": "cb48fc0f-6832-4a71-8e3a-d199a6e496fc",
   "version": "7",
   "dialect": "postgresql",
@@ -3980,12 +3980,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "paytour_parceiro_id": {
-          "name": "paytour_parceiro_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "usuario_id": {
           "name": "usuario_id",
           "type": "uuid",
@@ -4052,22 +4046,6 @@
           ],
           "isUnique": true,
           "where": "paytour_afiliado_id is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "afiliados_paytour_parceiro_uq": {
-          "name": "afiliados_paytour_parceiro_uq",
-          "columns": [
-            {
-              "expression": "paytour_parceiro_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "paytour_parceiro_id is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -8187,6 +8165,12 @@
         },
         "contraparte": {
           "name": "contraparte",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pix_chave": {
+          "name": "pix_chave",
           "type": "text",
           "primaryKey": false,
           "notNull": false
