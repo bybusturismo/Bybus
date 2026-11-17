@@ -16,6 +16,7 @@ definir ORS_CHAVE "$CHAVE"
 chmod 600 "$ENV"; unset CHAVE
 COMPOSE=(docker compose -f /opt/bybus/implantacao/docker-compose.yml --env-file "$ENV")
 grep -q '^WHATSAPP_PROVEDOR=evolution' "$ENV" && COMPOSE+=(--profile whatsapp)
-"${COMPOSE[@]}" up -d >/dev/null
+# A API só lê o .env ao ser recriada: força a recriação (antes ficava "Running" com a configuração antiga).
+"${COMPOSE[@]}" up -d --force-recreate api >/dev/null
 echo "PRONTO: rota dos orçamentos ligada."
 echo "Teste em https://$(grep '^DOMINIO=' "$ENV" | cut -d= -f2-): Reservas > Orçamento com rota > Novo orçamento (inclua dois pontos: deve aparecer \"pelas ruas\")."

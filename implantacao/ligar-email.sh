@@ -17,5 +17,6 @@ definir EMAIL_SENHA "$SENHA"
 chmod 600 "$ENV"; unset SENHA
 COMPOSE=(docker compose -f /opt/bybus/implantacao/docker-compose.yml --env-file "$ENV")
 grep -q '^WHATSAPP_PROVEDOR=evolution' "$ENV" && COMPOSE+=(--profile whatsapp)
-"${COMPOSE[@]}" up -d >/dev/null
+# A API só lê o .env ao ser recriada: força a recriação (sem isso ficava "Running" com a configuração antiga).
+"${COMPOSE[@]}" up -d --force-recreate api >/dev/null
 echo "PRONTO: e-mail ligado. Teste em https://$(grep '^DOMINIO=' "$ENV" | cut -d= -f2-) > Esqueci minha senha."

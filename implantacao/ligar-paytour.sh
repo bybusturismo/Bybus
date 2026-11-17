@@ -26,7 +26,8 @@ unset CHAVE SEGREDO
 COMPOSE=(docker compose -f /opt/bybus/implantacao/docker-compose.yml --env-file "$ENV")
 grep -q '^WHATSAPP_PROVEDOR=evolution' "$ENV" && COMPOSE+=(--profile whatsapp)
 echo "Reiniciando o sistema com a Paytour ligada…"
-"${COMPOSE[@]}" up -d >/dev/null
+# A API só lê o .env ao ser recriada: força a recriação (sem isso ficava "Running" com a configuração antiga).
+"${COMPOSE[@]}" up -d --force-recreate api >/dev/null
 DOMINIO="$(grep '^DOMINIO=' "$ENV" | cut -d= -f2-)"
 for _ in $(seq 1 36); do curl -fsS --max-time 5 "https://$DOMINIO/api/saude" >/dev/null 2>&1 && break; sleep 5; done
 echo

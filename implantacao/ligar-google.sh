@@ -26,7 +26,8 @@ chmod 600 "$ENV"; unset JSON B64
 [ -n "${1:-}" ] && { shred -u "$1" 2>/dev/null || rm -f "$1"; echo "O arquivo $1 foi apagado do servidor."; }
 COMPOSE=(docker compose -f /opt/bybus/implantacao/docker-compose.yml --env-file "$ENV")
 grep -q '^WHATSAPP_PROVEDOR=evolution' "$ENV" && COMPOSE+=(--profile whatsapp)
-"${COMPOSE[@]}" up -d >/dev/null
+# A API só lê o .env ao ser recriada: força a recriação (sem isso ficava "Running" com a configuração antiga).
+"${COMPOSE[@]}" up -d --force-recreate api >/dev/null
 echo
 echo "PRONTO: leitura pelo link do Google ligada."
 echo "Agora compartilhe a planilha (Compartilhar > Leitor) com: $EMAIL"

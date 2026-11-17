@@ -26,6 +26,7 @@ INSTANCIA="$(valor EVOLUTION_INSTANCIA)"
 
 echo "==> 2/5 Ligando a Evolution (a primeira vez baixa a imagem, pode levar alguns minutos)"
 "${COMPOSE[@]}" up -d
+"${COMPOSE[@]}" up -d --force-recreate api  # a API só lê o .env novo ao ser recriada
 
 # Chamadas à Evolution feitas de dentro da API (a Evolution não tem porta pública).
 evo() { # evo MÉTODO CAMINHO [JSON]
