@@ -138,4 +138,29 @@ describe("comissões de afiliados (13/11/2026)", () => {
     expect((await at.req("GET", "/api/afiliados/comissoes?de=2026-10-01&ate=2026-10-31")).statusCode).toBe(403);
     expect((await at.req("POST", "/api/afiliados/pagamentos", { dataPagamento: "2026-11-01" })).statusCode).toBe(403);
   });
+
+  it("canal interno (\"Tripadvisor interno\") nasce sem comissão e não aparece nas comissões nem no ranking (17/11/2026)", async () => {
+    const reservaId = await comDb(async (db) => {
+      const [p] = await db.select().from(passeios).where(eq(passeios.codigo, "TODA_ILHA"));
+      const [s] = await db.select().from(saidas).where(eq(saidas.data, "2026-10-20"));
+      const [v] = await db.insert(vendas).values({ pedidoCodigo: "PAYTOUR-T-9", fonte: "PAYTOUR_API", canalVenda: "AFILIADO", valorCentavos: 9000, afiliadoId: "999", afiliadoComissaoCentavos: 900, dataHoraCompra: new Date("2026-10-02T15:00:00Z") }).returning();
+      const [r] = await db.insert(reservas).values({ saidaId: s!.id, vendaId: v!.id, canal: "PAYTOUR", origem: "FICTICIO", contatoNome: "Cliente Fictício", valorCentavos: 9000 }).returning();
+      await db.insert(passageiros).values({ reservaId: r!.id, nome: "Passageiro Fictício", categoria: "ADULTO", embarque: "EMBARCOU" });
+      void p;
+      await sincronizarAfiliadosPaytour(db, { "999": "Tripadvisor interno" });
+      return r!.id;
+    });
+    const [interno] = await comDb((db) => db.select().from(afiliados).where(eq(afiliados.paytourAfiliadoId, "999")));
+    expect(interno).toMatchObject({ nome: "Tripadvisor interno", semComissao: true });
+    const c = new Cliente(app);
+    await c.login("admin@bybus.test");
+    const ver = async () => (await c.req("GET", `/api/afiliados/comissoes?de=2026-10-01&ate=${futuro}&por=PASSEIO`)).json();
+    const j = await ver();
+    expect(j.itens.some((x: { reservaId: string }) => x.reservaId === reservaId)).toBe(false);
+    expect(j.ranking.some((x: { nome: string }) => x.nome === "Tripadvisor interno")).toBe(false);
+    // Desmarcado na ficha do afiliado, volta a aparecer.
+    await comDb((db) => db.update(afiliados).set({ semComissao: false }).where(eq(afiliados.id, interno!.id)));
+    expect((await ver()).itens.some((x: { reservaId: string }) => x.reservaId === reservaId)).toBe(true);
+    await comDb((db) => db.update(afiliados).set({ semComissao: true }).where(eq(afiliados.id, interno!.id)));
+  });
 });

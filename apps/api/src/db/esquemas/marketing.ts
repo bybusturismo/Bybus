@@ -130,6 +130,8 @@ export const afiliados = pgTable("afiliados", {
   dadosBancariosCifrado: text(),
   dadosBancariosEm: timestamp({ withTimezone: true }),
   observacoes: text(),
+  /** Canal interno da própria By Bus cadastrado como afiliado na Paytour (ex.: "Tripadvisor interno"): fora das comissões (dono, 17/11/2026). */
+  semComissao: boolean().notNull().default(false),
   ativo: boolean().notNull().default(true),
   criadoEm: agora(),
   atualizadoEm: agora(),

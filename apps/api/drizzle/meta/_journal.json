@@ -393,6 +393,13 @@
       "when": 1794592721125,
       "tag": "0055_orcamento_rota",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1794882585390,
+      "tag": "0056_afiliado_sem_comissao",
+      "breakpoints": true
     }
   ]
 }

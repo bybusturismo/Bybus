@@ -51,7 +51,9 @@ export async function sincronizarAfiliadosPaytour(db: Db, nomes: Record<string, 
   for (const { id } of usados) {
     if (!id || ligados.has(id)) continue;
     const codigo = `PT-${id}`.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
-    const r = await db.insert(afiliados).values({ nome: nomes[id] || `Afiliado Paytour ${id}`, tipo: "PARCEIRO", codigo, paytourAfiliadoId: id }).onConflictDoNothing().returning({ id: afiliados.id });
+    const nome = nomes[id] || `Afiliado Paytour ${id}`;
+    // "Tripadvisor interno", "Decolar.com interno"…: canal da própria By Bus, nasce fora das comissões.
+    const r = await db.insert(afiliados).values({ nome, tipo: "PARCEIRO", codigo, paytourAfiliadoId: id, semComissao: /\binterno\b/i.test(nome) }).onConflictDoNothing().returning({ id: afiliados.id });
     criados += r.length;
   }
   return { criados };
@@ -104,11 +106,13 @@ export async function calcularComissoes(db: Db, unidadeIds: string[] | null, hoj
     .innerJoin(finLancamentos, eq(finLancamentos.id, afiliadoPagamentos.lancamentoId))
     .where(inArray(afiliadoPagamentoItens.reservaId, ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]));
   const pagoPor = new Map(pagos.map((p) => [p.reservaId, p]));
-  const cadastro = await db.select({ id: afiliados.id, nome: afiliados.nome, paytour: afiliados.paytourAfiliadoId }).from(afiliados).where(isNotNull(afiliados.paytourAfiliadoId));
+  const cadastro = await db.select({ id: afiliados.id, nome: afiliados.nome, paytour: afiliados.paytourAfiliadoId, semComissao: afiliados.semComissao }).from(afiliados).where(isNotNull(afiliados.paytourAfiliadoId));
   const afiliadoDe = new Map(cadastro.map((a) => [a.paytour!, a]));
+  // Canais internos marcados "sem comissão" não aparecem nas comissões, no ranking nem nos pagamentos.
+  const foraDasComissoes = new Set(cadastro.filter((a) => a.semComissao).map((a) => a.paytour!));
   const corte = await lerCorte(db);
 
-  return visiveis.map((l) => {
+  return visiveis.filter((l) => !foraDasComissoes.has(l.paytourAfiliadoId!)).map((l) => {
     const p = pagoPor.get(l.reservaId);
     const a = afiliadoDe.get(l.paytourAfiliadoId!);
     const situacao: SituacaoComissao = p

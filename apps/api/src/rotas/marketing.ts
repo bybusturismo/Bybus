@@ -376,6 +376,8 @@ export async function rotasMarketing(app: FastifyInstance, { db, config }: Conte
     contato: textoOpc(200),
     paytourAfiliadoId: textoOpc(60),
     observacoes: textoOpc(1000),
+    /** Canal interno (ex.: "Tripadvisor interno", "Decolar.com interno"): não aparece nas comissões (dono, 17/11/2026). */
+    semComissao: z.boolean().default(false),
     ativo: z.boolean().default(true),
   });
 

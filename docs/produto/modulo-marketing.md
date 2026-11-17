@@ -144,3 +144,9 @@ Regras do dono em `docs/conhecimento/canais-e-integracoes.md`. Tela **Marketing 
   CPF/CNPJ, PIX ou banco/agência/conta), guardados **cifrados** (`afiliados.dados_bancarios_cifrado`). O financeiro vê os
   dados em "Comissões de afiliados › Pagamentos gerados › Dados bancários" (`financeiro:gerenciar`, auditado). A lista de
   afiliados nunca devolve os dados bancários (só "tem dados bancários"/"tem acesso"). "Remover acesso" desativa o login.
+
+## Canais internos fora das comissões (17/11/2026)
+Pedido do dono: "Tripadvisor interno" e "Decolar.com interno" não devem aparecer em Comissões de afiliados.
+- No cadastro do afiliado há a opção nova **"Canal interno: não entra nas comissões"** (campo `semComissao`). Quem estiver marcado sai das comissões, do ranking, dos pagamentos quinzenais e do portal.
+- A migração 0056 marca os afiliados que já existem com a palavra "interno" no nome. Os que vierem da Paytour com "interno" no nome já nascem marcados.
+- Pagamentos já gerados antes da marcação continuam no financeiro. Se houver algum, a exclusão é manual.
