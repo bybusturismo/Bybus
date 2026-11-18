@@ -271,6 +271,13 @@ export function Motorista() {
           </Link>
         </p>
       )}
+      {pode("frota:checklist") && (
+        <p>
+          <Link className="botao botao--secundario botao--bloco" to="/frota/km-diario">
+            <Icone nome="calendario" /> Diário de km
+          </Link>
+        </p>
+      )}
 
       {rastreia && (
         <>

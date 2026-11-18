@@ -14,6 +14,7 @@ const ABAS = [
   { para: "/frota/documentos", rotulo: "Documentos", permissoes: ["frota:ver"] },
   { para: "/frota/manutencao", rotulo: "Manutenção", permissoes: ["frota:ver"] },
   { para: "/frota/abastecimento", rotulo: "Abastecimento", permissoes: ["frota:ver"] },
+  { para: "/frota/km-diario", rotulo: "Diário de km", permissoes: ["frota:ver", "frota:checklist"] },
   { para: "/frota/checklist", rotulo: "Checklist", permissoes: ["frota:checklist", "frota:ver"] },
 ] as const;
 

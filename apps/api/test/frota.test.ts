@@ -390,3 +390,70 @@ describe("veículo só do cadastro (16/11/2026)", () => {
     expect((await guia.req("GET", "/api/frota/veiculos/opcoes")).statusCode).toBe(403);
   });
 });
+
+describe("diário de km (18/11/2026)", () => {
+  it("motorista lança data › placa › km inicial › km final › consumo; calcula km rodado e km/l; km final sobe o km do veículo", async () => {
+    const admin = await logado("admin@bybus.test");
+    const mot = await logado("motorista.frota@bybus.test");
+    const v = await criarVeiculo(admin, "DIA1A11", { kmAtual: 10_000 });
+    const d1 = somar(-3), d2 = somar(-2), d3 = somar(-1);
+    // sugestão do km inicial: sem registro, o km atual do veículo
+    expect((await mot.req("GET", `/api/frota/km-diario/sugestao?veiculoId=${v.id}&data=${d1}`)).json()).toMatchObject({ kmInicial: 10_000, jaRegistrado: false });
+    const r1 = await mot.req("POST", "/api/frota/km-diario", { veiculoId: v.id, data: d1, kmInicial: 10_000, kmFinal: 10_250, consumoLitros: 50 });
+    expect(r1.statusCode, r1.body).toBe(201);
+    expect(r1.json().kmAtual).toBe(10_250);
+    expect((await mot.req("GET", `/api/frota/km-diario/sugestao?veiculoId=${v.id}&data=${d2}`)).json()).toMatchObject({ kmInicial: 10_250 });
+    // mesmo dia de novo: recusa (corrige o existente)
+    expect((await mot.req("POST", "/api/frota/km-diario", { veiculoId: v.id, data: d1, kmInicial: 10_000, kmFinal: 10_100 })).json().codigo).toBe("JA_REGISTRADO");
+    // km final menor, data futura, dia longo demais
+    expect((await mot.req("POST", "/api/frota/km-diario", { veiculoId: v.id, data: d2, kmInicial: 10_300, kmFinal: 10_200 })).json().codigo).toBe("KM_INVALIDO");
+    expect((await mot.req("POST", "/api/frota/km-diario", { veiculoId: v.id, data: somar(1), kmInicial: 10_250, kmFinal: 10_300 })).json().codigo).toBe("DATA_FUTURA");
+    expect((await mot.req("POST", "/api/frota/km-diario", { veiculoId: v.id, data: d2, kmInicial: 10_250, kmFinal: 20_000 })).json().codigo).toBe("KM_INVALIDO");
+    // km inicial menor que o final do dia anterior: avisa; confirmando, aceita
+    const recuo = await mot.req("POST", "/api/frota/km-diario", { veiculoId: v.id, data: d2, kmInicial: 10_200, kmFinal: 10_400 });
+    expect(recuo.json()).toMatchObject({ codigo: "KM_FORA_DE_SEQUENCIA" });
+    expect(recuo.json().mensagem).toMatch(/menor que o km final de/);
+    expect((await mot.req("POST", "/api/frota/km-diario", { veiculoId: v.id, data: d2, kmInicial: 10_250, kmFinal: 10_400 })).statusCode).toBe(201);
+    // 3º dia começa 30 km depois do fim do 2º (dia esquecido), sem consumo
+    expect((await mot.req("POST", "/api/frota/km-diario", { veiculoId: v.id, data: d3, kmInicial: 10_430, kmFinal: 10_600 })).statusCode).toBe(201);
+    const l = (await mot.req("GET", `/api/frota/km-diario?veiculoId=${v.id}&de=${d1}&ate=${hoje()}`)).json() as { itens: Array<{ id: string; data: string; placa: string; kmRodado: number; kml: number | null; diferencaAnterior: number | null }>; resumo: Array<Record<string, unknown>> };
+    expect(l.itens.map((i) => i.data)).toEqual([d3, d2, d1]);
+    expect(l.itens[2]).toMatchObject({ placa: "DIA1A11", kmRodado: 250, kml: 5, diferencaAnterior: null });
+    expect(l.itens[1]).toMatchObject({ kmRodado: 150, kml: null, diferencaAnterior: 0 });
+    expect(l.itens[0]).toMatchObject({ kmRodado: 170, diferencaAnterior: 30 });
+    expect(l.resumo).toEqual([{ veiculoId: v.id, placa: "DIA1A11", apelido: "Fictício", dias: 3, kmRodado: 570, litros: 50, mediaKml: 5 }]);
+    // km atual do veículo acompanhou o km final; leitura gravada com fonte DIARIO
+    const veic = (await admin.req("GET", "/api/frota/veiculos")).json().find((x: { id: string }) => x.id === v.id);
+    expect(veic.kmAtual).toBe(10_600);
+    expect((await admin.req("GET", `/api/frota/leituras-km?veiculoId=${v.id}`)).json().filter((x: { fonte: string }) => x.fonte === "DIARIO")).toHaveLength(3);
+    // fonte DIARIO é só do diário
+    expect((await admin.req("POST", "/api/frota/leituras-km", { veiculoId: v.id, km: 10_700, fonte: "DIARIO" })).json().codigo).toBe("FONTE_RESERVADA");
+    // motorista não corrige nem exclui; quem gerencia, sim (com auditoria)
+    const id2 = l.itens[1]!.id;
+    expect((await mot.req("PATCH", `/api/frota/km-diario/${id2}`, { data: d2, kmInicial: 10_250, kmFinal: 10_430, consumoLitros: 30 })).statusCode).toBe(403);
+    expect((await mot.req("DELETE", `/api/frota/km-diario/${id2}`)).statusCode).toBe(403);
+    const corr = await admin.req("PATCH", `/api/frota/km-diario/${id2}`, { data: d2, kmInicial: 10_250, kmFinal: 10_430, consumoLitros: 30 });
+    expect(corr.statusCode, corr.body).toBe(200);
+    // corrigir o final para depois do inicial do dia seguinte: avisa
+    expect((await admin.req("PATCH", `/api/frota/km-diario/${id2}`, { data: d2, kmInicial: 10_250, kmFinal: 10_500 })).json().codigo).toBe("KM_FORA_DE_SEQUENCIA");
+    const l2 = (await admin.req("GET", `/api/frota/km-diario?veiculoId=${v.id}&de=${d1}&ate=${hoje()}`)).json() as { itens: Array<{ id: string; kml: number | null; diferencaAnterior: number | null }> };
+    expect(l2.itens.find((i) => i.id === id2)).toMatchObject({ kml: 6 });
+    expect(l2.itens[0]).toMatchObject({ diferencaAnterior: 0 });
+    expect((await admin.req("DELETE", `/api/frota/km-diario/${l.itens[0]!.id}`)).statusCode).toBe(200);
+    const acoes = await comDb((db) => db.select({ acao: auditoria.acao }).from(auditoria));
+    for (const a of ["VEICULO_KM_DIARIO_LANCADO", "VEICULO_KM_DIARIO_CORRIGIDO", "VEICULO_KM_DIARIO_EXCLUIDO"]) expect(acoes.map((x) => x.acao)).toContain(a);
+  });
+
+  it("lançar com data antiga não baixa o km do veículo; outra praça não vê nem lança", async () => {
+    const admin = await logado("admin@bybus.test");
+    const mot = await logado("motorista.frota@bybus.test");
+    const v = await criarVeiculo(admin, "DIA2B22", { kmAtual: 50_000 });
+    expect((await admin.req("POST", "/api/frota/km-diario", { veiculoId: v.id, data: somar(-30), kmInicial: 40_000, kmFinal: 40_100 })).statusCode).toBe(201);
+    expect((await admin.req("GET", "/api/frota/veiculos")).json().find((x: { id: string }) => x.id === v.id).kmAtual).toBe(50_000);
+    const bc = await criarVeiculo(admin, "DIA3C33", { unidadeId: BC });
+    expect((await mot.req("POST", "/api/frota/km-diario", { veiculoId: bc.id, data: somar(-1), kmInicial: 1000, kmFinal: 1100 })).statusCode).toBe(404);
+    expect((await admin.req("POST", "/api/frota/km-diario", { veiculoId: bc.id, data: somar(-1), kmInicial: 1000, kmFinal: 1100 })).statusCode).toBe(201);
+    const daMot = (await mot.req("GET", `/api/frota/km-diario?de=${somar(-40)}&ate=${hoje()}`)).json() as { itens: Array<{ placa: string }> };
+    expect(daMot.itens.some((i) => i.placa === "DIA3C33")).toBe(false);
+  });
+});

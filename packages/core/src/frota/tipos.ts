@@ -17,7 +17,7 @@ export const STATUS_ORDEM = ["ABERTA", "EM_ANDAMENTO", "CONCLUIDA", "CANCELADA"]
 export type StatusOrdem = (typeof STATUS_ORDEM)[number];
 
 /** Origem de uma leitura de quilometragem. KHRONOS é reservado para a integração com o rastreador. */
-export const FONTES_KM = ["MANUAL", "CHECKLIST", "ABASTECIMENTO", "ORDEM", "KHRONOS"] as const;
+export const FONTES_KM = ["MANUAL", "CHECKLIST", "ABASTECIMENTO", "ORDEM", "KHRONOS", "DIARIO"] as const;
 export type FonteKm = (typeof FONTES_KM)[number];
 
 /** Normaliza a placa: maiúsculas, sem hífen/espaços (aceita o padrão antigo e o Mercosul). */

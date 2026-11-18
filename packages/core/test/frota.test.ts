@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calcularDiarioKm, KM_DIA_MAXIMO, resumirDiarioKm, validarDiarioKm,
   alertaConsumo, consumoPorAbastecimento, mediaConsumo, motivosBloqueio, normalizarPlaca, placaValida,
   resumirChecklist, situacaoPlano, situacaoVencimento,
 } from "../src/index.js";
@@ -97,5 +98,34 @@ describe("abastecimento com mesmo km e tipo de serviço (13/11/2026)", () => {
     ]);
     expect(r.get("aa")).toBe(2.5);
     expect(r.get("zz")).toBeNull();
+  });
+});
+
+describe("diário de km (18/11/2026)", () => {
+  const r = (id: string, veiculoId: string, data: string, kmInicial: number, kmFinal: number, consumoLitros: number | null = null) => ({ id, veiculoId, data, kmInicial, kmFinal, consumoLitros });
+  it("calcula km rodado, km/l e a diferença com o dia anterior do mesmo veículo", () => {
+    const itens = calcularDiarioKm([
+      r("c", "A", "2026-11-03", 10_450, 10_600, 50),
+      r("a", "A", "2026-11-01", 10_000, 10_200, 40),
+      r("b", "A", "2026-11-02", 10_200, 10_400),
+      r("x", "B", "2026-11-02", 500, 500),
+    ]);
+    const por = Object.fromEntries(itens.map((i) => [i.id, i]));
+    expect(por.a).toMatchObject({ kmRodado: 200, kml: 5, diferencaAnterior: null });
+    expect(por.b).toMatchObject({ kmRodado: 200, kml: null, diferencaAnterior: 0 });
+    expect(por.c).toMatchObject({ kmRodado: 150, kml: 3, diferencaAnterior: 50 }); // 50 km sem registro
+    expect(por.x).toMatchObject({ kmRodado: 0, kml: null, diferencaAnterior: null });
+    expect(itens.map((i) => i.id)).toEqual(["c", "a", "b", "x"]); // mantém a ordem recebida
+    expect(calcularDiarioKm([r("a", "A", "2026-11-01", 100, 200), r("b", "A", "2026-11-02", 150, 300)])[1]!.diferencaAnterior).toBe(-50);
+  });
+  it("resume por veículo; média km/l só dos dias com consumo", () => {
+    const itens = calcularDiarioKm([r("a", "A", "2026-11-01", 0, 200, 40), r("b", "A", "2026-11-02", 200, 400), r("c", "A", "2026-11-03", 400, 700, 60)]);
+    expect(resumirDiarioKm(itens)).toEqual([{ veiculoId: "A", dias: 3, kmRodado: 700, litros: 100, mediaKml: 5 }]);
+  });
+  it("valida km final menor, dia longo demais e consumo inválido", () => {
+    expect(validarDiarioKm({ kmInicial: 100, kmFinal: 90, consumoLitros: null })).toMatch(/menor que o km inicial/);
+    expect(validarDiarioKm({ kmInicial: 0, kmFinal: KM_DIA_MAXIMO + 1, consumoLitros: null })).toMatch(/Mais de/);
+    expect(validarDiarioKm({ kmInicial: 0, kmFinal: 10, consumoLitros: -1 })).toMatch(/Consumo/);
+    expect(validarDiarioKm({ kmInicial: 0, kmFinal: 10, consumoLitros: 2.5 })).toBeNull();
   });
 });

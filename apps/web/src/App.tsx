@@ -30,6 +30,7 @@ import { Rastreamento } from "./paginas/rastreio/Rastreamento";
 import { Transfer } from "./paginas/transfer/Transfer";
 import { MotoristaTransfer } from "./paginas/transfer/MotoristaTransfer";
 import { AbastecimentoPagina } from "./paginas/frota/Abastecimento";
+import { KmDiarioPagina } from "./paginas/frota/KmDiario";
 import { ChecklistPagina } from "./paginas/frota/Checklist";
 import { DocumentosPagina } from "./paginas/frota/Documentos";
 import { ManutencaoPagina } from "./paginas/frota/Manutencao";
@@ -264,6 +265,14 @@ export function Rotas() {
             <Exige permissao="frota:ver">
               <AbastecimentoPagina />
             </Exige>
+          }
+        />
+        <Route
+          path="frota/km-diario"
+          element={
+            <ExigeUma permissoes={["frota:ver", "frota:checklist"]}>
+              <KmDiarioPagina />
+            </ExigeUma>
           }
         />
         <Route

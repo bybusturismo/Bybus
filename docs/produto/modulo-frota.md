@@ -94,3 +94,13 @@ Pedido do dono: "o veículo apareça todos cadastrados em uma lista suspensa só
 - **Grupo criado de um orçamento:** o veículo fica para escolher na ficha, e o tipo orçado (van, micro ou ônibus) vai para as observações.
 - **Fonte da lista:** `GET /api/frota/veiculos/opcoes`, liberada para quem gerencia saídas, escala, frota, reservas ou financeiro.
 - **Guia e motorista** já eram escolhidos da lista do cadastro Equipe em todo o sistema (saída, escala, transfer e grupos).
+
+## Diário de km (18/11/2026)
+- Pedido do dono: aba de registro diário com **DATA › PLACA › KM INICIAL › KM FINAL › CONSUMO**. Tela em Frota → **Diário de km** (`/frota/km-diario`).
+- **Consumo** = litros gastos no dia (opcional; suposição desta versão, a confirmar com o dono). Com ele, o sistema calcula o **km/l**; o **km rodado** (final − inicial) é sempre calculado.
+- Um registro por veículo e dia (`veiculos_km_diario`, migração 0060). Ao lançar, o **km inicial vem sugerido** com o km final do dia anterior (ou o km atual do veículo).
+- Conferências: km final ≥ inicial; no máximo 3.000 km num dia; data não futura; mesma placa e data não se repete (corrige-se o existente). Se o km inicial ficar abaixo do km final do dia anterior (ou o final acima do inicial do dia seguinte), a tela avisa e só grava ao confirmar. Na lista, "N km sem registro antes" mostra trechos que ficaram sem lançamento.
+- O **km final vira leitura de km** (fonte `DIARIO`): atualiza o km atual do veículo e os planos de manutenção, sem nunca baixar o km (data antiga não mexe no km atual). A fonte `DIARIO` não é aceita no lançamento avulso de leitura.
+- Quem lança: quem gerencia a frota ou quem faz o checklist (motorista com `frota:checklist`, que também ganha o atalho "Diário de km" no menu e na tela do motorista). Corrigir e excluir: só quem gerencia. Tudo auditado (`VEICULO_KM_DIARIO_LANCADO/CORRIGIDO/EXCLUIDO`).
+- Lista com filtro por placa e período, filtro/classificação por coluna e resumo por veículo (dias, km rodado, litros, média km/l). Regras puras em `packages/core/src/frota/diario.ts`; API em `apps/api/src/rotas/frota-diario.ts`.
+- Pendente do dono: o perfil padrão **Motorista** ainda não tem `frota:checklist` (decisão "permissões dos perfis padrão nos módulos novos"); sem ela, o motorista não vê o checklist nem o diário.

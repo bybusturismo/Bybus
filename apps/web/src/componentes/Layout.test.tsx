@@ -132,7 +132,7 @@ describe("Item ativo do menu (um item por módulo)", () => {
 
   it("quem só faz o checklist continua com o item dele", () => {
     renderizar(<Layout />, { sessao: sessaoFicticia("MOTORISTA", ["frota:checklist"]) });
-    expect(rotulosMenu()).toEqual(["Checklist do veículo"]);
+    expect(rotulosMenu()).toEqual(["Checklist do veículo", "Diário de km"]);
   });
 
   it("outra aba do marketing acende Marketing; Saídas e Conferência acendem Listas de passageiros", () => {

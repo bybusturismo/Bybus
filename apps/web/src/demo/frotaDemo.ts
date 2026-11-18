@@ -1,5 +1,5 @@
 /** Frota da demonstração: 3 veículos fictícios, documentos, planos, ordens, abastecimentos e checklist. */
-import { ITENS_CHECKLIST_PADRAO, alertaConsumo, consumoPorAbastecimento, mediaConsumo, resumirChecklist, situacaoPlano, situacaoVencimento } from "@bybus/core";
+import { ITENS_CHECKLIST_PADRAO, alertaConsumo, calcularDiarioKm, resumirDiarioKm, validarDiarioKm, consumoPorAbastecimento, mediaConsumo, resumirChecklist, situacaoPlano, situacaoVencimento } from "@bybus/core";
 import { NAO, UN_BC, UN_FLN, achar, aplicar, diasEntre, type Rotear } from "./comum";
 
 const NOME_UNIDADE: Record<string, string> = { [UN_FLN]: "Florianópolis (Floripa by Bus)", [UN_BC]: "Balneário Camboriú (BC by Bus)" };
@@ -20,6 +20,8 @@ const docs: Doc[] = [];
 const planos: Plano[] = [];
 const ordens: Ordem[] = [];
 const abastecimentos: Abast[] = [];
+/** Diário de km (18/11/2026), só em memória na demonstração. */
+const diarioKm: Array<{ id: string; veiculoId: string; data: string; kmInicial: number; kmFinal: number; consumoLitros: number | null; observacao: string | null }> = [];
 const itens: Item[] = [];
 const feitos: Feito[] = [];
 
@@ -246,6 +248,38 @@ export const rotearFrota: Rotear = (ctx, metodo, caminho, q, c) => {
     gerir();
     abastecimentos.splice(abastecimentos.indexOf(achar(abastecimentos, m![1]!, ctx, "Abastecimento")), 1);
     return { ok: true };
+  }
+  // Diário de km
+  if (metodo === "GET" && caminho === "/api/frota/km-diario") {
+    ver();
+    const de = q.get("de") || "0000-00-00", ate = q.get("ate") || "9999-99-99", vid = q.get("veiculoId");
+    const calc = calcularDiarioKm(diarioKm.filter((x) => !vid || x.veiculoId === vid)).filter((x) => x.data >= de && x.data <= ate)
+      .sort((a, b) => b.data.localeCompare(a.data)).map((x) => ({ ...x, ...rotuloPlaca(veiculo(x.veiculoId)), lancadoPor: "Demonstração" }));
+    return { itens: calc, resumo: resumirDiarioKm(calc).map((x) => ({ ...x, ...rotuloPlaca(veiculo(x.veiculoId)) })) };
+  }
+  if (metodo === "GET" && caminho === "/api/frota/km-diario/sugestao") {
+    ver();
+    const vid = q.get("veiculoId") ?? "", data = q.get("data") ?? hoje;
+    const antes = diarioKm.filter((x) => x.veiculoId === vid && x.data < data).sort((a, b) => b.data.localeCompare(a.data))[0];
+    const ja = diarioKm.some((x) => x.veiculoId === vid && x.data === data);
+    return antes ? { kmInicial: antes.kmFinal, origem: "km final do dia anterior", jaRegistrado: ja } : { kmInicial: veiculo(vid)?.kmAtual ?? 0, origem: "km atual do veículo", jaRegistrado: ja };
+  }
+  if (metodo === "POST" && caminho === "/api/frota/km-diario") {
+    gerir();
+    const erroKm = validarDiarioKm({ kmInicial: Number(c.kmInicial), kmFinal: Number(c.kmFinal), consumoLitros: c.consumoLitros == null ? null : Number(c.consumoLitros) });
+    if (erroKm) throw ctx.erro(400, "KM_INVALIDO", erroKm);
+    if (diarioKm.some((x) => x.veiculoId === c.veiculoId && x.data === c.data)) throw ctx.erro(409, "JA_REGISTRADO", "Esta placa já tem registro nesta data.");
+    const x = { id: ctx.id("kd"), veiculoId: c.veiculoId, data: c.data, kmInicial: c.kmInicial, kmFinal: c.kmFinal, consumoLitros: c.consumoLitros ?? null, observacao: c.observacao ?? null };
+    diarioKm.push(x);
+    const v = veiculo(x.veiculoId);
+    if (v && x.kmFinal > v.kmAtual) v.kmAtual = x.kmFinal;
+    return x;
+  }
+  if (r(/^\/api\/frota\/km-diario\/([^/]+)$/)) {
+    gerir();
+    const x = achar(diarioKm, m![1]!, ctx, "Registro");
+    if (metodo === "DELETE") { diarioKm.splice(diarioKm.indexOf(x), 1); return { ok: true }; }
+    if (metodo === "PATCH") { Object.assign(x, { data: c.data, kmInicial: c.kmInicial, kmFinal: c.kmFinal, consumoLitros: c.consumoLitros ?? null, observacao: c.observacao ?? null }); return x; }
   }
   if (metodo === "GET" && caminho === "/api/frota/leituras-km") { ver(); return []; }
   if (metodo === "POST" && caminho === "/api/frota/leituras-km") {

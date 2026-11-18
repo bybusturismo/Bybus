@@ -158,3 +158,20 @@ export const veiculosLinksGps = pgTable("veiculos_links_gps", {
   criadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
   criadoEm: agora(),
 }, (t) => [index("veiculos_links_gps_veiculo_idx").on(t.veiculoId)]);
+
+/**
+ * Diário de km (dono, 18/11/2026): um registro por veículo e dia, com km inicial, km final e o consumo do dia em litros
+ * (opcional). O km final também entra nas leituras de km (fonte DIARIO), que atualizam o km atual e os planos de manutenção.
+ */
+export const veiculosKmDiario = pgTable("veiculos_km_diario", {
+  id: uuid().primaryKey().defaultRandom(),
+  veiculoId: uuid().notNull().references(() => veiculos.id),
+  data: date({ mode: "string" }).notNull(),
+  kmInicial: integer().notNull(),
+  kmFinal: integer().notNull(),
+  consumoLitros: doublePrecision(),
+  observacao: text(),
+  criadoPor: uuid().references(() => usuarios.id),
+  criadoEm: agora(),
+  atualizadoEm: agora(),
+}, (t) => [uniqueIndex("veiculos_km_diario_dia_uk").on(t.veiculoId, t.data)]);

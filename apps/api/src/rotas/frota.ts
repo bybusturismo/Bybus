@@ -14,6 +14,7 @@ import {
   veiculosKm, veiculosOrdens, veiculosOrdensAnexos, veiculosPlanos,
 } from "../db/schema.js";
 import { podeUnidade } from "../seguranca/escopo.js";
+import { rotasFrotaDiario } from "./frota-diario.js";
 import { pode, type Permissao } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
 import {
@@ -29,13 +30,13 @@ const opcional = (max: number) => texto(max).nullish().transform((v) => v || nul
 const naoEncontrado = (o: string) => new ErroHttp(404, "NAO_ENCONTRADO", `${o} não encontrado(a).`);
 
 /** Escopo por praça: o veículo pertence a uma unidade. */
-function escopoVeiculos(u: UsuarioSessao): SQL | undefined {
+export function escopoVeiculos(u: UsuarioSessao): SQL | undefined {
   if (u.todasUnidades) return undefined;
   if (u.unidadeIds.length === 0) return sql`false`;
   return inArray(veiculos.unidadeId, u.unidadeIds);
 }
 
-async function garantirVeiculo(db: Db, u: UsuarioSessao, id: string) {
+export async function garantirVeiculo(db: Db, u: UsuarioSessao, id: string) {
   const [v] = await db.select().from(veiculos).where(eq(veiculos.id, id));
   if (!v || !podeUnidade(u, v.unidadeId)) throw naoEncontrado("Veículo");
   return v;
@@ -478,6 +479,9 @@ export async function rotasFrota(app: FastifyInstance, { db, config, cofre }: Co
     return { ok: true };
   });
 
+  // ---------- Diário de km (18/11/2026) ----------
+  await rotasFrotaDiario(app, { db, config, cofre }, { ler: umaDe("frota:ver", "frota:checklist"), lancar: umaDe("frota:gerenciar", "frota:checklist"), gerenciar });
+
   // ---------- Leituras de km ----------
   app.get("/api/frota/leituras-km", ver, async (req) => {
     const q = z.object({ veiculoId: uuid.optional() }).parse(req.query);
@@ -491,6 +495,7 @@ export async function rotasFrota(app: FastifyInstance, { db, config, cofre }: Co
   app.post("/api/frota/leituras-km", gerenciar, async (req, reply) => {
     const c = z.object({ veiculoId: uuid, km: z.number().int().min(0).max(5_000_000), data: dataIso.optional(), fonte: z.enum(FONTES_KM).default("MANUAL") }).parse(req.body);
     if (c.fonte === "KHRONOS") throw new ErroHttp(400, "FONTE_RESERVADA", "A fonte Khronos é reservada para a integração automática com o rastreador.");
+    if (c.fonte === "DIARIO") throw new ErroHttp(400, "FONTE_RESERVADA", "Use a aba Diário de km para lançar o km do dia.");
     await garantirVeiculo(db, req.usuario!, c.veiculoId);
     const r = await registrarLeituraKm(db, { veiculoId: c.veiculoId, km: c.km, data: c.data ?? hojeSp(), fonte: c.fonte, usuarioId: req.usuario!.id, estrito: true });
     await auditar(db, req, "VEICULO_KM_REGISTRADO", { tipo: "veiculo", id: c.veiculoId }, { km: c.km, fonte: c.fonte });
