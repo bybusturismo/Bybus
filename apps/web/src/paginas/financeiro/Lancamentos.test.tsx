@@ -283,6 +283,33 @@ describe("Contas a pagar", () => {
     expect(corpoEnviado(spy, "POST", "/api/financeiro/lancamentos/l1/anexos")).toMatchObject({ tipo: "COMPROVANTE", nome: "comprovante.png" });
   });
 
+  it("conta paga sem comprovante: aviso no topo, etiqueta na linha e anexar direto da lista", async () => {
+    const paga = lanc({ situacao: "REALIZADO", pagoEm: "2026-11-10", valorPagoCentavos: 100000, contaId: "k1", anexos: [{ id: "a1", tipo: "BOLETO", nomeArquivo: "das.pdf" }] });
+    const spy = simularApi({
+      "GET /api/financeiro/categorias": categorias,
+      "GET /api/financeiro/contas": [conta],
+      "GET /api/financeiro/fornecedores": [],
+      "GET /api/financeiro/lancamentos": { hoje: "2026-11-18", itens: [paga], total: 1, somaDevidoCentavos: 100000, somaAbertoCentavos: 0, somaRealizadoCentavos: 100000, qtdSemComprovante: 1, qtdComDocumentos: 1 },
+      "POST /api/financeiro/lancamentos/l1/anexos": { id: "a2", tipo: "COMPROVANTE", nomeArquivo: "comprovante.pdf" },
+    });
+    renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    expect(await screen.findByText(/1 conta paga está sem comprovante neste filtro/)).toBeInTheDocument();
+    expect(screen.getByText("sem comprovante")).toBeInTheDocument();
+    await u.upload(screen.getByLabelText("Anexar o comprovante de Combustível outubro"), new File(["%PDF-1.4"], "comprovante.pdf", { type: "application/pdf" }));
+    await screen.findByText("Comprovante anexado.");
+    expect(corpoEnviado(spy, "POST", "/api/financeiro/lancamentos/l1/anexos")).toMatchObject({ tipo: "COMPROVANTE", nome: "comprovante.pdf" });
+    // "Ver quais" filtra as pagas sem comprovante
+    await u.click(screen.getByRole("button", { name: "Ver quais" }));
+    expect(screen.getByLabelText("Documentos")).toHaveValue("SEM_COMPROVANTE");
+    expect(spy.mock.calls.some(([x]) => String(x).includes("documentos=SEM_COMPROVANTE"))).toBe(true);
+    // ZIP com o mesmo recorte da tela
+    const zip = screen.getByRole("link", { name: /Baixar documentos de .* \(ZIP\)/ });
+    expect(zip.getAttribute("href")).toMatch(/^\/api\/financeiro\/lancamentos\/documentos\.zip\?/);
+    expect(zip.getAttribute("href")).toContain("tipo=PAGAR");
+    expect(zip.getAttribute("href")).toContain("documentos=SEM_COMPROVANTE");
+  });
+
   it("recusa desconto maior que o valor devido", async () => {
     const spy = api([lanc()]);
     renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });

@@ -2,6 +2,7 @@ import {
   CANAIS, FORMAS_PAGAMENTO, LINHAS_FINANCEIRO, TIPOS_CATEGORIA, TIPOS_CONTA_FINANCEIRA,
   calcularBaixa, centavosParaTexto, faturaDaData, pareceTransferencia, fimDoMes, inicioDaSemana, montarDre, montarDreGerencial, montarFluxoSemanal, parcelar, somarDiasIso, somarMeses,
   type CategoriaInfo, type LancamentoDre, type LancamentoRelatorio,
+  ROTULO_ANEXO_FIN, type TipoAnexoFin,
 } from "@bybus/core";
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -10,9 +11,10 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
 import type { Contexto } from "../app.js";
-import { finCategorias, finContas, finExtratoLinhas, finLancamentos, finRegras } from "../db/schema.js";
+import { finCategorias, finContas, finExtratoLinhas, finLancamentoAnexos, finLancamentos, finRegras } from "../db/schema.js";
 import { pode } from "../seguranca/permissoes.js";
-import { ErroHttp, exigir } from "../seguranca/sessao.js";
+import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
+import { montarZip, nomeNoZip } from "../servicos/zip.js";
 import {
   conciliadoSql, estaConciliado, filtroPraca, garantirCaixaAberto, garantirRegra, naoConciliadoSql, validarRegra, filtroPracaEscolhida, garantirConta, garantirLancamento, garantirPlano, hojeSP, saldosDasContas,
   preencherContaDaSerie, validarCategoria, validarPracaDoRegistro,
@@ -232,9 +234,8 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     return baseLista().where(inArray(finLancamentos.id, ids)).orderBy(asc(finLancamentos.vencimento), asc(finLancamentos.criadoEm), asc(finLancamentos.id));
   }
 
-  app.get("/api/financeiro/lancamentos", ver, async (req) => {
-    const u = req.usuario!;
-    const q = z.object({
+  // Filtros da lista, também usados no ZIP dos documentos (mesmo recorte que está na tela).
+  const esquemaFiltroLista = z.object({
       tipo: z.enum(["PAGAR", "RECEBER"]).optional(),
       situacao: z.enum(["ABERTO", "REALIZADO", "VENCIDO"]).optional(),
       campo: z.enum(["vencimento", "competencia", "pagoEm"]).default("vencimento"),
@@ -246,13 +247,19 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       /** Faixa de valor em centavos. */
       valorMin: z.coerce.number().int().min(0).optional(),
       valorMax: z.coerce.number().int().min(0).optional(),
+      /** Documentos (18/11/2026): pagas sem comprovante, com algum documento ou sem nenhum. */
+      documentos: z.enum(["SEM_COMPROVANTE", "COM", "SEM"]).optional(),
       pagina: z.coerce.number().int().min(1).max(10_000).default(1),
       limite: z.coerce.number().int().min(1).max(500).default(200),
-    }).parse(req.query);
-    const hoje = hojeSP();
+  });
+  /** Conta paga (a pagar) sem comprovante anexado. */
+  const semComprovanteSql = sql`(${finLancamentos.tipo} = 'PAGAR' and ${finLancamentos.situacao} = 'REALIZADO'
+    and not exists (select 1 from fin_lancamento_anexos a where a.lancamento_id = ${finLancamentos.id} and a.tipo = 'COMPROVANTE'))`;
+  const temAnexoSql = sql`exists (select 1 from fin_lancamento_anexos a where a.lancamento_id = ${finLancamentos.id})`;
+  function filtroLista(u: UsuarioSessao, q: z.infer<typeof esquemaFiltroLista>, hoje: string) {
     const coluna = q.campo === "pagoEm" ? finLancamentos.pagoEm : q.campo === "competencia" ? finLancamentos.competencia : finLancamentos.vencimento;
     const busca = q.q ? `%${q.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
-    const where = and(
+    return and(
       filtroPracaEscolhida(u, finLancamentos.unidadeId, q.unidadeId),
       q.tipo ? eq(finLancamentos.tipo, q.tipo) : undefined,
       q.situacao === "VENCIDO" ? and(eq(finLancamentos.situacao, "ABERTO"), lt(finLancamentos.vencimento, hoje)) : q.situacao ? eq(finLancamentos.situacao, q.situacao) : undefined,
@@ -260,11 +267,21 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       q.contaId ? eq(finLancamentos.contaId, q.contaId) : undefined,
       q.categoriaId ? eq(finLancamentos.categoriaId, q.categoriaId) : undefined,
       q.linha ? eq(finLancamentos.linha, q.linha) : undefined,
-      busca ? or(ilike(finLancamentos.descricao, busca), ilike(finLancamentos.contraparte, busca)) : undefined,
+      // a busca também acha pelo nome do documento anexado (ex.: "DAS", "nota 1234")
+      busca ? or(ilike(finLancamentos.descricao, busca), ilike(finLancamentos.contraparte, busca),
+        sql`exists (select 1 from fin_lancamento_anexos a where a.lancamento_id = ${finLancamentos.id} and a.nome_arquivo ilike ${busca})`) : undefined,
       q.fornecedor ? ilike(finLancamentos.contraparte, `%${q.fornecedor.replace(/[\\%_]/g, (c) => `\\${c}`)}%`) : undefined,
       q.valorMin !== undefined ? gte(finLancamentos.valorCentavos, q.valorMin) : undefined,
       q.valorMax !== undefined ? lte(finLancamentos.valorCentavos, q.valorMax) : undefined,
+      q.documentos === "SEM_COMPROVANTE" ? semComprovanteSql : q.documentos === "COM" ? temAnexoSql : q.documentos === "SEM" ? sql`not ${temAnexoSql}` : undefined,
     );
+  }
+
+  app.get("/api/financeiro/lancamentos", ver, async (req) => {
+    const u = req.usuario!;
+    const q = esquemaFiltroLista.parse(req.query);
+    const hoje = hojeSP();
+    const where = filtroLista(u, q, hoje);
     const itens = await baseLista().where(where).orderBy(asc(finLancamentos.vencimento), asc(finLancamentos.criadoEm), asc(finLancamentos.id)).limit(q.limite).offset((q.pagina - 1) * q.limite);
     const [tot] = await db.select({
       qtd: sql<number>`count(*)`.mapWith(Number),
@@ -273,11 +290,49 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       realizado: sql<number>`coalesce(sum(case when ${finLancamentos.situacao} = 'REALIZADO' then ${finLancamentos.valorPagoCentavos} else 0 end), 0)`.mapWith(Number),
       vencido: sql<number>`coalesce(sum(case when ${finLancamentos.situacao} = 'ABERTO' and ${finLancamentos.vencimento} < ${hoje} then ${finLancamentos.valorCentavos} else 0 end), 0)`.mapWith(Number),
       qtdVencido: sql<number>`count(*) filter (where ${finLancamentos.situacao} = 'ABERTO' and ${finLancamentos.vencimento} < ${hoje})`.mapWith(Number),
+      qtdSemComprovante: sql<number>`count(*) filter (where ${semComprovanteSql})`.mapWith(Number),
+      qtdComDocumentos: sql<number>`count(*) filter (where ${temAnexoSql})`.mapWith(Number),
     }).from(finLancamentos).where(where);
     return {
       hoje, itens: itens.map((i) => ({ ...i, vencido: i.situacao === "ABERTO" && i.vencimento < hoje })), total: tot!.qtd,
       somaDevidoCentavos: tot!.devido, somaAbertoCentavos: tot!.aberto, somaRealizadoCentavos: tot!.realizado, somaVencidoCentavos: tot!.vencido, qtdVencido: tot!.qtdVencido,
+      qtdSemComprovante: tot!.qtdSemComprovante, qtdComDocumentos: tot!.qtdComDocumentos,
     };
+  });
+
+  /**
+   * Documentos do recorte da tela num ZIP (dono, 18/11/2026: guias, boletos, notas e comprovantes do mês para a contabilidade ou
+   * para quem precisar). Uma pasta por mês de vencimento; nome = data, descrição, tipo e o nome original. Limite: 400 arquivos e 150 MB.
+   */
+  app.get("/api/financeiro/lancamentos/documentos.zip", { ...ver, config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const u = req.usuario!;
+    const q = esquemaFiltroLista.parse(req.query);
+    if (!q.de || !q.ate) throw new ErroHttp(400, "PERIODO_OBRIGATORIO", "Escolha o período (mês) para baixar os documentos.");
+    const where = filtroLista(u, q, hojeSP());
+    const anexos = await db.select({
+      id: finLancamentoAnexos.id, tipo: finLancamentoAnexos.tipo, nomeArquivo: finLancamentoAnexos.nomeArquivo, tamanho: finLancamentoAnexos.tamanho,
+      criadoEm: finLancamentoAnexos.criadoEm, vencimento: finLancamentos.vencimento, descricao: finLancamentos.descricao, lancamentoId: finLancamentos.id,
+    }).from(finLancamentoAnexos).innerJoin(finLancamentos, eq(finLancamentos.id, finLancamentoAnexos.lancamentoId)).where(where)
+      .orderBy(asc(finLancamentos.vencimento), asc(finLancamentos.descricao), asc(finLancamentoAnexos.criadoEm)).limit(401);
+    if (!anexos.length) throw new ErroHttp(404, "SEM_DOCUMENTOS", "Nenhum documento anexado nas contas deste filtro.");
+    if (anexos.length > 400) throw new ErroHttp(400, "DOCUMENTOS_DEMAIS", "Mais de 400 documentos neste filtro: escolha um período menor.");
+    if (anexos.reduce((t, a) => t + a.tamanho, 0) > 150 * 1024 * 1024) throw new ErroHttp(400, "DOCUMENTOS_GRANDES", "Os documentos passam de 150 MB juntos: escolha um período menor.");
+    const usados = new Set<string>();
+    const arquivos = [];
+    for (const a of anexos) {
+      const [linha] = await db.select({ dados: finLancamentoAnexos.dadosCifrados }).from(finLancamentoAnexos).where(eq(finLancamentoAnexos.id, a.id));
+      const ext = (a.nomeArquivo.match(/\.[A-Za-z0-9]{1,5}$/)?.[0] ?? "").toLowerCase();
+      const base = nomeNoZip(`${a.vencimento} ${a.descricao} - ${ROTULO_ANEXO_FIN[a.tipo as TipoAnexoFin] ?? a.tipo} - ${a.nomeArquivo.replace(/\.[A-Za-z0-9]{1,5}$/, "")}`, 120);
+      let nome = `${a.vencimento.slice(0, 7)}/${base}${ext}`;
+      for (let n = 2; usados.has(nome.toLowerCase()); n++) nome = `${a.vencimento.slice(0, 7)}/${base} (${n})${ext}`;
+      usados.add(nome.toLowerCase());
+      arquivos.push({ nome, dados: Buffer.from(ctx.cofre.decifrar(linha!.dados), "base64"), data: a.criadoEm });
+    }
+    const zip = montarZip(arquivos);
+    await auditar(db, req, "FIN_DOCUMENTOS_BAIXADOS", { tipo: "fin_lancamento" }, { arquivos: arquivos.length, lancamentos: new Set(anexos.map((a) => a.lancamentoId)).size, de: q.de, ate: q.ate, tipo: q.tipo ?? null });
+    const nomeZip = `documentos-${q.tipo === "RECEBER" ? "a-receber" : q.tipo === "PAGAR" ? "a-pagar" : "financeiro"}-${q.de}-a-${q.ate}.zip`;
+    return reply.header("Content-Type", "application/zip").header("Cache-Control", "no-store").header("X-Content-Type-Options", "nosniff")
+      .header("Content-Disposition", `attachment; filename="${nomeZip}"`).send(zip);
   });
 
   /** Última chave PIX usada para este fornecedor (preenche a conta nova sozinho, 17/11/2026). */

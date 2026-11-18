@@ -325,6 +325,51 @@ describe("lançamentos", () => {
     for (const a of ["FIN_ANEXO_ENVIADO", "FIN_ANEXO_ABERTO", "FIN_ANEXO_EXCLUIDO"]) expect(acoes).toContain(a);
   });
 
+  it("documentos achados pela conta: pagas sem comprovante, busca pelo nome do arquivo e ZIP do mês (caso do Simples, 18/11/2026)", async () => {
+    const PDF = (t: string) => Buffer.from(`%PDF-1.4\n% ${t}\n`).toString("base64");
+    const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    const venc = "2027-08-20";
+    const corrente = await conta(usuarioFln, { nome: "Corrente documentos", tipo: "CORRENTE", unidadeId: fln });
+    const simples = json(await lancar(usuarioFln, { descricao: "Simples Nacional agosto", valorCentavos: 154321, vencimento: venc })).ids[0] as string;
+    const aluguel = json(await lancar(usuarioFln, { descricao: "Aluguel garagem agosto", valorCentavos: 300000, vencimento: venc })).ids[0] as string;
+    const semDoc = json(await lancar(usuarioFln, { descricao: "Tarifa agosto", valorCentavos: 1000, vencimento: venc })).ids[0] as string;
+    const outraPraca = json(await lancar(usuarioBc, { descricao: "Simples BC agosto", valorCentavos: 5000, vencimento: venc, unidadeId: bc })).ids[0] as string;
+    const anexar = (c: Cliente, id: string, tipo: string, nome: string) => c.req("POST", `/api/financeiro/lancamentos/${id}/anexos`, { tipo, nome, base64: PDF(nome) });
+    expect((await anexar(usuarioFln, simples, "BOLETO", "DAS 08-2027.pdf")).statusCode).toBe(201);
+    expect((await anexar(usuarioFln, aluguel, "BOLETO", "boleto aluguel.pdf")).statusCode).toBe(201);
+    expect((await anexar(usuarioBc, outraPraca, "BOLETO", "DAS BC.pdf")).statusCode).toBe(201);
+    for (const id of [simples, aluguel, semDoc]) expect((await usuarioFln.req("POST", `/api/financeiro/lancamentos/${id}/baixa`, { pagoEm: hoje, contaId: corrente })).statusCode).toBe(200);
+    // comprovante só no Simples
+    expect((await anexar(usuarioFln, simples, "COMPROVANTE", "comprovante DAS.pdf")).statusCode).toBe(201);
+    const periodo = `tipo=PAGAR&de=${venc}&ate=${venc}`;
+    const lista = json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?${periodo}`));
+    expect(lista).toMatchObject({ total: 3, qtdSemComprovante: 2, qtdComDocumentos: 2 });
+    const ids = (r: { itens: Array<{ id: string }> }) => r.itens.map((x) => x.id).sort();
+    expect(ids(json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?${periodo}&documentos=SEM_COMPROVANTE`)))).toEqual([aluguel, semDoc].sort());
+    expect(ids(json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?${periodo}&documentos=COM`)))).toEqual([simples, aluguel].sort());
+    expect(ids(json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?${periodo}&documentos=SEM`)))).toEqual([semDoc]);
+    // busca pelo nome do arquivo
+    expect(ids(json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?${periodo}&q=DAS`)))).toEqual([simples]);
+    // ZIP: só os documentos da praça de quem pede, organizados por mês
+    expect(json(await usuarioFln.req("GET", "/api/financeiro/lancamentos/documentos.zip?tipo=PAGAR")).codigo).toBe("PERIODO_OBRIGATORIO");
+    expect(json(await usuarioFln.req("GET", `/api/financeiro/lancamentos/documentos.zip?${periodo}&documentos=SEM`)).codigo).toBe("SEM_DOCUMENTOS");
+    const zip = await usuarioFln.req("GET", `/api/financeiro/lancamentos/documentos.zip?${periodo}`);
+    expect(zip.statusCode).toBe(200);
+    expect(zip.headers["content-type"]).toBe("application/zip");
+    expect(zip.headers["content-disposition"]).toBe(`attachment; filename="documentos-a-pagar-${venc}-a-${venc}.zip"`);
+    const bytes = zip.rawPayload;
+    expect(bytes.subarray(0, 4).toString("hex")).toBe("504b0304");
+    const texto = bytes.toString("utf8");
+    expect(texto).toContain(`2027-08/${venc} Simples Nacional agosto - Boleto - DAS 08-2027.pdf`);
+    expect(texto).toContain(`2027-08/${venc} Simples Nacional agosto - Comprovante de pagamento - comprovante DAS.pdf`);
+    expect(texto).toContain(`2027-08/${venc} Aluguel garagem agosto - Boleto - boleto aluguel.pdf`);
+    expect(texto).not.toContain("DAS BC");
+    const { db, pool } = criarDb(DATABASE_URL);
+    const [aud] = await db.select({ dados: auditoria.dados }).from(auditoria).where(like(auditoria.acao, "FIN_DOCUMENTOS_BAIXADOS"));
+    await pool.end();
+    expect(aud?.dados).toMatchObject({ arquivos: 3, lancamentos: 2 });
+  });
+
   it("valida entrada: centavos inteiros, positivo, categoria do tipo certo, datas reais", async () => {
     expect((await lancar(usuarioFln, { valorCentavos: 100.5 })).statusCode).toBe(400);
     expect((await lancar(usuarioFln, { valorCentavos: 0 })).statusCode).toBe(400);

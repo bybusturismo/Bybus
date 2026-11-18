@@ -178,3 +178,29 @@
 .fin-anexos__novo .campo__ajuda {
   flex-basis: 100%;
 }
+/* Comprovante faltando e ZIP dos documentos do mês (18/11/2026). */
+.fin-documentos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2) var(--esp-4);
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 var(--esp-3);
+  font-size: var(--texto-sm);
+}
+.fin-documentos:empty {
+  display: none;
+}
+.fin-documentos .botao {
+  margin-left: auto;
+}
+.fin-sem-comprovante {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1) var(--esp-2);
+  align-items: center;
+  margin-top: var(--esp-1);
+}
+.fin-sem-comprovante label {
+  cursor: pointer;
+}

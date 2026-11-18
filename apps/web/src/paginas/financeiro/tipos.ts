@@ -93,6 +93,9 @@ export interface RespostaLancamentos {
   somaDevidoCentavos: number;
   somaAbertoCentavos: number;
   somaRealizadoCentavos: number;
+  /** Contas pagas sem comprovante e contas com algum documento, no filtro (18/11/2026). */
+  qtdSemComprovante?: number;
+  qtdComDocumentos?: number;
   somaVencidoCentavos?: number;
   qtdVencido?: number;
 }

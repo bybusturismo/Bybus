@@ -323,6 +323,9 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar, aoMudarAnexos }
       <p><strong>{lancamento.descricao}</strong> — devido {formatarMoeda(lancamento.valorCentavos)}, vencimento {formatarData(lancamento.vencimento)}</p>
       {lancamento.pixChave && lancamento.tipo === "PAGAR" && <ChavePix chave={lancamento.pixChave} />}
       <CampoAnexos lancamentoId={lancamento.id} anexos={anexos} aoMudar={(a) => { setAnexos(a); aoMudarAnexos?.(); }} tipoInicial="COMPROVANTE" />
+      {lancamento.tipo === "PAGAR" && !anexos.some((a) => a.tipo === "COMPROVANTE") && (
+        <p className="texto-fraco">Anexe aqui o comprovante: ele fica guardado junto da conta, para quem precisar depois.</p>
+      )}
       <div className="grade-campos">
         <div className="campo">
           <label htmlFor="baixa-data">Data do pagamento</label>
@@ -407,8 +410,10 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
   const [valorAte, setValorAte] = useState("");
   const valorMin = useAtraso(centavosDeTexto(valorDe) ?? null, 400);
   const valorMax = useAtraso(centavosDeTexto(valorAte) ?? null, 400);
+  // Documentos (18/11/2026): pagas sem comprovante, com documento ou sem nenhum.
+  const [documentos, setDocumentos] = useState<"" | "SEM_COMPROVANTE" | "COM" | "SEM">("");
   const [maisFiltros, setMaisFiltros] = useState(false);
-  const filtrosAtivos = [contaFiltro, categoriaFiltro, fornecedorTexto.trim(), valorDe.trim(), valorAte.trim()].filter(Boolean).length;
+  const filtrosAtivos = [contaFiltro, categoriaFiltro, fornecedorTexto.trim(), valorDe.trim(), valorAte.trim(), documentos].filter(Boolean).length;
   const fornecedores = useCarregar((s) => api.get<Array<{ id: string; nome: string }>>("/api/financeiro/fornecedores", s), []);
   const [edicao, setEdicao] = useState<LancamentoFin | "novo" | null>(null);
   const [baixando, setBaixando] = useState<LancamentoFin | null>(null);
@@ -419,12 +424,28 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
   // Filtros de coluna como no Excel (13/11/2026): classificar A–Z / Z–A e escolher valores (ex.: só uma placa ou o trem).
   const [colunas, setColunas] = useState<EstadoColunas<Coluna>>({ ordem: null, selecionados: {} });
 
-  const lista = useCarregar((s) => api.get<RespostaLancamentos>(`/api/financeiro/lancamentos${qs({
-    tipo, situacao, unidadeId: praca, q: busca, limite: 300,
+  // o mesmo recorte serve para a lista e para o ZIP dos documentos
+  const filtroAtual = {
+    tipo, situacao, unidadeId: praca, q: busca,
     de: situacao === "VENCIDO" ? "" : `${mes}-01`, ate: situacao === "VENCIDO" ? "" : ultimoDiaDoMes(mes),
     contaId: contaFiltro || undefined, categoriaId: categoriaFiltro || undefined, fornecedor: fornecedor || undefined,
     valorMin: valorMin === null ? undefined : String(valorMin), valorMax: valorMax === null ? undefined : String(valorMax),
-  })}`, s), [tipo, mes, situacao, praca, busca, contaFiltro, categoriaFiltro, fornecedor, valorMin, valorMax]);
+    documentos: documentos || undefined,
+  };
+  const lista = useCarregar((s) => api.get<RespostaLancamentos>(`/api/financeiro/lancamentos${qs({ ...filtroAtual, limite: 300 })}`, s),
+    [tipo, mes, situacao, praca, busca, contaFiltro, categoriaFiltro, fornecedor, valorMin, valorMax, documentos]);
+  /** Comprovante anexado direto da lista (conta já paga). */
+  async function anexarComprovante(l: LancamentoFin, arquivo: File | undefined) {
+    if (!arquivo) return;
+    setErro(null);
+    try {
+      await enviarAnexo(l.id, "COMPROVANTE", arquivo);
+      notificar("Comprovante anexado.");
+      await lista.recarregar();
+    } catch (x) {
+      setErro(mensagemDeErro(x));
+    }
+  }
 
   const rotulos = tipo === "PAGAR"
     ? { titulo: "Contas a pagar", novo: "Nova conta a pagar", baixa: "Pagar", realizado: "Pago", descricao: "Despesas com vencimento, categoria e centro de custo (praça, linha e veículo)." }
@@ -539,8 +560,17 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
             <label htmlFor="fil-valor-ate">Valor até (R$)</label>
             <input id="fil-valor-ate" inputMode="decimal" value={valorAte} onChange={(e) => setValorAte(e.target.value)} placeholder="0,00" />
           </div>
+          <div className="campo">
+            <label htmlFor="fil-documentos">Documentos</label>
+            <select id="fil-documentos" value={documentos} onChange={(e) => setDocumentos(e.target.value as typeof documentos)}>
+              <option value="">Todos</option>
+              {tipo === "PAGAR" && <option value="SEM_COMPROVANTE">Sem comprovante</option>}
+              <option value="COM">Com documentos anexados</option>
+              <option value="SEM">Sem nenhum documento</option>
+            </select>
+          </div>
           {filtrosAtivos > 0 && (
-            <button type="button" className="botao botao--fantasma" onClick={() => { setContaFiltro(""); setCategoriaFiltro(""); setFornecedorTexto(""); setValorDe(""); setValorAte(""); }}>Limpar filtros</button>
+            <button type="button" className="botao botao--fantasma" onClick={() => { setContaFiltro(""); setCategoriaFiltro(""); setFornecedorTexto(""); setValorDe(""); setValorAte(""); setDocumentos(""); }}>Limpar filtros</button>
           )}
         </div>
       )}
@@ -555,6 +585,21 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
           <Indicador tinta="rosa" icone="alerta" rotulo="Vencidas" valor={formatarMoeda(d.somaVencidoCentavos ?? 0)} detalhe={`${d.qtdVencido ?? 0} conta(s)`} />
           <Indicador tinta="verde" icone="check" rotulo={rotulos.realizado} valor={formatarMoeda(d.somaRealizadoCentavos)} />
         </Indicadores>
+      )}
+      {d && (
+        <div className="fin-documentos">
+          {tipo === "PAGAR" && (d.qtdSemComprovante ?? 0) > 0 && documentos !== "SEM_COMPROVANTE" && (
+            <span>
+              {d.qtdSemComprovante === 1 ? "1 conta paga está sem comprovante" : `${d.qtdSemComprovante} contas pagas estão sem comprovante`} neste filtro.{" "}
+              <button type="button" className="botao botao--link botao--pequeno" onClick={() => { setDocumentos("SEM_COMPROVANTE"); setMaisFiltros(true); }}>Ver quais</button>
+            </span>
+          )}
+          {(d.qtdComDocumentos ?? 0) > 0 && situacao !== "VENCIDO" && (
+            <a className="botao botao--secundario botao--pequeno" href={`/api/financeiro/lancamentos/documentos.zip${qs(filtroAtual)}`} download>
+              <Icone nome="baixar" /> Baixar documentos de {nomeMes(mes)} (ZIP)
+            </a>
+          )}
+        </div>
       )}
 
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
@@ -586,6 +631,18 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
                     {l.contraparte && <div className="texto-fraco">{l.contraparte}</div>}
                     {l.pixChave && l.situacao !== "REALIZADO" && <ChavePix chave={l.pixChave} />}
                     <LinksAnexos anexos={l.anexos ?? []} compacto />
+                    {tipo === "PAGAR" && l.situacao === "REALIZADO" && !(l.anexos ?? []).some((a) => a.tipo === "COMPROVANTE") && (
+                      <div className="fin-sem-comprovante">
+                        <span className="etiqueta etiqueta--atencao">sem comprovante</span>
+                        {podeEditar && (
+                          <label className="botao botao--link botao--pequeno">
+                            Anexar comprovante
+                            <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="fin-oculto-visual" aria-label={`Anexar o comprovante de ${l.descricao}`}
+                              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void anexarComprovante(l, f); }} />
+                          </label>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="fin-esconder-celular">{l.categoriaNome}</td>
                   <td className="fin-valor">
