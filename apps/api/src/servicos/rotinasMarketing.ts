@@ -4,6 +4,8 @@ import type { Db } from "../db/cliente.js";
 import { gerarRelatorios } from "./relatoriosMarketing.js";
 import { rodarMensagensAutomaticas } from "./mensagensAuto.js";
 import { horaSp, hojeSp } from "./marketingComum.js";
+import { sincronizarSeDevido } from "./avaliacoesOnline.js";
+import { Cofre } from "../seguranca/cripto.js";
 
 type Log = { error: (o: unknown, m: string) => void; info: (o: unknown, m: string) => void };
 
@@ -16,7 +18,10 @@ export async function rodarRotinasMarketing(db: Db, config: Config, log: Log, ag
     const ids = await gerarRelatorios(db, config, tipo, hojeSp(agora));
     if (ids.length) { gerados.push(tipo); log.info({ tipo, relatorios: ids.length }, "Relatório de marketing gerado"); }
   }
-  return { ...r, relatorios: gerados };
+  // Avaliações do Google e do Tripadvisor: uma leitura por dia, a partir das 7h (18/11/2026)
+  const avaliacoes = await sincronizarSeDevido(db, config, new Cofre(config.CHAVE_CRIPTOGRAFIA), horaSp(agora)).catch((e) => { log.error({ erro: e instanceof Error ? e.message : e }, "Falha ao ler avaliações"); return null; });
+  if (avaliacoes) log.info({ resultados: avaliacoes.resultados.map((x) => ({ canal: x.canal, ok: x.ok, novas: x.novas ?? 0 })) }, "Avaliações do Google/Tripadvisor lidas");
+  return { ...r, relatorios: gerados, avaliacoes: !!avaliacoes };
 }
 
 /** Relógio do marketing: confere a cada minuto (desligado em testes). Se o servidor ficou fora às 07h, recupera no mesmo dia. */

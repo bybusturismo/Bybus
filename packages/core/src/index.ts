@@ -54,3 +54,4 @@ export * from "./instagram/instagram.js";
 export * from "./instagram/conversas.js";
 export * from "./marketing/engajamento.js";
 export * from "./marketing/relatorio.js";
+export * from "./marketing/avaliacoesOnline.js";

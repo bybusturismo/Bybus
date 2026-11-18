@@ -133,3 +133,31 @@ export const npsRespostas = pgTable("nps_respostas", {
   casoResponsavelId: uuid().references(() => usuarios.id, { onDelete: "set null" }),
   casoAtualizadoEm: timestamp({ withTimezone: true }),
 }, (t) => [index("nps_respostas_resp_idx").on(t.respondidoEm), index("nps_respostas_saida_idx").on(t.saidaId)]);
+
+/**
+ * Avaliações do Google e do Tripadvisor lidas pelas APIs oficiais (dono, 18/11/2026). Uma linha por avaliação; a leitura diária
+ * atualiza texto, nota e resposta. `autor` é o nome público mostrado no próprio site (não vai para a IA nem para relatórios).
+ */
+export const avaliacoesOnline = pgTable("avaliacoes_online", {
+  id: uuid().primaryKey().defaultRandom(),
+  /** GOOGLE ou TRIPADVISOR. */
+  canal: text().notNull(),
+  unidadeId: uuid().references(() => unidades.id),
+  /** Id da avaliação no Google (reviewId) ou no Tripadvisor. */
+  idExterno: text().notNull(),
+  /** No Google: o nome completo da avaliação (accounts/…/locations/…/reviews/…), usado para responder. */
+  referencia: text(),
+  autor: text(),
+  nota: integer().notNull(),
+  titulo: text(),
+  texto: text(),
+  idioma: text(),
+  publicadaEm: timestamp({ withTimezone: true }),
+  url: text(),
+  resposta: text(),
+  respondidaEm: timestamp({ withTimezone: true }),
+  /** Vista pela equipe (as novas aparecem destacadas). */
+  lida: boolean().notNull().default(false),
+  criadoEm: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("avaliacoes_online_uk").on(t.canal, t.idExterno), index("avaliacoes_online_data_idx").on(t.publicadaEm)]);

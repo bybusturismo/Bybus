@@ -100,6 +100,14 @@ const esquema = z.object({
   URL_PUBLICA: z.string().url().optional(),
   /** Chave da API da Anthropic (IA). Sem ela a IA fica desligada e o resto do sistema funciona normalmente. Só em variável de ambiente/cofre. */
   ANTHROPIC_API_KEY: z.string().optional().transform((v) => v?.trim() || undefined),
+  /**
+   * Avaliações do Google (perfil da empresa) e do Tripadvisor (dono, 18/11/2026). Cliente OAuth do Google Cloud (a conexão com a
+   * conta dona do perfil é feita pela tela, e o token fica cifrado no banco) e chave da API de conteúdo do Tripadvisor. Sem elas,
+   * a tela mostra o passo a passo e nada é chamado. Só em variável de ambiente.
+   */
+  GOOGLE_PERFIL_CLIENT_ID: z.string().optional().transform((v) => v?.trim() || undefined),
+  GOOGLE_PERFIL_CLIENT_SECRET: z.string().optional().transform((v) => v?.trim() || undefined),
+  TRIPADVISOR_API_KEY: z.string().optional().transform((v) => v?.trim() || undefined),
   /** Chave do OpenRouteService (rota dos orçamentos de grupo; plano gratuito). Sem ela, o orçamento usa estimativa. */
   ORS_CHAVE: z.string().optional().transform((v) => v?.trim() || undefined),
   /** Modelo dos gestores (avaliação e debate) e do assistente. Padrão: o recomendado para o dia a dia. */

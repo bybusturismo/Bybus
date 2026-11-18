@@ -442,6 +442,13 @@
       "when": 1795037894795,
       "tag": "0062_motorista_frota",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1795038249338,
+      "tag": "0063_avaliacoes_online",
+      "breakpoints": true
     }
   ]
 }
