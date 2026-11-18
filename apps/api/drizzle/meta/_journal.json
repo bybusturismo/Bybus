@@ -428,6 +428,13 @@
       "when": 1795009409318,
       "tag": "0060_km_diario",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1795032903290,
+      "tag": "0061_abastecimento_foto",
+      "breakpoints": true
     }
   ]
 }

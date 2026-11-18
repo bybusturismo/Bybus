@@ -3,6 +3,7 @@ import type { Config } from "../config.js";
 import type { Db } from "../db/cliente.js";
 import { passeios, pontosEmbarque, reservas, saidas, waConversas, waMensagens, type mensagens } from "../db/schema.js";
 import { chaveTelefone, normalizarDestino } from "./whatsapp.js";
+import { emSegundoPlano, tratarMensagemDoMotorista, type MidiaBaixada } from "./abastecimentoWhatsapp.js";
 
 /**
  * Central de conversas do WhatsApp: guarda o que chega (avisos da Evolution) e o que sai (fila automática e respostas da tela).
@@ -172,7 +173,7 @@ export function resumirMensagem(dados: { message?: unknown }): ResumoMensagem | 
   return { tipo: "OUTRO", texto: "Mensagem de um tipo que o sistema ainda não mostra" };
 }
 
-async function receberMensagem(db: Db, d: Record<string, any>) {
+async function receberMensagem(db: Db, d: Record<string, any>, config?: Config) {
   const key = (d.key ?? {}) as Record<string, unknown>;
   const contato = contatoDaChave(key);
   const idExterno = typeof key.id === "string" ? key.id.slice(0, 200) : "";
@@ -192,7 +193,31 @@ async function receberMensagem(db: Db, d: Record<string, any>) {
     conversaId: conversa.id, direcao: "ENTRADA", texto: resumo.texto, tipo: resumo.tipo, status: "RECEBIDA", idExterno, criadoEm: quando,
   }).onConflictDoNothing().returning();
   if (nova) await tocarConversa(db, conversa.id, quando, true);
+  // Motorista mandando a foto do cupom ou a placa/km (abastecimento, 18/11/2026): trata por trás, sem atrasar o aviso.
+  if (nova && config && ["IMAGEM", "DOCUMENTO", "TEXTO"].includes(resumo.tipo) && !contato.telefone.startsWith("lid:")) {
+    emSegundoPlano(tratarMensagemDoMotorista(db, config, {
+      telefone: contato.telefone, conversaId: conversa.id, tipo: resumo.tipo, texto: resumo.texto, baixarMidia: () => baixarMidiaEvolution(config, d),
+    }));
+  }
   return !!nova;
+}
+
+/**
+ * Foto/PDF recebido pela Evolution: vem no próprio aviso quando a opção "base64 no webhook" está ligada; senão, é pedido à
+ * Evolution (rota getBase64FromMediaMessage, a confirmar na versão instalada).
+ */
+export async function baixarMidiaEvolution(config: Config, d: Record<string, any>, buscar: typeof fetch = fetch): Promise<MidiaBaixada | null> {
+  const m = (d.message ?? {}) as Record<string, any>;
+  const doc = m.documentMessage ?? m.documentWithCaptionMessage?.message?.documentMessage;
+  const mime = m.imageMessage?.mimetype ?? doc?.mimetype ?? null;
+  const nome = doc?.fileName ?? null;
+  if (typeof m.base64 === "string" && m.base64) return { bytes: Buffer.from(m.base64, "base64"), mime, nome };
+  if (!config.EVOLUTION_URL || !config.EVOLUTION_API_KEY || typeof d.key?.id !== "string") return null;
+  const url = `${config.EVOLUTION_URL.replace(/\/$/, "")}/chat/getBase64FromMediaMessage/${encodeURIComponent(config.EVOLUTION_INSTANCIA)}`;
+  const r = await buscar(url, { method: "POST", headers: { apikey: config.EVOLUTION_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ message: { key: { id: d.key.id } }, convertToMp4: false }) });
+  if (!r.ok) return null;
+  const j = (await r.json().catch(() => null)) as { base64?: string; mimetype?: string } | null;
+  return j?.base64 ? { bytes: Buffer.from(j.base64, "base64"), mime: j.mimetype ?? mime, nome } : null;
 }
 
 /** Estados da Evolution → nosso status. Só avança (ENVIADA → LIDA); FALHA sempre grava. */
@@ -218,7 +243,7 @@ export async function processarAviso(db: Db, config: Config, corpo: unknown): Pr
   let gravadas = 0;
   for (const d of itens) {
     try {
-      if (evento === "messages.upsert") { if (await receberMensagem(db, d)) gravadas++; }
+      if (evento === "messages.upsert") { if (await receberMensagem(db, d, config)) gravadas++; }
       else if (evento === "messages.update") {
         const id = d.keyId ?? d.key?.id;
         if (typeof id === "string") await atualizarStatus(db, id, d.status);

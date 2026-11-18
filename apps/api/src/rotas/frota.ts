@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { arquivosDoDrive, baixarDoDrive, contaDeServico, ErroGoogle, idDoDrive } from "../servicos/googlePlanilhas.js";
 import {
   DOCUMENTO_MAX_BYTES, GRUPOS_CUSTO_VEICULO, diasEntre, tipoDocumentoEmpresa, normalizarPlaca, placaValida, resumirChecklist, situacaoVencimento,
-  FONTES_KM, SITUACOES_VEICULO, STATUS_ORDEM, TIPOS_ABASTECIMENTO, TIPOS_DOC_VEICULO, TIPOS_ORDEM, TIPOS_VEICULO,
+  FONTES_KM, FORMAS_PAGAMENTO_COMBUSTIVEL, SITUACOES_VEICULO, STATUS_ORDEM, TIPOS_ABASTECIMENTO, TIPOS_DOC_VEICULO, TIPOS_ORDEM, TIPOS_VEICULO,
 } from "@bybus/core";
 import { z } from "zod";
 import { auditar } from "../auditoria.js";
@@ -15,11 +15,13 @@ import {
 } from "../db/schema.js";
 import { podeUnidade } from "../seguranca/escopo.js";
 import { rotasFrotaDiario } from "./frota-diario.js";
+import { rotasFrotaAbastecimentoFoto } from "./frota-abastecimento.js";
+import { gerarContaCombustivel } from "../servicos/abastecimentoFoto.js";
 import { pode, type Permissao } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir, type UsuarioSessao } from "../seguranca/sessao.js";
 import {
   calcularAbastecimentos, calcularPlano, garantirItensChecklist, hojeSp, itensAtivos, motivosIndisponibilidade, reavaliarSituacao,
-  registrarLeituraKm, situacaoOperacional,
+  conferidoSql, registrarLeituraKm, situacaoOperacional, soConferidos,
 } from "../servicos/frota.js";
 
 const uuid = z.string().uuid();
@@ -429,19 +431,29 @@ export async function rotasFrota(app: FastifyInstance, { db, config, cofre }: Co
     posto: opcional(120),
     tanqueCheio: z.boolean().default(true),
     tipo: z.enum(TIPOS_ABASTECIMENTO).default("COMBUSTIVEL"),
+    /** Forma de pagamento (padrão da praça) e se gera a conta a pagar no Financeiro (18/11/2026). */
+    formaPagamento: z.enum(FORMAS_PAGAMENTO_COMBUSTIVEL).nullish().transform((v) => v ?? null),
+    gerarConta: z.boolean().default(false),
   });
 
   app.get("/api/frota/abastecimentos", ver, async (req) => {
     const q = z.object({ veiculoId: uuid.optional(), de: dataIso.optional(), ate: dataIso.optional() }).parse(req.query);
     const ids = await idsVisiveis(db, req.usuario!, q.veiculoId);
     if (!ids.length) return { itens: [], resumo: [] };
-    const todos = await db.select().from(veiculosAbastecimentos).where(inArray(veiculosAbastecimentos.veiculoId, ids));
+    const todos = soConferidos(await db.select().from(veiculosAbastecimentos).where(and(inArray(veiculosAbastecimentos.veiculoId, ids), conferidoSql)));
     const calc = calcularAbastecimentos(todos);
     const veics = await db.select({ id: veiculos.id, placa: veiculos.placa, apelido: veiculos.apelido }).from(veiculos).where(inArray(veiculos.id, ids));
     const rotulo = new Map(veics.map((v) => [v.id, v]));
     const filtrados = calc.filter((a) => (!q.de || a.data >= q.de) && (!q.ate || a.data <= q.ate));
-    const itens = filtrados.sort((a, b) => b.data.localeCompare(a.data) || b.km - a.km).slice(0, 300)
-      .map((a) => ({ ...a, placa: rotulo.get(a.veiculoId)?.placa ?? "", apelido: rotulo.get(a.veiculoId)?.apelido ?? null }));
+    const lista = filtrados.sort((a, b) => b.data.localeCompare(a.data) || b.km - a.km).slice(0, 300);
+    // pagamento = a conta a pagar gerada no Financeiro (situação, data do pagamento e se tem comprovante)
+    const lancIds = lista.map((a) => a.lancamentoId).filter((x): x is string => !!x);
+    const contas = lancIds.length ? await db.select({ id: finLancamentos.id, situacao: finLancamentos.situacao, pagoEm: finLancamentos.pagoEm, vencimento: finLancamentos.vencimento,
+      comprovante: sql<boolean>`exists (select 1 from fin_lancamento_anexos x where x.lancamento_id = ${finLancamentos.id} and x.tipo = 'COMPROVANTE')` })
+      .from(finLancamentos).where(inArray(finLancamentos.id, lancIds)) : [];
+    const contaPor = new Map(contas.map((x) => [x.id, x]));
+    const itens = lista.map((a) => ({ ...a, placa: rotulo.get(a.veiculoId)?.placa ?? "", apelido: rotulo.get(a.veiculoId)?.apelido ?? null,
+      pagamento: a.lancamentoId ? (contaPor.get(a.lancamentoId) ?? null) : null }));
     const resumo = veics.map((v) => {
       const meus = filtrados.filter((a) => a.veiculoId === v.id);
       const kmls = meus.map((a) => a.kml).filter((x): x is number => x != null);
@@ -457,27 +469,26 @@ export async function rotasFrota(app: FastifyInstance, { db, config, cofre }: Co
   });
 
   app.post("/api/frota/abastecimentos", gerenciar, async (req, reply) => {
-    const c = corpoAbast.parse(req.body);
+    const { gerarConta, ...c } = corpoAbast.parse(req.body);
     await garantirVeiculo(db, req.usuario!, c.veiculoId);
     // Mesmo km é permitido (dono, 13/11/2026): duas linhas no mesmo cupom, ou óleo/lubrificante no mesmo dia; o km/l soma as linhas.
-    const [a] = await db.insert(veiculosAbastecimentos).values({ ...c, criadoPor: req.usuario!.id }).returning();
+    const [a] = await db.transaction(async (tx) => {
+      const [novo] = await tx.insert(veiculosAbastecimentos).values({ ...c, situacao: "CONFERIDO", origem: "MANUAL", conferidoPor: req.usuario!.id, conferidoEm: new Date(), criadoPor: req.usuario!.id }).returning();
+      if (!gerarConta) return [novo!];
+      const lancamentoId = await gerarContaCombustivel(tx as unknown as Db, { ...novo!, veiculoId: c.veiculoId, litros: c.litros, valorCentavos: c.valorCentavos }, req.usuario!.id);
+      return tx.update(veiculosAbastecimentos).set({ lancamentoId }).where(eq(veiculosAbastecimentos.id, novo!.id)).returning();
+    });
     await registrarLeituraKm(db, { veiculoId: c.veiculoId, km: c.km, data: c.data, fonte: "ABASTECIMENTO", usuarioId: req.usuario!.id });
-    const todos = await db.select().from(veiculosAbastecimentos).where(eq(veiculosAbastecimentos.veiculoId, c.veiculoId));
+    const todos = soConferidos(await db.select().from(veiculosAbastecimentos).where(and(eq(veiculosAbastecimentos.veiculoId, c.veiculoId), conferidoSql)));
     const calculado = calcularAbastecimentos(todos).find((x) => x.id === a!.id)!;
-    await auditar(db, req, "VEICULO_ABASTECIMENTO_CRIADO", { tipo: "veiculo_abastecimento", id: a!.id }, { veiculoId: c.veiculoId, litros: c.litros, valorCentavos: c.valorCentavos });
+    await auditar(db, req, "VEICULO_ABASTECIMENTO_CRIADO", { tipo: "veiculo_abastecimento", id: a!.id }, { veiculoId: c.veiculoId, litros: c.litros, valorCentavos: c.valorCentavos, contaGerada: !!a!.lancamentoId });
     reply.code(201);
     return calculado;
   });
 
-  app.delete("/api/frota/abastecimentos/:id", gerenciar, async (req) => {
-    const { id } = z.object({ id: uuid }).parse(req.params);
-    const [a] = await db.select().from(veiculosAbastecimentos).where(eq(veiculosAbastecimentos.id, id));
-    if (!a) throw naoEncontrado("Abastecimento");
-    await garantirVeiculo(db, req.usuario!, a.veiculoId).catch(() => { throw naoEncontrado("Abastecimento"); });
-    await db.delete(veiculosAbastecimentos).where(eq(veiculosAbastecimentos.id, id));
-    await auditar(db, req, "VEICULO_ABASTECIMENTO_EXCLUIDO", { tipo: "veiculo_abastecimento", id }, { veiculoId: a.veiculoId, litros: a.litros });
-    return { ok: true };
-  });
+
+  // ---------- Abastecimento pela foto do cupom (18/11/2026) ----------
+  await rotasFrotaAbastecimentoFoto(app, { db, config, cofre }, { ler: umaDe("frota:ver", "frota:checklist"), lancar: umaDe("frota:gerenciar", "frota:checklist"), gerenciar });
 
   // ---------- Diário de km (18/11/2026) ----------
   await rotasFrotaDiario(app, { db, config, cofre }, { ler: umaDe("frota:ver", "frota:checklist"), lancar: umaDe("frota:gerenciar", "frota:checklist"), gerenciar });
@@ -625,7 +636,7 @@ export async function rotasFrota(app: FastifyInstance, { db, config, cofre }: Co
 
     const [ordens, abast, kms, checklistsHoje] = ids.length ? await Promise.all([
       db.select().from(veiculosOrdens).where(and(inArray(veiculosOrdens.veiculoId, ids), eq(veiculosOrdens.status, "CONCLUIDA"), gte(veiculosOrdens.concluidaEm, inicio), lte(veiculosOrdens.concluidaEm, fim))),
-      db.select().from(veiculosAbastecimentos).where(inArray(veiculosAbastecimentos.veiculoId, ids)),
+      db.select().from(veiculosAbastecimentos).where(and(inArray(veiculosAbastecimentos.veiculoId, ids), conferidoSql)).then(soConferidos),
       db.select({ veiculoId: veiculosKm.veiculoId, data: veiculosKm.data, km: veiculosKm.km }).from(veiculosKm).where(and(inArray(veiculosKm.veiculoId, ids), lte(veiculosKm.data, fim))),
       db.select({ veiculoId: veiculosChecklists.veiculoId, aprovado: veiculosChecklists.aprovado }).from(veiculosChecklists).where(and(inArray(veiculosChecklists.veiculoId, ids), eq(veiculosChecklists.data, hoje))),
     ]) : [[], [], [], []];

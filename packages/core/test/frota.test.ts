@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  configPagamentoPadrao, faltasAbastecimento, lerLegendaAbastecimento, vencimentoCombustivel,
   calcularDiarioKm, KM_DIA_MAXIMO, resumirDiarioKm, validarDiarioKm,
   alertaConsumo, consumoPorAbastecimento, mediaConsumo, motivosBloqueio, normalizarPlaca, placaValida,
   resumirChecklist, situacaoPlano, situacaoVencimento,
@@ -127,5 +128,26 @@ describe("diário de km (18/11/2026)", () => {
     expect(validarDiarioKm({ kmInicial: 0, kmFinal: KM_DIA_MAXIMO + 1, consumoLitros: null })).toMatch(/Mais de/);
     expect(validarDiarioKm({ kmInicial: 0, kmFinal: 10, consumoLitros: -1 })).toMatch(/Consumo/);
     expect(validarDiarioKm({ kmInicial: 0, kmFinal: 10, consumoLitros: 2.5 })).toBeNull();
+  });
+});
+
+describe("abastecimento pela foto do cupom (18/11/2026)", () => {
+  it("lê placa e km da legenda ou da resposta do motorista", () => {
+    expect(lerLegendaAbastecimento("TST1A11 120500")).toEqual({ placa: "TST1A11", km: 120_500 });
+    expect(lerLegendaAbastecimento("placa tst-1a11 km 120.500")).toEqual({ placa: "TST1A11", km: 120_500 });
+    expect(lerLegendaAbastecimento("km 98765")).toEqual({ placa: null, km: 98_765 });
+    expect(lerLegendaAbastecimento("ABC1234")).toEqual({ placa: "ABC1234", km: null }); // padrão antigo, sem km
+    expect(lerLegendaAbastecimento("abasteci 45,5 litros")).toEqual({ placa: null, km: null }); // litros com vírgula não viram km
+    expect(lerLegendaAbastecimento(null)).toEqual({ placa: null, km: null });
+  });
+  it("vencimento: faturado soma o prazo; cartão vence no dia; padrão BC faturado e Florianópolis cartão", () => {
+    expect(configPagamentoPadrao("BC")).toEqual({ forma: "FATURADO", prazoDias: 30 });
+    expect(configPagamentoPadrao("FLN")).toEqual({ forma: "CARTAO", prazoDias: 0 });
+    expect(vencimentoCombustivel("2026-11-18", { forma: "FATURADO", prazoDias: 30 })).toBe("2026-12-18");
+    expect(vencimentoCombustivel("2026-11-18", { forma: "CARTAO", prazoDias: 30 })).toBe("2026-11-18");
+  });
+  it("lista o que falta para conferir", () => {
+    expect(faltasAbastecimento({ veiculoId: null, km: null, litros: 40, valorCentavos: 30000 })).toEqual(["placa", "km do painel"]);
+    expect(faltasAbastecimento({ veiculoId: "v", km: 1, litros: 40, valorCentavos: 1 })).toEqual([]);
   });
 });

@@ -80,11 +80,18 @@ export async function reavaliarSituacao(db: Db, veiculoId: string) {
 }
 
 type Abastecimento = typeof veiculosAbastecimentos.$inferSelect;
-export type AbastecimentoCalculado = Abastecimento & { kml: number | null; alerta: "ALTO" | "BAIXO" | null };
+/** Abastecimento conferido: tem veículo, km, litros e valor (o PENDENTE da foto ainda pode não ter). */
+export type AbastecimentoConferido = Abastecimento & { veiculoId: string; km: number; litros: number; valorCentavos: number };
+export type AbastecimentoCalculado = AbastecimentoConferido & { kml: number | null; alerta: "ALTO" | "BAIXO" | null };
+/** Só os conferidos entram no km/l, no painel, nos custos e na IA (18/11/2026: os pendentes da foto ficam de fora). */
+export const conferidoSql = eq(veiculosAbastecimentos.situacao, "CONFERIDO");
+export function soConferidos(lista: Abastecimento[]): AbastecimentoConferido[] {
+  return lista.filter((a): a is AbastecimentoConferido => a.situacao === "CONFERIDO" && !!a.veiculoId && a.km != null && a.litros != null && a.valorCentavos != null);
+}
 
 /** Consumo e alerta de cada abastecimento (por veículo, em ordem de km). */
-export function calcularAbastecimentos(lista: Abastecimento[]): AbastecimentoCalculado[] {
-  const porVeiculo = new Map<string, Abastecimento[]>();
+export function calcularAbastecimentos(lista: AbastecimentoConferido[]): AbastecimentoCalculado[] {
+  const porVeiculo = new Map<string, AbastecimentoConferido[]>();
   for (const a of lista) porVeiculo.set(a.veiculoId, [...(porVeiculo.get(a.veiculoId) ?? []), a]);
   const saida: AbastecimentoCalculado[] = [];
   for (const itens of porVeiculo.values()) {

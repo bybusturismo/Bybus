@@ -30,7 +30,8 @@ interface ChamadaEstruturada<T> {
   sistema: string;
   ferramenta: FerramentaIA;
   parser: ZodType<T>;
-  usuario: string;
+  /** Texto ou blocos (texto + imagem/PDF, ex.: foto do cupom de combustível). */
+  usuario: string | BlocoIA[];
   uso: DadosUso;
   maxTokens: number;
 }

@@ -5,6 +5,7 @@ import type { Db } from "../db/cliente.js";
 import { mensagens, waMensagens } from "../db/schema.js";
 import { gravarSaida, obterConversa, tocarConversa } from "./whatsappConversas.js";
 import { normalizarDestino } from "./whatsapp.js";
+import { emSegundoPlano, tratarMensagemDoMotorista, type MidiaBaixada } from "./abastecimentoWhatsapp.js";
 
 /**
  * WhatsApp oficial (Meta Cloud API, ADR 0010): avisos recebidos (mensagens dos clientes e status das nossas) e
@@ -47,7 +48,7 @@ async function atualizarStatusMeta(db: Db, s: Record<string, any>) {
   }
 }
 
-async function receberMensagemMeta(db: Db, m: Record<string, any>, nomes: Map<string, string>) {
+async function receberMensagemMeta(db: Db, m: Record<string, any>, nomes: Map<string, string>, config?: Config) {
   const telefone = normalizarDestino(typeof m.from === "string" ? m.from : null);
   const idExterno = typeof m.id === "string" ? m.id.slice(0, 200) : "";
   if (!telefone || !idExterno) return false;
@@ -61,7 +62,25 @@ async function receberMensagemMeta(db: Db, m: Record<string, any>, nomes: Map<st
   }).onConflictDoNothing().returning();
   // tocarConversa(…, entrada) também abre a janela de 24 h (texto livre permitido).
   if (nova) await tocarConversa(db, conversa.id, quando, true);
+  // Motorista mandando a foto do cupom ou a placa/km (abastecimento, 18/11/2026): trata por trás, sem atrasar o aviso.
+  if (nova && config && ["IMAGEM", "DOCUMENTO", "TEXTO"].includes(resumo.tipo)) {
+    emSegundoPlano(tratarMensagemDoMotorista(db, config, { telefone, conversaId: conversa.id, tipo: resumo.tipo, texto: resumo.texto, baixarMidia: () => baixarMidiaMeta(config, m) }));
+  }
   return !!nova;
+}
+
+/** Foto/PDF recebido pela Meta: o aviso traz só o id da mídia; pega o endereço e baixa com o token (vale por poucos minutos). */
+export async function baixarMidiaMeta(config: Config, m: Record<string, any>, buscar: typeof fetch = fetch): Promise<MidiaBaixada | null> {
+  const midia = m.image ?? m.document;
+  if (!midia?.id || !config.META_WA_TOKEN) return null;
+  const auth = { Authorization: `Bearer ${config.META_WA_TOKEN}` };
+  const info = await buscar(graph(config, encodeURIComponent(String(midia.id))), { headers: auth });
+  if (!info.ok) return null;
+  const j = (await info.json().catch(() => null)) as { url?: string; mime_type?: string } | null;
+  if (!j?.url) return null;
+  const arq = await buscar(j.url, { headers: auth });
+  if (!arq.ok) return null;
+  return { bytes: Buffer.from(await arq.arrayBuffer()), mime: j.mime_type ?? midia.mime_type ?? null, nome: typeof midia.filename === "string" ? midia.filename : null };
 }
 
 /**
@@ -99,7 +118,7 @@ export async function processarAvisoMeta(db: Db, config: Config, corpo: unknown)
       const nomes = new Map<string, string>();
       for (const c of Array.isArray(v.contacts) ? v.contacts : []) if (typeof c?.wa_id === "string" && typeof c?.profile?.name === "string") nomes.set(c.wa_id, c.profile.name);
       for (const m of Array.isArray(v.messages) ? v.messages : []) {
-        try { if (await receberMensagemMeta(db, m, nomes)) gravadas++; } catch (x) { console.error("[whatsapp-meta] falha ao gravar mensagem:", x instanceof Error ? x.name : "erro"); }
+        try { if (await receberMensagemMeta(db, m, nomes, config)) gravadas++; } catch (x) { console.error("[whatsapp-meta] falha ao gravar mensagem:", x instanceof Error ? x.name : "erro"); }
       }
       for (const s of Array.isArray(v.statuses) ? v.statuses : []) {
         try { await atualizarStatusMeta(db, s); status++; } catch (x) { console.error("[whatsapp-meta] falha ao atualizar status:", x instanceof Error ? x.name : "erro"); }

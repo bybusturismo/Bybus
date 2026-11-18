@@ -5,3 +5,4 @@ export * from "./consumo.js";
 export * from "./checklist.js";
 export * from "./bloqueio.js";
 export * from "./diario.js";
+export * from "./abastecimentoFoto.js";

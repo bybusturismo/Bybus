@@ -1,5 +1,5 @@
 import { boolean, date, doublePrecision, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import { unidades, usuarios } from "../schema.js";
+import { finLancamentos, pessoas, unidades, usuarios } from "../schema.js";
 
 const agora = () => timestamp({ withTimezone: true }).notNull().defaultNow();
 
@@ -94,15 +94,32 @@ export const veiculosOrdensAnexos = pgTable("veiculos_ordens_anexos", {
 
 export const veiculosAbastecimentos = pgTable("veiculos_abastecimentos", {
   id: uuid().primaryKey().defaultRandom(),
-  veiculoId: uuid().notNull().references(() => veiculos.id),
+  /** Nulo só em abastecimento PENDENTE que chegou sem placa (foto pelo WhatsApp). */
+  veiculoId: uuid().references(() => veiculos.id),
   data: date({ mode: "string" }).notNull(),
-  km: integer().notNull(),
-  litros: doublePrecision().notNull(),
-  valorCentavos: integer().notNull(),
+  /** km, litros e valor: obrigatórios no CONFERIDO; o PENDENTE pode chegar sem eles (a foto ainda não foi lida/completada). */
+  km: integer(),
+  litros: doublePrecision(),
+  valorCentavos: integer(),
   posto: text(),
   tanqueCheio: boolean().notNull().default(true),
   /** COMBUSTIVEL, OLEO ou LUBRIFICANTE (13/11/2026). */
   tipo: text().notNull().default("COMBUSTIVEL"),
+  /** PENDENTE (veio da foto, aguarda conferência) ou CONFERIDO (entra no km/l, no painel e gera a conta a pagar). 18/11/2026. */
+  situacao: text().notNull().default("CONFERIDO"),
+  /** MANUAL (tela da frota), APP (foto pelo celular) ou WHATSAPP. */
+  origem: text().notNull().default("MANUAL"),
+  /** FATURADO, CARTAO, DINHEIRO ou PIX (padrão da praça). */
+  formaPagamento: text(),
+  /** Conta a pagar gerada no Financeiro ao conferir (o pagamento é a baixa dela, com o comprovante). */
+  lancamentoId: uuid().references(() => finLancamentos.id, { onDelete: "set null" }),
+  /** O que a IA leu das fotos (para conferir), sem as imagens. */
+  leituraIa: jsonb().$type<Record<string, unknown>>(),
+  observacao: text(),
+  /** Motorista que mandou (pessoa do cadastro da equipe), quando veio pelo WhatsApp ou app. */
+  pessoaId: uuid().references(() => pessoas.id),
+  conferidoPor: uuid().references(() => usuarios.id),
+  conferidoEm: timestamp({ withTimezone: true }),
   criadoPor: uuid().references(() => usuarios.id),
   criadoEm: agora(),
 }, (t) => [index("veiculos_abastecimentos_veiculo_idx").on(t.veiculoId, t.km)]);
@@ -175,3 +192,17 @@ export const veiculosKmDiario = pgTable("veiculos_km_diario", {
   criadoEm: agora(),
   atualizadoEm: agora(),
 }, (t) => [uniqueIndex("veiculos_km_diario_dia_uk").on(t.veiculoId, t.data)]);
+
+/** Fotos do abastecimento (cupom fiscal, painel/hodômetro), cifradas como os demais anexos. 18/11/2026. */
+export const veiculosAbastecimentosFotos = pgTable("veiculos_abastecimentos_fotos", {
+  id: uuid().primaryKey().defaultRandom(),
+  abastecimentoId: uuid().notNull().references(() => veiculosAbastecimentos.id, { onDelete: "cascade" }),
+  /** CUPOM, HODOMETRO ou OUTRO. */
+  tipo: text().notNull().default("CUPOM"),
+  nomeArquivo: text().notNull(),
+  mime: text().notNull(),
+  tamanho: integer().notNull(),
+  dadosCifrados: text().notNull(),
+  enviadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  criadoEm: agora(),
+}, (t) => [index("veiculos_abastecimentos_fotos_idx").on(t.abastecimentoId)]);
