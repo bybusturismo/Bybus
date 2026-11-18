@@ -69,3 +69,70 @@
   .pub-nps__notas { grid-template-columns: repeat(6, 1fr); }
   .m2-barras li { grid-template-columns: minmax(4rem, 7rem) 1fr auto; }
 }
+
+/* Google e Tripadvisor (18/11/2026). */
+.mkt-resumo-avaliacoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+}
+.mkt-resumo-avaliacoes h2 {
+  font-size: var(--texto-md, 1rem);
+  margin: 0 0 var(--esp-2);
+}
+.mkt-nota {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  flex-wrap: wrap;
+  margin: 0;
+}
+.mkt-avaliacoes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--esp-3);
+}
+.mkt-avaliacoes > li {
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--cor-borda);
+  border-radius: 10px;
+  background: var(--cor-superficie, transparent);
+  overflow-wrap: anywhere;
+}
+.mkt-avaliacoes--nova {
+  border-left: 4px solid var(--cor-primaria, #0b6bcb);
+}
+.mkt-avaliacoes__topo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  align-items: center;
+  margin-bottom: var(--esp-2);
+}
+.mkt-estrelas {
+  color: #e8a400;
+  letter-spacing: 1px;
+}
+.mkt-resposta {
+  margin: var(--esp-2) 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--cor-borda-forte);
+  background: var(--cor-fundo-suave, rgba(0, 0, 0, 0.03));
+}
+.mkt-passos {
+  padding-left: 1.2rem;
+  display: grid;
+  gap: var(--esp-2);
+}
+.mkt-locais {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--esp-3);
+}
+.mkt-locais fieldset {
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+}

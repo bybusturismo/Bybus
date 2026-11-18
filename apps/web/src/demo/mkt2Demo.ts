@@ -221,6 +221,11 @@ export const rotearMkt2: Rotear = (ctx, metodo, caminho, q, c) => {
   }
   if (metodo === "POST" && caminho === "/api/marketing/avaliacoes/notas") { gerir(); return { ok: true }; }
   if (metodo === "GET" && caminho === "/api/marketing/avaliacoes/notas") { ver(); return []; }
+  // Google e Tripadvisor (18/11/2026): na demonstração nada é ligado nem lido.
+  if (metodo === "GET" && caminho === "/api/marketing/avaliacoes-online") {
+    ver();
+    return { estado: { google: { configurado: false, conectado: false, retorno: null }, tripadvisor: { configurado: false } }, ultima: null, locais: {}, resumo: [], itens: [] };
+  }
   if (metodo === "GET" && caminho === "/api/marketing/avaliacoes/externas") { ver(); return externas; }
   if (metodo === "POST" && caminho === "/api/marketing/avaliacoes/externas") {
     gerir();

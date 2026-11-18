@@ -70,6 +70,7 @@ import { Afiliados } from "./paginas/marketing/Afiliados";
 import { ComissoesAfiliados } from "./paginas/marketing/ComissoesAfiliados";
 import { PortalAfiliado } from "./paginas/marketing/PortalAfiliado";
 import { Avaliacoes } from "./paginas/marketing/Avaliacoes";
+import { AvaliacoesOnline } from "./paginas/marketing/AvaliacoesOnline";
 import { Campanhas } from "./paginas/marketing/Campanhas";
 import { Canais } from "./paginas/marketing/Canais";
 import { Conteudo } from "./paginas/marketing/Conteudo";
@@ -430,6 +431,14 @@ export function Rotas() {
           element={
             <Exige permissao="marketing:ver">
               <Avaliacoes />
+            </Exige>
+          }
+        />
+        <Route
+          path="avaliacoes-online"
+          element={
+            <Exige permissao="marketing:ver">
+              <AvaliacoesOnline />
             </Exige>
           }
         />

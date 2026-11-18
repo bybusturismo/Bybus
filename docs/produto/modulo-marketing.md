@@ -177,3 +177,26 @@ A Inzama Travel não apareceu no relatório. A consulta no servidor mostrou que 
 - **Cadastro:** os parceiros que aparecem nas vendas ganham cadastro em Afiliados (código `PP-<id>`, campo `paytourParceiroId`). O nome vem da rota `/parceiros` da Paytour (formato **a confirmar**). Sem resposta, o cadastro fica como "Parceiro Paytour <id>" e ganha o nome quando ele aparecer. Nome editado pela equipe não é trocado.
 - **Tipo de comissão:** todo parceiro nasce como **"retém na venda"**, com 15%. Ele aparece no relatório, identificado, e nunca gera conta a pagar. Se a By Bus deve pagar comissão a algum parceiro, a equipe troca o tipo no cadastro.
 - **Cálculo:** a venda com afiliado continua pelo afiliado. A venda só com parceiro usa o parceiro e a comissão de parceiro da Paytour. Sem comissão informada, o sistema usa o percentual do cadastro.
+
+## Google e Tripadvisor: avaliações no sistema (18/11/2026)
+- Pedido do dono: um lugar para ver as avaliações do Tripadvisor e do Google. Decisão: API oficial do **perfil da empresa no Google** (todas as avaliações + responder pelo sistema; gratuita) e **API de conteúdo do Tripadvisor** (nota, total e até 5 avaliações recentes por idioma).
+- Tela: Marketing → **Google e Tripadvisor** (`/marketing/avaliacoes-online`). Resumo por praça (nota e total oficiais, novas, notas até 3 sem resposta), lista com estrelas, filtros (site, novas, sem resposta, notas até 3), "marcar como lida", **responder as do Google** (marketing:gerenciar). Tripadvisor: selo e link "Ver no Tripadvisor" (atribuição exigida); resposta pelo painel do próprio Tripadvisor.
+- Leitura **uma vez por dia a partir das 7h** (rotinas do marketing) e botão **Atualizar agora**. Cada leitura também grava a nota semanal da praça nas "notas nos canais" (o que antes era lançado à mão).
+- Tripadvisor: o número do local vem do link já cadastrado no Marketing (ex.: Floripa by Bus = 2362697); dá para trocar na tela. Idiomas lidos: português, inglês e espanhol.
+- Google: a conta Google **dona do perfil** é conectada pela tela ("Conectar conta Google"); o token fica cifrado no banco. Depois, escolher o perfil (local) de cada praça.
+- LGPD: o nome público de quem avaliou fica só na tela do marketing (não vai para relatórios nem para a IA).
+- Endpoints usados (a confirmar na liberação das contas; a documentação não pôde ser aberta na sessão de 18/11/2026): Google OAuth (`accounts.google.com/o/oauth2/v2/auth`, `oauth2.googleapis.com/token`, escopo `business.manage`), contas `mybusinessaccountmanagement.googleapis.com/v1/accounts`, locais `mybusinessbusinessinformation.googleapis.com/v1/{conta}/locations`, avaliações `mybusiness.googleapis.com/v4/{conta}/{local}/reviews` e resposta `PUT …/reviews/{id}/reply`; Tripadvisor `api.content.tripadvisor.com/api/v1/location/{id}/details` e `/reviews?language=`.
+
+### Passo a passo para ligar (dono)
+**Google (gratuito; a liberação do Google pode levar alguns dias):**
+1. Entre em console.cloud.google.com com a conta Google dona do perfil da empresa e crie um projeto (ex.: "Bybus Gestão").
+2. Peça o acesso à API do Perfil da Empresa no formulário de solicitação do Google (Business Profile API, página "Prerequisites" da documentação), informando esse projeto.
+3. Depois de aprovado, ative no projeto: My Business Account Management API, My Business Business Information API e Google My Business API.
+4. Em "APIs e serviços → Tela de consentimento OAuth", configure como Externo e inclua a conta dona do perfil como usuário de teste (ou publique).
+5. Em "Credenciais → Criar credencial → ID do cliente OAuth", tipo "Aplicativo da Web", com o URI de redirecionamento `https://gestao.bybusturismo.com.br/api/marketing/google/retorno`. Guarde o ID e o segredo.
+
+**Tripadvisor (cadastro com cartão; há uma faixa gratuita, valores a confirmar no cadastro):**
+1. Cadastre-se no programa da API de conteúdo do Tripadvisor (Tripadvisor Developers / Content API) e crie a chave.
+2. Restrinja a chave ao IP do servidor (o comando abaixo mostra o IP).
+
+**No servidor:** `bash /opt/bybus/implantacao/ligar-avaliacoes.sh` (pede o ID e o segredo do Google e a chave do Tripadvisor; dá para ligar só um). Depois, na tela: "Conectar conta Google", escolher o perfil de cada praça, "Salvar locais" e "Atualizar agora".

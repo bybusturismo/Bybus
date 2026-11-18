@@ -9,6 +9,7 @@ const ABAS = [
   { para: "/marketing/instagram", rotulo: "Instagram" },
   { para: "/marketing/banco-midias", rotulo: "Banco de mídias" },
   { para: "/marketing/avaliacoes", rotulo: "Avaliações" },
+  { para: "/marketing/avaliacoes-online", rotulo: "Google e Tripadvisor" },
   { para: "/marketing/retorno", rotulo: "Retorno e links" },
   { para: "/marketing/afiliados", rotulo: "Afiliados e QR codes" },
   { para: "/marketing/comissoes", rotulo: "Comissões de afiliados" },
