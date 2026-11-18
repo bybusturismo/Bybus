@@ -278,6 +278,13 @@ export function Motorista() {
           </Link>
         </p>
       )}
+      {pode("frota:checklist") && (
+        <p>
+          <Link className="botao botao--secundario botao--bloco" to="/frota/abastecimento">
+            <Icone nome="camera" /> Foto do cupom de abastecimento
+          </Link>
+        </p>
+      )}
 
       {rastreia && (
         <>

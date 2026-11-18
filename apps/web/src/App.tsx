@@ -262,9 +262,9 @@ export function Rotas() {
         <Route
           path="frota/abastecimento"
           element={
-            <Exige permissao="frota:ver">
+            <ExigeUma permissoes={["frota:ver", "frota:checklist"]}>
               <AbastecimentoPagina />
-            </Exige>
+            </ExigeUma>
           }
         />
         <Route

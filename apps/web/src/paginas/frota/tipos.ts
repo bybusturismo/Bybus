@@ -1,3 +1,4 @@
+import type { FormaPagamentoCombustivel } from "@bybus/core";
 /** Tipos das respostas da API de frota (espelham apps/api/src/rotas/frota.ts) e rótulos de tela. */
 
 export const TIPOS_VEICULO = ["ONIBUS_DOIS_ANDARES", "ONIBUS", "TRENZINHO", "VAN"] as const;
@@ -126,6 +127,32 @@ export interface Abastecimento {
   tipo: "COMBUSTIVEL" | "OLEO" | "LUBRIFICANTE";
   kml: number | null;
   alerta: "ALTO" | "BAIXO" | null;
+  /** Conta a pagar no Financeiro (18/11/2026): situação, pagamento e se tem comprovante. */
+  lancamentoId?: string | null;
+  formaPagamento?: FormaPagamentoCombustivel | null;
+  origem?: "MANUAL" | "APP" | "WHATSAPP";
+  pagamento?: { id: string; situacao: "ABERTO" | "REALIZADO"; pagoEm: string | null; vencimento: string; comprovante: boolean } | null;
+}
+/** Abastecimento pendente de conferência (foto pelo app ou WhatsApp). */
+export interface AbastecimentoPendente {
+  id: string;
+  veiculoId: string | null;
+  placa: string | null;
+  apelido: string | null;
+  data: string;
+  km: number | null;
+  litros: number | null;
+  valorCentavos: number | null;
+  posto: string | null;
+  tanqueCheio: boolean;
+  origem: "MANUAL" | "APP" | "WHATSAPP";
+  observacao: string | null;
+  pessoaNome: string | null;
+  criadoPor: string | null;
+  criadoEm: string;
+  leituraIa: { observacao?: string | null; combustivel?: string | null; preco_litro?: number | null; legivel?: boolean } | null;
+  fotos: Array<{ id: string; tipo: string; nomeArquivo: string; mime: string }>;
+  faltas: string[];
 }
 export interface ResumoAbastecimento {
   veiculoId: string;

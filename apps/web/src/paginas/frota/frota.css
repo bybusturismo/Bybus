@@ -138,3 +138,46 @@
 .frota-anexos-lista { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 0.85rem; }
 .frota-anexos-lista a { display: inline-flex; align-items: center; gap: 4px; }
 .frota-link { word-break: break-all; user-select: all; }
+
+/* Abastecimento pela foto do cupom (18/11/2026). */
+.frota-pendentes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--esp-3);
+}
+.frota-pendentes li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--esp-3);
+  align-items: center;
+  padding-bottom: var(--esp-3);
+  border-bottom: 1px solid var(--cor-borda, #ddd);
+}
+.frota-pendentes__fotos,
+.frota-fotos {
+  display: flex;
+  gap: var(--esp-2);
+  flex-wrap: wrap;
+}
+.frota-pendentes__fotos img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.frota-fotos img {
+  max-width: min(100%, 320px);
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+@media (max-width: 600px) {
+  .frota-pendentes li {
+    grid-template-columns: auto 1fr;
+  }
+  .frota-pendentes li .barra-acoes {
+    grid-column: 1 / -1;
+  }
+}

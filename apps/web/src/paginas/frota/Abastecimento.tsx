@@ -8,8 +8,10 @@ import { useNotificar } from "../../componentes/Notificacoes";
 import { useSessao } from "../../sessao/Sessao";
 import { centavosDeTexto, formatarData, formatarMoeda, hojeIso, somarDias } from "../../util/formato";
 import { useCarregar } from "../../util/useCarregar";
-import { CabecalhoFrota, FormModal, formatarKm, numeroDeTexto, SeletorVeiculo, useVeiculos } from "./comum";
-import type { Abastecimento, ResumoAbastecimento, Veiculo } from "./tipos";
+import { CabecalhoFrota, FormModal, formatarKm, numeroDeTexto, SeletorVeiculo } from "./comum";
+import { ConfigPagamentoCombustivel, EnviarFotoCupom, PendentesAbastecimento } from "./AbastecimentoFoto";
+import { FORMAS_PAGAMENTO_COMBUSTIVEL, ROTULO_FORMA_COMBUSTIVEL, type FormaPagamentoCombustivel } from "@bybus/core";
+import type { Abastecimento, ResumoAbastecimento, VeiculoChecklist } from "./tipos";
 
 interface Resposta {
   itens: Abastecimento[];
@@ -32,7 +34,7 @@ const COLUNAS_ABAST: Record<ColunaAbast, DefinicaoColuna<Abastecimento>> = {
 };
 const NUMERO = { asc: "Do menor para o maior", desc: "Do maior para o menor" };
 
-function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: Veiculo[]; aoFechar: () => void; aoSalvo: (a: Abastecimento) => Promise<void> }) {
+function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: VeiculoChecklist[]; aoFechar: () => void; aoSalvo: (a: Abastecimento) => Promise<void> }) {
   const [veiculoId, setVeiculoId] = useState(veiculos[0]?.id ?? "");
   const [data, setData] = useState(hojeIso());
   const [km, setKm] = useState("");
@@ -41,6 +43,8 @@ function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: Veiculo[
   const [posto, setPosto] = useState("");
   const [cheio, setCheio] = useState(true);
   const [tipo, setTipo] = useState<TipoAbastecimento>("COMBUSTIVEL");
+  const [forma, setForma] = useState<FormaPagamentoCombustivel | "">("");
+  const [gerarConta, setGerarConta] = useState(true);
   const combustivel = tipo === "COMBUSTIVEL";
   const atual = veiculos.find((v) => v.id === veiculoId);
   async function enviar() {
@@ -51,7 +55,7 @@ function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: Veiculo[
     if (k == null || Number.isNaN(k)) throw new Error("Informe o km do hodômetro.");
     if (l == null || Number.isNaN(l) || l <= 0) throw new Error(combustivel ? "Informe os litros abastecidos (ex.: 45,5)." : "Informe a quantidade em litros (ex.: 5).");
     if (v == null || Number.isNaN(v)) throw new Error("Informe o valor total em reais (ex.: 1.234,56).");
-    const salvo = await api.post<Abastecimento>("/api/frota/abastecimentos", { veiculoId, data, km: k, litros: l, valorCentavos: v, posto: posto.trim() || null, tanqueCheio: combustivel ? cheio : false, tipo });
+    const salvo = await api.post<Abastecimento>("/api/frota/abastecimentos", { veiculoId, data, km: k, litros: l, valorCentavos: v, posto: posto.trim() || null, tanqueCheio: combustivel ? cheio : false, tipo, formaPagamento: forma || null, gerarConta });
     await aoSalvo(salvo);
   }
   return (
@@ -73,7 +77,15 @@ function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: Veiculo[
         <div className="campo"><label htmlFor="fa-litros">{combustivel ? "Litros" : "Quantidade (litros)"}</label><input id="fa-litros" inputMode="decimal" value={litros} onChange={(e) => setLitros(e.target.value)} /></div>
         <div className="campo"><label htmlFor="fa-valor">Valor total (R$)</label><input id="fa-valor" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" /></div>
         <div className="campo"><label htmlFor="fa-posto">Posto</label><input id="fa-posto" value={posto} maxLength={120} onChange={(e) => setPosto(e.target.value)} /></div>
+        <div className="campo">
+          <label htmlFor="fa-forma">Pagamento</label>
+          <select id="fa-forma" value={forma} onChange={(e) => setForma(e.target.value as FormaPagamentoCombustivel | "")}>
+            <option value="">Padrão da praça</option>
+            {FORMAS_PAGAMENTO_COMBUSTIVEL.map((f) => <option key={f} value={f}>{ROTULO_FORMA_COMBUSTIVEL[f]}</option>)}
+          </select>
+        </div>
       </div>
+      <label className="interruptor"><input type="checkbox" checked={gerarConta} onChange={(e) => setGerarConta(e.target.checked)} /> Lançar a conta a pagar no Financeiro</label>
       {combustivel && <label className="interruptor"><input type="checkbox" checked={cheio} onChange={(e) => setCheio(e.target.checked)} /> Completou o tanque (necessário para calcular km/l)</label>}
       {combustivel && <p className="texto-fraco">Cupom com duas linhas de combustível? Lance cada linha com o mesmo km: o km/l soma os litros.</p>}
     </FormModal>
@@ -83,15 +95,20 @@ function FormAbastecimento({ veiculos, aoFechar, aoSalvo }: { veiculos: Veiculo[
 export function AbastecimentoPagina() {
   const { pode } = useSessao();
   const podeEditar = pode("frota:gerenciar");
+  const podeVer = pode("frota:ver");
+  const podeMandarFoto = podeEditar || pode("frota:checklist");
   const notificar = useNotificar();
-  const veiculos = useVeiculos();
+  // a mesma lista serve ao motorista (só checklist) e a quem gerencia: placas ativas da praça
+  const veiculos = useCarregar((s) => api.get<VeiculoChecklist[]>("/api/frota/checklist/veiculos", s), []);
+  const [foto, setFoto] = useState(false);
+  const [chavePend, setChavePend] = useState(0);
   const [veiculoId, setVeiculoId] = useState("");
   const [de, setDe] = useState(somarDias(hojeIso(), -90));
   const [ate, setAte] = useState(hojeIso());
   const [novo, setNovo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const dados = useCarregar((sinal) => api.get<Resposta>(`/api/frota/abastecimentos${qs({ veiculoId, de, ate })}`, sinal), [veiculoId, de, ate]);
+  const dados = useCarregar((sinal) => (podeVer ? api.get<Resposta>(`/api/frota/abastecimentos${qs({ veiculoId, de, ate })}`, sinal) : Promise.resolve({ itens: [], resumo: [] })), [veiculoId, de, ate, podeVer]);
   const r = dados.dados;
   const [colunas, setColunas] = useState<EstadoColunas<ColunaAbast>>({ ordem: null, selecionados: {} });
   const visiveis = useMemo(() => (r ? aplicarColunas(r.itens, COLUNAS_ABAST, colunas) : []), [r, colunas]);
@@ -113,16 +130,22 @@ export function AbastecimentoPagina() {
       <CabecalhoFrota
         titulo="Abastecimento"
         descricao="Litros, valor e km de cada abastecimento. O km/l é calculado entre tanques cheios e o consumo fora da média gera alerta."
-        acoes={podeEditar && <button type="button" className="botao botao--primario" onClick={() => setNovo(true)} disabled={!veiculos.dados?.length}><Icone nome="mais" /> Novo abastecimento</button>}
+        acoes={<>
+          {podeMandarFoto && <button type="button" className="botao botao--primario" onClick={() => setFoto(true)}><Icone nome="camera" /> Enviar foto do cupom</button>}
+          {podeEditar && <button type="button" className="botao botao--secundario" onClick={() => setNovo(true)} disabled={!veiculos.dados?.length}><Icone nome="mais" /> Novo abastecimento</button>}
+        </>}
       />
-      <div className="filtros">
+      <PendentesAbastecimento key={chavePend} veiculos={veiculos.dados ?? []} aoMudar={async () => { await dados.recarregar(); }} />
+      {podeEditar && <ConfigPagamentoCombustivel />}
+      {!podeVer && <p className="texto-fraco">Mande a foto do cupom logo depois de abastecer. A equipe da frota confere e o Financeiro paga.</p>}
+      {podeVer && <div className="filtros">
         <div className="campo campo--linha"><label htmlFor="fab-veiculo">Veículo</label><SeletorVeiculo id="fab-veiculo" valor={veiculoId} aoMudar={setVeiculoId} veiculos={veiculos.dados ?? []} vazio="Todos" /></div>
         <div className="campo campo--linha"><label htmlFor="fab-de">De</label><input id="fab-de" type="date" value={de} onChange={(e) => setDe(e.target.value)} /></div>
         <div className="campo campo--linha"><label htmlFor="fab-ate">Até</label><input id="fab-ate" type="date" value={ate} onChange={(e) => setAte(e.target.value)} /></div>
-      </div>
+      </div>}
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       {aviso && <Aviso tipo="atencao" titulo="Consumo fora da média">{aviso}</Aviso>}
-      {dados.carregando && !r ? <Carregando /> : dados.erro ? <ErroCarga mensagem={dados.erro} tentarDeNovo={dados.recarregar} /> : r && (
+      {!podeVer ? null : dados.carregando && !r ? <Carregando /> : dados.erro ? <ErroCarga mensagem={dados.erro} tentarDeNovo={dados.recarregar} /> : r && (
         <>
           {r.resumo.length > 0 && (
             <section className="cartao" aria-labelledby="fab-resumo">
@@ -158,6 +181,7 @@ export function AbastecimentoPagina() {
                   <CabecalhoFiltro coluna="valor" rotulo="Valor" linhas={r.itens} definicao={COLUNAS_ABAST.valor} estado={colunas} mudar={setColunas} className="frota-numero" textos={NUMERO} />
                   <CabecalhoFiltro coluna="kml" rotulo="km/l" linhas={r.itens} definicao={COLUNAS_ABAST.kml} estado={colunas} mudar={setColunas} className="frota-numero" textos={NUMERO} />
                   <CabecalhoFiltro coluna="posto" rotulo="Posto" linhas={r.itens} definicao={COLUNAS_ABAST.posto} estado={colunas} mudar={setColunas} />
+                  <th scope="col">Pagamento</th>
                   {podeEditar && <th><span className="visualmente-oculto">Ações</span></th>}
                 </tr></thead>
                 <tbody>
@@ -174,6 +198,7 @@ export function AbastecimentoPagina() {
                         {a.alerta && <> <span className={`etiqueta ${a.alerta === "ALTO" ? "etiqueta--perigo" : "etiqueta--atencao"}`}>{a.alerta === "ALTO" ? "Gasto alto" : "Conferir"}</span></>}
                       </td>
                       <td>{a.posto ?? <span className="texto-fraco">—</span>}</td>
+                      <td><SituacaoPagamento a={a} /></td>
                       {podeEditar && <td><button type="button" className="botao botao--perigo botao--pequeno" onClick={() => void excluir(a)} aria-label={`Excluir abastecimento de ${formatarData(a.data)} de ${a.placa}`}>Excluir</button></td>}
                     </tr>
                   ))}
@@ -184,7 +209,7 @@ export function AbastecimentoPagina() {
                       <td colSpan={4}>{visiveis.length} de {r.itens.length} abastecimento(s) no filtro das colunas</td>
                       <td className="frota-numero">{dec(visiveis.reduce((t, a) => t + a.litros, 0))}</td>
                       <td className="frota-numero">{formatarMoeda(visiveis.reduce((t, a) => t + a.valorCentavos, 0))}</td>
-                      <td colSpan={podeEditar ? 3 : 2} />
+                      <td colSpan={podeEditar ? 4 : 3} />
                     </tr>
                   </tfoot>
                 )}
@@ -193,9 +218,19 @@ export function AbastecimentoPagina() {
           )}
         </>
       )}
+      {foto && veiculos.dados && (
+        <EnviarFotoCupom
+          veiculos={veiculos.dados}
+          aoFechar={() => setFoto(false)}
+          aoEnviado={async (p) => {
+            notificar(p.faltas.length ? `Foto enviada. Falta: ${p.faltas.join(", ")} (completa na conferência).` : "Foto enviada: fica pendente até a conferência.");
+            setChavePend((n) => n + 1);
+          }}
+        />
+      )}
       {novo && veiculos.dados && (
         <FormAbastecimento
-          veiculos={veiculos.dados.filter((v) => v.situacao !== "INATIVO")}
+          veiculos={veiculos.dados}
           aoFechar={() => setNovo(false)}
           aoSalvo={async (a) => {
             notificar("Abastecimento lançado.");
@@ -206,4 +241,16 @@ export function AbastecimentoPagina() {
       )}
     </div>
   );
+}
+
+/** Pagamento do abastecimento = a conta a pagar gerada no Financeiro (18/11/2026). */
+function SituacaoPagamento({ a }: { a: Abastecimento }) {
+  if (!a.pagamento) return <span className="texto-fraco">{a.lancamentoId === undefined || !a.lancamentoId ? "Sem conta" : "—"}</span>;
+  if (a.pagamento.situacao === "REALIZADO") {
+    return <>
+      <span className="etiqueta etiqueta--sucesso">Pago em {formatarData(a.pagamento.pagoEm ?? a.pagamento.vencimento)}</span>
+      {!a.pagamento.comprovante && <div><span className="etiqueta etiqueta--atencao">sem comprovante</span></div>}
+    </>;
+  }
+  return <span className="etiqueta etiqueta--neutra">Em aberto · vence {formatarData(a.pagamento.vencimento)}</span>;
 }

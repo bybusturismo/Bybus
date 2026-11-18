@@ -101,6 +101,7 @@ describe("Abastecimento: filtro por coluna (13/11/2026)", () => {
     simularApi({
       "GET /api/frota/veiculos": [veiculo()],
       "GET /api/frota/abastecimentos": { itens: [a("1", "ABC1D23", 30_000, "2026-11-01"), a("2", "XYZ9K88", 50_000, "2026-11-02"), a("3", "ABC1D23", 40_000, "2026-11-03")], resumo: [] },
+      "GET /api/frota/checklist/veiculos": [veiculo()],
     });
     renderizar(<AbastecimentoPagina />, { sessao: ver });
     const u = userEvent.setup();
@@ -126,6 +127,7 @@ describe("Abastecimento: serviço (combustível, óleo, lubrificante) (13/11/202
     const spy = simularApi({
       "GET /api/frota/veiculos": [veiculo()],
       "GET /api/frota/abastecimentos": { itens: [], resumo: [] },
+      "GET /api/frota/checklist/veiculos": [veiculo()],
       "POST /api/frota/abastecimentos": { id: "n1", veiculoId: "v1", placa: "ABC1D23", apelido: null, data: "2026-11-13", km: 120_000, litros: 5, valorCentavos: 25_000, posto: null, tanqueCheio: false, tipo: "OLEO", kml: null, alerta: null },
     });
     renderizar(<AbastecimentoPagina />, { sessao: gerenciar });
@@ -226,7 +228,7 @@ describe("numeroDeTexto", () => {
 
 describe("Abastecimento: litros digitados com ponto", () => {
   it("45.5 litros vai como 45,5 e não como 455", async () => {
-    const api = simularApi({ "GET /api/frota/veiculos": [veiculo()], "GET /api/frota/abastecimentos": { itens: [], resumo: [] }, "POST /api/frota/abastecimentos": { id: "a1", alerta: null } });
+    const api = simularApi({ "GET /api/frota/veiculos": [veiculo()], "GET /api/frota/checklist/veiculos": [veiculo()], "GET /api/frota/abastecimentos": { itens: [], resumo: [] }, "POST /api/frota/abastecimentos": { id: "a1", alerta: null } });
     renderizar(<AbastecimentoPagina />, { sessao: gerenciar });
     const u = userEvent.setup();
     await u.click(await screen.findByRole("button", { name: /Novo abastecimento/ }));

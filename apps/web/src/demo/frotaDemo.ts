@@ -249,6 +249,15 @@ export const rotearFrota: Rotear = (ctx, metodo, caminho, q, c) => {
     abastecimentos.splice(abastecimentos.indexOf(achar(abastecimentos, m![1]!, ctx, "Abastecimento")), 1);
     return { ok: true };
   }
+  // Abastecimento pela foto (18/11/2026): na demonstração não há leitura nem pendentes.
+  if (metodo === "GET" && caminho === "/api/frota/abastecimentos/pendentes") { ver(); return { iaLigada: false, itens: [] }; }
+  if (metodo === "GET" && caminho === "/api/frota/pagamento-combustivel") {
+    ver();
+    return { [UN_FLN]: { forma: "CARTAO", prazoDias: 0, codigo: "FLN", nome: NOME_UNIDADE[UN_FLN] }, [UN_BC]: { forma: "FATURADO", prazoDias: 30, codigo: "BC", nome: NOME_UNIDADE[UN_BC] } };
+  }
+  if ((metodo === "POST" && caminho === "/api/frota/abastecimentos/foto") || (metodo === "PUT" && caminho === "/api/frota/pagamento-combustivel")) {
+    throw ctx.erro(400, "DEMO", "Na demonstração o envio da foto e a configuração ficam desligados.");
+  }
   // Diário de km
   if (metodo === "GET" && caminho === "/api/frota/km-diario") {
     ver();

@@ -70,6 +70,7 @@ export const ITENS_MENU: ItemMenu[] = [
   { para: "/frota", rotulo: "Frota", icone: "onibus", area: "Frota", permissao: "frota:ver" },
   { para: "/frota/checklist", rotulo: "Checklist do veículo", icone: "check", area: "Frota", permissao: "frota:checklist", quando: (pode) => !pode("frota:ver") },
   { para: "/frota/km-diario", rotulo: "Diário de km", icone: "calendario", area: "Frota", permissao: "frota:checklist", quando: (pode) => !pode("frota:ver") },
+  { para: "/frota/abastecimento", rotulo: "Abastecimento", icone: "camera", area: "Frota", permissao: "frota:checklist", quando: (pode) => !pode("frota:ver") },
   // Marketing
   { para: "/marketing/canais", rotulo: "Marketing", icone: "megafone", area: "Marketing", permissao: "marketing:ver", atalho: "v", prefixo: "/marketing" },
   // Gestão

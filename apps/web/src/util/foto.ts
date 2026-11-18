@@ -17,3 +17,22 @@ export function lerBase64(arquivo: File): Promise<string> {
     r.readAsDataURL(arquivo);
   });
 }
+
+/**
+ * Foto de documento (cupom de combustível, 18/11/2026): mantém legível, só reduz se for grande (lado maior até 2000 px, JPEG 85%)
+ * para caber no limite da leitura automática. PDF e o que o navegador não conseguir abrir vão como estão.
+ */
+export async function prepararFotoDocumento(arquivo: File): Promise<{ nome: string; base64: string }> {
+  if (!arquivo.type.startsWith("image/") || arquivo.size < 1_500_000) return { nome: arquivo.name, base64: await lerBase64(arquivo) };
+  try {
+    const bitmap = await createImageBitmap(arquivo);
+    const escala = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+    const tela = document.createElement("canvas");
+    tela.width = Math.round(bitmap.width * escala);
+    tela.height = Math.round(bitmap.height * escala);
+    tela.getContext("2d")!.drawImage(bitmap, 0, 0, tela.width, tela.height);
+    return { nome: arquivo.name.replace(/\.[^.]+$/, "") + ".jpg", base64: tela.toDataURL("image/jpeg", 0.85).replace(/^data:[^,]*,/, "") };
+  } catch {
+    return { nome: arquivo.name, base64: await lerBase64(arquivo) };
+  }
+}
