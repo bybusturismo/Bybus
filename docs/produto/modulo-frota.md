@@ -103,7 +103,7 @@ Pedido do dono: "o veículo apareça todos cadastrados em uma lista suspensa só
 - O **km final vira leitura de km** (fonte `DIARIO`): atualiza o km atual do veículo e os planos de manutenção, sem nunca baixar o km (data antiga não mexe no km atual). A fonte `DIARIO` não é aceita no lançamento avulso de leitura.
 - Quem lança: quem gerencia a frota ou quem faz o checklist (motorista com `frota:checklist`, que também ganha o atalho "Diário de km" no menu e na tela do motorista). Corrigir e excluir: só quem gerencia. Tudo auditado (`VEICULO_KM_DIARIO_LANCADO/CORRIGIDO/EXCLUIDO`).
 - Lista com filtro por placa e período, filtro/classificação por coluna e resumo por veículo (dias, km rodado, litros, média km/l). Regras puras em `packages/core/src/frota/diario.ts`; API em `apps/api/src/rotas/frota-diario.ts`.
-- Pendente do dono: o perfil padrão **Motorista** ainda não tem `frota:checklist` (decisão "permissões dos perfis padrão nos módulos novos"); sem ela, o motorista não vê o checklist nem o diário.
+- Perfil padrão **Motorista** com `frota:checklist` (dono, 18/11/2026; migração 0062): checklist, diário de km e foto do cupom de abastecimento.
 
 ## Abastecimento pela foto do cupom (18/11/2026)
 - Ideia do dono: o motorista manda a foto do cupom na hora do abastecimento (app ou WhatsApp), o sistema lê e abre um **abastecimento pendente**; o pagamento é com o Financeiro (comprovante e/ou marcar como pago).
