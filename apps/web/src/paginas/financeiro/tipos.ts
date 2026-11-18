@@ -82,6 +82,8 @@ export interface LancamentoFin {
   origem: "MANUAL" | "EXTRATO";
   conciliado: boolean;
   vencido: boolean;
+  /** Boleto, nota e comprovante (18/11/2026). */
+  anexos?: AnexoFin[];
 }
 
 export interface RespostaLancamentos {
@@ -272,4 +274,11 @@ export interface RevendaFin {
   valorRepasseCentavos: number;
   comissaoCentavos: number;
   margemCentavos: number;
+}
+
+/** Anexo da conta a pagar/receber (só o rótulo; o arquivo sai por /api/financeiro/anexos/:id). */
+export interface AnexoFin {
+  id: string;
+  tipo: string;
+  nomeArquivo: string;
 }

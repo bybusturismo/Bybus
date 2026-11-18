@@ -13,6 +13,8 @@ interface Lanc {
   id: string; tipo: Tipo; descricao: string; contraparte: string | null; categoriaId: string; contaId: string | null; unidadeId: string | null; linha: string | null; veiculo: string | null; canal: string | null; forma: string | null;
   valorCentavos: number; competencia: string; vencimento: string; situacao: "ABERTO" | "REALIZADO"; pagoEm: string | null; valorPagoCentavos: number | null; jurosCentavos: number; multaCentavos: number; descontoCentavos: number;
   grupoId: string | null; parcelaNumero: number | null; parcelaTotal: number | null; recorrente: boolean; observacao: string | null; origem: "MANUAL" | "EXTRATO" | "PLANILHA";
+  /** Boleto e documentos (na demonstração guarda só o rótulo, sem o arquivo). */
+  anexos?: Array<{ id: string; tipo: string; nomeArquivo: string }>;
 }
 interface Linha { id: string; contaId: string; data: string; valorCentavos: number; descricao: string; documento: string | null; status: "PENDENTE" | "CONCILIADO" | "TRANSFERENCIA" | "IGNORADO"; lancamentoId: string | null; parLinhaId: string | null; manual: boolean; observacao: string | null }
 
@@ -265,6 +267,18 @@ export const rotearFinanceiro: Rotear = (ctx, metodo, caminho, q, c) => {
     lancs.push(x);
     ctx.auditar("LANCAMENTO_CRIADO", "lancamento", x.id);
     return { criados: 1, itens: [lancPublico(x)] };
+  }
+  if (metodo === "POST" && r(/^\/api\/financeiro\/lancamentos\/([^/]+)\/anexos$/)) {
+    gerir();
+    const x = achar(lancs, m![1]!, ctx, "Lançamento");
+    const a = { id: `anexo-${Date.now()}`, tipo: String(c.tipo ?? "OUTRO"), nomeArquivo: String(c.nome ?? "arquivo") };
+    x.anexos = [...(x.anexos ?? []), a];
+    return a;
+  }
+  if (metodo === "DELETE" && r(/^\/api\/financeiro\/anexos\/([^/]+)$/)) {
+    gerir();
+    for (const l of lancs) l.anexos = l.anexos?.filter((a) => a.id !== m![1]);
+    return { ok: true };
   }
   if (r(/^\/api\/financeiro\/lancamentos\/([^/]+)(?:\/(baixa|reabrir))?$/)) {
     gerir();

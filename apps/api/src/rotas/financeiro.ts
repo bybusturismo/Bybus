@@ -19,6 +19,7 @@ import {
 } from "../servicos/financeiro.js";
 import { centavos, dataIso, mesIso, naoNegativo, uuid, valorPositivo, veiculoOpcional } from "./financeiro-comum.js";
 import { rotasFinanceiroExtrato } from "./financeiro-extrato.js";
+import { rotasFinanceiroAnexos } from "./financeiro-anexos.js";
 import { rotasFinanceiroCaixa } from "./financeiro-caixa.js";
 import { rotasFinanceiroPlanilha } from "./financeiro-planilha.js";
 
@@ -215,6 +216,9 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
     pagoEm: finLancamentos.pagoEm, valorPagoCentavos: finLancamentos.valorPagoCentavos, jurosCentavos: finLancamentos.jurosCentavos, multaCentavos: finLancamentos.multaCentavos,
     descontoCentavos: finLancamentos.descontoCentavos, grupoId: finLancamentos.grupoId, parcelaNumero: finLancamentos.parcelaNumero, parcelaTotal: finLancamentos.parcelaTotal,
     recorrente: finLancamentos.recorrente, observacao: finLancamentos.observacao, origem: finLancamentos.origem, conciliado: conciliadoSql,
+    /** Boleto, nota e comprovante (só o rótulo; o arquivo sai por /api/financeiro/anexos/:id). */
+    anexos: sql<Array<{ id: string; tipo: string; nomeArquivo: string }>>`coalesce((select json_agg(json_build_object('id', a.id, 'tipo', a.tipo, 'nomeArquivo', a.nome_arquivo) order by a.criado_em)
+      from fin_lancamento_anexos a where a.lancamento_id = ${finLancamentos.id}), '[]'::json)`,
   };
   const baseLista = () => db.select(colunasLista).from(finLancamentos)
     .innerJoin(finCategorias, eq(finCategorias.id, finLancamentos.categoriaId))
@@ -599,4 +603,5 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
   await rotasFinanceiroExtrato(app, ctx, { ver, gerenciar });
   await rotasFinanceiroPlanilha(app, ctx, { ver, gerenciar });
   await rotasFinanceiroCaixa(app, ctx, { ver, gerenciar });
+  await rotasFinanceiroAnexos(app, ctx, { ver, gerenciar });
 }

@@ -25,6 +25,8 @@ function api(itens: LancamentoFin[]) {
     "POST /api/financeiro/lancamentos": { ids: ["novo"], lancamentos: [] },
     "POST /api/financeiro/lancamentos/l1/baixa": lanc({ situacao: "REALIZADO" }),
     "PATCH /api/financeiro/lancamentos/l1": lanc(),
+    "POST /api/financeiro/lancamentos/l1/anexos": (c: unknown) => ({ id: "a2", tipo: (c as { tipo: string }).tipo, nomeArquivo: (c as { nome: string }).nome }),
+    "POST /api/financeiro/lancamentos/novo/anexos": { id: "a3", tipo: "BOLETO", nomeArquivo: "boleto-novo.pdf" },
   });
 }
 
@@ -227,6 +229,58 @@ describe("Contas a pagar", () => {
     await u.click(d.getByRole("button", { name: "Confirmar pagamento" }));
     await screen.findByText("Baixa registrada.");
     expect(corpoEnviado(spy, "POST", "/api/financeiro/lancamentos/l1/baixa")).toMatchObject({ contaId: "k1", contaNaSerie: false });
+  });
+
+  it("boleto: a lista mostra abrir e baixar; na edição o arquivo é anexado na hora", async () => {
+    const spy = api([lanc({ anexos: [{ id: "a1", tipo: "BOLETO", nomeArquivo: "boleto outubro.pdf" }] })]);
+    renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    const abrir = await screen.findByRole("link", { name: "Boleto" });
+    expect(abrir).toHaveAttribute("href", "/api/financeiro/anexos/a1");
+    expect(abrir).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: /Baixar Boleto boleto outubro\.pdf/ })).toHaveAttribute("href", "/api/financeiro/anexos/a1?baixar=1");
+    await u.click(screen.getByRole("button", { name: "Editar" }));
+    const d = within(await screen.findByRole("dialog"));
+    expect(d.getByRole("link", { name: "Boleto — boleto outubro.pdf" })).toBeInTheDocument();
+    await u.upload(d.getByLabelText("Arquivo do boleto ou documento"), new File(["%PDF-1.4 teste"], "boleto.pdf", { type: "application/pdf" }));
+    expect(await d.findByRole("link", { name: "Boleto — boleto.pdf" })).toBeInTheDocument();
+    expect(corpoEnviado(spy, "POST", "/api/financeiro/lancamentos/l1/anexos")).toMatchObject({ tipo: "BOLETO", nome: "boleto.pdf", base64: btoa("%PDF-1.4 teste") });
+  });
+
+  it("boleto escolhido na conta nova é anexado depois de lançar; arquivo grande é recusado na tela", async () => {
+    const spy = api([]);
+    renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Nova conta a pagar" }));
+    const d = within(await screen.findByRole("dialog"));
+    await u.type(d.getByLabelText("Descrição"), "Energia");
+    await u.selectOptions(d.getByLabelText("Categoria"), "c-comb");
+    await u.type(d.getByLabelText(/^Valor/), "312,34");
+    const grande = new File(["x"], "enorme.pdf", { type: "application/pdf" });
+    Object.defineProperty(grande, "size", { value: 16 * 1024 * 1024 });
+    await u.upload(d.getByLabelText("Arquivo do boleto ou documento"), grande);
+    expect(await d.findByText("O arquivo pode ter até 15 MB.")).toBeInTheDocument();
+    await u.upload(d.getByLabelText("Arquivo do boleto ou documento"), new File(["%PDF-1.4 novo"], "boleto-novo.pdf", { type: "application/pdf" }));
+    expect(d.getByText(/boleto-novo\.pdf \(vai anexado ao lançar\)/)).toBeInTheDocument();
+    expect(spy.mock.calls.some(([x]) => String(x).endsWith("/anexos"))).toBe(false);
+    await u.click(d.getByRole("button", { name: "Lançar" }));
+    await screen.findByText("Lançamento salvo.");
+    expect(corpoEnviado(spy, "POST", "/api/financeiro/lancamentos/novo/anexos")).toMatchObject({ tipo: "BOLETO", nome: "boleto-novo.pdf" });
+  });
+
+  it("na janela de pagamento aparecem a chave PIX e o boleto, e dá para anexar o comprovante", async () => {
+    const spy = api([lanc({ pixChave: "12.345.678/0001-90", anexos: [{ id: "a1", tipo: "BOLETO", nomeArquivo: "boleto.pdf" }] })]);
+    renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Pagar" }));
+    const d = within(await screen.findByRole("dialog"));
+    expect(d.getByRole("link", { name: "Boleto — boleto.pdf" })).toHaveAttribute("href", "/api/financeiro/anexos/a1");
+    expect(d.getByText("12.345.678/0001-90")).toBeInTheDocument();
+    expect(d.getByLabelText("Tipo do documento")).toHaveValue("COMPROVANTE");
+    await u.upload(d.getByLabelText("Arquivo do boleto ou documento"), new File(["png"], "comprovante.png", { type: "image/png" }));
+    expect(await d.findByRole("link", { name: "Comprovante de pagamento — comprovante.png" })).toBeInTheDocument();
+    expect(d.getByRole("link", { name: "Boleto — boleto.pdf" })).toBeInTheDocument();
+    expect(corpoEnviado(spy, "POST", "/api/financeiro/lancamentos/l1/anexos")).toMatchObject({ tipo: "COMPROVANTE", nome: "comprovante.png" });
   });
 
   it("recusa desconto maior que o valor devido", async () => {

@@ -285,6 +285,46 @@ describe("lançamentos", () => {
     expect(doSic).not.toContain(r2.ids[1]);
   });
 
+  it("boleto e documentos na conta a pagar: anexa (cifrado), lista, abre ou baixa com auditoria, exclui; praça e perfil respeitados (18/11/2026)", async () => {
+    const PDF = Buffer.from("%PDF-1.4\n% boleto fictício de teste\n").toString("base64");
+    const id = json(await lancar(usuarioFln, { descricao: "Energia quiosque", valorCentavos: 31234, vencimento: "2027-06-10" })).ids[0] as string;
+    const env = await usuarioFln.req("POST", `/api/financeiro/lancamentos/${id}/anexos`, { tipo: "BOLETO", nome: "boleto energia.pdf", base64: PDF });
+    expect(env.statusCode, env.body).toBe(201);
+    const anexoId = json(env).id as string;
+    // tipo de arquivo recusado e tipo de anexo inválido
+    expect(json(await usuarioFln.req("POST", `/api/financeiro/lancamentos/${id}/anexos`, { tipo: "BOLETO", nome: "x.exe", base64: Buffer.from("MZ....nada").toString("base64") })).codigo).toBe("ARQUIVO_TIPO");
+    expect((await usuarioFln.req("POST", `/api/financeiro/lancamentos/${id}/anexos`, { tipo: "FOTO", nome: "a.pdf", base64: PDF })).statusCode).toBe(400);
+    // quem só vê não anexa nem exclui, mas abre; outra praça não enxerga
+    expect((await leitor.req("POST", `/api/financeiro/lancamentos/${id}/anexos`, { tipo: "NF", nome: "nf.pdf", base64: PDF })).statusCode).toBe(403);
+    expect((await usuarioBc.req("POST", `/api/financeiro/lancamentos/${id}/anexos`, { tipo: "NF", nome: "nf.pdf", base64: PDF })).statusCode).toBe(404);
+    expect((await usuarioBc.req("GET", `/api/financeiro/anexos/${anexoId}`)).statusCode).toBe(404);
+    // na lista vem só o rótulo
+    const item = json(await usuarioFln.req("GET", "/api/financeiro/lancamentos?limite=500")).itens.find((x: { id: string }) => x.id === id);
+    expect(item.anexos).toEqual([{ id: anexoId, tipo: "BOLETO", nomeArquivo: "boleto energia.pdf" }]);
+    // abrir (PDF na tela) e baixar
+    const aberto = await usuarioFln.req("GET", `/api/financeiro/anexos/${anexoId}`);
+    expect(aberto.statusCode).toBe(200);
+    expect(aberto.headers["content-type"]).toBe("application/pdf");
+    expect(aberto.headers["content-disposition"]).toMatch(/^inline/);
+    expect(aberto.body).toContain("boleto fictício");
+    const baixado = await usuarioFln.req("GET", `/api/financeiro/anexos/${anexoId}?baixar=1`);
+    expect(baixado.headers["content-disposition"]).toMatch(/^attachment; filename\*=UTF-8''boleto%20energia\.pdf/);
+    // guardado cifrado
+    const { db, pool } = criarDb(DATABASE_URL);
+    const banco = await pool.query("select dados_cifrados from fin_lancamento_anexos where id = $1", [anexoId]);
+    expect(String(banco.rows[0].dados_cifrados)).not.toContain(PDF.slice(0, 12));
+    // conta paga continua aceitando o comprovante
+    expect((await usuarioFln.req("POST", `/api/financeiro/lancamentos/${id}/baixa`, { pagoEm: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()), contaId: await conta(usuarioFln, { nome: "Corrente anexos", tipo: "CORRENTE", unidadeId: fln }) })).statusCode).toBe(200);
+    expect((await usuarioFln.req("POST", `/api/financeiro/lancamentos/${id}/anexos`, { tipo: "COMPROVANTE", nome: "comprovante.png", base64: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]).toString("base64") })).statusCode).toBe(201);
+    // excluir
+    expect((await leitor.req("DELETE", `/api/financeiro/anexos/${anexoId}`)).statusCode).toBe(403);
+    expect((await usuarioFln.req("DELETE", `/api/financeiro/anexos/${anexoId}`)).statusCode).toBe(200);
+    expect((await usuarioFln.req("GET", `/api/financeiro/anexos/${anexoId}`)).statusCode).toBe(404);
+    const acoes = (await db.select({ acao: auditoria.acao }).from(auditoria)).map((x) => x.acao);
+    await pool.end();
+    for (const a of ["FIN_ANEXO_ENVIADO", "FIN_ANEXO_ABERTO", "FIN_ANEXO_EXCLUIDO"]) expect(acoes).toContain(a);
+  });
+
   it("valida entrada: centavos inteiros, positivo, categoria do tipo certo, datas reais", async () => {
     expect((await lancar(usuarioFln, { valorCentavos: 100.5 })).statusCode).toBe(400);
     expect((await lancar(usuarioFln, { valorCentavos: 0 })).statusCode).toBe(400);

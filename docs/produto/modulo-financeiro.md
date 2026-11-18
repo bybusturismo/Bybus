@@ -148,3 +148,13 @@ Pedido do dono: um campo com a identificação do PIX para pagar a conta.
 - Só recebem a conta os meses **em aberto e sem conta**; mês já apontado para outra conta não muda. A auditoria registra a quantidade (`contaNaSerie`).
 - Lista: lançamento em aberto mostra "Conta: <nome>" ou "Conta: definir na baixa". Ao criar série sem conta, a tela avisa que os meses só entram no filtro da conta depois da baixa.
 - Correção dos dados de 18/11/2026 (com aprovação do dono): nas séries com mês já pago no Sicredi, os meses em aberto sem conta receberam o Sicredi (SQL único no servidor, com cópia do banco antes).
+
+## Boleto e documentos na conta (18/11/2026)
+- Pedido do dono: anexar o boleto (e outros documentos) na conta a pagar e baixar o arquivo na hora de pagar.
+- Tipos: **Boleto**, **Nota fiscal**, **Comprovante de pagamento** e **Outro documento** (`TIPOS_ANEXO_FIN` no core). PDF, JPG, PNG, XML da nota, Word ou Excel, até 15 MB.
+- Onde aparece:
+  - **Nova conta / Editar**: campo "Boleto e documentos", logo abaixo da chave PIX. Na conta nova, o arquivo escolhido é anexado ao 1º mês depois de lançar; na edição, anexa e exclui na hora.
+  - **Janela de pagamento (Pagar)**: chave PIX com "Copiar", os anexos com "baixar" e o campo para anexar o comprovante (tipo já vem como comprovante).
+  - **Lista**: abaixo da chave PIX, cada anexo com link para abrir (PDF e foto abrem numa aba) e "baixar".
+- Segurança: arquivo cifrado no banco (`fin_lancamento_anexos`, migração 0059, mesmo modelo dos anexos dos grupos); quem vê o lançamento (praça) abre; anexar e excluir exige `financeiro:gerenciar`; enviar, abrir/baixar e excluir ficam na auditoria (`FIN_ANEXO_ENVIADO`, `FIN_ANEXO_ABERTO`, `FIN_ANEXO_EXCLUIDO`), sem o nome do arquivo. Conta paga ou conciliada continua aceitando anexo (o comprovante vem depois). Excluir o lançamento leva os anexos junto.
+- API: `POST /api/financeiro/lancamentos/:id/anexos` (`{ tipo, nome, base64 }`), `GET /api/financeiro/anexos/:id` (`?baixar=1` força o download), `DELETE /api/financeiro/anexos/:id`. A lista de lançamentos traz `anexos: [{ id, tipo, nomeArquivo }]`.

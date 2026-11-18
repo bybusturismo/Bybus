@@ -18,18 +18,25 @@ import { useCategorias, useContas } from "./dados";
 import { CANAIS_FIN, FORMAS, type CategoriaFin, type ContaFin, type FormaPagamento, type LancamentoFin, type RespostaLancamentos, type TipoLancamento } from "./tipos";
 import { ROTULO_FORMA } from "./util";
 import { FormTransferencia } from "./Extrato";
+import { CampoAnexos, enviarAnexo, LinksAnexos } from "./Anexos";
+import type { TipoAnexoFin } from "@bybus/core";
 
 type Repeticao = "UNICA" | "PARCELADO" | "RECORRENTE";
 
-export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar, aoCancelar }: {
+export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar, aoCancelar, aoMudarAnexos }: {
   tipo: TipoLancamento;
   lancamento: LancamentoFin | null;
   categorias: CategoriaFin[];
   contas: ContaFin[];
   aoSalvar: () => Promise<void>;
   aoCancelar: () => void;
+  /** Anexo enviado ou excluído na hora (conta já existente): a lista atualiza por trás. */
+  aoMudarAnexos?: () => void;
 }) {
   const { unidades, praca, usuario } = useSessao();
+  const notificar = useNotificar();
+  const [anexos, setAnexos] = useState(lancamento?.anexos ?? []);
+  const [anexoNovo, setAnexoNovo] = useState<{ tipo: TipoAnexoFin; arquivo: File } | null>(null);
   const hoje = hojeIso();
   const [descricao, setDescricao] = useState(lancamento?.descricao ?? "");
   const [contraparte, setContraparte] = useState(lancamento?.contraparte ?? "");
@@ -95,12 +102,17 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
           ...(travaConciliado ? {} : { competencia, vencimento }),
         });
       } else {
-        await api.post("/api/financeiro/lancamentos", {
+        const criado = await api.post<{ ids: string[] }>("/api/financeiro/lancamentos", {
           ...comuns, tipo, valorCentavos: centavos, competencia, vencimento,
           repeticao: repeticao === "UNICA" ? null : repeticao === "PARCELADO" ? { tipo: "PARCELADO", parcelas: n } : { tipo: "RECORRENTE", meses: n },
           ...(confirmar.includes("POSSIVEL_DUPLICADO") ? { confirmarDuplicado: true } : {}),
           ...(confirmar.includes("PARECE_TRANSFERENCIA") ? { confirmarNaoTransferencia: true } : {}),
         });
+        // boleto/documento escolhido antes de lançar: vai para o 1º mês (a conta já está salva; se falhar, avisa e não lança de novo)
+        if (anexoNovo && criado.ids[0]) {
+          await enviarAnexo(criado.ids[0], anexoNovo.tipo, anexoNovo.arquivo)
+            .catch((x) => notificar(`Lançamento salvo, mas o arquivo não foi anexado (${mensagemDeErro(x)}). Abra a conta em Editar e anexe de novo.`, "erro"));
+        }
       }
       await aoSalvar();
     } catch (x) {
@@ -227,6 +239,13 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
             {pixSugerido && <span className="campo__ajuda">Chave usada da última vez para este fornecedor. Confira antes de pagar.</span>}
           </div>
         )}
+        <CampoAnexos
+          lancamentoId={lancamento?.id ?? null}
+          anexos={anexos}
+          aoMudar={(a) => { setAnexos(a); aoMudarAnexos?.(); }}
+          aoEscolher={setAnexoNovo}
+          tipoInicial={tipo === "PAGAR" ? "BOLETO" : "NF"}
+        />
         <div className="campo campo--largo">
           <label htmlFor="lan-obs">Observação</label>
           <textarea id="lan-obs" rows={2} maxLength={1000} value={observacao} onChange={(e) => setObservacao(e.target.value)} />
@@ -255,7 +274,8 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
   );
 }
 
-function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento: LancamentoFin; contas: ContaFin[]; aoConcluir: () => Promise<void>; aoCancelar: () => void }) {
+function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar, aoMudarAnexos }: { lancamento: LancamentoFin; contas: ContaFin[]; aoConcluir: () => Promise<void>; aoCancelar: () => void; aoMudarAnexos?: () => void }) {
+  const [anexos, setAnexos] = useState(lancamento.anexos ?? []);
   const [pagoEm, setPagoEm] = useState(hojeIso());
   const [contaId, setContaId] = useState(lancamento.contaId ?? "");
   const [juros, setJuros] = useState("");
@@ -301,6 +321,8 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
     <form onSubmit={salvar}>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       <p><strong>{lancamento.descricao}</strong> — devido {formatarMoeda(lancamento.valorCentavos)}, vencimento {formatarData(lancamento.vencimento)}</p>
+      {lancamento.pixChave && lancamento.tipo === "PAGAR" && <ChavePix chave={lancamento.pixChave} />}
+      <CampoAnexos lancamentoId={lancamento.id} anexos={anexos} aoMudar={(a) => { setAnexos(a); aoMudarAnexos?.(); }} tipoInicial="COMPROVANTE" />
       <div className="grade-campos">
         <div className="campo">
           <label htmlFor="baixa-data">Data do pagamento</label>
@@ -563,6 +585,7 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
                     {l.recorrente && <span className="etiqueta etiqueta--neutra">recorrente</span>}
                     {l.contraparte && <div className="texto-fraco">{l.contraparte}</div>}
                     {l.pixChave && l.situacao !== "REALIZADO" && <ChavePix chave={l.pixChave} />}
+                    <LinksAnexos anexos={l.anexos ?? []} compacto />
                   </td>
                   <td className="fin-esconder-celular">{l.categoriaNome}</td>
                   <td className="fin-valor">
@@ -612,11 +635,11 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
 
       <Modal aberto={edicao !== null} titulo={edicao === "novo" ? rotulos.novo : "Editar lançamento"} aoFechar={() => setEdicao(null)} largura="larga">
         {edicao !== null && categorias.dados && contas.dados && (
-          <FormLancamento tipo={tipo} lancamento={edicao === "novo" ? null : edicao} categorias={categorias.dados} contas={contas.dados} aoSalvar={async () => { notificar("Lançamento salvo."); await recarregarTudo(); }} aoCancelar={() => setEdicao(null)} />
+          <FormLancamento tipo={tipo} lancamento={edicao === "novo" ? null : edicao} categorias={categorias.dados} contas={contas.dados} aoSalvar={async () => { notificar("Lançamento salvo."); await recarregarTudo(); }} aoCancelar={() => setEdicao(null)} aoMudarAnexos={() => void lista.recarregar()} />
         )}
       </Modal>
       <Modal aberto={baixando !== null} titulo={tipo === "PAGAR" ? "Pagar conta" : "Receber conta"} aoFechar={() => setBaixando(null)}>
-        {baixando && contas.dados && <FormBaixa lancamento={baixando} contas={contas.dados} aoConcluir={async () => { notificar("Baixa registrada."); await recarregarTudo(); }} aoCancelar={() => setBaixando(null)} />}
+        {baixando && contas.dados && <FormBaixa lancamento={baixando} contas={contas.dados} aoConcluir={async () => { notificar("Baixa registrada."); await recarregarTudo(); }} aoCancelar={() => setBaixando(null)} aoMudarAnexos={() => void lista.recarregar()} />}
       </Modal>
       <Modal aberto={excluindo !== null} titulo="Excluir lançamento" aoFechar={() => setExcluindo(null)}>
         {excluindo && (

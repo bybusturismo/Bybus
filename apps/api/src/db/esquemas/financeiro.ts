@@ -263,3 +263,20 @@ export const finPlanilhaPendencias = pgTable("fin_planilha_pendencias", {
   atualizadoEm: agora(),
   resolvidoEm: timestamp({ withTimezone: true }),
 }, (t) => [uniqueIndex("fin_planilha_pendencias_hash_uq").on(t.hash)]);
+
+/**
+ * Anexos da conta a pagar/receber (dono, 18/11/2026): boleto, nota fiscal, comprovante. Conteúdo cifrado como nos grupos e nos
+ * documentos da empresa. Some junto com o lançamento (exclusão auditada).
+ */
+export const finLancamentoAnexos = pgTable("fin_lancamento_anexos", {
+  id: uuid().primaryKey().defaultRandom(),
+  lancamentoId: uuid().notNull().references(() => finLancamentos.id, { onDelete: "cascade" }),
+  /** BOLETO, NF, COMPROVANTE ou OUTRO. */
+  tipo: text().notNull(),
+  nomeArquivo: text().notNull(),
+  mime: text().notNull(),
+  tamanho: integer().notNull(),
+  dadosCifrados: text().notNull(),
+  enviadoPor: uuid().references(() => usuarios.id, { onDelete: "set null" }),
+  criadoEm: agora(),
+}, (t) => [index("fin_lancamento_anexos_lanc_idx").on(t.lancamentoId)]);
