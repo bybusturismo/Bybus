@@ -153,6 +153,8 @@ describe("Contas a pagar", () => {
     await u.selectOptions(d.getByLabelText("Categoria"), "c-comb");
     await u.type(d.getByLabelText(/^Valor/), "12,345");
     await u.selectOptions(d.getByLabelText("Repetição"), "PARCELADO");
+    // série sem conta: avisa que os meses só entram no filtro da conta depois da baixa
+    expect(d.getByRole("note")).toHaveTextContent(/só aparecem no filtro da conta depois da baixa/);
     await u.clear(d.getByLabelText("Número de parcelas"));
     await u.type(d.getByLabelText("Número de parcelas"), "3");
     await u.click(d.getByRole("button", { name: "Lançar" }));
@@ -196,6 +198,35 @@ describe("Contas a pagar", () => {
     await u.click(d.getByRole("button", { name: "Confirmar pagamento" }));
     await screen.findByText("Baixa registrada.");
     expect(corpoEnviado(spy, "POST", "/api/financeiro/lancamentos/l1/baixa")).toMatchObject({ contaId: "k1", jurosCentavos: 1234, multaCentavos: 2000, descontoCentavos: 500 });
+  });
+
+  it("série sem conta: a lista mostra \"definir na baixa\" e a baixa leva a conta para os outros meses (pode desmarcar)", async () => {
+    const spy = api([lanc({ grupoId: "g1", recorrente: true })]);
+    renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    expect(await screen.findByText("Conta: definir na baixa")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Pagar" }));
+    const d = within(await screen.findByRole("dialog"));
+    await u.selectOptions(d.getByLabelText("Conta"), "k1");
+    const marcar = d.getByLabelText(/Usar esta conta também nos outros meses/);
+    expect(marcar).toBeChecked();
+    await u.click(marcar);
+    await u.click(d.getByRole("button", { name: "Confirmar pagamento" }));
+    await screen.findByText("Baixa registrada.");
+    expect(corpoEnviado(spy, "POST", "/api/financeiro/lancamentos/l1/baixa")).toMatchObject({ contaId: "k1", contaNaSerie: false });
+  });
+
+  it("série com conta: a lista mostra a conta prevista e a baixa não pergunta pela série", async () => {
+    const spy = api([lanc({ grupoId: "g1", recorrente: true, contaId: "k1", contaNome: "Corrente Teste" })]);
+    renderizar(<Lancamentos tipo="PAGAR" />, { sessao: gerente() });
+    const u = userEvent.setup();
+    expect(await screen.findByText("Conta: Corrente Teste")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Pagar" }));
+    const d = within(await screen.findByRole("dialog"));
+    expect(d.queryByLabelText(/Usar esta conta também/)).not.toBeInTheDocument();
+    await u.click(d.getByRole("button", { name: "Confirmar pagamento" }));
+    await screen.findByText("Baixa registrada.");
+    expect(corpoEnviado(spy, "POST", "/api/financeiro/lancamentos/l1/baixa")).toMatchObject({ contaId: "k1", contaNaSerie: false });
   });
 
   it("recusa desconto maior que o valor devido", async () => {

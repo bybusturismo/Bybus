@@ -198,6 +198,9 @@ export function FormLancamento({ tipo, lancamento, categorias, contas, aoSalvar,
             <option value="">Definir na baixa</option>
             {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
+          {!lancamento && repeticao !== "UNICA" && !contaId && (
+            <small className="texto-fraco" role="note">Sem conta, os meses só aparecem no filtro da conta depois da baixa. Se já sabe o banco, escolha aqui.</small>
+          )}
         </div>
         {!lancamento && (
           <>
@@ -261,6 +264,9 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [parecida, setParecida] = useState<string | null>(null);
+  // Série lançada com "Definir na baixa": a conta escolhida vale também para os outros meses em aberto sem conta.
+  const serieSemConta = !!lancamento.grupoId && !lancamento.contaId;
+  const [contaNaSerie, setContaNaSerie] = useState(true);
   const campo = (t: string) => {
     if (t.trim() === "") return 0;
     const v = centavosDeTexto(t);
@@ -281,7 +287,7 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
     if (total <= 0) return setErro("O desconto não pode ser igual ou maior que o valor devido.");
     setSalvando(true);
     try {
-      await api.post(`/api/financeiro/lancamentos/${lancamento.id}/baixa`, { pagoEm, contaId, jurosCentavos: j, multaCentavos: m, descontoCentavos: d, ...(confirmarTransferencia ? { confirmarTransferencia: true } : {}) });
+      await api.post(`/api/financeiro/lancamentos/${lancamento.id}/baixa`, { pagoEm, contaId, jurosCentavos: j, multaCentavos: m, descontoCentavos: d, contaNaSerie: serieSemConta && contaNaSerie, ...(confirmarTransferencia ? { confirmarTransferencia: true } : {}) });
       await aoConcluir();
     } catch (x) {
       if (x instanceof ErroApi && x.codigo === "TRANSFERENCIA_PARECIDA") setParecida(x.message);
@@ -311,6 +317,12 @@ function FormBaixa({ lancamento, contas, aoConcluir, aoCancelar }: { lancamento:
         <div className="campo"><label htmlFor="baixa-multa">Multa (R$)</label><input id="baixa-multa" inputMode="decimal" value={multa} onChange={(e) => setMulta(e.target.value)} placeholder="0,00" /></div>
         <div className="campo"><label htmlFor="baixa-desconto">Desconto (R$)</label><input id="baixa-desconto" inputMode="decimal" value={desconto} onChange={(e) => setDesconto(e.target.value)} placeholder="0,00" /></div>
       </div>
+      {serieSemConta && (
+        <label className="caixa">
+          <input type="checkbox" checked={contaNaSerie} onChange={(e) => setContaNaSerie(e.target.checked)} />{" "}
+          Usar esta conta também nos outros meses desta série que estão sem conta
+        </label>
+      )}
       <p aria-live="polite">Valor {verbo}: <strong>{total === null ? "—" : formatarMoeda(total)}</strong></p>
       {parecida && (
         <Aviso tipo="atencao">
@@ -561,6 +573,7 @@ export function Lancamentos({ tipo }: { tipo: TipoLancamento }) {
                     {l.situacao === "REALIZADO" ? <span className="etiqueta etiqueta--sucesso">{rotulos.realizado} em {formatarData(l.pagoEm)}</span> : l.vencido ? <span className="etiqueta etiqueta--perigo">Vencida</span> : <span className="etiqueta etiqueta--neutra">Em aberto</span>}
                     {l.conciliado && <span className="etiqueta etiqueta--sucesso">Conciliado</span>}
                     {l.contaId && l.situacao === "REALIZADO" && <div className="texto-fraco">{nomes.get(l.contaId) ?? l.contaNome}</div>}
+                    {l.situacao !== "REALIZADO" && <div className="texto-fraco">{l.contaId ? `Conta: ${nomes.get(l.contaId) ?? l.contaNome}` : "Conta: definir na baixa"}</div>}
                   </td>
                   {podeEditar && (
                     <td>

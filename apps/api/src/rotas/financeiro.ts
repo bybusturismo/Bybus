@@ -15,7 +15,7 @@ import { pode } from "../seguranca/permissoes.js";
 import { ErroHttp, exigir } from "../seguranca/sessao.js";
 import {
   conciliadoSql, estaConciliado, filtroPraca, garantirCaixaAberto, garantirRegra, naoConciliadoSql, validarRegra, filtroPracaEscolhida, garantirConta, garantirLancamento, garantirPlano, hojeSP, saldosDasContas,
-  validarCategoria, validarPracaDoRegistro,
+  preencherContaDaSerie, validarCategoria, validarPracaDoRegistro,
 } from "../servicos/financeiro.js";
 import { centavos, dataIso, mesIso, naoNegativo, uuid, valorPositivo, veiculoOpcional } from "./financeiro-comum.js";
 import { rotasFinanceiroExtrato } from "./financeiro-extrato.js";
@@ -370,8 +370,10 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
       jurosCentavos: naoNegativo.default(0), multaCentavos: naoNegativo.default(0), descontoCentavos: naoNegativo.default(0),
       /** Confirma a baixa mesmo havendo transferência de mesmo valor na conta (ver TRANSFERENCIA_PARECIDA). */
       confirmarTransferencia: z.boolean().optional(),
+      /** Série sem conta: usar esta conta também nos outros meses em aberto sem conta (padrão: sim). */
+      contaNaSerie: z.boolean().default(true),
     }).parse(req.body);
-    const { confirmarTransferencia, ...dadosBaixa } = corpo;
+    const { confirmarTransferencia, contaNaSerie, ...dadosBaixa } = corpo;
     const atual = await garantirLancamento(db, u, id);
     if (atual.situacao !== "ABERTO") throw new ErroHttp(409, "JA_BAIXADO", "Este lançamento já foi baixado.");
     if (corpo.pagoEm > hojeSP()) throw new ErroHttp(400, "DATA_FUTURA", "A data da baixa não pode ser futura.");
@@ -398,13 +400,19 @@ export async function rotasFinanceiro(app: FastifyInstance, ctx: Contexto) {
         throw new ErroHttp(409, "TRANSFERENCIA_PARECIDA", `Já existe uma transferência de R$ ${centavosParaTexto(pago)} em ${conta.nome} no dia ${d}/${m}/${a} (${t.descricao.slice(0, 40)}). Se é a mesma movimentação, não dê baixa aqui: ela já está no saldo. Se for outra, confirme.`);
       }
     }
-    const r = await db.update(finLancamentos).set({
-      situacao: "REALIZADO", pagoEm: corpo.pagoEm, contaId, valorPagoCentavos: pago,
-      jurosCentavos: corpo.jurosCentavos, multaCentavos: corpo.multaCentavos, descontoCentavos: corpo.descontoCentavos, atualizadoEm: new Date(),
-    }).where(and(eq(finLancamentos.id, id), eq(finLancamentos.situacao, "ABERTO"))).returning({ id: finLancamentos.id });
-    if (r.length === 0) throw new ErroHttp(409, "JA_BAIXADO", "Este lançamento já foi baixado.");
-    await auditar(db, req, "FIN_LANCAMENTO_BAIXADO", { tipo: "fin_lancamento", id }, { valorCentavos: atual.valorCentavos, valorPagoCentavos: pago, ...dadosBaixa, ...(confirmarTransferencia ? { confirmouTransferenciaParecida: true } : {}) });
-    return lancamentoCompleto(id);
+    const contaNaSerieQtd = await db.transaction(async (tx) => {
+      const r = await tx.update(finLancamentos).set({
+        situacao: "REALIZADO", pagoEm: corpo.pagoEm, contaId, valorPagoCentavos: pago,
+        jurosCentavos: corpo.jurosCentavos, multaCentavos: corpo.multaCentavos, descontoCentavos: corpo.descontoCentavos, atualizadoEm: new Date(),
+      }).where(and(eq(finLancamentos.id, id), eq(finLancamentos.situacao, "ABERTO"))).returning({ id: finLancamentos.id });
+      if (r.length === 0) throw new ErroHttp(409, "JA_BAIXADO", "Este lançamento já foi baixado.");
+      return contaNaSerie ? preencherContaDaSerie(tx, atual, contaId) : 0;
+    });
+    await auditar(db, req, "FIN_LANCAMENTO_BAIXADO", { tipo: "fin_lancamento", id }, {
+      valorCentavos: atual.valorCentavos, valorPagoCentavos: pago, ...dadosBaixa,
+      ...(confirmarTransferencia ? { confirmouTransferenciaParecida: true } : {}), ...(contaNaSerieQtd ? { contaNaSerie: contaNaSerieQtd } : {}),
+    });
+    return { ...(await lancamentoCompleto(id)), contaNaSerie: contaNaSerieQtd };
   });
 
   app.post("/api/financeiro/lancamentos/:id/reabrir", gerenciar, async (req) => {

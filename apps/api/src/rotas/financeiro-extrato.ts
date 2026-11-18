@@ -12,7 +12,7 @@ import type { Contexto } from "../app.js";
 import { finCategorias, finContas, finExtratoLinhas, finExtratos, finLancamentos, finRecusas, finRegras } from "../db/schema.js";
 import { ErroHttp } from "../seguranca/sessao.js";
 import { dataIso, uuid, veiculoOpcional } from "./financeiro-comum.js";
-import { estaConciliado, filtroPraca, linhaTemGemea, garantirConta, garantirLancamento, garantirLinha, hojeSP, validarCategoria, validarPracaDoRegistro } from "../servicos/financeiro.js";
+import { estaConciliado, filtroPraca, linhaTemGemea, preencherContaDaSerie, garantirConta, garantirLancamento, garantirLinha, hojeSP, validarCategoria, validarPracaDoRegistro } from "../servicos/financeiro.js";
 
 const MAX_LINHAS = 20_000;
 
@@ -188,6 +188,7 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
       if (lanc.contaId && lanc.contaId !== conta.id) throw new ErroHttp(409, "CONTA_DIFERENTE", "O lançamento foi baixado em outra conta.");
     }
 
+    let contaNaSerie = 0;
     try {
       await db.transaction(async (tx) => {
         if (lanc.situacao === "ABERTO") {
@@ -196,6 +197,7 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
             jurosCentavos: juros, multaCentavos: multa, descontoCentavos: desconto, atualizadoEm: new Date(),
           }).where(and(eq(finLancamentos.id, lanc.id), eq(finLancamentos.situacao, "ABERTO"))).returning({ id: finLancamentos.id });
           if (r.length === 0) throw new ErroHttp(409, "LANCAMENTO_MUDOU", "O lançamento foi alterado por outra pessoa. Atualize a tela.");
+          contaNaSerie = await preencherContaDaSerie(tx, lanc, conta.id);
         }
         const l = await tx.update(finExtratoLinhas).set({ status: "CONCILIADO", lancamentoId: lanc.id, baixaDaConciliacao: lanc.situacao === "ABERTO", decididoPor: u.id, decididoEm: new Date() })
           .where(and(eq(finExtratoLinhas.id, id), eq(finExtratoLinhas.status, "PENDENTE"))).returning({ id: finExtratoLinhas.id });
@@ -205,8 +207,8 @@ export async function rotasFinanceiroExtrato(app: FastifyInstance, { db }: Conte
       if ((e as { code?: string }).code === "23505") throw new ErroHttp(409, "LANCAMENTO_JA_CONCILIADO", "Este lançamento já está conciliado com outra linha.");
       throw e;
     }
-    await auditar(db, req, "FIN_CONCILIADO", { tipo: "fin_extrato_linha", id }, { lancamentoId: lanc.id, valorCentavos: valorLinha, jurosCentavos: juros, multaCentavos: multa, descontoCentavos: desconto });
-    return { ok: true, jurosCentavos: juros, multaCentavos: multa, descontoCentavos: desconto };
+    await auditar(db, req, "FIN_CONCILIADO", { tipo: "fin_extrato_linha", id }, { lancamentoId: lanc.id, valorCentavos: valorLinha, jurosCentavos: juros, multaCentavos: multa, descontoCentavos: desconto, ...(contaNaSerie ? { contaNaSerie } : {}) });
+    return { ok: true, jurosCentavos: juros, multaCentavos: multa, descontoCentavos: desconto, contaNaSerie };
   });
 
   app.post("/api/financeiro/extrato/linhas/:id/recusar", gerenciar, async (req) => {

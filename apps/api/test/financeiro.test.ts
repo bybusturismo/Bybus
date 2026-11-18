@@ -260,6 +260,31 @@ describe("lançamentos", () => {
     expect((await usuarioFln.req("DELETE", `/api/financeiro/lancamentos/${r.ids[0]}`)).statusCode).toBe(200);
   });
 
+  it("série lançada com \"Definir na baixa\": a baixa leva a conta para os outros meses em aberto sem conta (caso do Sicredi, 18/11/2026)", async () => {
+    const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    const sic = await conta(usuarioFln, { nome: "Sicredi série", tipo: "CORRENTE", unidadeId: fln });
+    const outra = await conta(usuarioFln, { nome: "Unilos série", tipo: "CORRENTE", unidadeId: fln });
+    const r = json(await lancar(usuarioFln, { descricao: "Internet loja", categoriaId: cat.DESP_ALUGUEL, valorCentavos: 9990, vencimento: "2027-05-10", competencia: "2027-05-01", repeticao: { tipo: "RECORRENTE", meses: 4 } }));
+    const ids = r.ids as string[];
+    expect(r.lancamentos.every((l: { contaId: string | null }) => l.contaId === null)).toBe(true);
+    // o 3º mês já foi apontado para outra conta: não muda
+    expect((await usuarioFln.req("PATCH", `/api/financeiro/lancamentos/${ids[2]}`, { contaId: outra })).statusCode).toBe(200);
+    const b = await usuarioFln.req("POST", `/api/financeiro/lancamentos/${ids[0]}/baixa`, { pagoEm: hoje, contaId: sic });
+    expect(b.statusCode, b.body).toBe(200);
+    expect(json(b).contaNaSerie).toBe(2);
+    const lista = json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?contaId=${sic}&limite=500`)).itens as Array<{ id: string; situacao: string }>;
+    expect(lista.map((l) => l.id).sort()).toEqual([ids[0], ids[1], ids[3]].sort());
+    expect(json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?contaId=${outra}&limite=500`)).itens.map((l: { id: string }) => l.id)).toEqual([ids[2]]);
+
+    // contaNaSerie: false = só o mês baixado recebe a conta
+    const r2 = json(await lancar(usuarioFln, { descricao: "Contador", categoriaId: cat.DESP_ALUGUEL, valorCentavos: 50000, vencimento: "2027-05-15", competencia: "2027-05-01", repeticao: { tipo: "RECORRENTE", meses: 3 } }));
+    const b2 = json(await usuarioFln.req("POST", `/api/financeiro/lancamentos/${r2.ids[0]}/baixa`, { pagoEm: hoje, contaId: sic, contaNaSerie: false }));
+    expect(b2.contaNaSerie).toBe(0);
+    const doSic = json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?contaId=${sic}&limite=500`)).itens.map((l: { id: string }) => l.id);
+    expect(doSic).toContain(r2.ids[0]);
+    expect(doSic).not.toContain(r2.ids[1]);
+  });
+
   it("valida entrada: centavos inteiros, positivo, categoria do tipo certo, datas reais", async () => {
     expect((await lancar(usuarioFln, { valorCentavos: 100.5 })).statusCode).toBe(400);
     expect((await lancar(usuarioFln, { valorCentavos: 0 })).statusCode).toBe(400);
@@ -416,6 +441,16 @@ describe("conciliação", () => {
     expect(ok).toMatchObject({ multaCentavos: 1000, jurosCentavos: 0, descontoCentavos: 0 });
     const lanc = json(await usuarioFln.req("GET", "/api/financeiro/lancamentos?limite=500")).itens.find((x: { id: string }) => x.id === lancId);
     expect(lanc).toMatchObject({ valorCentavos: 49000, valorPagoCentavos: 50000, multaCentavos: 1000 });
+  });
+
+  it("conciliar um mês de série sem conta leva a conta para os outros meses em aberto", async () => {
+    const linha = (await linhasPendentes()).find((l) => l.descricao.includes("POSTO ILHA"))!;
+    const r = json(await lancar(usuarioFln, { descricao: "Posto mensal", categoriaId: cat.DESP_COMBUSTIVEL, valorCentavos: 123456, vencimento: "2026-10-03", competencia: "2026-10-01", repeticao: { tipo: "RECORRENTE", meses: 3 } }));
+    const c = json(await usuarioFln.req("POST", `/api/financeiro/extrato/linhas/${linha.id}/conciliar`, { lancamentoId: r.ids[0] }));
+    expect(c).toMatchObject({ ok: true, contaNaSerie: 2 });
+    const daConta = json(await usuarioFln.req("GET", `/api/financeiro/lancamentos?contaId=${contaId}&limite=500`)).itens.map((l: { id: string }) => l.id);
+    expect(daConta).toEqual(expect.arrayContaining(r.ids));
+    expect((await usuarioFln.req("POST", `/api/financeiro/extrato/linhas/${linha.id}/desfazer`)).statusCode).toBe(200);
   });
 
   it("sentido incompatível e lançamento já conciliado são recusados", async () => {

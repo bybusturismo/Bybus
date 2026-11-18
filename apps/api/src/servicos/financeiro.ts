@@ -1,5 +1,5 @@
 import { PLANO_CATEGORIAS, SINONIMOS_PADRAO, type TipoCategoria } from "@bybus/core";
-import { and, eq, inArray, isNotNull, ne, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "../db/cliente.js";
 import { finCategorias, finContas, finExtratoLinhas, finFechamentosCaixa, finLancamentos, finRegras, finSinonimos, unidades } from "../db/schema.js";
@@ -165,4 +165,18 @@ export async function garantirRegra(db: Db, u: UsuarioSessao, id: string) {
 export function linhaTemGemea(l: { id: string; contaId: string; data: string; valorCentavos: number }, outras: ReadonlyArray<{ id: string; contaId: string; data: string; valorCentavos: number; status: string; manual: boolean }>) {
   const dia = (d: string) => Date.parse(`${d}T12:00:00Z`) / 86_400_000;
   return outras.some((o) => o.id !== l.id && o.contaId === l.contaId && o.valorCentavos === l.valorCentavos && !o.manual && o.status !== "REPETIDA" && Math.abs(dia(o.data) - dia(l.data)) <= 5);
+}
+
+/**
+ * Série (parcelas ou recorrência) lançada com "Definir na baixa": quando um mês é baixado ou conciliado numa conta,
+ * os outros meses da série que continuam em aberto e sem conta passam a usar a mesma conta (dono, 18/11/2026: as contas
+ * recorrentes do Sicredi "sumiam" do filtro por conta porque só o mês pago recebia a conta). Não mexe em mês que já tem conta.
+ * Devolve quantos lançamentos receberam a conta.
+ */
+export async function preencherContaDaSerie(db: Pick<Db, "update">, lanc: { id: string; grupoId: string | null }, contaId: string): Promise<number> {
+  if (!lanc.grupoId) return 0;
+  const r = await db.update(finLancamentos).set({ contaId, atualizadoEm: new Date() })
+    .where(and(eq(finLancamentos.grupoId, lanc.grupoId), ne(finLancamentos.id, lanc.id), eq(finLancamentos.situacao, "ABERTO"), isNull(finLancamentos.contaId)))
+    .returning({ id: finLancamentos.id });
+  return r.length;
 }

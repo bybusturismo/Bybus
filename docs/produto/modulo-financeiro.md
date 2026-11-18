@@ -140,3 +140,11 @@ Pedido do dono: um campo com a identificação do PIX para pagar a conta.
 - **Preenchimento automático:** ao sair do campo Fornecedor com a chave PIX vazia, o sistema traz a última chave usada para o mesmo fornecedor (sem diferenciar maiúsculas de minúsculas) e avisa "confira antes de pagar". Rota: `GET /api/financeiro/pix-do-fornecedor?nome=`, para quem gerencia o financeiro.
 - **Na lista:** contas ainda não pagas mostram "PIX: …" com o botão **Copiar**, para colar no app do banco.
 - Só para contas a pagar. As contas a receber não mostram o campo.
+
+## Série sem conta: a conta vai para os outros meses (18/11/2026)
+- Caso real: contas recorrentes "do Sicredi" lançadas com a conta em **Definir na baixa** pareciam ter sumido do filtro da conta. Nada tinha sido apagado: só o mês baixado recebia a conta; os meses seguintes ficavam sem conta e fora do filtro.
+- **Baixa** de um mês de série (parcelas ou recorrência) sem conta: a janela oferece "Usar esta conta também nos outros meses desta série que estão sem conta" (marcado por padrão). API: `POST /api/financeiro/lancamentos/:id/baixa` aceita `contaNaSerie` (padrão `true`) e devolve quantos meses receberam a conta.
+- **Conciliação** com o extrato que baixa um mês de série sem conta faz o mesmo (sem pergunta: a conta é a do extrato).
+- Só recebem a conta os meses **em aberto e sem conta**; mês já apontado para outra conta não muda. A auditoria registra a quantidade (`contaNaSerie`).
+- Lista: lançamento em aberto mostra "Conta: <nome>" ou "Conta: definir na baixa". Ao criar série sem conta, a tela avisa que os meses só entram no filtro da conta depois da baixa.
+- Correção dos dados de 18/11/2026 (com aprovação do dono): nas séries com mês já pago no Sicredi, os meses em aberto sem conta receberam o Sicredi (SQL único no servidor, com cópia do banco antes).
