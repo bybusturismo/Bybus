@@ -105,6 +105,13 @@ const esquema = z.object({
    * conta dona do perfil é feita pela tela, e o token fica cifrado no banco) e chave da API de conteúdo do Tripadvisor. Sem elas,
    * a tela mostra o passo a passo e nada é chamado. Só em variável de ambiente.
    */
+  /** Versão no ar (commit), passada na construção da imagem pelo atualizador. */
+  VERSAO: z.string().min(1).max(40).default("desconhecida"),
+  /**
+   * Senha do diagnóstico só de leitura (/api/interno/diagnostico), para o assistente acompanhar a produção (dono, 19/11/2026).
+   * Sem ela, a rota não existe. Gerada no servidor por ligar-diagnostico.sh; nunca no código nem na conversa.
+   */
+  DIAGNOSTICO_TOKEN: z.string().min(32).optional(),
   GOOGLE_PERFIL_CLIENT_ID: z.string().optional().transform((v) => v?.trim() || undefined),
   GOOGLE_PERFIL_CLIENT_SECRET: z.string().optional().transform((v) => v?.trim() || undefined),
   TRIPADVISOR_API_KEY: z.string().optional().transform((v) => v?.trim() || undefined),

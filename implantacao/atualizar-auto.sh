@@ -10,7 +10,13 @@ ENV="$PASTA/implantacao/.env"
 LOG="/var/log/bybus-atualizacao.log"
 exec 9>/run/bybus-atualizacao.lock
 flock -n 9 || exit 0
-registrar() { echo "$(date -u +%FT%TZ) $*" >> "$LOG"; }
+ESTADO="$PASTA/implantacao/estado/atualizacao.log"
+# Cada registro vai para o log e para a pasta de estado (últimas 40 linhas, lidas pelo diagnóstico da API).
+registrar() {
+  echo "$(date -u +%FT%TZ) $*" >> "$LOG"
+  mkdir -p "$(dirname "$ESTADO")"
+  { [ -f "$ESTADO" ] && tail -n 39 "$ESTADO"; echo "$(date -u +%FT%TZ) $*"; } > "$ESTADO.tmp" && mv "$ESTADO.tmp" "$ESTADO"
+}
 
 cd "$PASTA" || exit 1
 git fetch -q origin "$RAMO" 2>>"$LOG" || { registrar "sem acesso ao GitHub; tento de novo depois"; exit 0; }
@@ -40,6 +46,7 @@ fi
 find "$PASTA/implantacao/backups" -name 'antes-atualizacao-*.dump' -mtime +14 -delete
 
 git checkout -q -B "$RAMO" "origin/$RAMO"
+export BYBUS_VERSAO="${NOVA:0:7}"
 if "${COMPOSE[@]}" up -d --build >>"$LOG" 2>&1 && saudavel; then
   registrar "versão ${NOVA:0:7} no ar"
   exit 0
@@ -47,6 +54,7 @@ fi
 
 registrar "a versão ${NOVA:0:7} não subiu: voltando para ${ATUAL:0:7} (cópia do banco em $COPIA)"
 git checkout -q -B "$RAMO" "$ATUAL"
+export BYBUS_VERSAO="${ATUAL:0:7}"
 "${COMPOSE[@]}" up -d --build >>"$LOG" 2>&1
 if saudavel; then registrar "voltou para ${ATUAL:0:7}"; else registrar "ATENÇÃO: o sistema não voltou nem na versão anterior"; fi
 # Não tenta de novo a mesma versão a cada minuto: só quando sair outra.

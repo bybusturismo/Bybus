@@ -39,6 +39,9 @@ COPY apps/api/drizzle apps/api/drizzle
 # Papel timbrado e outros arquivos fixos dos PDFs (contrato e recibo de grupos, 13/11/2026).
 COPY apps/api/recursos apps/api/recursos
 COPY --chmod=755 implantacao/iniciar-api.sh /usr/local/bin/iniciar-api
+# Versão (commit) no ar, para o diagnóstico (19/11/2026). Fica no fim para não invalidar o cache das camadas de cima.
+ARG VERSAO=desconhecida
+ENV VERSAO=$VERSAO
 WORKDIR /app/apps/api
 USER node
 EXPOSE 3333

@@ -21,10 +21,13 @@ services:
 
   api:
     image: bybus-api
-    build: { context: .., dockerfile: implantacao/Dockerfile, target: api }
+    build: { context: .., dockerfile: implantacao/Dockerfile, target: api, args: { VERSAO: "${BYBUS_VERSAO:-desconhecida}" } }
     restart: unless-stopped
     depends_on: { db: { condition: service_healthy } }
     env_file: .env
+    # Últimas linhas do atualizador, só leitura, para o diagnóstico (19/11/2026).
+    volumes:
+      - ./estado:/app/estado:ro
     environment:
       AMBIENTE: ${AMBIENTE:-producao}
       DATABASE_URL: postgres://bybus:${POSTGRES_PASSWORD}@db:5432/bybus

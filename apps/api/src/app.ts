@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
@@ -35,6 +36,7 @@ import { rotasFrota } from "./rotas/frota.js";
 import { rotasMarketing } from "./rotas/marketing.js";
 import { rotasMarketingExtras } from "./rotas/marketing-extras.js";
 import { agendarMarketing } from "./servicos/rotinasMarketing.js";
+import { ganchoLogErro, montarDiagnostico, registrarErro, registrarRequisicao } from "./servicos/diagnostico.js";
 import { rotasBiblioteca } from "./rotas/biblioteca.js";
 import { rotasIa } from "./rotas/ia.js";
 import { agendarAvaliacaoIa } from "./servicos/ia/agendamento.js";
@@ -84,6 +86,8 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
       serializers: {
         req: (r: { method: string; url: string; ip?: string }) => ({ method: r.method, url: mascararUrl(r.url), ip: r.ip }),
       },
+      // Erros das rotinas automáticas também vão para o diagnóstico (mascarados).
+      hooks: ganchoLogErro as never,
     },
     // Só confia em X-Forwarded-For quando há proxy conhecido à frente (evita IP falsificado no rate limit e na auditoria).
     trustProxy: config.PROXIES_CONFIAVEIS > 0 ? config.PROXIES_CONFIAVEIS : false,
@@ -125,10 +129,26 @@ export async function criarApp(config: Config): Promise<{ app: FastifyInstance; 
     if (status === 429) return reply.status(429).send({ codigo: "MUITAS_REQUISICOES", mensagem: "Muitas tentativas. Aguarde um pouco." });
     if (status && status >= 400 && status < 500) return reply.status(status).send({ codigo: "REQUISICAO_INVALIDA", mensagem: status === 413 ? "Arquivo ou conteúdo grande demais." : "Requisição inválida." });
     req.log.error(erro);
+    registrarErro({ origem: "requisicao", rota: `${req.method} ${req.routeOptions?.url ?? "?"}`, status: 500, erro });
     return reply.status(500).send({ codigo: "ERRO_INTERNO", mensagem: "Erro interno. Tente novamente." });
   });
+  app.addHook("onResponse", async (_req, reply) => { registrarRequisicao(reply.statusCode); });
 
   app.get("/api/saude", async () => ({ ok: true }));
+
+  /**
+   * Diagnóstico só de leitura (dono, 19/11/2026): versão, banco, integrações (ligada/desligada), rotinas e erros recentes, sem dados
+   * de clientes. Só existe com DIAGNOSTICO_TOKEN no .env; senha errada responde como se a rota não existisse.
+   */
+  if (config.DIAGNOSTICO_TOKEN) {
+    const esperado = createHash("sha256").update(config.DIAGNOSTICO_TOKEN).digest();
+    app.get("/api/diagnostico", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
+      const recebido = /^Bearer\s+(.+)$/i.exec(String(req.headers.authorization ?? ""))?.[1] ?? "";
+      if (!timingSafeEqual(createHash("sha256").update(recebido).digest(), esperado)) return reply.status(404).send({ codigo: "NAO_ENCONTRADO", mensagem: "Não encontrado." });
+      reply.header("Cache-Control", "no-store");
+      return montarDiagnostico(db, config);
+    });
+  }
 
   await rotasAuth(app, ctx);
   await rotasUsuarios(app, ctx);
