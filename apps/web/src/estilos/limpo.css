@@ -1,0 +1,279 @@
+/*
+ * Proposta "layout limpo" (dono, 20/11/2026): "mais clean, foco em fundo branco, hoje parece muito tudo junto, aproveitar
+ * melhor a tela; no topo, um campo de busca". Camada opcional, ligada por <html data-layout="limpo"> (ver main.tsx:
+ * ?layout=limpo liga, ?layout=padrao desliga, e a escolha fica no navegador). Só muda a aparência: nenhuma tela muda de lugar.
+ *
+ * O que muda: fundo branco; bordas mais claras e cantos mais redondos; mais respiro entre blocos; letra um pouco maior no
+ * computador; tabelas sem listras e com cabeçalho discreto; topo em duas faixas — marca + busca grande + usuário em cima,
+ * áreas do menu embaixo.
+ */
+
+/* ---------- Tokens (tema claro) ---------- */
+:root[data-layout="limpo"][data-theme="light"] {
+  --cor-fundo: #ffffff;
+  --cor-superficie-2: #f5f5f4;
+  --cor-borda: #e8e6e4;
+  --cor-borda-forte: #c9c5c2;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-layout="limpo"]:not([data-theme="dark"]) {
+    --cor-fundo: #ffffff;
+    --cor-superficie-2: #f5f5f4;
+    --cor-borda: #e8e6e4;
+    --cor-borda-forte: #c9c5c2;
+  }
+}
+:root[data-layout="limpo"] {
+  --raio: 10px;
+  --raio-lg: 14px;
+  --sombra: 0 1px 2px rgb(35 31 32 / 0.03);
+}
+@media (min-width: 1100px) and (pointer: fine) {
+  :root[data-layout="limpo"] {
+    /* um degrau acima da escala compacta: lê-se melhor sem perder muita informação por tela */
+    --texto-xs: 0.71875rem;  /* 11,5px */
+    --texto-sm: 0.8125rem;   /* 13px */
+    --texto-md: 0.875rem;    /* 14px */
+    --texto-lg: 1rem;        /* 16px */
+    --texto-xl: 1.125rem;
+    --texto-2xl: 1.5rem;     /* 24px: título de página */
+    --alvo-toque: 36px;
+    --alvo-linha: 40px;
+    --altura-topo: 108px;    /* duas faixas: busca (60px) + áreas (48px) */
+  }
+}
+
+/* ---------- Topo em duas faixas (computador) ---------- */
+@media (min-width: 1100px) {
+  [data-layout="limpo"] .app .topo {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-rows: 60px 48px;
+    grid-template-areas:
+      "marca busca praca usuario"
+      "areas areas areas areas";
+    column-gap: var(--esp-6);
+    row-gap: 0;
+    padding: 0 clamp(1.5rem, 3vw, 3rem);
+    border-bottom: 1px solid var(--cor-borda);
+    box-shadow: none;
+  }
+  [data-layout="limpo"] .app .topo__marca { grid-area: marca; }
+  [data-layout="limpo"] .app .topo__logo-img { height: 32px; }
+  [data-layout="limpo"] .app .busca-geral {
+    grid-area: busca;
+    justify-self: center;
+    width: 100%;
+    max-width: 44rem;
+    margin: 0;
+  }
+  [data-layout="limpo"] .app .busca-geral__campo {
+    min-height: 42px;
+    padding: 0 var(--esp-5);
+    border-radius: 999px;
+    border-color: transparent;
+    background: var(--cor-superficie-2);
+    font-size: var(--texto-md);
+  }
+  [data-layout="limpo"] .app .busca-geral__campo:focus-within {
+    background: var(--cor-superficie);
+    border-color: var(--cor-primaria);
+  }
+  [data-layout="limpo"] .app .topo__praca { grid-area: praca; margin: 0; }
+  [data-layout="limpo"] .app .topo__praca label { display: none; }
+  [data-layout="limpo"] .app .topo__praca select {
+    border-radius: 999px;
+    border-color: var(--cor-borda);
+    min-height: 38px;
+    padding-inline: var(--esp-4) var(--esp-6);
+  }
+  [data-layout="limpo"] .app .topo__usuario { grid-area: usuario; margin: 0; }
+  /* faixa das áreas: alinhada à esquerda, separada da faixa de cima por uma linha fina */
+  [data-layout="limpo"] .app .menu-topo {
+    grid-area: areas;
+    justify-content: flex-start;
+    align-self: stretch;
+    border-top: 1px solid var(--cor-borda);
+    margin-inline: calc(-1 * clamp(1.5rem, 3vw, 3rem));
+    padding-inline: clamp(1.5rem, 3vw, 3rem);
+  }
+  [data-layout="limpo"] .app .menu-topo__areas { gap: var(--esp-2); height: 100%; }
+  [data-layout="limpo"] .app .menu-topo__area {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: var(--texto-md);
+  }
+}
+
+/* ---------- Conteúdo: margens largas e mais respiro ---------- */
+[data-layout="limpo"] .app .conteudo {
+  padding: var(--esp-6) clamp(1rem, 3vw, 3rem) 6rem;
+  background: var(--cor-fundo);
+}
+[data-layout="limpo"] .app .conteudo > * { max-width: 1520px; }
+[data-layout="limpo"] .app .pagina__cabecalho {
+  gap: var(--esp-3) var(--esp-5);
+  margin-bottom: var(--esp-6);
+}
+[data-layout="limpo"] .app .pagina__cabecalho h1 {
+  font-size: var(--texto-2xl);
+  letter-spacing: -0.01em;
+}
+[data-layout="limpo"] .app .pagina__descricao {
+  margin-top: var(--esp-1);
+  color: var(--cor-texto-fraco);
+}
+[data-layout="limpo"] .app h2 { margin-bottom: var(--esp-3); }
+
+/* abas do módulo: linha fina, sem caixa */
+[data-layout="limpo"] .app .abas {
+  gap: var(--esp-2);
+  border-bottom: 1px solid var(--cor-borda);
+}
+[data-layout="limpo"] .app .abas--modulo { margin-bottom: var(--esp-6); }
+[data-layout="limpo"] .app .aba {
+  padding: var(--esp-2) var(--esp-3) var(--esp-3);
+  border-bottom-width: 2px;
+  color: var(--cor-texto-fraco);
+}
+[data-layout="limpo"] .app .aba:hover { color: var(--cor-texto); }
+[data-layout="limpo"] .app .aba--ativa {
+  color: var(--cor-texto);
+  font-weight: var(--peso-medio);
+  border-bottom-color: var(--cor-primaria);
+}
+
+/* filtros: sem caixa em volta, só os campos */
+[data-layout="limpo"] .app .filtros {
+  padding: 0;
+  border: 0;
+  background: none;
+  gap: var(--esp-3) var(--esp-5);
+  margin-bottom: var(--esp-5);
+}
+
+/* ---------- Cartões e indicadores ---------- */
+[data-layout="limpo"] .app .cartao {
+  padding: var(--esp-5) var(--esp-6);
+  margin-bottom: var(--esp-6);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-lg);
+  background: var(--cor-superficie);
+}
+[data-layout="limpo"] .app .indicadores {
+  gap: var(--esp-4);
+  margin-bottom: var(--esp-6);
+}
+[data-layout="limpo"] .app .indicador {
+  padding: var(--esp-4) var(--esp-5);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-lg);
+  background: var(--cor-superficie);
+  align-items: flex-start;
+}
+[data-layout="limpo"] .app .indicador__icone {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+}
+[data-layout="limpo"] .app .indicador__rotulo {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-normal);
+  color: var(--cor-texto-fraco);
+}
+[data-layout="limpo"] .app .indicador__valor {
+  font-size: 1.625rem;
+  font-weight: var(--peso-medio);
+  letter-spacing: -0.01em;
+  margin-top: 2px;
+}
+[data-layout="limpo"] .faixa-numeros { gap: var(--esp-3); margin-bottom: var(--esp-5); }
+[data-layout="limpo"] .faixa-numeros__item {
+  padding: var(--esp-2) var(--esp-4);
+  border-radius: 999px;
+}
+
+/* ---------- Tabelas: brancas, linhas finas, cabeçalho discreto ---------- */
+[data-layout="limpo"] .app .tabela-rolagem {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-lg);
+  background: var(--cor-superficie);
+}
+[data-layout="limpo"] .app .tabela th,
+[data-layout="limpo"] .app .tabela td {
+  padding: 10px var(--esp-4);
+  border-bottom: 1px solid var(--cor-borda);
+}
+[data-layout="limpo"] .app .tabela tbody tr:last-child td { border-bottom: 0; }
+[data-layout="limpo"] .app .tabela thead th {
+  background: var(--cor-superficie);
+  font-size: var(--texto-xs);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-fraco);
+  padding-block: 12px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+[data-layout="limpo"] .app .tabela tbody tr:nth-child(even) { background: transparent; }
+[data-layout="limpo"] .app .tabela tbody tr:hover { background: var(--cor-superficie-2); }
+[data-layout="limpo"] .app .tabela tfoot td,
+[data-layout="limpo"] .app .tabela tfoot th {
+  background: var(--cor-superficie);
+  border-top: 1px solid var(--cor-borda);
+  border-bottom: 0;
+}
+
+/* ---------- Botões, campos e etiquetas: mais leves ---------- */
+[data-layout="limpo"] .app .botao { border-radius: var(--raio); }
+[data-layout="limpo"] .app .botao--secundario { border-color: var(--cor-borda); }
+[data-layout="limpo"] .app .tabela .botao { min-height: 30px; padding: 4px var(--esp-3); }
+[data-layout="limpo"] .app input:not([type="checkbox"]):not([type="radio"]),
+[data-layout="limpo"] .app select,
+[data-layout="limpo"] .app textarea {
+  border-color: var(--cor-borda);
+  border-radius: var(--raio);
+}
+[data-layout="limpo"] .app .etiqueta {
+  border-radius: 999px;
+  border-color: transparent;
+  padding-inline: 8px;
+}
+
+/* ---------- Ajustes da faixa das áreas ---------- */
+@media (min-width: 1100px) {
+  [data-layout="limpo"] .app .menu-topo { align-items: center; }
+  [data-layout="limpo"] .app .menu-topo__area--atual {
+    border-radius: 999px;
+    box-shadow: none;
+    background: var(--cor-primaria-suave);
+    color: var(--cor-primaria-forte);
+  }
+  [data-layout="limpo"] .app .topo__praca select { min-width: 11.5rem; }
+}
+
+/* ---------- Visão geral (Início) ---------- */
+[data-layout="limpo"] .vg { gap: var(--esp-6); font-size: var(--texto-md); }
+[data-layout="limpo"] .vg h2 { font-size: var(--texto-lg); }
+[data-layout="limpo"] .vg-cartoes { gap: var(--esp-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
+[data-layout="limpo"] .vg-cartao,
+[data-layout="limpo"] .vg-bloco {
+  border-radius: var(--raio-lg);
+  padding: var(--esp-5) var(--esp-6);
+  box-shadow: none;
+  gap: var(--esp-2);
+}
+[data-layout="limpo"] .vg-cartao__rotulo {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-normal);
+}
+[data-layout="limpo"] .vg-cartao__valor { font-size: 1.625rem; font-weight: var(--peso-medio); letter-spacing: -0.01em; }
+[data-layout="limpo"] .vg-cartao__detalhe { font-size: var(--texto-sm); }
+[data-layout="limpo"] .vg-grade { gap: var(--esp-6); }
+[data-layout="limpo"] .vg-atalhos { gap: var(--esp-2); }
+[data-layout="limpo"] .vg-atalhos .botao { border-radius: 999px; padding-inline: var(--esp-4); }
+[data-layout="limpo"] .vg-bloco__filtros select { font-size: var(--texto-sm); min-height: 32px; padding: 2px var(--esp-3); max-width: 13rem; }
