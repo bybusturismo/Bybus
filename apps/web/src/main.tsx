@@ -11,7 +11,6 @@ import "./estilos/padrao.css";
 import "./estilos/impressao.css";
 import "./estilos/marketing2.css";
 import "./estilos/demo.css";
-import "./estilos/limpo.css";
 
 // Modo demonstração: API simulada no navegador (dados fictícios).
 if (import.meta.env.VITE_DEMO === "1") {
@@ -24,13 +23,6 @@ if (import.meta.env.VITE_DEMO === "1") {
 }
 
 aplicarTema();
-
-// Proposta de layout limpo (20/11/2026, em validação): ?layout=limpo liga e ?layout=padrao desliga; a escolha fica neste navegador.
-try {
-  const pedido = new URLSearchParams(location.search).get("layout");
-  if (pedido === "limpo" || pedido === "padrao") localStorage.setItem("bybus.layout", pedido);
-  if (localStorage.getItem("bybus.layout") === "limpo") document.documentElement.setAttribute("data-layout", "limpo");
-} catch { /* sem armazenamento: fica o padrão */ }
 
 createRoot(document.getElementById("raiz")!).render(
   <StrictMode>
